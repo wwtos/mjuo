@@ -39,11 +39,8 @@ impl Default for Dummy {
     }
 }
 
-
 impl AudioNode for Dummy {
-    fn process(&mut self) {
-        
-    }
+    fn process(&mut self) {}
 
     fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
         match input_type {
@@ -77,4 +74,3 @@ impl AudioNode for Dummy {
         vec![OutputType::Out]
     }
 }
-

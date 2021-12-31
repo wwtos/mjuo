@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 simple-error = "0.2.3"
+pulse = { package = "libpulse-binding", version = "2.25.0" }
+psimple = { package = "libpulse-simple-binding", version = "2.24.1" }

@@ -1,6 +1,7 @@
 pub mod error;
 pub mod node;
 pub mod openal;
+pub mod backend;
 
 pub struct SoundConfig {
     sample_rate: u32,
@@ -12,4 +13,12 @@ mod tests {
         let result = 2 + 2;
         assert_eq!(result, 4);
     }
+}
+
+pub mod constants {
+    #[allow(clippy::excessive_precision)]
+    pub const PI: f32 = 3.14159265358979323846264338327950288f32;
+    pub const TWO_PI: f32 = PI * 2.0;
+    pub const BUFFER_SIZE: usize = 512;
+    pub const SAMPLE_RATE: u32 = 48_000;
 }
