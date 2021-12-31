@@ -1,4 +1,5 @@
 pub mod envelope;
+pub mod dummy;
 
 use crate::error::NodeError;
 
