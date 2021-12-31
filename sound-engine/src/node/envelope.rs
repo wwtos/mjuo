@@ -1,4 +1,5 @@
-use crate::SoundConfig;
+use crate::node::{AudioNode, InputType, OutputType};
+use crate::{error::NodeError, error::NodeErrorType, SoundConfig};
 
 pub enum EnvelopeState {
     Attacking,
@@ -26,7 +27,13 @@ pub struct Envelope {
 
 // TODO: ADSR linear only
 impl Envelope {
-    pub fn new(config: &SoundConfig, attack: f32, decay: f32, sustain: f32, release: f32) -> Envelope {
+    pub fn new(
+        config: &SoundConfig,
+        attack: f32,
+        decay: f32,
+        sustain: f32,
+        release: f32,
+    ) -> Envelope {
         Envelope {
             sample_rate: config.sample_rate,
             attack,
@@ -125,7 +132,7 @@ impl Envelope {
             }
         }
     }
-    
+
     pub fn get_adsr(&self) -> (f32, f32, f32, f32) {
         (self.attack, self.decay, self.sustain, self.release)
     }
@@ -160,6 +167,43 @@ impl Envelope {
     }
 }
 
+impl AudioNode for Envelope {
+    fn process(&mut self) {
+        self.process();
+    }
+
+    fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
+        match input_type {
+            InputType::Gate => {
+                self.input_gate = input;
+
+                Ok(())
+            }
+            _ => Err(NodeError::new(
+                format!("Envelope cannot input audio of type {:?}", input_type),
+                NodeErrorType::UnsupportedInput,
+            )),
+        }
+    }
+
+    fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
+        match output_type {
+            OutputType::Out => Ok(self.output_out),
+            _ => Err(NodeError::new(
+                format!("Envelope cannot output audio of type {:?}", output_type),
+                NodeErrorType::UnsupportedOutput,
+            )),
+        }
+    }
+
+    fn list_inputs(&self) -> Vec<InputType> {
+        vec![InputType::Gate]
+    }
+
+    fn list_outputs(&self) -> Vec<OutputType> {
+        vec![OutputType::Out]
+    }
+}
 
 // linear attack, decay, and release
 fn attack(start: f32, end: f32, amount: f32) -> f32 {

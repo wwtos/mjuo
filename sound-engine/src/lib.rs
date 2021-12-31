@@ -1,10 +1,10 @@
-pub mod openal;
+pub mod error;
 pub mod node;
+pub mod openal;
 
 pub struct SoundConfig {
-    sample_rate: u32
+    sample_rate: u32,
 }
-
 #[cfg(test)]
 mod tests {
     #[test]
