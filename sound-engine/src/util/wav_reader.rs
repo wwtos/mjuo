@@ -2,6 +2,8 @@ use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
 
+use crate::MonoSample;
+
 #[derive(Debug)]
 struct WavFmtHeader {
     channels: u16,
@@ -11,12 +13,7 @@ struct WavFmtHeader {
     bits_per_sample: u16,
 }
 
-pub struct MonoWav {
-    pub audio_raw: Vec<f32>,
-    pub sample_rate: u32,
-}
-
-pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
+pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
     let mut file = File::open(path)?;
 
     let mut four_byte_buffer = [0_u8; 4];
@@ -167,7 +164,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
         sample_location += 1;
     }
 
-    Ok(MonoWav {
+    Ok(MonoSample {
         audio_raw: sample,
         sample_rate: fmt_header.sample_rate
     })
