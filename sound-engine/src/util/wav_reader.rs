@@ -13,7 +13,6 @@ struct WavFmtHeader {
 
 pub struct MonoWav {
     audio_raw: Vec<f32>,
-    sample_length: usize,
     sample_rate: u32,
 }
 
@@ -164,7 +163,6 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
 
     Ok(MonoWav {
         audio_raw: sample,
-        sample_length: sample.len(),
         sample_rate: fmt_header.sample_rate
     })
 }
