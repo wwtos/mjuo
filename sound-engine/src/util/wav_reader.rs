@@ -12,11 +12,11 @@ struct WavFmtHeader {
 }
 
 pub struct MonoWav {
-    audio_raw: Vec<f32>,
-    sample_rate: u32,
+    pub audio_raw: Vec<f32>,
+    pub sample_rate: u32,
 }
 
-fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
+pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
     let mut file = File::open(path)?;
 
     let mut four_byte_buffer = [0_u8; 4];
@@ -58,6 +58,7 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
     };
 
     let mut data_start = 0;
+    let mut data_length = 0;
 
     loop {
         // read subchunk ID (type)
@@ -108,7 +109,8 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
             }
             b"data" => {
                 // we reached the data, stop looping over info
-                file.seek(SeekFrom::Current(4))?;
+                file.read_exact(&mut four_byte_buffer)?;
+                data_length = u32::from_le_bytes(four_byte_buffer);
                 data_start = file.seek(SeekFrom::Current(0))?;
 
                 break;
@@ -124,12 +126,14 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
         }
     }
 
-    let sample_count = ((file_length - data_start) / (fmt_header.block_align as u64)) as usize;
+    //let sample_count = ((file_length - data_start) / (fmt_header.block_align as u64)) as usize;
+    let sample_count = data_length as usize;
 
     let mut sample = vec![0_f32; sample_count];
     let mut buffer = vec![0_u8; fmt_header.block_align as usize];
+    let mut sample_location = 0;
 
-    while file.seek(SeekFrom::Current(0))? > 0 {
+    while file.seek(SeekFrom::Current(0))? < file_length {
         // mix down to mono
         file.read_exact(buffer.as_mut_slice())?;
 
@@ -150,7 +154,7 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
                     sample_result += i16::from_le_bytes(channel.try_into().unwrap_or_default()) as f32 / i16::MAX as f32;
                 }
 
-                sample.push(sample_result / fmt_header.channels as f32);
+                sample[sample_location] = sample_result / (fmt_header.channels as f32);
             }, // i'm too lazy to implement the rest
             bps => {
                 return Err(Error::new(
@@ -159,6 +163,8 @@ fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoWav, Error>  {
                 ));
             }
         }
+
+        sample_location += 1;
     }
 
     Ok(MonoWav {
