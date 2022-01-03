@@ -1,16 +1,19 @@
 use crate::node::{AudioNode, InputType, OutputType};
 use crate::{error::NodeError, error::NodeErrorType};
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
+
+use crate::ringbuffer::RingBuffer;
 
 pub struct WavReader {
     output_out: f32,
     file_opened: Option<File>,
     wav_header: Option<WavFmtHeader>,
-    data_start: u64,
-    file_length: u64,
+    audio_raw: Option<Rc<RefCell<Vec<f32>>>>
 }
 
 #[derive(Debug)]
@@ -28,10 +31,19 @@ impl WavReader {
             output_out: 0_f32,
             file_opened: None,
             wav_header: None,
-            data_start: 0,
-            file_length: 0,
+            audio_raw: None
         }
     }
+}
+
+// (elephant paper) http://yehar.com/blog/wp-content/uploads/2009/08/deip.pdf
+// https://stackoverflow.com/questions/1125666/how-do-you-do-bicubic-or-other-non-linear-interpolation-of-re-sampled-audio-da
+fn hermite_interpolate(x0: f32, x1: f32, x2: f32, x3: f32, t: f32) -> f32 {
+    let c0 = x1;
+    let c1 = 0.5 * (x2 - x0);
+    let c2 = x0 - (2.5 * x1) + (2.0 * x2) - (0.5 * x3);
+    let c3 = (0.5 * (x3 - x0)) + (1.5 * (x1 - x2));
+    return (((((c3 * t) + c2) * t) + c1) * t) + c0;
 }
 
 impl WavReader {
@@ -135,7 +147,7 @@ impl WavReader {
                 // we don't care, so jump to the end
                 _ => {
                     file.read_exact(&mut four_byte_buffer)?; // get length of chunk
-                                                       // jump ahead
+                                                             // jump ahead
                     file.seek(SeekFrom::Current(
                         u32::from_le_bytes(four_byte_buffer) as i64
                     ))?;
@@ -143,12 +155,25 @@ impl WavReader {
             }
         }
 
+        self.past_samples = RingBuffer::new(fmt_header.byte_rate as usize * 4, 0.0);
         self.wav_header = Some(fmt_header);
         self.data_start = data_start;
         self.file_opened = Some(file);
         self.file_length = file_length;
+        self.current_sample_position = 0;
 
         Ok(())
+    }
+
+    pub fn available(&mut self) -> Result<u64, Error> {
+        if let Some(file) = &mut self.file_opened {
+            Ok(self.file_length - file.seek(SeekFrom::Current(0))?)
+        } else {
+            Err(Error::new(
+                ErrorKind::Other,
+                "Wav reader hasn't been opened yet!",
+            ))
+        }
     }
 
     pub fn read_one_sample(&mut self) -> Result<Vec<f32>, Error> {
@@ -157,6 +182,8 @@ impl WavReader {
 
             let mut buffer = vec![0_u8; wav_header.block_align as usize];
             file.read_exact(buffer.as_mut_slice())?;
+
+            self.current_sample_position += 1;
 
             match wav_header.bits_per_sample {
                 8 => {
@@ -192,9 +219,68 @@ impl WavReader {
         }
     }
 
-    pub fn available(&mut self) -> Result<u64, Error> {
+    pub fn seek_by_sample(&mut self, sample_position: u64) -> Result<(), Error> {
         if let Some(file) = &mut self.file_opened {
-            Ok(self.file_length - file.seek(SeekFrom::Current(0))?)
+            let wav_header = self.wav_header.as_ref().unwrap();
+
+            let byte_position = sample_position / (wav_header.byte_rate as u64) + self.data_start;
+
+            if byte_position > self.file_length || byte_position < self.data_start {
+                Err(Error::new(
+                    ErrorKind::Other,
+                    "Seeking out of bounds of file!",
+                ))
+            } else {
+                file.seek(SeekFrom::Start(byte_position))?;
+                self.current_sample_position += 1;
+                self.current_time_position = self.current_sample_position as f32 * self.playback_speed;
+
+                Ok(())
+            }
+        } else {
+            Err(Error::new(
+                ErrorKind::Other,
+                "Wav reader hasn't been opened yet!",
+            ))
+        }
+    }
+
+    pub fn next(&mut self) -> Result<Vec<f32>, Error> {
+        if let Some(wav_header) = &mut self.wav_header {
+            if !self.past_samples_filled {
+                // load it with first four samples
+                for _ in 0..4 {
+                    let sample = self.read_one_sample()?;
+
+                    sample
+                        .into_iter()
+                        .for_each(|x| self.past_samples.push_end(x));
+                }
+
+                self.past_samples_filled = true;
+                // this first time through the buffer hasn't been established, so
+                // we need to wait until next sample requested before outputting audio
+
+                return Ok(vec![0_f32; wav_header.channels as usize]);
+            } else {
+                // load next sample
+                let sample = self.read_one_sample()?;
+
+                sample
+                    .into_iter()
+                    .for_each(|x| self.past_samples.push_end(x));
+            }
+
+            for channel in 0..wav_header.channels {
+                hermite_interpolate(
+                    self.past_samples.get(channel as usize),
+                    self.past_samples.get((channel + wav_header.channels) as usize),
+                    self.past_samples.get((channel + wav_header.channels * 2) as usize),
+                    self.past_samples.get((channel + wav_header.channels * 3) as usize),
+                );
+            }
+
+            Ok(Vec::new())
         } else {
             Err(Error::new(
                 ErrorKind::Other,
