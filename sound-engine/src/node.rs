@@ -1,6 +1,6 @@
 pub mod dummy;
 pub mod envelope;
-pub mod wav_reader;
+pub mod mono_buffer_player;
 
 use crate::error::NodeError;
 
