@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read, Seek, SeekFrom};
+use std::io::{BufReader, Error, ErrorKind, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use crate::MonoSample;
@@ -13,8 +13,8 @@ struct WavFmtHeader {
     bits_per_sample: u16,
 }
 
-pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
-    let mut file = File::open(path)?;
+pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
+    let mut file = BufReader::new(File::open(path)?);
 
     let mut four_byte_buffer = [0_u8; 4];
     let mut two_byte_buffer = [0_u8; 2];
@@ -54,8 +54,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
         bits_per_sample: 0,
     };
 
-    let mut data_start = 0;
-    let mut data_length = 0;
+    let mut _data_length = 0;
 
     loop {
         // read subchunk ID (type)
@@ -107,15 +106,14 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
             b"data" => {
                 // we reached the data, stop looping over info
                 file.read_exact(&mut four_byte_buffer)?;
-                data_length = u32::from_le_bytes(four_byte_buffer);
-                data_start = file.seek(SeekFrom::Current(0))?;
+                _data_length = u32::from_le_bytes(four_byte_buffer);
 
                 break;
             }
             // we don't care, so jump to the end
             _ => {
                 file.read_exact(&mut four_byte_buffer)?; // get length of chunk
-                                                            // jump ahead
+                                                         // jump ahead
                 file.seek(SeekFrom::Current(
                     u32::from_le_bytes(four_byte_buffer) as i64
                 ))?;
@@ -124,7 +122,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
     }
 
     //let sample_count = ((file_length - data_start) / (fmt_header.block_align as u64)) as usize;
-    let sample_count = data_length as usize;
+    let sample_count = _data_length as usize;
 
     let mut sample = vec![0_f32; sample_count];
     let mut buffer = vec![0_u8; fmt_header.block_align as usize];
@@ -138,21 +136,23 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
             8 => {
                 let mut sample_result = 0_f32;
 
-                for i in 0..(fmt_header.channels as usize) {
-                    sample_result += (((buffer[i] - 128) as f32 / u8::MAX as f32) * 2.0) - 1.0;
+                for channel in buffer.iter().take(fmt_header.channels as usize) {
+                    sample_result += (((channel - 128) as f32 / u8::MAX as f32) * 2.0) - 1.0;
                 }
 
                 sample.push(sample_result / fmt_header.channels as f32);
-            },
+            }
             16 => {
                 let mut sample_result = 0_f32;
 
-                for (i, channel) in buffer.chunks_exact(2).enumerate() {
-                    sample_result += i16::from_le_bytes(channel.try_into().unwrap_or_default()) as f32 / i16::MAX as f32;
+                for channel in buffer.chunks_exact(2) {
+                    sample_result += i16::from_le_bytes(channel.try_into().unwrap_or_default())
+                        as f32
+                        / i16::MAX as f32;
                 }
 
                 sample[sample_location] = sample_result / (fmt_header.channels as f32);
-            }, // i'm too lazy to implement the rest
+            } // i'm too lazy to implement the rest
             bps => {
                 return Err(Error::new(
                     ErrorKind::Other,
@@ -166,6 +166,6 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error>  {
 
     Ok(MonoSample {
         audio_raw: sample,
-        sample_rate: fmt_header.sample_rate
+        sample_rate: fmt_header.sample_rate,
     })
 }

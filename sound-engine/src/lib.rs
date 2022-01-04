@@ -6,8 +6,14 @@ pub mod ringbuffer;
 pub mod util;
 
 pub struct SoundConfig {
-    sample_rate: u32,
+    pub sample_rate: u32,
 }
+
+pub struct MonoSample {
+    pub audio_raw: Vec<f32>,
+    pub sample_rate: u32,
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
