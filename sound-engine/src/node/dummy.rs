@@ -50,7 +50,7 @@ impl AudioNode for Dummy {
                 Ok(())
             }
             _ => Err(NodeError::new(
-                format!("Envelope cannot input audio of type {:?}", input_type),
+                format!("Dummy cannot input audio of type {:?}", input_type),
                 NodeErrorType::UnsupportedInput,
             )),
         }
@@ -60,7 +60,7 @@ impl AudioNode for Dummy {
         match output_type {
             OutputType::Out => Ok(self.output_out),
             _ => Err(NodeError::new(
-                format!("Envelope cannot output audio of type {:?}", output_type),
+                format!("Dummy cannot output audio of type {:?}", output_type),
                 NodeErrorType::UnsupportedOutput,
             )),
         }
