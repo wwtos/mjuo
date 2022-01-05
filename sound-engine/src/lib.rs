@@ -1,11 +1,10 @@
 pub mod backend;
 pub mod error;
+pub mod midi;
 pub mod node;
 pub mod openal;
 pub mod ringbuffer;
 pub mod util;
-pub mod midi;
-pub mod ipc;
 
 pub struct SoundConfig {
     pub sample_rate: u32,

@@ -1,6 +1,6 @@
-use crate::SoundConfig;
 use crate::constants::PI;
 use crate::node::{AudioNode, InputType, OutputType};
+use crate::SoundConfig;
 use crate::{error::NodeError, error::NodeErrorType};
 
 #[derive(Clone, Copy)]
@@ -63,11 +63,10 @@ impl Filter {
             self.recompute();
         }
 
-        let output = (self.b0 * input_in)
-            + (self.b1 * self.prev_input_1)
-            + (self.b2 * self.prev_input_2)
-            - (self.a1 * self.prev_output_1)
-            - (self.a2 * self.prev_output_2);
+        let output =
+            (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
+                - (self.a1 * self.prev_output_1)
+                - (self.a2 * self.prev_output_2);
 
         self.prev_input_2 = self.prev_input_1;
         self.prev_input_1 = input_in;
@@ -151,12 +150,12 @@ impl AudioNode for Filter {
                 self.input_in = input;
 
                 Ok(())
-            },
+            }
             InputType::Detune => {
                 self.filter_offset_in = input;
 
                 Ok(())
-            },
+            }
             _ => Err(NodeError::new(
                 format!("Filter cannot input audio of type {:?}", input_type),
                 NodeErrorType::UnsupportedInput,

@@ -50,15 +50,15 @@ impl MidiParser {
                 _ => {
                     // I'm not sure if this is part of the protocol or not...
                     match self.last_message {
-                        MidiData::NoteOn {..} | MidiData::NoteOff {..} => {
+                        MidiData::NoteOn { .. } | MidiData::NoteOff { .. } => {
                             self.expected_message_length = Some(2);
                         }
                         _ => {
                             self.buffer_len = 0; // flush the buffer
                             return false;
                         }
-                    }                   
-                    
+                    }
+
                     //unimplemented!("Midi parser not fully implemented, received message {:?} (length {})", self.buffer, self.buffer_len);
                 }
             };
@@ -160,16 +160,16 @@ impl MidiParser {
             }
             _ => {
                 match self.last_message {
-                    MidiData::NoteOn {channel, ..} => {
-                        MidiData::NoteOn {
-                            channel, note: self.buffer[0], velocity: self.buffer[1]
-                        }
-                    }
-                    MidiData::NoteOff {channel, ..} => {
-                        MidiData::NoteOff {
-                            channel, note: self.buffer[0], velocity: self.buffer[1]
-                        }
-                    }
+                    MidiData::NoteOn { channel, .. } => MidiData::NoteOn {
+                        channel,
+                        note: self.buffer[0],
+                        velocity: self.buffer[1],
+                    },
+                    MidiData::NoteOff { channel, .. } => MidiData::NoteOff {
+                        channel,
+                        note: self.buffer[0],
+                        velocity: self.buffer[1],
+                    },
                     _ => {
                         return;
                     }

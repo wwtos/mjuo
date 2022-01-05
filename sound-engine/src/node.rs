@@ -1,7 +1,7 @@
 pub mod dummy;
 pub mod envelope;
-pub mod mono_buffer_player;
 pub mod filter;
+pub mod mono_buffer_player;
 
 use crate::error::NodeError;
 use crate::midi::messages::MidiData;
