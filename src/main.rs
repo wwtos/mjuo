@@ -12,6 +12,12 @@ use sound_engine::node::mono_buffer_player::MonoBufferPlayer;
 use sound_engine::node::AudioNode;
 use sound_engine::util::wav_reader::read_wav_as_mono;
 
+use sound_engine::ipc::ipc_server::IPCServer;
+
+fn ipc_test() {
+    IPCServer::open();
+}
+
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
     let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
     backend.connect()?;
@@ -20,6 +26,8 @@ fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    ipc_test();
+
     let backend = connect_backend()?;
 
     let wav = read_wav_as_mono("./060-C.wav")?;

@@ -1,4 +1,5 @@
 pub mod pulse;
+pub mod alsa_midi;
 
 use std::error::Error;
 
