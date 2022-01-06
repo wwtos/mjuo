@@ -1,5 +1,5 @@
-pub mod ipc_server;
 pub mod communication_constants;
+pub mod ipc_server;
 
 #[cfg(test)]
 mod tests {
