@@ -12,10 +12,12 @@ use sound_engine::node::mono_buffer_player::MonoBufferPlayer;
 use sound_engine::node::AudioNode;
 use sound_engine::util::wav_reader::read_wav_as_mono;
 
-use sound_engine::ipc::ipc_server::IPCServer;
+use ipc::ipc_server::IPCServer;
 
 fn ipc_test() {
-    IPCServer::open();
+    thread::spawn(|| {
+        IPCServer::open();
+    });
 }
 
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
