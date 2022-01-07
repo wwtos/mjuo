@@ -2,7 +2,10 @@ use std::{borrow::Borrow, ops::Deref};
 
 use crate::{
     errors::{Error, ErrorType},
-    node::{Connection, GenerationalNode, NodeIndex, NodeWrapper, SocketType},
+    node::{
+        Connection, GenerationalNode, InputSideConnection, NodeIndex, NodeWrapper,
+        OutputSideConnection, SocketType,
+    },
 };
 
 pub struct Graph {
@@ -34,21 +37,21 @@ impl Graph {
         };
 
         // does "to" exist?
-        if let Some(to_extracted) = self.get_node(from_index) {
+        if let Some(to_extracted) = self.get_node(to_index) {
             to = to_extracted;
         } else {
             return Err(Error::new(
-                format!("`to` node does not exist (index {:?})", from_index),
+                format!("`to` node does not exist (index {:?})", to_index),
                 ErrorType::NodeDoesNotExist,
             ));
         };
 
-        let from = (*from.node).borrow();
-        let to = (*to.node).borrow();
+        let mut from = (*from.node).borrow_mut();
+        let mut to = (*to.node).borrow_mut();
 
         // check if "to" is connected from "from"
-        if let Some(to_connection) = to.get_input_connection(to_type) {
-            if to_connection.other_node == from_index {
+        if let Some(to_connection) = to.get_input_connection_by_type(&to_type) {
+            if to_connection.from_node == from_index {
                 return Err(Error::new(
                     format!(
                         "Connection between {:?} and {:?} already exists",
@@ -59,11 +62,28 @@ impl Graph {
             }
         };
 
-        // unless the graph invariant isn't upheld where each connection is referenced from each node,
-        // we should be good here (two-way pointers between nodes)
+        // unless the graph invariant isn't upheld where every connection is referenced both ways
+        // (from both connected nodes), we should be good here
 
-        // now we'll create the connection
-        to.set_input_connection
+        // now we'll create the connection (two-way)
+        to.add_input_connection_unsafe(InputSideConnection {
+            from_socket_type: from_type.clone(),
+            from_node: from.get_index(),
+            to_socket_type: to_type.clone(),
+        });
+
+        from.add_output_connection_unsafe(OutputSideConnection {
+            from_socket_type: from_type.clone(),
+            to_node: to.get_index(),
+            to_socket_type: to_type.clone(),
+        });
+
+        Ok(Connection {
+            from_socket_type: from_type,
+            from_node: from.get_index(),
+            to_socket_type: to_type,
+            to_node: to.get_index(),
+        })
     }
 
     pub fn get_node(&self, index: NodeIndex) -> Option<GenerationalNode> {
@@ -72,7 +92,7 @@ impl Graph {
             return None;
         }
 
-        let node = self.nodes[index.index];
+        let node = &self.nodes[index.index];
 
         // node exists there?
         if let Some(node) = node {

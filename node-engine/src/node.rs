@@ -10,8 +10,8 @@ pub trait Node {
 pub struct NodeWrapper {
     node: Box<dyn Node>,
     index: NodeIndex,
-    input: Option<Connection>,
-    outputs: Vec<Connection>,
+    inputs: Vec<InputSideConnection>,
+    outputs: Vec<OutputSideConnection>,
 }
 
 impl NodeWrapper {
@@ -23,33 +23,46 @@ impl NodeWrapper {
         self.index = index;
     }
 
-    pub fn get_input_connection(&self) -> Option<Connection> {
-        self.input
+    pub fn get_input_connection_by_type(
+        &self,
+        input_socket_type: &SocketType,
+    ) -> Option<InputSideConnection> {
+        let input = self
+            .inputs
+            .iter()
+            .find(|input| input.to_socket_type == *input_socket_type);
+
+        input.map(|input| (*input).clone())
     }
 
-    pub fn get_output_connections(&self) -> Vec<Connection> {
-        self.outputs
-    }
+    pub fn get_output_connections_by_type(
+        &self,
+        output_socket_type: &SocketType,
+    ) -> Vec<OutputSideConnection> {
+        let my_outputs_filtered = self
+            .outputs
+            .iter()
+            .filter(|input| input.from_socket_type == *output_socket_type);
 
-    pub fn get_input_connection_by_type(&self, input_socket_type: SocketType) -> Option<Connection> {
-        if let Some(input_socket) = self.input {
-            if input_socket.to_socket_type == input_socket_type  {
-                return self.input;
-            }
+        let mut outputs_filtered: Vec<OutputSideConnection> = Vec::new();
+
+        for output in my_outputs_filtered {
+            outputs_filtered.push((*output).clone());
         }
 
-        None
+        outputs_filtered
     }
 
-    pub fn get_output_connections_by_type(&self, output_socket_type: SocketType) -> Vec<Connection> {
-        self.outputs
-            .into_iter()
-            .filter(|input| input.from_socket_type == output_socket_type)
-            .collect()
+    pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {
+        self.inputs.push(connection);
+    }
+
+    pub(in crate) fn add_output_connection_unsafe(&mut self, connection: OutputSideConnection) {
+        self.outputs.push(connection);
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct NodeIndex {
     pub index: usize,
     pub generation: u32,
@@ -63,11 +76,26 @@ pub struct GenerationalNode {
 
 pub struct Connection {
     pub from_socket_type: SocketType,
-    pub other_node: NodeIndex,
+    pub from_node: NodeIndex,
+    pub to_socket_type: SocketType,
+    pub to_node: NodeIndex,
+}
+
+#[derive(Clone)]
+pub struct InputSideConnection {
+    pub from_socket_type: SocketType,
+    pub from_node: NodeIndex,
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone)]
+pub struct OutputSideConnection {
+    pub from_socket_type: SocketType,
+    pub to_node: NodeIndex,
+    pub to_socket_type: SocketType,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiData),
@@ -75,7 +103,7 @@ pub enum SocketType {
     MethodCall(Vec<Parameter>),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum StreamSocketType {
     Audio,
     Gate,
@@ -83,7 +111,7 @@ pub enum StreamSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ValueType {
     Float,
     Int,
@@ -91,7 +119,7 @@ pub enum ValueType {
     String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Parameter {
     Float(f32),
     Int(i32),
