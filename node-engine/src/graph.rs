@@ -140,6 +140,39 @@ impl Graph {
             }
         };
 
+        // make sure `from_type` exists in `from's` outputs
+        if !from.has_output_socket(&from_type) {
+            return Err(Error::new(
+                format!(
+                    "From node does not have socket type {:?}",
+                    from_type
+                ),
+                ErrorType::SocketDoesNotExist,
+            ));
+        }
+
+        // make sure `to_type` exists in `to's` inputs
+        if !to.has_input_socket(&to_type) {
+            return Err(Error::new(
+                format!(
+                    "To node does not have socket type {:?}",
+                    to_type
+                ),
+                ErrorType::SocketDoesNotExist,
+            ));
+        }
+
+        // make sure the types are of the same family (midi can't connect to stream, etc)
+        if mem::discriminant(&from_type) != mem::discriminant(&to_type) {
+            return Err(Error::new(
+                format!(
+                    "{:?} and {:?} sockets are incompatible",
+                    to_type, from_type
+                ),
+                ErrorType::IncompatibleSocketTypes,
+            ));
+        }
+
         // unless the graph invariant isn't upheld where every connection is referenced both ways
         // (from both connected nodes), we should be good here
 
@@ -183,6 +216,48 @@ impl Graph {
         } else {
             None
         }
+    }
+
+    pub fn remove_node(&mut self, index: &NodeIndex) -> Result<(), Error> {
+        // out of bounds?
+        if index.index >= self.nodes.len() {
+            return Err(Error::new(
+                format!("Index {} out of bounds!", index.index),
+                ErrorType::IndexOutOfBounds,
+            ));
+        }
+
+        let node = &self.nodes[index.index];
+
+        // node exists there?
+        if let PossibleNode::Some(node) = node {
+            // make sure it's the same generation
+            if node.generation != index.generation {
+                Err(Error::new(
+                    format!(
+                        "Node at index {} does not exist! (wrong generation)",
+                        index.index
+                    ),
+                    ErrorType::NodeDoesNotExist,
+                ))
+            } else {
+                // get the node's current generation
+                let node_index = (*((*node).node)).borrow().get_index();
+
+                self.nodes[index.index] = PossibleNode::None(node_index.generation);
+
+                Ok(())
+            }
+        } else {
+            Err(Error::new(
+                format!("Node at index {} does not exist!", index.index),
+                ErrorType::NodeDoesNotExist,
+            ))
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.nodes.len()
     }
 }
 

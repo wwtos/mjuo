@@ -12,8 +12,8 @@ pub trait Node: Debug {
 pub struct NodeWrapper {
     node: Box<dyn Node>,
     index: NodeIndex,
-    inputs: Vec<InputSideConnection>,
-    outputs: Vec<OutputSideConnection>,
+    connected_inputs: Vec<InputSideConnection>,
+    connected_outputs: Vec<OutputSideConnection>,
 }
 
 impl NodeWrapper {
@@ -21,8 +21,8 @@ impl NodeWrapper {
         NodeWrapper {
             node,
             index,
-            inputs: Vec::new(),
-            outputs: Vec::new(),
+            connected_inputs: Vec::new(),
+            connected_outputs: Vec::new(),
         }
     }
 
@@ -30,12 +30,20 @@ impl NodeWrapper {
         self.index
     }
 
+    pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
+        self.node.list_input_sockets().iter().find(|socket| *socket == socket_type).is_some()
+    }
+
+    pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
+        self.node.list_output_sockets().iter().find(|socket| *socket == socket_type).is_some()
+    }
+
     pub fn get_input_connection_by_type(
         &self,
         input_socket_type: &SocketType,
     ) -> Option<InputSideConnection> {
         let input = self
-            .inputs
+            .connected_inputs
             .iter()
             .find(|input| input.to_socket_type == *input_socket_type);
 
@@ -47,7 +55,7 @@ impl NodeWrapper {
         output_socket_type: &SocketType,
     ) -> Vec<OutputSideConnection> {
         let my_outputs_filtered = self
-            .outputs
+            .connected_outputs
             .iter()
             .filter(|input| input.from_socket_type == *output_socket_type);
 
@@ -65,11 +73,11 @@ impl NodeWrapper {
     }
 
     pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {
-        self.inputs.push(connection);
+        self.connected_inputs.push(connection);
     }
 
     pub(in crate) fn add_output_connection_unsafe(&mut self, connection: OutputSideConnection) {
-        self.outputs.push(connection);
+        self.connected_outputs.push(connection);
     }
 }
 
@@ -85,6 +93,7 @@ pub struct GenerationalNode {
     pub generation: u32,
 }
 
+#[derive(Debug, Clone)]
 pub struct Connection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
@@ -109,9 +118,14 @@ pub struct OutputSideConnection {
 #[derive(Debug, PartialEq, Clone)]
 pub enum SocketType {
     Stream(StreamSocketType),
-    Midi(MidiData),
+    Midi(MidiSocketType),
     Value(ValueType),
     MethodCall(Vec<Parameter>),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum MidiSocketType {
+    Default,
 }
 
 #[derive(Debug, PartialEq, Clone)]

@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq)]
 pub struct Error {
     pub message: String,
     pub error_type: ErrorType,
@@ -12,7 +13,11 @@ impl Error {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum ErrorType {
     AlreadyConnected,
     NodeDoesNotExist,
+    IndexOutOfBounds,
+    SocketDoesNotExist,
+    IncompatibleSocketTypes
 }
