@@ -1,12 +1,14 @@
+use std::fmt::Debug;
 use std::{cell::RefCell, rc::Rc};
 
 use sound_engine::midi::messages::MidiData;
 
-pub trait Node {
+pub trait Node: Debug {
     fn list_input_sockets(&self) -> Vec<SocketType>;
     fn list_output_sockets(&self) -> Vec<SocketType>;
 }
 
+#[derive(Debug)]
 pub struct NodeWrapper {
     node: Box<dyn Node>,
     index: NodeIndex,
@@ -15,12 +17,17 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn get_index(&self) -> NodeIndex {
-        self.index
+    pub fn new(node: Box<dyn Node>, index: NodeIndex) -> NodeWrapper {
+        NodeWrapper {
+            node,
+            index,
+            inputs: Vec::new(),
+            outputs: Vec::new(),
+        }
     }
 
-    pub fn set_index(&mut self, index: NodeIndex) {
-        self.index = index;
+    pub fn get_index(&self) -> NodeIndex {
+        self.index
     }
 
     pub fn get_input_connection_by_type(
@@ -53,6 +60,10 @@ impl NodeWrapper {
         outputs_filtered
     }
 
+    pub(in crate) fn set_index(&mut self, index: NodeIndex) {
+        self.index = index;
+    }
+
     pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {
         self.inputs.push(connection);
     }
@@ -68,7 +79,7 @@ pub struct NodeIndex {
     pub generation: u32,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct GenerationalNode {
     pub node: Rc<RefCell<NodeWrapper>>,
     pub generation: u32,
@@ -81,14 +92,14 @@ pub struct Connection {
     pub to_node: NodeIndex,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
     pub to_socket_type: SocketType,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct OutputSideConnection {
     pub from_socket_type: SocketType,
     pub to_node: NodeIndex,

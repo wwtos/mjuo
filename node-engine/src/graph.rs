@@ -1,18 +1,96 @@
-use std::{borrow::Borrow, ops::Deref};
+use std::cell::RefCell;
+use std::mem;
+use std::rc::Rc;
 
 use crate::{
     errors::{Error, ErrorType},
     node::{
-        Connection, GenerationalNode, InputSideConnection, NodeIndex, NodeWrapper,
+        Connection, GenerationalNode, InputSideConnection, Node, NodeIndex, NodeWrapper,
         OutputSideConnection, SocketType,
     },
 };
 
+#[derive(Debug)]
 pub struct Graph {
-    nodes: Vec<Option<GenerationalNode>>,
+    nodes: Vec<PossibleNode>,
+}
+
+#[derive(Debug)]
+pub enum PossibleNode {
+    Some(GenerationalNode),
+    None(u32), // last generation that was here
+}
+
+fn create_new_node(node: Box<dyn Node>, generation: u32) -> PossibleNode {
+    PossibleNode::Some(GenerationalNode {
+        node: Rc::new(RefCell::new(NodeWrapper::new(
+            node,
+            NodeIndex {
+                index: 0,
+                generation: 0,
+            },
+        ))),
+        generation,
+    })
 }
 
 impl Graph {
+    pub fn new() -> Graph {
+        Graph { nodes: Vec::new() }
+    }
+
+    pub fn add_node(&mut self, node: Box<dyn Node>) -> NodeIndex {
+        let index;
+        let new_generation;
+
+        if self.nodes.is_empty() {
+            self.nodes.push(create_new_node(node, 0));
+
+            index = self.nodes.len() - 1;
+            new_generation = 0;
+        } else {
+            // find an empty slot (if any)
+            let potential_spot = self.nodes.iter().position(|node| {
+                // check if the node enum is of type None
+                mem::discriminant(node) == mem::discriminant(&PossibleNode::None(0))
+            });
+
+            if let Some(i) = potential_spot {
+                index = i; // this is where we'll insert the new node
+
+                if let PossibleNode::None(last_generation) = self.nodes[i] {
+                    new_generation = last_generation + 1;
+                } else {
+                    unreachable!(
+                        "This is unreachable as we determined \
+                    just above in the `position` method that the node at \
+                    this location was PossibleNode::None"
+                    );
+                };
+
+                self.nodes[index] = create_new_node(node, new_generation);
+            } else {
+                self.nodes.push(create_new_node(node, 0));
+
+                index = self.nodes.len() - 1;
+                new_generation = 0;
+            }
+        }
+
+        let full_index = NodeIndex {
+            index,
+            generation: new_generation,
+        };
+
+        let new_node_wrapper = self.get_node(&full_index).unwrap().node;
+        let mut new_node = (*new_node_wrapper).borrow_mut();
+
+        new_node.set_index(full_index);
+
+        // now our nodes knows its index and generation, we're all set!
+        full_index
+    }
+
     pub fn connect(
         &mut self,
         from_index: NodeIndex,
@@ -27,7 +105,7 @@ impl Graph {
         let to;
 
         // does "from" exist?
-        if let Some(from_extracted) = self.get_node(from_index) {
+        if let Some(from_extracted) = self.get_node(&from_index) {
             from = from_extracted;
         } else {
             return Err(Error::new(
@@ -37,7 +115,7 @@ impl Graph {
         };
 
         // does "to" exist?
-        if let Some(to_extracted) = self.get_node(to_index) {
+        if let Some(to_extracted) = self.get_node(&to_index) {
             to = to_extracted;
         } else {
             return Err(Error::new(
@@ -86,7 +164,7 @@ impl Graph {
         })
     }
 
-    pub fn get_node(&self, index: NodeIndex) -> Option<GenerationalNode> {
+    pub fn get_node(&self, index: &NodeIndex) -> Option<GenerationalNode> {
         // out of bounds?
         if index.index >= self.nodes.len() {
             return None;
@@ -95,7 +173,7 @@ impl Graph {
         let node = &self.nodes[index.index];
 
         // node exists there?
-        if let Some(node) = node {
+        if let PossibleNode::Some(node) = node {
             // make sure it's the same generation
             if node.generation != index.generation {
                 None
@@ -105,5 +183,11 @@ impl Graph {
         } else {
             None
         }
+    }
+}
+
+impl Default for Graph {
+    fn default() -> Self {
+        Self::new()
     }
 }
