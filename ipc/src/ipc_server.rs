@@ -34,13 +34,13 @@ fn build_message(protocol: u8, data: &[u8]) -> Vec<u8> {
 
 fn handle_connection(mut stream: TcpStream) {
     let mut buffer = [0; 1];
-    stream.read(&mut buffer).unwrap();
+    stream.read_exact(&mut buffer).unwrap();
 
     let message_type = buffer[0];
 
     match message_type {
         PING => {
-            stream.write(&[PONG]).unwrap();
+            stream.write_all(&[PONG]).unwrap();
         }
         PONG => {}
         DATA_BINARY => {
@@ -66,7 +66,7 @@ fn handle_connection(mut stream: TcpStream) {
         &build_message(DATA_BINARY, response.as_bytes())
     );
     stream
-        .write(&build_message(DATA_BINARY, response.as_bytes()))
+        .write_all(&build_message(DATA_BINARY, response.as_bytes()))
         .unwrap();
     stream.flush().unwrap();
 }

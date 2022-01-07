@@ -16,7 +16,7 @@ pub trait AudioNode {
 }
 
 pub trait MidiNode {
-    fn receive_midi(&mut self, input: &Vec<MidiData>) -> Result<(), SimpleError>;
+    fn receive_midi(&mut self, input: &[MidiData]) -> Result<(), SimpleError>;
 }
 
 #[derive(Debug)]
