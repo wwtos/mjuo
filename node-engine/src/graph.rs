@@ -2,6 +2,8 @@ use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 
+use serde_json::json;
+
 use crate::{
     errors::{Error, ErrorType},
     node::{
@@ -220,31 +222,67 @@ impl Graph {
 
         let node = &self.nodes[index.index];
 
+        let node_to_remove_index;
+
         // node exists there?
         if let PossibleNode::Some(node) = node {
             // make sure it's the same generation
             if node.generation != index.generation {
-                Err(Error::new(
+                return Err(Error::new(
                     format!(
                         "Node at index {} does not exist! (wrong generation)",
                         index.index
                     ),
                     ErrorType::NodeDoesNotExist,
-                ))
+                ));
             } else {
-                // get the node's current generation
-                let node_index = (*((*node).node)).borrow().get_index();
+                // remove any connected node connections
+                let node = (*((*node).node)).borrow();
 
-                self.nodes[index.index] = PossibleNode::None(node_index.generation);
+                for input_socket in node.list_input_sockets() {
+                    // follow the input socket
+                    let from_node = self.get_node(&input_socket.from_node);
 
-                Ok(())
+                    if let Some(from_node) = from_node {
+                        let from_node = from_node.node;
+                        let mut from_node = (*from_node).borrow_mut();
+
+                        from_node.remove_output_socket_connection(
+                            &input_socket.from_socket_type,
+                            &node.get_index(),
+                            &input_socket.to_socket_type,
+                        );
+                    }
+                    // if it doesn't exist, obviously we don't need to worry about removing its connection
+                }
+
+                for output_socket in node.list_output_sockets() {
+                    // follow the output socket
+                    let to_node = self.get_node(&output_socket.to_node);
+
+                    if let Some(to_node) = to_node {
+                        let to_node = to_node.node;
+                        let mut to_node = (*to_node).borrow_mut();
+
+                        to_node.remove_input_socket_connection(&output_socket.to_socket_type);
+                    }
+                    // if it doesn't exist, obviously we don't need to worry about removing its connection
+                }
+
+                node_to_remove_index = node.get_index();
             }
         } else {
-            Err(Error::new(
+            return Err(Error::new(
                 format!("Node at index {} does not exist!", index.index),
                 ErrorType::NodeDoesNotExist,
-            ))
+            ));
         }
+
+        // move down here so the borrow isn't in the scope anymore
+        self.nodes[node_to_remove_index.index] =
+            PossibleNode::None(node_to_remove_index.generation);
+
+        Ok(())
     }
 
     pub fn len(&self) -> usize {
@@ -256,25 +294,28 @@ impl Graph {
     pub fn serialize(&self) -> Result<serde_json::Value, Error> {
         // serialize all of the graph nodes, as it currently stands
         let nodes = serde_json::Value::Array(
-            self.nodes.iter().map(|node| {
-                if let PossibleNode::Some(node) = node {
-                    let node = &node.node;
-                    let node = (*node).borrow();
+            self.nodes
+                .iter()
+                .map(|node| {
+                    if let PossibleNode::Some(node) = node {
+                        let node = &node.node;
+                        let node = (*node).borrow();
 
-                    match node.serialize_to_json() {
-                        Ok(json) => json,
-                        Err(_) => serde_json::Value::Null
+                        match node.serialize_to_json() {
+                            Ok(json) => json,
+                            Err(_) => serde_json::Value::Null,
+                        }
+                    } else {
+                        serde_json::Value::Null
                     }
-                } else {
-                    serde_json::Value::Null
-                }
-            }).collect::<Vec<serde_json::Value>>()
+                })
+                .collect::<Vec<serde_json::Value>>(),
         );
 
-        let connections: Vec<Connection> = Vec::new();
+        let mut connections: Vec<Connection> = Vec::new();
 
         // make a list of connections based on the input node, as that can't be connected to multiple things
-        for node in self.nodes {
+        for node in &self.nodes {
             if let PossibleNode::Some(some_node) = node {
                 let node = &some_node.node;
                 let node = (*node).borrow();
@@ -282,18 +323,25 @@ impl Graph {
                 let input_sockets = node.list_input_sockets();
 
                 for socket in input_sockets {
-                    // try to resolve the connection
-
                     connections.push(Connection {
                         from_socket_type: socket.from_socket_type,
                         from_node: socket.from_node,
                         to_socket_type: socket.to_socket_type,
-                        to_node: node.get_index()
+                        to_node: node.get_index(),
                     });
                 }
-                
             }
-        };
+        }
+
+        let connections = connections
+            .into_iter()
+            .map(|connection| connection.serialize_to_json())
+            .collect::<Result<Vec<serde_json::Value>, _>>()?;
+
+        Ok(json!({
+            "nodes": nodes,
+            "connections": connections
+        }))
     }
 }
 

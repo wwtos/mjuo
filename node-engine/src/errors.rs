@@ -21,5 +21,5 @@ pub enum ErrorType {
     IndexOutOfBounds,
     SocketDoesNotExist,
     IncompatibleSocketTypes,
-    ParserError
+    ParserError,
 }

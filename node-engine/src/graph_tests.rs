@@ -35,7 +35,10 @@ impl Node for TestNode {
         Ok(serde_json::Value::Null)
     }
 
-    fn deserialize_from_json(json: serde_json::Value) -> Self where Self: Sized {
+    fn deserialize_from_json(json: serde_json::Value) -> Self
+    where
+        Self: Sized,
+    {
         TestNode {}
     }
 }

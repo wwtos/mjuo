@@ -1,8 +1,8 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json;
 
-use crate::node::{Node, SocketType, StreamSocketType, ValueType};
 use crate::errors::{Error, ErrorType};
+use crate::node::{Node, SocketType, StreamSocketType, ValueType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {}
@@ -19,20 +19,23 @@ impl Node for GainGraphNode {
         vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, _value: f32) {}
 
-    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 {
+    fn get_stream_output(&mut self, _socket_type: StreamSocketType) -> f32 {
         0_f32
     }
 
     fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
         match serde_json::to_value(self) {
             Ok(result) => Ok(result),
-            Err(error) => Err(Error::new(error.to_string(), ErrorType::ParserError))
+            Err(error) => Err(Error::new(error.to_string(), ErrorType::ParserError)),
         }
     }
 
-    fn deserialize_from_json(json: serde_json::Value) -> Self where Self: Sized {
+    fn deserialize_from_json(json: serde_json::Value) -> Self
+    where
+        Self: Sized,
+    {
         serde_json::from_value(json).unwrap()
     }
 }

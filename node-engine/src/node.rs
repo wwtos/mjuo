@@ -1,7 +1,9 @@
 use std::fmt::Debug;
 use std::{cell::RefCell, rc::Rc};
 
+use serde::Serialize;
 use serde_json;
+use serde_json::json;
 
 use crate::errors::{Error, ErrorType};
 
@@ -11,12 +13,14 @@ pub trait Node: Debug {
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32);
     fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32;
     fn serialize_to_json(&self) -> Result<serde_json::Value, Error>;
-    fn deserialize_from_json(json: serde_json::Value) -> Self where Self: Sized;
+    fn deserialize_from_json(json: serde_json::Value) -> Self
+    where
+        Self: Sized;
 }
 
 #[derive(Debug)]
 pub struct NodeWrapper {
-    node: Box<dyn Node>,
+    pub(crate) node: Box<dyn Node>,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
@@ -90,11 +94,9 @@ impl NodeWrapper {
         outputs_filtered
     }
 
-    pub fn remove_input_socket_connection(
-        &mut self,
-        to_type: &SocketType
-    ) -> Result<(), Error> {
-        let to_remove = self.connected_inputs
+    pub fn remove_input_socket_connection(&mut self, to_type: &SocketType) -> Result<(), Error> {
+        let to_remove = self
+            .connected_inputs
             .iter()
             .position(|input| input.to_socket_type == *to_type);
 
@@ -103,13 +105,40 @@ impl NodeWrapper {
 
             Ok(())
         } else {
-            Err(Error::new("Connection doesn't exist!".to_string(), ErrorType::NotConnected))
+            Err(Error::new(
+                "Connection doesn't exist!".to_string(),
+                ErrorType::NotConnected,
+            ))
+        }
+    }
+
+    pub fn remove_output_socket_connection(
+        &mut self,
+        from_type: &SocketType,
+        to_node: &NodeIndex,
+        to_type: &SocketType,
+    ) -> Result<(), Error> {
+        let to_remove = self.connected_outputs.iter().position(|input| {
+            input.from_socket_type == *from_type
+                && input.to_node == *to_node
+                && input.to_socket_type == *to_type
+        });
+
+        if let Some(to_remove) = to_remove {
+            self.connected_outputs.remove(to_remove);
+
+            Ok(())
+        } else {
+            Err(Error::new(
+                "Connection doesn't exist!".to_string(),
+                ErrorType::NotConnected,
+            ))
         }
     }
 
     pub fn remove_output_socket_connections(
         &mut self,
-        from_type: &SocketType
+        from_type: &SocketType,
     ) -> Result<(), Error> {
         let mut found: Vec<usize> = Vec::new();
 
@@ -119,12 +148,15 @@ impl NodeWrapper {
             }
         }
 
-        for found_index in found {
-            self.connected_inputs.remove(found_index);
+        for found_index in &found {
+            self.connected_inputs.remove(*found_index);
         }
 
         if found.is_empty() {
-            Err(Error::new("Connection doesn't exist!".to_string(), ErrorType::NotConnected))
+            Err(Error::new(
+                "Connection doesn't exist!".to_string(),
+                ErrorType::NotConnected,
+            ))
         } else {
             Ok(())
         }
@@ -167,6 +199,17 @@ pub struct Connection {
     pub to_node: NodeIndex,
 }
 
+impl Connection {
+    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
+        Ok(json!([
+            self.from_socket_type.serialize_to_json()?,
+            self.from_node.index,
+            self.to_socket_type.serialize_to_json()?,
+            self.to_node.index
+        ]))
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
@@ -181,7 +224,7 @@ pub struct OutputSideConnection {
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
@@ -189,12 +232,21 @@ pub enum SocketType {
     MethodCall(Vec<Parameter>),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl SocketType {
+    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
+        match serde_json::to_value(self) {
+            Ok(result) => Ok(result),
+            Err(error) => Err(Error::new(error.to_string(), ErrorType::ParserError)),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum MidiSocketType {
     Default,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum StreamSocketType {
     Audio,
     Gate,
@@ -202,12 +254,12 @@ pub enum StreamSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum ValueType {
     Gain,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub enum Parameter {
     Float(f32),
     Int(i32),
