@@ -1,10 +1,9 @@
-use std::borrow::Borrow;
-use std::ptr::NonNull;
+use std::collections::HashMap;
 
 use serde_json;
 
-use crate::errors::{Error, ErrorType};
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueType};
+use crate::errors::{Error, ErrorType};
 use crate::{graph::Graph, node::Node};
 
 #[derive(Debug)]
@@ -25,9 +24,11 @@ impl Node for TestNode {
             SocketType::Value(ValueType::Gain),
         ]
     }
-
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
-    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 {
+    fn list_properties(&self) -> std::collections::HashMap<String, crate::property::PropertyType> {
+        HashMap::new()
+    }
+    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, _value: f32) {}
+    fn get_stream_output(&mut self, _socket_type: StreamSocketType) -> f32 {
         0_f32
     }
 
@@ -35,18 +36,12 @@ impl Node for TestNode {
         Ok(serde_json::Value::Null)
     }
 
-    fn deserialize_from_json(json: serde_json::Value) -> Self
+    fn deserialize_from_json(_json: serde_json::Value) -> Self
     where
         Self: Sized,
     {
         TestNode {}
     }
-}
-
-#[test]
-fn it_works() {
-    let result = 2 + 2;
-    assert_eq!(result, 4);
 }
 
 #[test]
@@ -223,4 +218,40 @@ fn graph_connecting() {
             .is_ok(),
         true
     );
+}
+
+/// This test makes sure that when removing a node, it also removes any
+/// connections from all the nodes it's connected to
+#[test]
+fn hanging_connections() -> Result<(), Error> {
+    let mut graph = Graph::new();
+
+    // set up a simple network
+    let first_node = graph.add_node(Box::new(TestNode {}));
+    let second_node = graph.add_node(Box::new(TestNode {}));
+
+    graph.connect(
+        first_node,
+        SocketType::Stream(StreamSocketType::Audio),
+        second_node,
+        SocketType::Stream(StreamSocketType::Audio),
+    )?;
+
+    {
+        let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
+        let first_node = (*first_node_wrapped).borrow();
+
+        assert_eq!(first_node.list_output_sockets().len(), 1); // it should be connected here
+    }
+
+    graph.remove_node(&second_node)?;
+
+    {
+        let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
+        let first_node = (*first_node_wrapped).borrow();
+
+        assert_eq!(first_node.list_output_sockets().len(), 0); // it shouldn't be connected to anything
+    }
+
+    Ok(())
 }
