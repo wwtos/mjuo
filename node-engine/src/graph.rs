@@ -7,9 +7,11 @@ use serde_json::json;
 use crate::{
     errors::{Error, ErrorType},
     node::{
-        Connection, GenerationalNode, InputSideConnection, Node, NodeIndex, NodeWrapper,
-        OutputSideConnection, SocketType,
+        GenerationalNode, Node, NodeIndex, NodeWrapper,
     },
+    connection::{
+        Connection, InputSideConnection, OutputSideConnection, SocketType,
+    }
 };
 
 #[derive(Debug)]

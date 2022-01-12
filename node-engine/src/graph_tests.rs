@@ -4,7 +4,7 @@ use std::ptr::NonNull;
 use serde_json;
 
 use crate::errors::{Error, ErrorType};
-use crate::node::{MidiSocketType, SocketType, StreamSocketType, ValueType};
+use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueType};
 use crate::{graph::Graph, node::Node};
 
 #[derive(Debug)]

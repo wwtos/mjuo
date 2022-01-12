@@ -2,7 +2,8 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use crate::errors::{Error, ErrorType};
-use crate::node::{Node, SocketType, StreamSocketType, ValueType};
+use crate::node::Node;
+use crate::connection::{SocketType, StreamSocketType, ValueType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {}
