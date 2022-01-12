@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
 use std::ptr::NonNull;
 
-use crate::errors::ErrorType;
+use serde_json;
+
+use crate::errors::{Error, ErrorType};
 use crate::node::{MidiSocketType, SocketType, StreamSocketType, ValueType};
 use crate::{graph::Graph, node::Node};
 
@@ -20,8 +22,21 @@ impl Node for TestNode {
     fn list_output_sockets(&self) -> Vec<SocketType> {
         vec![
             SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Value(ValueType::Float),
+            SocketType::Value(ValueType::Gain),
         ]
+    }
+
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 {
+        0_f32
+    }
+
+    fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
+        Ok(serde_json::Value::Null)
+    }
+
+    fn deserialize_from_json(json: serde_json::Value) -> Self where Self: Sized {
+        TestNode {}
     }
 }
 
@@ -75,6 +90,8 @@ fn graph_node_crud() {
     // add another node for good measure to make sure it's growing
     graph.add_node(Box::new(TestNode {}));
     assert_eq!(graph.len(), 2);
+
+    println!("{:?}", graph.serialize());
 }
 
 #[test]
@@ -91,70 +108,116 @@ fn graph_connecting() {
         let from_node_wrapped = graph.get_node(&first_node_index).unwrap().node;
         let from_node = (*from_node_wrapped).borrow();
 
-        assert_eq!(from_node.has_output_socket(&SocketType::Midi(MidiSocketType::Default)), false);
+        assert_eq!(
+            from_node.has_output_socket(&SocketType::Midi(MidiSocketType::Default)),
+            false
+        );
         // drop `from` node borrow
     }
 
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Midi(MidiSocketType::Default),
-        second_node_index,
-        SocketType::Midi(MidiSocketType::Default),
-    ).unwrap_err().error_type, ErrorType::SocketDoesNotExist);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Midi(MidiSocketType::Default),
+                second_node_index,
+                SocketType::Midi(MidiSocketType::Default),
+            )
+            .unwrap_err()
+            .error_type,
+        ErrorType::SocketDoesNotExist
+    );
 
     // ditto with on the to side
     {
         let to_node_wrapped = graph.get_node(&first_node_index).unwrap().node;
         let to_node = (*to_node_wrapped).borrow();
 
-        assert_eq!(to_node.has_input_socket(&SocketType::Stream(StreamSocketType::Dynamic(2))), false);
+        assert_eq!(
+            to_node.has_input_socket(&SocketType::Stream(StreamSocketType::Dynamic(2))),
+            false
+        );
         // drop `to` node borrow
     }
 
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node_index,
-        SocketType::Stream(StreamSocketType::Dynamic(2)),
-    ).unwrap_err().error_type, ErrorType::SocketDoesNotExist);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+                second_node_index,
+                SocketType::Stream(StreamSocketType::Dynamic(2)),
+            )
+            .unwrap_err()
+            .error_type,
+        ErrorType::SocketDoesNotExist
+    );
 
     // make sure we can't connect two different families of types (midi can't connect to audio, etc)
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node_index,
-        SocketType::Midi(MidiSocketType::Default),
-    ).unwrap_err().error_type, ErrorType::IncompatibleSocketTypes);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+                second_node_index,
+                SocketType::Midi(MidiSocketType::Default),
+            )
+            .unwrap_err()
+            .error_type,
+        ErrorType::IncompatibleSocketTypes
+    );
 
     // but we should be able to connect within the same family
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-    ).is_ok(), true);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+                second_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+            )
+            .is_ok(),
+        true
+    );
 
     // but we can't connect twice
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-    ).unwrap_err().error_type, ErrorType::AlreadyConnected);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+                second_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+            )
+            .unwrap_err()
+            .error_type,
+        ErrorType::AlreadyConnected
+    );
 
     // nor can we connect multiple outputs to one input
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Detune),
-        second_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-    ).unwrap_err().error_type, ErrorType::AlreadyConnected);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Detune),
+                second_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+            )
+            .unwrap_err()
+            .error_type,
+        ErrorType::AlreadyConnected
+    );
 
     // but we can connect one output to multiple inputs
-    assert_eq!(graph.connect(
-        first_node_index,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node_index,
-        SocketType::Stream(StreamSocketType::Detune),
-    ).is_ok(), true);
+    assert_eq!(
+        graph
+            .connect(
+                first_node_index,
+                SocketType::Stream(StreamSocketType::Audio),
+                second_node_index,
+                SocketType::Stream(StreamSocketType::Detune),
+            )
+            .is_ok(),
+        true
+    );
 }

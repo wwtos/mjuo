@@ -1,11 +1,17 @@
 use std::fmt::Debug;
 use std::{cell::RefCell, rc::Rc};
 
-use sound_engine::midi::messages::MidiData;
+use serde_json;
+
+use crate::errors::{Error, ErrorType};
 
 pub trait Node: Debug {
     fn list_input_sockets(&self) -> Vec<SocketType>;
     fn list_output_sockets(&self) -> Vec<SocketType>;
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32);
+    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32;
+    fn serialize_to_json(&self) -> Result<serde_json::Value, Error>;
+    fn deserialize_from_json(json: serde_json::Value) -> Self where Self: Sized;
 }
 
 #[derive(Debug)]
@@ -30,12 +36,28 @@ impl NodeWrapper {
         self.index
     }
 
+    pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
+        self.connected_inputs.clone()
+    }
+
+    pub fn list_output_sockets(&self) -> Vec<OutputSideConnection> {
+        self.connected_outputs.clone()
+    }
+
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.node.list_input_sockets().iter().find(|socket| *socket == socket_type).is_some()
+        self.node
+            .list_input_sockets()
+            .iter()
+            .find(|socket| *socket == socket_type)
+            .is_some()
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.node.list_output_sockets().iter().find(|socket| *socket == socket_type).is_some()
+        self.node
+            .list_output_sockets()
+            .iter()
+            .find(|socket| *socket == socket_type)
+            .is_some()
     }
 
     pub fn get_input_connection_by_type(
@@ -66,6 +88,50 @@ impl NodeWrapper {
         }
 
         outputs_filtered
+    }
+
+    pub fn remove_input_socket_connection(
+        &mut self,
+        to_type: &SocketType
+    ) -> Result<(), Error> {
+        let to_remove = self.connected_inputs
+            .iter()
+            .position(|input| input.to_socket_type == *to_type);
+
+        if let Some(to_remove) = to_remove {
+            self.connected_inputs.remove(to_remove);
+
+            Ok(())
+        } else {
+            Err(Error::new("Connection doesn't exist!".to_string(), ErrorType::NotConnected))
+        }
+    }
+
+    pub fn remove_output_socket_connections(
+        &mut self,
+        from_type: &SocketType
+    ) -> Result<(), Error> {
+        let mut found: Vec<usize> = Vec::new();
+
+        for (i, connection) in self.connected_outputs.iter().enumerate() {
+            if connection.from_socket_type == *from_type {
+                found.push(i);
+            }
+        }
+
+        for found_index in found {
+            self.connected_inputs.remove(found_index);
+        }
+
+        if found.is_empty() {
+            Err(Error::new("Connection doesn't exist!".to_string(), ErrorType::NotConnected))
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
+        self.node.serialize_to_json()
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
@@ -138,10 +204,7 @@ pub enum StreamSocketType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum ValueType {
-    Float,
-    Int,
-    Boolean,
-    String,
+    Gain,
 }
 
 #[derive(Debug, PartialEq, Clone)]

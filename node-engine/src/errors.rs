@@ -16,8 +16,10 @@ impl Error {
 #[derive(Debug, PartialEq)]
 pub enum ErrorType {
     AlreadyConnected,
+    NotConnected,
     NodeDoesNotExist,
     IndexOutOfBounds,
     SocketDoesNotExist,
-    IncompatibleSocketTypes
+    IncompatibleSocketTypes,
+    ParserError
 }

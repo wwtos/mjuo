@@ -143,10 +143,7 @@ impl Graph {
         // make sure `from_type` exists in `from's` outputs
         if !from.has_output_socket(&from_type) {
             return Err(Error::new(
-                format!(
-                    "From node does not have socket type {:?}",
-                    from_type
-                ),
+                format!("From node does not have socket type {:?}", from_type),
                 ErrorType::SocketDoesNotExist,
             ));
         }
@@ -154,10 +151,7 @@ impl Graph {
         // make sure `to_type` exists in `to's` inputs
         if !to.has_input_socket(&to_type) {
             return Err(Error::new(
-                format!(
-                    "To node does not have socket type {:?}",
-                    to_type
-                ),
+                format!("To node does not have socket type {:?}", to_type),
                 ErrorType::SocketDoesNotExist,
             ));
         }
@@ -165,10 +159,7 @@ impl Graph {
         // make sure the types are of the same family (midi can't connect to stream, etc)
         if mem::discriminant(&from_type) != mem::discriminant(&to_type) {
             return Err(Error::new(
-                format!(
-                    "{:?} and {:?} sockets are incompatible",
-                    to_type, from_type
-                ),
+                format!("{:?} and {:?} sockets are incompatible", to_type, from_type),
                 ErrorType::IncompatibleSocketTypes,
             ));
         }
@@ -258,6 +249,51 @@ impl Graph {
 
     pub fn len(&self) -> usize {
         self.nodes.len()
+    }
+}
+
+impl Graph {
+    pub fn serialize(&self) -> Result<serde_json::Value, Error> {
+        // serialize all of the graph nodes, as it currently stands
+        let nodes = serde_json::Value::Array(
+            self.nodes.iter().map(|node| {
+                if let PossibleNode::Some(node) = node {
+                    let node = &node.node;
+                    let node = (*node).borrow();
+
+                    match node.serialize_to_json() {
+                        Ok(json) => json,
+                        Err(_) => serde_json::Value::Null
+                    }
+                } else {
+                    serde_json::Value::Null
+                }
+            }).collect::<Vec<serde_json::Value>>()
+        );
+
+        let connections: Vec<Connection> = Vec::new();
+
+        // make a list of connections based on the input node, as that can't be connected to multiple things
+        for node in self.nodes {
+            if let PossibleNode::Some(some_node) = node {
+                let node = &some_node.node;
+                let node = (*node).borrow();
+
+                let input_sockets = node.list_input_sockets();
+
+                for socket in input_sockets {
+                    // try to resolve the connection
+
+                    connections.push(Connection {
+                        from_socket_type: socket.from_socket_type,
+                        from_node: socket.from_node,
+                        to_socket_type: socket.to_socket_type,
+                        to_node: node.get_index()
+                    });
+                }
+                
+            }
+        };
     }
 }
 
