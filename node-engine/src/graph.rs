@@ -5,13 +5,9 @@ use std::rc::Rc;
 use serde_json::json;
 
 use crate::{
+    connection::{Connection, InputSideConnection, OutputSideConnection, SocketType},
     errors::{Error, ErrorType},
-    node::{
-        GenerationalNode, Node, NodeIndex, NodeWrapper,
-    },
-    connection::{
-        Connection, InputSideConnection, OutputSideConnection, SocketType,
-    }
+    node::{GenerationalNode, Node, NodeIndex, NodeWrapper},
 };
 
 #[derive(Debug)]
@@ -253,7 +249,7 @@ impl Graph {
                             &input_socket.from_socket_type,
                             &node.get_index(),
                             &input_socket.to_socket_type,
-                        );
+                        )?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }
@@ -266,7 +262,7 @@ impl Graph {
                         let to_node = to_node.node;
                         let mut to_node = (*to_node).borrow_mut();
 
-                        to_node.remove_input_socket_connection(&output_socket.to_socket_type);
+                        to_node.remove_input_socket_connection(&output_socket.to_socket_type)?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }

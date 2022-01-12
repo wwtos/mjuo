@@ -1,13 +1,16 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::connection::{SocketType, StreamSocketType, InputSideConnection, OutputSideConnection};
+use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
 
 use crate::errors::{Error, ErrorType};
+use crate::property::PropertyType;
 
 pub trait Node: Debug {
     fn list_input_sockets(&self) -> Vec<SocketType>;
     fn list_output_sockets(&self) -> Vec<SocketType>;
+    fn list_properties(&self) -> HashMap<String, PropertyType>;
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32);
     fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32;
     fn serialize_to_json(&self) -> Result<serde_json::Value, Error>;

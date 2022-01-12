@@ -1,9 +1,12 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use serde_json;
 
+use crate::connection::{SocketType, StreamSocketType, ValueType};
 use crate::errors::{Error, ErrorType};
 use crate::node::Node;
-use crate::connection::{SocketType, StreamSocketType, ValueType};
+use crate::property::PropertyType;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {}
@@ -18,6 +21,10 @@ impl Node for GainGraphNode {
 
     fn list_output_sockets(&self) -> Vec<SocketType> {
         vec![SocketType::Stream(StreamSocketType::Audio)]
+    }
+
+    fn list_properties(&self) -> HashMap<String, PropertyType> {
+        HashMap::new()
     }
 
     fn accept_stream_input(&mut self, _socket_type: StreamSocketType, _value: f32) {}

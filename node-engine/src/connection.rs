@@ -1,8 +1,8 @@
-use serde_json::json;
 use serde::Serialize;
+use serde_json::json;
 
-use crate::node::NodeIndex;
 use crate::errors::{Error, ErrorType};
+use crate::node::NodeIndex;
 
 #[derive(Debug, Clone)]
 pub struct Connection {
