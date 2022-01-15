@@ -518,7 +518,7 @@ var app = (function () {
     		c: function create() {
     			polygon = svg_element("polygon");
     			attr_dev(polygon, "points", polygon_points_value = "" + (/*x*/ ctx[0] - RADIUS + "," + (/*y*/ ctx[1] + RADIUS) + " " + /*x*/ ctx[0] + "," + (/*y*/ ctx[1] - RADIUS) + " " + (/*x*/ ctx[0] + RADIUS) + "," + (/*y*/ ctx[1] + RADIUS)));
-    			attr_dev(polygon, "class", "value svelte-xlf0jd");
+    			attr_dev(polygon, "class", "value svelte-lvf6t1");
     			add_location(polygon, file$4, 15, 4, 383);
     		},
     		m: function mount(target, anchor) {
@@ -558,7 +558,7 @@ var app = (function () {
     			attr_dev(rect, "y", rect_y_value = /*y*/ ctx[1] - RADIUS);
     			attr_dev(rect, "width", RADIUS * 2);
     			attr_dev(rect, "height", RADIUS * 2);
-    			attr_dev(rect, "class", "midi svelte-xlf0jd");
+    			attr_dev(rect, "class", "midi svelte-lvf6t1");
     			add_location(rect, file$4, 13, 4, 259);
     		},
     		m: function mount(target, anchor) {
@@ -599,7 +599,7 @@ var app = (function () {
     			attr_dev(circle, "cx", /*x*/ ctx[0]);
     			attr_dev(circle, "cy", /*y*/ ctx[1]);
     			attr_dev(circle, "r", RADIUS);
-    			attr_dev(circle, "class", "socket svelte-xlf0jd");
+    			attr_dev(circle, "class", "socket svelte-lvf6t1");
     			add_location(circle, file$4, 11, 4, 176);
     		},
     		m: function mount(target, anchor) {
@@ -768,15 +768,15 @@ var app = (function () {
 
     function get_each_context(ctx, list, i) {
     	const child_ctx = ctx.slice();
-    	child_ctx[12] = list[i];
-    	child_ctx[14] = i;
+    	child_ctx[13] = list[i];
+    	child_ctx[15] = i;
     	return child_ctx;
     }
 
-    // (63:4) {:else}
+    // (67:4) {:else}
     function create_else_block(ctx) {
     	let text_1;
-    	let t_value = /*property*/ ctx[12][0] + "";
+    	let t_value = /*property*/ ctx[13][0] + "";
     	let t;
     	let text_1_x_value;
     	let text_1_y_value;
@@ -788,8 +788,8 @@ var app = (function () {
     	socket = new Socket({
     			props: {
     				x: /*width*/ ctx[4],
-    				y: SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14],
-    				type: /*property*/ ctx[12][1].type
+    				y: SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15],
+    				type: /*property*/ ctx[13][1].type
     			},
     			$$inline: true
     		});
@@ -800,9 +800,9 @@ var app = (function () {
     			t = text(t_value);
     			create_component(socket.$$.fragment);
     			attr_dev(text_1, "x", text_1_x_value = /*width*/ ctx[4] - TEXT_PADDING);
-    			attr_dev(text_1, "y", text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14]);
-    			attr_dev(text_1, "class", "right-align svelte-5ten3m");
-    			add_location(text_1, file$3, 63, 8, 1864);
+    			attr_dev(text_1, "y", text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15]);
+    			attr_dev(text_1, "class", "right-align svelte-1wut7au");
+    			add_location(text_1, file$3, 67, 8, 1940);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, text_1, anchor);
@@ -820,20 +820,20 @@ var app = (function () {
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if ((!current || dirty & /*properties*/ 8) && t_value !== (t_value = /*property*/ ctx[12][0] + "")) set_data_dev(t, t_value);
+    			if ((!current || dirty & /*properties*/ 8) && t_value !== (t_value = /*property*/ ctx[13][0] + "")) set_data_dev(t, t_value);
 
     			if (!current || dirty & /*width*/ 16 && text_1_x_value !== (text_1_x_value = /*width*/ ctx[4] - TEXT_PADDING)) {
     				attr_dev(text_1, "x", text_1_x_value);
     			}
 
-    			if (!current || dirty & /*properties*/ 8 && text_1_y_value !== (text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14])) {
+    			if (!current || dirty & /*properties*/ 8 && text_1_y_value !== (text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15])) {
     				attr_dev(text_1, "y", text_1_y_value);
     			}
 
     			const socket_changes = {};
     			if (dirty & /*width*/ 16) socket_changes.x = /*width*/ ctx[4];
-    			if (dirty & /*properties*/ 8) socket_changes.y = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14];
-    			if (dirty & /*properties*/ 8) socket_changes.type = /*property*/ ctx[12][1].type;
+    			if (dirty & /*properties*/ 8) socket_changes.y = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15];
+    			if (dirty & /*properties*/ 8) socket_changes.type = /*property*/ ctx[13][1].type;
     			socket.$set(socket_changes);
     		},
     		i: function intro(local) {
@@ -857,17 +857,17 @@ var app = (function () {
     		block,
     		id: create_else_block.name,
     		type: "else",
-    		source: "(63:4) {:else}",
+    		source: "(67:4) {:else}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (60:4) {#if property[2] === "INPUT"}
+    // (64:4) {#if property[2] === "INPUT"}
     function create_if_block(ctx) {
     	let text_1;
-    	let t_value = /*property*/ ctx[12][0] + "";
+    	let t_value = /*property*/ ctx[13][0] + "";
     	let t;
     	let text_1_y_value;
     	let socket;
@@ -878,8 +878,8 @@ var app = (function () {
     	socket = new Socket({
     			props: {
     				x: "0",
-    				y: SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14],
-    				type: /*property*/ ctx[12][1].type
+    				y: SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15],
+    				type: /*property*/ ctx[13][1].type
     			},
     			$$inline: true
     		});
@@ -890,9 +890,9 @@ var app = (function () {
     			t = text(t_value);
     			create_component(socket.$$.fragment);
     			attr_dev(text_1, "x", TEXT_PADDING);
-    			attr_dev(text_1, "y", text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14]);
-    			attr_dev(text_1, "class", "svelte-5ten3m");
-    			add_location(text_1, file$3, 60, 8, 1602);
+    			attr_dev(text_1, "y", text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15]);
+    			attr_dev(text_1, "class", "svelte-1wut7au");
+    			add_location(text_1, file$3, 64, 8, 1678);
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, text_1, anchor);
@@ -910,15 +910,15 @@ var app = (function () {
     			}
     		},
     		p: function update(ctx, dirty) {
-    			if ((!current || dirty & /*properties*/ 8) && t_value !== (t_value = /*property*/ ctx[12][0] + "")) set_data_dev(t, t_value);
+    			if ((!current || dirty & /*properties*/ 8) && t_value !== (t_value = /*property*/ ctx[13][0] + "")) set_data_dev(t, t_value);
 
-    			if (!current || dirty & /*properties*/ 8 && text_1_y_value !== (text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14])) {
+    			if (!current || dirty & /*properties*/ 8 && text_1_y_value !== (text_1_y_value = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15])) {
     				attr_dev(text_1, "y", text_1_y_value);
     			}
 
     			const socket_changes = {};
-    			if (dirty & /*properties*/ 8) socket_changes.y = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[14];
-    			if (dirty & /*properties*/ 8) socket_changes.type = /*property*/ ctx[12][1].type;
+    			if (dirty & /*properties*/ 8) socket_changes.y = SOCKET_LIST_START + /*SOCKET_VERTICAL_SPACING*/ ctx[6] * /*i*/ ctx[15];
+    			if (dirty & /*properties*/ 8) socket_changes.type = /*property*/ ctx[13][1].type;
     			socket.$set(socket_changes);
     		},
     		i: function intro(local) {
@@ -942,14 +942,14 @@ var app = (function () {
     		block,
     		id: create_if_block.name,
     		type: "if",
-    		source: "(60:4) {#if property[2] === \\\"INPUT\\\"}",
+    		source: "(64:4) {#if property[2] === \\\"INPUT\\\"}",
     		ctx
     	});
 
     	return block;
     }
 
-    // (59:0) {#each properties as property, i (property[0])}
+    // (63:0) {#each properties as property, i (property[0])}
     function create_each_block(key_1, ctx) {
     	let first;
     	let current_block_type_index;
@@ -960,7 +960,7 @@ var app = (function () {
     	const if_blocks = [];
 
     	function select_block_type(ctx, dirty) {
-    		if (/*property*/ ctx[12][2] === "INPUT") return 0;
+    		if (/*property*/ ctx[13][2] === "INPUT") return 0;
     		return 1;
     	}
 
@@ -1030,7 +1030,7 @@ var app = (function () {
     		block,
     		id: create_each_block.name,
     		type: "each",
-    		source: "(59:0) {#each properties as property, i (property[0])}",
+    		source: "(63:0) {#each properties as property, i (property[0])}",
     		ctx
     	});
 
@@ -1050,7 +1050,7 @@ var app = (function () {
     	let dispose;
     	let each_value = /*properties*/ ctx[3];
     	validate_each_argument(each_value);
-    	const get_key = ctx => /*property*/ ctx[12][0];
+    	const get_key = ctx => /*property*/ ctx[13][0];
     	validate_each_keys(ctx, each_value, get_each_context, get_key);
 
     	for (let i = 0; i < each_value.length; i += 1) {
@@ -1073,14 +1073,14 @@ var app = (function () {
     			attr_dev(rect, "width", /*width*/ ctx[4]);
     			attr_dev(rect, "height", /*computedHeight*/ ctx[7]);
     			attr_dev(rect, "rx", ROUNDNESS);
-    			attr_dev(rect, "class", "background svelte-5ten3m");
-    			add_location(rect, file$3, 55, 0, 1271);
+    			attr_dev(rect, "class", "background svelte-1wut7au");
+    			add_location(rect, file$3, 59, 0, 1347);
     			attr_dev(text_1, "x", PADDING);
     			attr_dev(text_1, "y", /*PADDING_TOP*/ ctx[5]);
-    			attr_dev(text_1, "class", "title svelte-5ten3m");
-    			add_location(text_1, file$3, 56, 0, 1403);
+    			attr_dev(text_1, "class", "title svelte-1wut7au");
+    			add_location(text_1, file$3, 60, 0, 1479);
     			attr_dev(g, "transform", g_transform_value = "translate(" + /*x*/ ctx[0] + ", " + /*y*/ ctx[1] + ")");
-    			add_location(g, file$3, 54, 0, 1235);
+    			add_location(g, file$3, 58, 0, 1311);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -1206,9 +1206,11 @@ var app = (function () {
     	let { mouseStore } = $$props;
     	let computedHeight = SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * (properties.length - 1) + TEXT_SIZE + PADDING;
     	let dragging = false;
+    	let dragAnchor = [0, 0];
 
     	function clicked() {
     		dragging = true;
+    		dragAnchor = [];
     	}
 
     	function released() {
@@ -1255,6 +1257,7 @@ var app = (function () {
     		mouseStore,
     		computedHeight,
     		dragging,
+    		dragAnchor,
     		clicked,
     		released
     	});
@@ -1268,6 +1271,7 @@ var app = (function () {
     		if ('mouseStore' in $$props) $$invalidate(10, mouseStore = $$props.mouseStore);
     		if ('computedHeight' in $$props) $$invalidate(7, computedHeight = $$props.computedHeight);
     		if ('dragging' in $$props) dragging = $$props.dragging;
+    		if ('dragAnchor' in $$props) dragAnchor = $$props.dragAnchor;
     	};
 
     	if ($$props && "$$inject" in $$props) {
@@ -1600,11 +1604,11 @@ var app = (function () {
     			ul = element("ul");
     			li = element("li");
     			li.textContent = "Editor";
-    			attr_dev(li, "class", "svelte-1mvdgk");
+    			attr_dev(li, "class", "svelte-61x2lk");
     			add_location(li, file$1, 6, 8, 44);
-    			attr_dev(ul, "class", "svelte-1mvdgk");
+    			attr_dev(ul, "class", "svelte-61x2lk");
     			add_location(ul, file$1, 5, 4, 31);
-    			attr_dev(nav, "class", "svelte-1mvdgk");
+    			attr_dev(nav, "class", "svelte-61x2lk");
     			add_location(nav, file$1, 4, 0, 21);
     		},
     		l: function claim(nodes) {
@@ -1681,9 +1685,9 @@ var app = (function () {
     			t = space();
     			create_component(editor.$$.fragment);
     			attr_dev(div, "id", "main-flex");
-    			attr_dev(div, "class", "svelte-yj4agv");
-    			add_location(div, file, 8, 1, 157);
-    			add_location(main, file, 7, 0, 149);
+    			attr_dev(div, "class", "svelte-13391jn");
+    			add_location(div, file, 6, 1, 162);
+    			add_location(main, file, 5, 0, 154);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -1782,11 +1786,11 @@ var app = (function () {
     	}
     }
 
-    const app = new App({
-    	target: document.body,
-    	props: {
-    		name: 'World'
-    	}
+    var app = new App({
+        target: document.body,
+        props: {
+            name: 'World'
+        }
     });
 
     return app;

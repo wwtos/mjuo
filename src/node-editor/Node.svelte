@@ -35,9 +35,13 @@
     let computedHeight = SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * (properties.length - 1) + TEXT_SIZE + PADDING;
 
     let dragging = false;
+    let dragAnchor = [0, 0];
 
     function clicked () {
         dragging = true;
+        dragAnchor = [
+            
+        ];
     }
 
     function released () {
