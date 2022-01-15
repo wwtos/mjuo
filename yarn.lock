@@ -511,6 +511,14 @@
   dependencies:
     "@types/node" "*"
 
+"@types/rollup-plugin-css-only@^3.1.0":
+  "integrity" "sha512-2/CYJ3xDTVtS9DBDXhj0jjxF3idO1yUjJWjFzqA3JlK8NqSlUHeMKv3FH/VILLrnvdZRY+901TlDPnKa4WhFYA=="
+  "resolved" "https://registry.npmjs.org/@types/rollup-plugin-css-only/-/rollup-plugin-css-only-3.1.0.tgz"
+  "version" "3.1.0"
+  dependencies:
+    "@types/node" "*"
+    "rollup" "^0.63.4"
+
 "@types/sass@^1.16.0":
   "integrity" "sha512-BPdoIt1lfJ6B7rw35ncdwBZrAssjcwzI5LByIrYs+tpXlj/CAkuVdRsgZDdP4lq5EjyWzwxZCqAoFyHKFwp32g=="
   "resolved" "https://registry.npmjs.org/@types/sass/-/sass-1.43.1.tgz"
@@ -3696,6 +3704,14 @@
   "version" "2.8.2"
   dependencies:
     "estree-walker" "^0.6.1"
+
+"rollup@^0.63.4":
+  "integrity" "sha512-dFf8LpUNzIj3oE0vCvobX6rqOzHzLBoblyFp+3znPbjiSmSvOoK2kMKx+Fv9jYduG1rvcCfCveSgEaQHjWRF6g=="
+  "resolved" "https://registry.npmjs.org/rollup/-/rollup-0.63.5.tgz"
+  "version" "0.63.5"
+  dependencies:
+    "@types/estree" "0.0.39"
+    "@types/node" "*"
 
 "rollup@^1.20.0||^2.0.0", "rollup@^2.0.0", "rollup@^2.14.0", "rollup@^2.3.4", "rollup@^2.30.0", "rollup@>=2.0.0", "rollup@1 || 2":
   "integrity" "sha512-nps0idjmD+NXl6OREfyYXMn/dar3WGcyKn+KBzPdaLecub3x/LrId0wUcthcr8oZUAcZAR8NKcfGGFlNgGL1kQ=="
