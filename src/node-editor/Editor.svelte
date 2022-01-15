@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import Node from "./Node.svelte";
     import { windowDimensions } from "../util/window-size";
     import { onMount } from 'svelte';

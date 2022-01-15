@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
 	import Editor from './node-editor/Editor.svelte';
 	import SideNavbar from './node-editor/SideNavbar.svelte';
 
-	export let name;
+	export let name: string;
 </script>
 
 <main>
