@@ -1,6 +1,5 @@
 <script lang="ts">
     import Node from "./Node.svelte";
-    import { windowDimensions } from "../util/window-size";
     import { onMount } from 'svelte';
     import { writable } from 'svelte/store';
 
@@ -10,14 +9,27 @@
     $: changeDimensions(width, height);
     
 
-    let editor;
+    let editor: SVGElement;
     let mouseMoveStore = writable([0, 0]);
+    let viewportStore = writable({
+        left: 48,
+        top: 0,
+        width,
+        height
+    });
 
-    function changeDimensions(width, height) {
+    function changeDimensions(width: number, height: number) {
         if (editor && width && height) {
             editor.setAttribute("viewBox", `0 0 ${width} ${height}`);
             editor.style.width = width + "px";
             editor.style.height = height + "px";
+
+            viewportStore.set({
+                left: 48,
+                top: 0,
+                width,
+                height
+            });
         }
     }
 
@@ -36,7 +48,7 @@
 </script>
 
 <svg bind:this={editor} viewBox="0 0 220 100">
-    <Node mouseStore={mouseMoveStore} />
+    <Node mouseStore={mouseMoveStore} viewportStore={viewportStore} />
 </svg>
 
 <style>
