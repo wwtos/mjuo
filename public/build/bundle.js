@@ -4,6 +4,12 @@ var app = (function () {
     'use strict';
 
     function noop() { }
+    function assign(tar, src) {
+        // @ts-ignore
+        for (const k in src)
+            tar[k] = src[k];
+        return tar;
+    }
     function add_location(element, file, line, column, char) {
         element.__svelte_meta = {
             loc: { file, line, column, char }
@@ -26,6 +32,52 @@ var app = (function () {
     }
     function is_empty(obj) {
         return Object.keys(obj).length === 0;
+    }
+    function create_slot(definition, ctx, $$scope, fn) {
+        if (definition) {
+            const slot_ctx = get_slot_context(definition, ctx, $$scope, fn);
+            return definition[0](slot_ctx);
+        }
+    }
+    function get_slot_context(definition, ctx, $$scope, fn) {
+        return definition[1] && fn
+            ? assign($$scope.ctx.slice(), definition[1](fn(ctx)))
+            : $$scope.ctx;
+    }
+    function get_slot_changes(definition, $$scope, dirty, fn) {
+        if (definition[2] && fn) {
+            const lets = definition[2](fn(dirty));
+            if ($$scope.dirty === undefined) {
+                return lets;
+            }
+            if (typeof lets === 'object') {
+                const merged = [];
+                const len = Math.max($$scope.dirty.length, lets.length);
+                for (let i = 0; i < len; i += 1) {
+                    merged[i] = $$scope.dirty[i] | lets[i];
+                }
+                return merged;
+            }
+            return $$scope.dirty | lets;
+        }
+        return $$scope.dirty;
+    }
+    function update_slot_base(slot, slot_definition, ctx, $$scope, slot_changes, get_slot_context_fn) {
+        if (slot_changes) {
+            const slot_context = get_slot_context(slot_definition, ctx, $$scope, get_slot_context_fn);
+            slot.p(slot_context, slot_changes);
+        }
+    }
+    function get_all_dirty_from_scope($$scope) {
+        if ($$scope.ctx.length > 32) {
+            const dirty = [];
+            const length = $$scope.ctx.length / 32;
+            for (let i = 0; i < length; i++) {
+                dirty[i] = -1;
+            }
+            return dirty;
+        }
+        return -1;
     }
     function append(target, node) {
         target.appendChild(node);
@@ -63,6 +115,12 @@ var app = (function () {
     }
     function children(element) {
         return Array.from(element.childNodes);
+    }
+    function set_style(node, key, value, important) {
+        node.style.setProperty(key, value, important ? 'important' : '');
+    }
+    function toggle_class(element, name, toggle) {
+        element.classList[toggle ? 'add' : 'remove'](name);
     }
     function custom_event(type, detail, bubbles = false) {
         const e = document.createEvent('CustomEvent');
@@ -590,7 +648,7 @@ var app = (function () {
     }
 
     // (11:0) {#if type === "Stream"}
-    function create_if_block$1(ctx) {
+    function create_if_block$2(ctx) {
     	let circle;
 
     	const block = {
@@ -621,7 +679,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block$1.name,
+    		id: create_if_block$2.name,
     		type: "if",
     		source: "(11:0) {#if type === \\\"Stream\\\"}",
     		ctx
@@ -634,7 +692,7 @@ var app = (function () {
     	let if_block_anchor;
 
     	function select_block_type(ctx, dirty) {
-    		if (/*type*/ ctx[2] === "Stream") return create_if_block$1;
+    		if (/*type*/ ctx[2] === "Stream") return create_if_block$2;
     		if (/*type*/ ctx[2] === "Midi") return create_if_block_1;
     		if (/*type*/ ctx[2] === "Value") return create_if_block_2;
     	}
@@ -875,7 +933,7 @@ var app = (function () {
     }
 
     // (73:4) {#if property[2] === "INPUT"}
-    function create_if_block(ctx) {
+    function create_if_block$1(ctx) {
     	let text_1;
     	let t_value = /*property*/ ctx[15][0] + "";
     	let t;
@@ -946,7 +1004,7 @@ var app = (function () {
 
     	dispatch_dev("SvelteRegisterBlock", {
     		block,
-    		id: create_if_block.name,
+    		id: create_if_block$1.name,
     		type: "if",
     		source: "(73:4) {#if property[2] === \\\"INPUT\\\"}",
     		ctx
@@ -962,7 +1020,7 @@ var app = (function () {
     	let if_block;
     	let if_block_anchor;
     	let current;
-    	const if_block_creators = [create_if_block, create_else_block];
+    	const if_block_creators = [create_if_block$1, create_else_block];
     	const if_blocks = [];
 
     	function select_block_type(ctx, dirty) {
@@ -1471,7 +1529,8 @@ var app = (function () {
     			svg = svg_element("svg");
     			create_component(node.$$.fragment);
     			attr_dev(svg, "viewBox", "0 0 220 100");
-    			add_location(svg, file$2, 38, 0, 1070);
+    			attr_dev(svg, "class", "svelte-1orbn9j");
+    			add_location(svg, file$2, 41, 0, 1296);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -1519,12 +1578,21 @@ var app = (function () {
     	let mouseMoveStore = writable([0, 0]);
     	let viewportStore = writable({ left: 48, top: 0, width, height });
 
+    	// whenever the editor is given a new size, perform the appropriate calculations
+    	// to readjust the various sub components and variables
     	function changeDimensions(width, height) {
     		if (editor && width && height) {
     			editor.setAttribute("viewBox", `0 0 ${width} ${height}`);
     			$$invalidate(0, editor.style.width = width + "px", editor);
     			$$invalidate(0, editor.style.height = height + "px", editor);
-    			viewportStore.set({ left: 48, top: 0, width, height });
+    			let boundingRect = editor.getBoundingClientRect();
+
+    			viewportStore.set({
+    				left: boundingRect.left,
+    				top: boundingRect.top,
+    				width,
+    				height
+    			});
     		}
     	}
 
@@ -1620,41 +1688,227 @@ var app = (function () {
     	}
     }
 
-    /* src/node-editor/SideNavbar.svelte generated by Svelte v3.44.3 */
+    var SplitDirection;
+    (function (SplitDirection) {
+        SplitDirection[SplitDirection["VERTICAL"] = 0] = "VERTICAL";
+        SplitDirection[SplitDirection["HORIZONTAL"] = 1] = "HORIZONTAL";
+    })(SplitDirection || (SplitDirection = {}));
 
-    const file$1 = "src/node-editor/SideNavbar.svelte";
+    /* src/layout/SplitView.svelte generated by Svelte v3.44.3 */
+    const file$1 = "src/layout/SplitView.svelte";
 
-    function create_fragment$1(ctx) {
-    	let nav;
-    	let ul;
-    	let li;
+    const get_second_slot_changes = dirty => ({
+    	secondWidth: dirty & /*width, firstWidth*/ 10,
+    	secondHeight: dirty & /*height*/ 4
+    });
+
+    const get_second_slot_context = ctx => ({
+    	secondWidth: /*width*/ ctx[1] - /*firstWidth*/ ctx[3],
+    	secondHeight: /*height*/ ctx[2]
+    });
+
+    const get_first_slot_changes = dirty => ({
+    	firstWidth: dirty & /*firstWidth*/ 8,
+    	firstHeight: dirty & /*height*/ 4
+    });
+
+    const get_first_slot_context = ctx => ({
+    	firstWidth: /*firstWidth*/ ctx[3],
+    	firstHeight: /*height*/ ctx[2]
+    });
+
+    // (38:0) {#if direction === SplitDirection.VERTICAL}
+    function create_if_block(ctx) {
+    	let div1;
+    	let t0;
+    	let t1;
+    	let div0;
+    	let current;
+    	let mounted;
+    	let dispose;
+    	const first_slot_template = /*#slots*/ ctx[8].first;
+    	const first_slot = create_slot(first_slot_template, ctx, /*$$scope*/ ctx[7], get_first_slot_context);
+    	const second_slot_template = /*#slots*/ ctx[8].second;
+    	const second_slot = create_slot(second_slot_template, ctx, /*$$scope*/ ctx[7], get_second_slot_context);
 
     	const block = {
     		c: function create() {
-    			nav = element("nav");
-    			ul = element("ul");
-    			li = element("li");
-    			li.textContent = "Editor";
-    			attr_dev(li, "class", "svelte-61x2lk");
-    			add_location(li, file$1, 6, 8, 44);
-    			attr_dev(ul, "class", "svelte-61x2lk");
-    			add_location(ul, file$1, 5, 4, 31);
-    			attr_dev(nav, "class", "svelte-61x2lk");
-    			add_location(nav, file$1, 4, 0, 21);
+    			div1 = element("div");
+    			if (first_slot) first_slot.c();
+    			t0 = space();
+    			if (second_slot) second_slot.c();
+    			t1 = space();
+    			div0 = element("div");
+    			attr_dev(div0, "class", "divider divider-vertical svelte-8rcjke");
+    			set_style(div0, "left", /*firstWidth*/ ctx[3] - 2 + "px");
+    			set_style(div0, "height", /*height*/ ctx[2] + "px");
+    			toggle_class(div0, "dragging", /*currentlyResizingDivider*/ ctx[5]);
+    			add_location(div0, file$1, 41, 4, 1417);
+    			attr_dev(div1, "class", "container vertical-split svelte-8rcjke");
+    			set_style(div1, "width", /*width*/ ctx[1] + "px");
+    			set_style(div1, "height", /*height*/ ctx[2] + "px");
+    			add_location(div1, file$1, 38, 0, 1144);
+    		},
+    		m: function mount(target, anchor) {
+    			insert_dev(target, div1, anchor);
+
+    			if (first_slot) {
+    				first_slot.m(div1, null);
+    			}
+
+    			append_dev(div1, t0);
+
+    			if (second_slot) {
+    				second_slot.m(div1, null);
+    			}
+
+    			append_dev(div1, t1);
+    			append_dev(div1, div0);
+    			/*div1_binding*/ ctx[9](div1);
+    			current = true;
+
+    			if (!mounted) {
+    				dispose = listen_dev(div0, "mousedown", /*dividerMousedown*/ ctx[6], false, false, false);
+    				mounted = true;
+    			}
+    		},
+    		p: function update(ctx, dirty) {
+    			if (first_slot) {
+    				if (first_slot.p && (!current || dirty & /*$$scope, firstWidth, height*/ 140)) {
+    					update_slot_base(
+    						first_slot,
+    						first_slot_template,
+    						ctx,
+    						/*$$scope*/ ctx[7],
+    						!current
+    						? get_all_dirty_from_scope(/*$$scope*/ ctx[7])
+    						: get_slot_changes(first_slot_template, /*$$scope*/ ctx[7], dirty, get_first_slot_changes),
+    						get_first_slot_context
+    					);
+    				}
+    			}
+
+    			if (second_slot) {
+    				if (second_slot.p && (!current || dirty & /*$$scope, width, firstWidth, height*/ 142)) {
+    					update_slot_base(
+    						second_slot,
+    						second_slot_template,
+    						ctx,
+    						/*$$scope*/ ctx[7],
+    						!current
+    						? get_all_dirty_from_scope(/*$$scope*/ ctx[7])
+    						: get_slot_changes(second_slot_template, /*$$scope*/ ctx[7], dirty, get_second_slot_changes),
+    						get_second_slot_context
+    					);
+    				}
+    			}
+
+    			if (!current || dirty & /*firstWidth*/ 8) {
+    				set_style(div0, "left", /*firstWidth*/ ctx[3] - 2 + "px");
+    			}
+
+    			if (!current || dirty & /*height*/ 4) {
+    				set_style(div0, "height", /*height*/ ctx[2] + "px");
+    			}
+
+    			if (dirty & /*currentlyResizingDivider*/ 32) {
+    				toggle_class(div0, "dragging", /*currentlyResizingDivider*/ ctx[5]);
+    			}
+
+    			if (!current || dirty & /*width*/ 2) {
+    				set_style(div1, "width", /*width*/ ctx[1] + "px");
+    			}
+
+    			if (!current || dirty & /*height*/ 4) {
+    				set_style(div1, "height", /*height*/ ctx[2] + "px");
+    			}
+    		},
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(first_slot, local);
+    			transition_in(second_slot, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(first_slot, local);
+    			transition_out(second_slot, local);
+    			current = false;
+    		},
+    		d: function destroy(detaching) {
+    			if (detaching) detach_dev(div1);
+    			if (first_slot) first_slot.d(detaching);
+    			if (second_slot) second_slot.d(detaching);
+    			/*div1_binding*/ ctx[9](null);
+    			mounted = false;
+    			dispose();
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_if_block.name,
+    		type: "if",
+    		source: "(38:0) {#if direction === SplitDirection.VERTICAL}",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function create_fragment$1(ctx) {
+    	let if_block_anchor;
+    	let current;
+    	let if_block = /*direction*/ ctx[0] === SplitDirection.VERTICAL && create_if_block(ctx);
+
+    	const block = {
+    		c: function create() {
+    			if (if_block) if_block.c();
+    			if_block_anchor = empty();
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
-    			insert_dev(target, nav, anchor);
-    			append_dev(nav, ul);
-    			append_dev(ul, li);
+    			if (if_block) if_block.m(target, anchor);
+    			insert_dev(target, if_block_anchor, anchor);
+    			current = true;
     		},
-    		p: noop,
-    		i: noop,
-    		o: noop,
+    		p: function update(ctx, [dirty]) {
+    			if (/*direction*/ ctx[0] === SplitDirection.VERTICAL) {
+    				if (if_block) {
+    					if_block.p(ctx, dirty);
+
+    					if (dirty & /*direction*/ 1) {
+    						transition_in(if_block, 1);
+    					}
+    				} else {
+    					if_block = create_if_block(ctx);
+    					if_block.c();
+    					transition_in(if_block, 1);
+    					if_block.m(if_block_anchor.parentNode, if_block_anchor);
+    				}
+    			} else if (if_block) {
+    				group_outros();
+
+    				transition_out(if_block, 1, 1, () => {
+    					if_block = null;
+    				});
+
+    				check_outros();
+    			}
+    		},
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(if_block);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(if_block);
+    			current = false;
+    		},
     		d: function destroy(detaching) {
-    			if (detaching) detach_dev(nav);
+    			if (if_block) if_block.d(detaching);
+    			if (detaching) detach_dev(if_block_anchor);
     		}
     	};
 
@@ -1669,84 +1923,353 @@ var app = (function () {
     	return block;
     }
 
-    function instance$1($$self, $$props) {
+    function instance$1($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
-    	validate_slots('SideNavbar', slots, []);
-    	const writable_props = [];
+    	validate_slots('SplitView', slots, ['first','second']);
+    	let { direction } = $$props;
+    	let { width } = $$props;
+    	let { height } = $$props;
+    	let firstWidth, firstHeight;
+    	let container;
+    	let currentlyResizingDivider = false;
 
-    	Object.keys($$props).forEach(key => {
-    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<SideNavbar> was created with unknown prop '${key}'`);
+    	function dividerMousedown(e) {
+    		$$invalidate(5, currentlyResizingDivider = true);
+    	}
+
+    	switch (direction) {
+    		case SplitDirection.VERTICAL:
+    			firstWidth = Math.floor(width / 2);
+    			firstHeight = height;
+    			break;
+    		case SplitDirection.HORIZONTAL:
+    			firstHeight = Math.floor(height / 2);
+    			firstWidth = width;
+    			break;
+    	}
+
+    	onMount(async () => {
+    		window.addEventListener("mousemove", ({ clientX, clientY }) => {
+    			if (currentlyResizingDivider) {
+    				const containerPos = container.getBoundingClientRect();
+
+    				if (direction === SplitDirection.VERTICAL) {
+    					$$invalidate(3, firstWidth = clientX - containerPos.left);
+    				}
+    			}
+    		});
+
+    		window.addEventListener("mouseup", function () {
+    			$$invalidate(5, currentlyResizingDivider = false);
+    		});
     	});
 
-    	return [];
+    	const writable_props = ['direction', 'width', 'height'];
+
+    	Object.keys($$props).forEach(key => {
+    		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<SplitView> was created with unknown prop '${key}'`);
+    	});
+
+    	function div1_binding($$value) {
+    		binding_callbacks[$$value ? 'unshift' : 'push'](() => {
+    			container = $$value;
+    			$$invalidate(4, container);
+    		});
+    	}
+
+    	$$self.$$set = $$props => {
+    		if ('direction' in $$props) $$invalidate(0, direction = $$props.direction);
+    		if ('width' in $$props) $$invalidate(1, width = $$props.width);
+    		if ('height' in $$props) $$invalidate(2, height = $$props.height);
+    		if ('$$scope' in $$props) $$invalidate(7, $$scope = $$props.$$scope);
+    	};
+
+    	$$self.$capture_state = () => ({
+    		onMount,
+    		SplitDirection,
+    		direction,
+    		width,
+    		height,
+    		firstWidth,
+    		firstHeight,
+    		container,
+    		currentlyResizingDivider,
+    		dividerMousedown
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ('direction' in $$props) $$invalidate(0, direction = $$props.direction);
+    		if ('width' in $$props) $$invalidate(1, width = $$props.width);
+    		if ('height' in $$props) $$invalidate(2, height = $$props.height);
+    		if ('firstWidth' in $$props) $$invalidate(3, firstWidth = $$props.firstWidth);
+    		if ('firstHeight' in $$props) firstHeight = $$props.firstHeight;
+    		if ('container' in $$props) $$invalidate(4, container = $$props.container);
+    		if ('currentlyResizingDivider' in $$props) $$invalidate(5, currentlyResizingDivider = $$props.currentlyResizingDivider);
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [
+    		direction,
+    		width,
+    		height,
+    		firstWidth,
+    		container,
+    		currentlyResizingDivider,
+    		dividerMousedown,
+    		$$scope,
+    		slots,
+    		div1_binding
+    	];
     }
 
-    class SideNavbar extends SvelteComponentDev {
+    class SplitView extends SvelteComponentDev {
     	constructor(options) {
     		super(options);
-    		init(this, options, instance$1, create_fragment$1, safe_not_equal, {});
+    		init(this, options, instance$1, create_fragment$1, safe_not_equal, { direction: 0, width: 1, height: 2 });
 
     		dispatch_dev("SvelteRegisterComponent", {
     			component: this,
-    			tagName: "SideNavbar",
+    			tagName: "SplitView",
     			options,
     			id: create_fragment$1.name
     		});
+
+    		const { ctx } = this.$$;
+    		const props = options.props || {};
+
+    		if (/*direction*/ ctx[0] === undefined && !('direction' in props)) {
+    			console.warn("<SplitView> was created without expected prop 'direction'");
+    		}
+
+    		if (/*width*/ ctx[1] === undefined && !('width' in props)) {
+    			console.warn("<SplitView> was created without expected prop 'width'");
+    		}
+
+    		if (/*height*/ ctx[2] === undefined && !('height' in props)) {
+    			console.warn("<SplitView> was created without expected prop 'height'");
+    		}
+    	}
+
+    	get direction() {
+    		throw new Error("<SplitView>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	set direction(value) {
+    		throw new Error("<SplitView>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	get width() {
+    		throw new Error("<SplitView>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	set width(value) {
+    		throw new Error("<SplitView>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	get height() {
+    		throw new Error("<SplitView>: Props cannot be read directly from the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
+    	}
+
+    	set height(value) {
+    		throw new Error("<SplitView>: Props cannot be set directly on the component instance unless compiling with 'accessors: true' or '<svelte:options accessors/>'");
     	}
     }
+
+    const windowDimensions = writable([window.innerWidth, window.innerHeight]);
+
+
+    window.addEventListener("resize", () => {
+        windowDimensions.set([window.innerWidth, window.innerHeight]);
+    });
 
     /* src/App.svelte generated by Svelte v3.44.3 */
     const file = "src/App.svelte";
 
-    function create_fragment(ctx) {
-    	let main;
-    	let div;
-    	let sidenavbar;
-    	let t;
+    // (25:2) 
+    function create_first_slot(ctx) {
     	let editor;
     	let current;
-    	sidenavbar = new SideNavbar({ $$inline: true });
-    	editor = new Editor({ $$inline: true });
+
+    	editor = new Editor({
+    			props: {
+    				slot: "first",
+    				width: /*firstWidth*/ ctx[2],
+    				height: /*firstHeight*/ ctx[3]
+    			},
+    			$$inline: true
+    		});
+
+    	const block = {
+    		c: function create() {
+    			create_component(editor.$$.fragment);
+    		},
+    		m: function mount(target, anchor) {
+    			mount_component(editor, target, anchor);
+    			current = true;
+    		},
+    		p: function update(ctx, dirty) {
+    			const editor_changes = {};
+    			if (dirty & /*firstWidth*/ 4) editor_changes.width = /*firstWidth*/ ctx[2];
+    			if (dirty & /*firstHeight*/ 8) editor_changes.height = /*firstHeight*/ ctx[3];
+    			editor.$set(editor_changes);
+    		},
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(editor.$$.fragment, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(editor.$$.fragment, local);
+    			current = false;
+    		},
+    		d: function destroy(detaching) {
+    			destroy_component(editor, detaching);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_first_slot.name,
+    		type: "slot",
+    		source: "(25:2) ",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    // (26:2) 
+    function create_second_slot(ctx) {
+    	let editor;
+    	let current;
+
+    	editor = new Editor({
+    			props: {
+    				slot: "second",
+    				width: /*secondWidth*/ ctx[4],
+    				height: /*secondHeight*/ ctx[5]
+    			},
+    			$$inline: true
+    		});
+
+    	const block = {
+    		c: function create() {
+    			create_component(editor.$$.fragment);
+    		},
+    		m: function mount(target, anchor) {
+    			mount_component(editor, target, anchor);
+    			current = true;
+    		},
+    		p: function update(ctx, dirty) {
+    			const editor_changes = {};
+    			if (dirty & /*secondWidth*/ 16) editor_changes.width = /*secondWidth*/ ctx[4];
+    			if (dirty & /*secondHeight*/ 32) editor_changes.height = /*secondHeight*/ ctx[5];
+    			editor.$set(editor_changes);
+    		},
+    		i: function intro(local) {
+    			if (current) return;
+    			transition_in(editor.$$.fragment, local);
+    			current = true;
+    		},
+    		o: function outro(local) {
+    			transition_out(editor.$$.fragment, local);
+    			current = false;
+    		},
+    		d: function destroy(detaching) {
+    			destroy_component(editor, detaching);
+    		}
+    	};
+
+    	dispatch_dev("SvelteRegisterBlock", {
+    		block,
+    		id: create_second_slot.name,
+    		type: "slot",
+    		source: "(26:2) ",
+    		ctx
+    	});
+
+    	return block;
+    }
+
+    function create_fragment(ctx) {
+    	let main;
+    	let splitview;
+    	let current;
+
+    	splitview = new SplitView({
+    			props: {
+    				direction: SplitDirection.VERTICAL,
+    				x: 0,
+    				y: 0,
+    				width: /*width*/ ctx[0],
+    				height: /*height*/ ctx[1],
+    				$$slots: {
+    					second: [
+    						create_second_slot,
+    						({ firstWidth, firstHeight, secondWidth, secondHeight }) => ({
+    							2: firstWidth,
+    							3: firstHeight,
+    							4: secondWidth,
+    							5: secondHeight
+    						}),
+    						({ firstWidth, firstHeight, secondWidth, secondHeight }) => (firstWidth ? 4 : 0) | (firstHeight ? 8 : 0) | (secondWidth ? 16 : 0) | (secondHeight ? 32 : 0)
+    					],
+    					first: [
+    						create_first_slot,
+    						({ firstWidth, firstHeight, secondWidth, secondHeight }) => ({
+    							2: firstWidth,
+    							3: firstHeight,
+    							4: secondWidth,
+    							5: secondHeight
+    						}),
+    						({ firstWidth, firstHeight, secondWidth, secondHeight }) => (firstWidth ? 4 : 0) | (firstHeight ? 8 : 0) | (secondWidth ? 16 : 0) | (secondHeight ? 32 : 0)
+    					]
+    				},
+    				$$scope: { ctx }
+    			},
+    			$$inline: true
+    		});
 
     	const block = {
     		c: function create() {
     			main = element("main");
-    			div = element("div");
-    			create_component(sidenavbar.$$.fragment);
-    			t = space();
-    			create_component(editor.$$.fragment);
-    			attr_dev(div, "id", "main-flex");
-    			attr_dev(div, "class", "svelte-13391jn");
-    			add_location(div, file, 5, 1, 145);
-    			add_location(main, file, 4, 0, 137);
+    			create_component(splitview.$$.fragment);
+    			add_location(main, file, 13, 0, 433);
     		},
     		l: function claim(nodes) {
     			throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
     		},
     		m: function mount(target, anchor) {
     			insert_dev(target, main, anchor);
-    			append_dev(main, div);
-    			mount_component(sidenavbar, div, null);
-    			append_dev(div, t);
-    			mount_component(editor, div, null);
+    			mount_component(splitview, main, null);
     			current = true;
     		},
-    		p: noop,
+    		p: function update(ctx, [dirty]) {
+    			const splitview_changes = {};
+    			if (dirty & /*width*/ 1) splitview_changes.width = /*width*/ ctx[0];
+    			if (dirty & /*height*/ 2) splitview_changes.height = /*height*/ ctx[1];
+
+    			if (dirty & /*$$scope, secondWidth, secondHeight, firstWidth, firstHeight*/ 124) {
+    				splitview_changes.$$scope = { dirty, ctx };
+    			}
+
+    			splitview.$set(splitview_changes);
+    		},
     		i: function intro(local) {
     			if (current) return;
-    			transition_in(sidenavbar.$$.fragment, local);
-    			transition_in(editor.$$.fragment, local);
+    			transition_in(splitview.$$.fragment, local);
     			current = true;
     		},
     		o: function outro(local) {
-    			transition_out(sidenavbar.$$.fragment, local);
-    			transition_out(editor.$$.fragment, local);
+    			transition_out(splitview.$$.fragment, local);
     			current = false;
     		},
     		d: function destroy(detaching) {
     			if (detaching) detach_dev(main);
-    			destroy_component(sidenavbar);
-    			destroy_component(editor);
+    			destroy_component(splitview);
     		}
     	};
 
@@ -1764,14 +2287,39 @@ var app = (function () {
     function instance($$self, $$props, $$invalidate) {
     	let { $$slots: slots = {}, $$scope } = $$props;
     	validate_slots('App', slots, []);
+    	let width = 0;
+    	let height = 0;
+
+    	windowDimensions.subscribe(([windowWidth, windowHeight]) => {
+    		$$invalidate(0, width = windowWidth - 1);
+    		$$invalidate(1, height = windowHeight - 3);
+    	});
+
     	const writable_props = [];
 
     	Object.keys($$props).forEach(key => {
     		if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<App> was created with unknown prop '${key}'`);
     	});
 
-    	$$self.$capture_state = () => ({ Editor, SideNavbar });
-    	return [];
+    	$$self.$capture_state = () => ({
+    		Editor,
+    		SplitView,
+    		SplitDirection,
+    		windowDimensions,
+    		width,
+    		height
+    	});
+
+    	$$self.$inject_state = $$props => {
+    		if ('width' in $$props) $$invalidate(0, width = $$props.width);
+    		if ('height' in $$props) $$invalidate(1, height = $$props.height);
+    	};
+
+    	if ($$props && "$$inject" in $$props) {
+    		$$self.$inject_state($$props.$$inject);
+    	}
+
+    	return [width, height];
     }
 
     class App extends SvelteComponentDev {
