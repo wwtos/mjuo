@@ -1,13 +1,33 @@
 <script lang="ts">
 	import Editor from './node-editor/Editor.svelte';
 	import SideNavbar from './node-editor/SideNavbar.svelte';
+	import SplitView from './layout/SplitView.svelte';
+	import {SplitDirection} from './layout/enums';
+	import {windowDimensions} from './util/window-size';
+
+	let width = 0;
+	let height = 0;
+
+	windowDimensions.subscribe(([windowWidth, windowHeight]) => {
+		width = windowWidth - 1;
+		height = windowHeight - 3;
+	});
 </script>
 
 <main>
-	<div id="main-flex">
+	<!-- <div id="main-flex">
 		<SideNavbar />
 		<Editor />
-	</div>
+	</div> -->
+	<SplitView 
+	direction={SplitDirection.VERTICAL}
+	x={0} y={0}
+	width={width} height={height}
+	let:firstWidth={firstWidth} let:firstHeight={firstHeight}
+	let:secondWidth={secondWidth} let:secondHeight={secondHeight}>
+		<Editor slot="first" width={firstWidth} height={firstHeight} />
+		<Editor slot="second" width={secondWidth} height={secondHeight} />
+	</SplitView>
 </main>
 
 <style>
