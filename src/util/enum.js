@@ -8,7 +8,7 @@ EnumInstance.prototype.toJSON = function () {
     var ids = this.enumDef.ids;
     var typeName;
 
-    for (id of Object.keys(ids)) {
+    for (let id of Object.keys(ids)) {
         if (this.type === ids[id]) {
             typeName = id;
         }
@@ -88,7 +88,7 @@ function assert(didPass, type, value) {
     }
 }
 
-function createEnumDefinition(states) {
+export function createEnumDefinition(states) {
     states = Object.freeze(states);
     var newEnumDef = new EnumDefinition(states);
     var stateUid = 0;
@@ -98,7 +98,7 @@ function createEnumDefinition(states) {
     // these functions will verify that when you create an
     // enum, it'll have the correct types passed in
 
-    for (state in states) {
+    for (let state in states) {
         // state === the state id currently having a function
         // built for it, the function for creating an enum instance
         // of type state
@@ -153,5 +153,3 @@ function createEnumDefinition(states) {
 
     return newEnumDef;
 }
-
-export { createEnumDefinition };
