@@ -154,4 +154,6 @@ function createEnumDefinition(states) {
     return newEnumDef;
 }
 
-export { createEnumDefinition };
+module.exports = {
+    createEnumDefinition
+};
