@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde_json::json;
 
 use crate::errors::{Error, ErrorType};
@@ -37,7 +37,8 @@ pub struct OutputSideConnection {
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
@@ -54,12 +55,14 @@ impl SocketType {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum MidiSocketType {
     Default,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum StreamSocketType {
     Audio,
     Gate,
@@ -67,12 +70,14 @@ pub enum StreamSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum ValueType {
     Gain,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum Parameter {
     Float(f32),
     Int(i32),
