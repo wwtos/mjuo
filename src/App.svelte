@@ -21,13 +21,9 @@
 	</div> -->
 	<SplitView 
 	direction={SplitDirection.VERTICAL}
-	x={0} y={0}
-	width={width} height={height}
-	let:firstWidth={firstWidth} let:firstHeight={firstHeight}
-	let:secondWidth={secondWidth} let:secondHeight={secondHeight}>
-		<Editor slot="first" width={firstWidth} height={firstHeight} />
-		<Editor slot="second" width={secondWidth} height={secondHeight} />
-	</SplitView>
+	{width} {height}
+	firstPanel={Editor}
+	secondPanel={Editor} />
 </main>
 
 <style>

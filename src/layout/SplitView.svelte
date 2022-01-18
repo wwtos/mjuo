@@ -1,11 +1,14 @@
 <!-- thanks to vscode for inspiring this window design! -->
 <script type="ts">
-    import { onMount } from 'svelte';
+    import { onMount, SvelteComponent } from 'svelte';
     import {SplitDirection} from "./enums";
     
     export let direction: SplitDirection;
     export let width: number;
     export let height: number;
+
+    export let firstPanel: any;
+    export let secondPanel: any;
 
     let firstWidth, firstHeight;
     let container;
@@ -48,8 +51,8 @@
 
 {#if direction === SplitDirection.VERTICAL}
 <div class="container vertical-split" style="width: {width}px; height: {height}px" bind:this={container}>
-    <slot name="first" firstWidth={firstWidth} firstHeight={height}></slot>
-    <slot name="second" secondWidth={width - firstWidth} secondHeight={height}></slot>
+    <svelte:component this={firstPanel} width={firstWidth} height={height} />
+    <svelte:component this={secondPanel} width={width - firstWidth} height={height} />
     <div class="divider divider-vertical" class:dragging={currentlyResizingDivider} style="left: {firstWidth - 2}px; height: {height}px" on:mousedown={dividerMousedown}></div>
 </div>
 {/if}
