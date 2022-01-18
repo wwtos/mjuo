@@ -7,12 +7,15 @@ use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, S
 use crate::errors::{Error, ErrorType};
 use crate::property::PropertyType;
 
+#[allow(unused_variables)]
 pub trait Node: Debug {
-    fn list_input_sockets(&self) -> Vec<SocketType>;
-    fn list_output_sockets(&self) -> Vec<SocketType>;
-    fn list_properties(&self) -> HashMap<String, PropertyType>;
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32);
-    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32;
+    // defaults list nothing, to reduce boilerplate necessary for
+    // nodes that don't use all node functionality
+    fn list_input_sockets(&self) -> Vec<SocketType> { Vec::new() }
+    fn list_output_sockets(&self) -> Vec<SocketType> { Vec::new() }
+    fn list_properties(&self) -> HashMap<String, PropertyType> { HashMap::new() }
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 { 0_f32 }
     fn serialize_to_json(&self) -> Result<serde_json::Value, Error>;
     fn deserialize_from_json(json: serde_json::Value) -> Self
     where
