@@ -1,4 +1,12 @@
-const Net = require('net');
+import Net from 'net';
+import {createEnumDefinition} from "../util/enum";
+
+var RawMessage = createEnumDefinition({
+    "Ping": null,
+    "Pong": null,
+    "Data": ["array"],
+    "Json": ["object"]
+});
 
 const port = 26642;
 const host = '127.0.0.1';
@@ -8,6 +16,7 @@ const client = new Net.Socket();
 const PING = 0x00;
 const PONG = 0x01;
 const DATA_BINARY = 0x02;
+const DATA_JSON = 0x03;
 
 
 function buildMessage(protocol, message) {
@@ -27,21 +36,50 @@ function buildMessage(protocol, message) {
     return final_message;
 }
 
-client.connect({ port: port, host: host }, function() {
-    // If there is no error, the server has accepted the request and created a new 
-    // socket dedicated to us.
-    console.log('TCP connection established with the server.');
-
-    // The client can now send data to the server by writing to its socket.
-    let text = new TextEncoder().encode("Hello world.");
-    
-    client.write(buildMessage(0x01, text));
+client.on("error", () => {
+    console.error("unable to connect to server");
 });
+
+function open () {
+    client.connect({ port: port, host: host }, function() {
+        // If there is no error, the server has accepted the request and created a new 
+        // socket dedicated to us.
+        console.log('TCP connection established with the server.');
+
+        // The client can now send data to the server by writing to its socket.
+        let text = new TextEncoder().encode(JSON.stringify({
+            "foo": "bar",
+            "baz": {
+                "la": [1, false, "apple"]
+            }
+        }));
+        
+        client.write(buildMessage(DATA_JSON, text));
+    });
+}
+
 
 let clientState = {
     data: [],
+    messages: [],
+    listeners: {},
     dataToRead: 0,
-    readingData: false
+    readingData: false,
+    dataReadingType: 0
+};
+
+clientState.on = function(event, listener) {
+    if (!this.listeners[event]) {
+        this.listeners[event] = [];
+    }
+
+    this.listeners[event].push(listener);
+};
+
+clientState.trigger = function(event, value) {
+    for (var listener of this.listeners[event]) {
+        listener(value);
+    }
 };
 
 let textDecoder = new TextDecoder();
@@ -50,40 +88,73 @@ let textDecoder = new TextDecoder();
 client.on('data', function(chunk) {
     var pointer = 0;
 
-    if (!clientState.readingData) {
-        const messageType = chunk[0];
+    while (pointer < chunk.length) {
+        if (clientState.readingData) {
+            while (clientState.data.length < clientState.dataToRead && pointer < chunk.length) {
+                clientState.data.push(chunk[pointer]);
+
+                pointer++;
+            }
+
+            if (clientState.data.length === clientState.dataToRead) {
+                switch (clientState.dataReadingType) {
+                    case DATA_BINARY:
+                        clientState.trigger("message", RawMessage.Data([data]));
+                    break;
+                    case DATA_JSON:
+                        clientState.trigger("message", RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(clientState.data)))]));
+                    break;
+                }
+
+                clientState.data = [];
+                clientState.readingData = false;
+            }
+
+            continue;
+        }
+
+        const messageType = chunk[pointer];
+        pointer++;
+        let dataLength;
 
         switch (messageType) {
             case PING:
-                client.write(Uint8Array.from([PONG]));
-                return;
+                clientState.trigger("message", RawMessage.Ping);
+                pointer++;
+                continue;
             case PONG:
-                return;
+                clientState.trigger("message", RawMessage.Pong);
+                pointer++;
+                continue;
             case DATA_BINARY:
-                let dataLength = chunk[1] << 24 + chunk[2] << 16 + chunk[3] << 8 + chunk[4];
+                dataLength = (chunk[pointer] << 24) + (chunk[pointer + 1] << 16) + (chunk[pointer + 2] << 8) + chunk[pointer + 3];
+                clientState.dataToRead = dataLength;
+                clientState.readingData = true;
+                clientState.dataReadingType = DATA_BINARY;
+
+                pointer += 4;
+
+                continue;
+            case DATA_JSON:
+                dataLength = (chunk[pointer] << 24) + (chunk[pointer + 1] << 16) + (chunk[pointer + 2] << 8) + chunk[pointer + 3];
 
                 clientState.dataToRead = dataLength;
+                clientState.readingData = true;
+                clientState.dataReadingType = DATA_JSON;
 
-                pointer += 5;
-            break;
+                pointer += 4;
+                continue;
             default:
                 throw "unreachable!";
         }
-    }
-
-    for (var i = pointer; i < chunk.length; i++) {
-        clientState.data.push(chunk[i]);
-    }
-
-    if (clientState.data.length >= clientState.dataToRead) {
-        clientState.readingData = false;
-
-        console.log(`Data received from the server: ${textDecoder.decode(Uint8Array.from(clientState.data))}.`);
-
-        clientState.data.length = 0;
     }
 });
 
 client.on('end', function() {
     console.log('Requested an end to the TCP connection');
 });
+
+export default {
+    on: clientState.on.bind(clientState),
+    open
+}

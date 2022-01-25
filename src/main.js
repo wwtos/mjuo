@@ -4,14 +4,14 @@ import path from 'path';
 import client from './main/client';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
-    app.quit();
-}
+// if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
+//     app.quit();
+// }
 
 const createWindow = () => {
     const mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600
+        width: 1200,
+        height: 800
     });
     mainWindow.loadFile(path.join(__dirname, '../public/index.html'));
     mainWindow.webContents.openDevTools();
