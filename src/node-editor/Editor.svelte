@@ -12,10 +12,27 @@
     let editor: SVGElement;
     let mouseMoveStore = writable([0, 0]);
     let viewportStore = writable({
-        left: 48,
+        left: 0,
         top: 0,
         width,
         height
+    });
+
+    $: viewportStore.update(lastVal => {
+        return {
+            ...lastVal,
+            width,
+            height
+        }
+    });
+
+    let viewportLeft: number, viewportTop: number, viewportWidth: number, viewportHeight: number;
+
+    viewportStore.subscribe(({left, top, width, height}) => {
+        viewportLeft = left;
+        viewportTop = top;
+        viewportWidth = width;
+        viewportHeight = height;
     });
 
     // whenever the editor is given a new size, perform the appropriate calculations
@@ -49,9 +66,15 @@
             mouseMoveStore.set([relativeX, relativeY]);
         });
     });
+
+    function backgroundMousedown () {
+        console.log("here");
+    }
 </script>
 
-<svg bind:this={editor} viewBox="0 0 220 100">
+<svg bind:this={editor} viewBox="{viewportLeft} {viewportTop} {viewportWidth} {viewportHeight}">
+    <!-- TODO: yes, I'm lazy, if things start breaking maybe fix this rect -->
+    <rect x="-10000000" y="-10000000" width="20000000" height="20000000" opacity="0" on:mousedown={backgroundMousedown} />
     <Node mouseStore={mouseMoveStore} viewportStore={viewportStore} />
 </svg>
 

@@ -1,13 +1,14 @@
 // TODO: verify this doesn't leak memory
-export function storeWatcher(store) {
-    this.store = store;
-    this.value;
+export class storeWatcher {
+    constructor (store) {
+        this.store = store;
 
-    this.store.subscribe(val => {
-        this.value = val;
-    })
+        this.store.subscribe(val => {
+            this.value = val;
+        });
+    }    
+
+    get () {
+        return this.value;
+    }
 }
-
-storeWatcher.prototype.get = function() {
-    return this.value;
-};

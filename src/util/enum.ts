@@ -1,64 +1,69 @@
-function EnumInstance(enumDef, type, value) {
-    this.enumDef = enumDef;
-    this.type = type;
-    this.value = value;
+class EnumInstance {
+    enumDef: any; // Really an EnumDefinition, except EnumDefinition is such a fluid type
+    type: number;
+    value: object | null;
+
+    constructor (enumDef: object, type: number, value: object | null) {
+        this.enumDef = enumDef;
+        this.type = type;
+        this.value = value;
+    }
+
+    toJSON () {
+        var ids = this.enumDef.ids;
+        var typeName: string = "";
+    
+        for (let id of Object.keys(ids)) {
+            if (this.type === ids[id]) {
+                typeName = id;
+            }
+        }
+    
+        return {
+            "type": typeName,
+            "value": this.value
+        };
+    }
+
+    /** match clauses is an object
+      * for example: 
+      * Enum.match([
+      *     [Enum.Value, ([x1, y1]) => {
+      *         // return {"didThisMatch": false}
+      *         // if it didn't match
+      *         // otherwise just return the value as normal
+      *     }]
+      * ]); **/
+    match (matchClauses: (Function | number)[][]) {
+        // go through in order through the match clauses
+        for (var matchClause of matchClauses) {
+            // don't even run it if it's not of that type
+            var clauseType = matchClause[0];
+    
+            var returnValue: any;
+    
+            // -1 is catch all
+            if (clauseType === -1) {
+                returnValue = (matchClause[1] as Function)(this.value);
+            } else if (clauseType === this.type) {
+                returnValue = (matchClause[1] as Function)(this.value);
+            } else if (clauseType !== this.type) {
+                continue;
+            }
+    
+            if (returnValue && !returnValue.didThisMatch) {
+                continue; // check the next one
+            }
+    
+            return returnValue;
+        }
+    }
 }
-
-EnumInstance.prototype.toJSON = function () {
-    var ids = this.enumDef.ids;
-    var typeName;
-
-    for (let id of Object.keys(ids)) {
-        if (this.type === ids[id]) {
-            typeName = id;
-        }
-    }
-
-    return {
-        "type": typeName,
-        "value": this.value
-    };
-};
-
-// match clauses is an object
-// for example: 
-// Enum.match([
-//     [Enum.Value, ([x1, y1]) => {
-//         // return {"didThisMatch": false}
-//         // if it didn't match
-//         // otherwise just return the value as normal
-//     }]
-// ]);
-
-EnumInstance.prototype.match = function (matchClauses) {
-    // go through in order through the match clauses
-    for (var matchClause of matchClauses) {
-        // don't even run it if it's not of that type
-        var clauseType = matchClause[0];
-
-        var returnValue;
-
-        // -1 is catch all
-        if (clauseType === -1) {
-            returnValue = matchClause[1](this.value);
-        } else if (clauseType === this.type) {
-            returnValue = matchClause[1](this.value);
-        } else if (clauseType !== this.type) {
-            continue;
-        }
-
-        if (returnValue && !returnValue.didThisMatch) {
-            continue; // check the next one
-        }
-
-        return returnValue;
-    }
-};
 
 
 
 // checks that `value` conforms to `type`
-function verifyInput(type, value) {
+function verifyInput(type: (string | Function), value: any) {
     if (type instanceof EnumDefinition) {
         return value.enumDef === type;
     } else if (type instanceof Function) {
@@ -77,18 +82,18 @@ function verifyInput(type, value) {
     }
 }
 
-function EnumDefinition(states) {
+function EnumDefinition(states: object) {
     this.states = states;
     this.ids = {};
 }
 
-function assert(didPass, type, value) {
+function assert(didPass: boolean, type: any, value: any) {
     if (!didPass) {
         throw new Error("Enum state created with invalid values! " + JSON.stringify(value) + " does not follow type of " + JSON.stringify(type));
     }
 }
 
-export function createEnumDefinition(states) {
+export function createEnumDefinition(states: object) {
     states = Object.freeze(states);
     var newEnumDef = new EnumDefinition(states);
     var stateUid = 0;
@@ -120,7 +125,7 @@ export function createEnumDefinition(states) {
                 // otherwise it's a function, so you can use Enum.State(foo, bar)
 
                 if (Array.isArray(currentState)) {
-                    newEnumDef[currentStateId] = function (args) {
+                    newEnumDef[currentStateId] = function (args: any) {
                         if (arguments.length > 1 || !Array.isArray(args)) {
                             args = Array.from(arguments);
                         }
@@ -135,7 +140,7 @@ export function createEnumDefinition(states) {
                         return new EnumInstance(newEnumDef, enumId, args);
                     };
                 } else if (typeof currentState === "object") {
-                    newEnumDef[currentStateId] = function (args) {
+                    newEnumDef[currentStateId] = function (args: any) {
                         // verify all the incoming values
                         for (var prop in currentState) {
                             assert(verifyInput(currentState[prop], args[prop]), currentState[prop], args[prop]);

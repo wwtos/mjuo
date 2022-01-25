@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PropertyEditor from './node-editor/PropertyEditor.svelte';
 	import Editor from './node-editor/Editor.svelte';
 	import SideNavbar from './node-editor/SideNavbar.svelte';
 	import SplitView from './layout/SplitView.svelte';
@@ -22,14 +23,15 @@
 	<SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}
-	firstPanel={Editor}
-	secondPanel={Editor} />
+	hasFixedWidth={true} fixedWidth={48}
+	firstPanel={SideNavbar}
+	secondPanel={SplitView}
+	secondState={{
+		direction: SplitDirection.VERTICAL,
+		firstPanel: PropertyEditor,
+		secondPanel: Editor
+	}} />
 </main>
 
 <style>
-	#main-flex {
-		display: flex;
-		flex-direction: row;
-		align-items: stretch;
-	}
 </style>
