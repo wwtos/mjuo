@@ -1,24 +1,63 @@
-use std::io::prelude::*;
+use std::io::{self, prelude::*, Error, ErrorKind};
+use std::io::{BufReader, BufWriter};
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::sync::mpsc::{Receiver, Sender};
+
+use futures;
+use futures::executor::block_on;
+use serde_json::Value;
+use serde_json::json;
 
 use crate::communication_constants::*;
+use crate::ipc_message::IPCMessage;
+
+#[derive(Debug)]
+enum RawMessage {
+    Ping,
+    Pong,
+    Data(Vec<u8>),
+    Json(Value),
+}
 
 pub struct IPCServer {}
 
 impl IPCServer {
-    pub fn open() {
-        let listener = TcpListener::bind("127.0.0.1:26642").unwrap();
+    pub fn open(_main_process_rx: Receiver<IPCMessage>, _main_process_tx: Sender<IPCMessage>) {
+        let server = TcpListener::bind("127.0.0.1:26642").unwrap();
 
-        for stream in listener.incoming() {
-            let stream = stream.unwrap();
+        // TODO: yes, this isn't resilient, no I don't care for now
+        let (client, _addr) = server.accept().unwrap();
+        let mut reader = BufReader::new(&client);
+        let mut writer = BufWriter::new(&client);
 
-            handle_connection(stream);
-        }
+        block_on(async move {
+            loop {
+                let message = handle_message(&mut reader).await.unwrap();
+
+                println!("{:?}", message);
+
+                if let RawMessage::Json(message) = message {
+                    println!("{}", message);
+                }
+
+                let response = serde_json::to_string(&json! {{
+                    "foo": "bar",
+                    "baz": {
+                        "la": [1, 2, 3]
+                    }
+                }}).unwrap();
+            
+                writer
+                    .write_all(&build_message(DATA_JSON, response.as_bytes()))
+                    .unwrap();
+                writer.flush().unwrap();
+            }
+        });
     }
 }
 
-fn build_message(protocol: u8, data: &[u8]) -> Vec<u8> {
+pub fn build_message(protocol: u8, data: &[u8]) -> Vec<u8> {
     // message: first byte is message type, next four bytes are data length, after that is data
     let mut message: Vec<u8> = vec![0; data.len() + 5];
 
@@ -32,17 +71,15 @@ fn build_message(protocol: u8, data: &[u8]) -> Vec<u8> {
     message
 }
 
-fn handle_connection(mut stream: TcpStream) {
+async fn handle_message(stream: &mut BufReader<&TcpStream>) -> Result<RawMessage, io::Error> {
     let mut buffer = [0; 1];
-    stream.read_exact(&mut buffer).unwrap();
+    stream.read_exact(&mut buffer)?;
 
     let message_type = buffer[0];
 
     match message_type {
-        PING => {
-            stream.write_all(&[PONG]).unwrap();
-        }
-        PONG => {}
+        PING => Ok(RawMessage::Ping),
+        PONG => Ok(RawMessage::Pong),
         DATA_BINARY => {
             let mut message_length_buf = [0; 4];
             stream.read_exact(&mut message_length_buf).unwrap();
@@ -52,21 +89,24 @@ fn handle_connection(mut stream: TcpStream) {
             let mut message = vec![0; message_length];
             stream.read_exact(message.as_mut_slice()).unwrap();
 
-            println!("message: {}", String::from_utf8_lossy(message.as_slice()));
+            Ok(RawMessage::Data(message))
+        }
+        DATA_JSON => {
+            let mut message_length_buf = [0; 4];
+            stream.read_exact(&mut message_length_buf).unwrap();
+
+            let message_length = u32::from_be_bytes(message_length_buf) as usize;
+
+            let mut message = vec![0; message_length];
+            stream.read_exact(message.as_mut_slice()).unwrap();
+
+            match serde_json::from_str(&String::from_utf8_lossy(&message)) {
+                Ok(json) => Ok(RawMessage::Json(json)),
+                Err(err) => Err(Error::from(err))
+            }
         }
         _ => {
-            unreachable!("This isn't a protocol available");
+            unreachable!("This isn't a protocol available, {:?}", buffer);
         }
     }
-
-    let response = "Hello client";
-
-    println!(
-        "sending: {:?}",
-        &build_message(DATA_BINARY, response.as_bytes())
-    );
-    stream
-        .write_all(&build_message(DATA_BINARY, response.as_bytes()))
-        .unwrap();
-    stream.flush().unwrap();
 }
