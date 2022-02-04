@@ -7,7 +7,7 @@ use serde_json::json;
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketType},
     errors::{Error, ErrorType},
-    node::{GenerationalNode, Node, NodeIndex, NodeWrapper},
+    node::{GenerationalNode, NodeIndex, NodeWrapper}, nodes::registry::NodeVariant,
 };
 
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub enum PossibleNode {
     None(u32), // last generation that was here
 }
 
-fn create_new_node(node: Box<dyn Node>, generation: u32) -> PossibleNode {
+fn create_new_node(node: NodeVariant, generation: u32) -> PossibleNode {
     PossibleNode::Some(GenerationalNode {
         node: Rc::new(RefCell::new(NodeWrapper::new(
             node,
@@ -39,7 +39,7 @@ impl Graph {
         Graph { nodes: Vec::new() }
     }
 
-    pub fn add_node(&mut self, node: Box<dyn Node>) -> NodeIndex {
+    pub fn add_node(&mut self, node: NodeVariant) -> NodeIndex {
         let index;
         let new_generation;
 

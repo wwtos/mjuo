@@ -5,6 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
 
 use crate::errors::{Error, ErrorType};
+use crate::nodes::registry::NodeVariant;
 use crate::property::PropertyType;
 
 #[allow(unused_variables)]
@@ -32,14 +33,14 @@ pub trait Node: Debug {
 
 #[derive(Debug)]
 pub struct NodeWrapper {
-    pub(crate) node: Box<dyn Node>,
+    pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
 }
 
 impl NodeWrapper {
-    pub fn new(node: Box<dyn Node>, index: NodeIndex) -> NodeWrapper {
+    pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
         NodeWrapper {
             node,
             index,
@@ -62,6 +63,7 @@ impl NodeWrapper {
 
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
         self.node
+            .as_ref()
             .list_input_sockets()
             .iter()
             .find(|socket| *socket == socket_type)
@@ -70,6 +72,7 @@ impl NodeWrapper {
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
         self.node
+            .as_ref()
             .list_output_sockets()
             .iter()
             .find(|socket| *socket == socket_type)
@@ -175,7 +178,7 @@ impl NodeWrapper {
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
-        self.node.serialize_to_json()
+        self.node.as_ref().serialize_to_json()
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

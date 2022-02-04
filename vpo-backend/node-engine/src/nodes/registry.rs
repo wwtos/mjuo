@@ -9,15 +9,23 @@ lazy_static! {
     };
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum NodeVariant {
     GainGraphNode(GainGraphNode)
 }
 
-impl From<NodeVariant> for Box<dyn Node> {
-    fn from(variant: NodeVariant) -> Self {
-        match variant {
-            NodeVariant::GainGraphNode(node) => Box::new(node)
+impl<'a> AsRef<dyn Node + 'a> for NodeVariant {
+    fn as_ref(&self) -> &(dyn Node + 'a) {
+        match self {
+            Self::GainGraphNode(node) => node as &dyn Node,
+        }
+    }
+}
+
+impl<'a> AsMut<dyn Node + 'a> for NodeVariant {
+    fn as_mut(&mut self) -> &mut (dyn Node + 'a) {
+        match self {
+            Self::GainGraphNode(node) => node as &mut dyn Node,
         }
     }
 }
