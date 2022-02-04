@@ -3,7 +3,13 @@ import path from 'path';
 
 import open from "./main/client";
 
+import { ipcMain } from "electron";
+
 const client = open();
+
+ipcMain.on("send", (event, data) => {
+    client.sendJson(data);
+})
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
@@ -13,7 +19,10 @@ const client = open();
 const createWindow = () => {
     const mainWindow = new BrowserWindow({
         width: 1200,
-        height: 800
+        height: 800,
+        webPreferences: {
+            preload: path.join(__dirname, "./main/preload.js")
+        }
     });
     mainWindow.loadFile(path.join(__dirname, '../public/index.html'));
     mainWindow.webContents.openDevTools();
