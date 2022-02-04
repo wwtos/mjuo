@@ -51,6 +51,7 @@ class Client {
     dataToRead: number;
     readingData: boolean;
     dataReadingType: MessageType;
+    client: Net.Socket;
 
     constructor (client: Net.Socket) {
         this.data = [];
@@ -59,6 +60,7 @@ class Client {
         this.dataToRead = 0;
         this.readingData = false;
         this.dataReadingType = MessageType.PING;
+        this.client = client;
 
         client.on('data', (chunk) => {
             var pointer = 0;
@@ -74,9 +76,11 @@ class Client {
                     if (this.data.length === this.dataToRead) {
                         switch (this.dataReadingType) {
                             case MessageType.DATA_BINARY:
+                                this.messages.push(RawMessage.Data([this.data]));
                                 this.trigger("message", RawMessage.Data([this.data]));
                             break;
                             case MessageType.DATA_JSON:
+                                this.messages.push(RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))]));
                                 this.trigger("message", RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))]));
                             break;
                         }
@@ -128,6 +132,10 @@ class Client {
         client.on('end', function() {
             console.log('Requested an end to the TCP connection');
         });
+    }
+
+    sendJson (json: object) {
+        client.write(buildMessage(MessageType.DATA_JSON, new TextEncoder().encode(JSON.stringify(json))));
     }
 
     on (event: string, listener: Function) {

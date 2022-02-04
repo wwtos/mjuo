@@ -5,6 +5,12 @@
 	import SplitView from './layout/SplitView.svelte';
 	import {SplitDirection} from './layout/enums';
 	import {windowDimensions} from './util/window-size';
+	
+	const ipc = (window as any).ipcRenderer;
+
+	ipc.send("send", {
+		"foo": "bar"
+	});
 
 	let width = 0;
 	let height = 0;
