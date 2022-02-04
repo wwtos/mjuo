@@ -3,18 +3,20 @@
   "productName": "vpo-frontend",
   "version": "1.0.0",
   "description": "My Electron application description",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
     "start": "concurrently \"npm:svelte-dev\" \"electron-forge start\"",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
+    "main-build": "tsc --project ./tsconfig-main.json",
+    "main-watch": "tsc -w --project ./tsconfig-main.json",
     "svelte-build": "rollup -c",
     "svelte-dev": "rollup -c -w",
     "svelte-start": "sirv public",
-    "svelte-ts-check": "svelte-check --tsconfig ./tsconfig.json",
-    "svelte-ts-watch": "svelte-check --watch --tsconfig ./tsconfig.json"
+    "svelte-ts-check": "svelte-check --tsconfig ./tsconfig-svelte.json",
+    "svelte-ts-watch": "svelte-check --watch --tsconfig ./tsconfig-svelte.json"
   },
   "keywords": [],
   "author": {
@@ -54,11 +56,7 @@
     "electron-reload": "^2.0.0-alpha.1",
     "electron-squirrel-startup": "^1.0.0",
     "esm": "^3.2.25",
-    "rete": "^1.4.5",
-    "rete-connection-plugin": "^0.9.0",
-    "rete-vue-render-plugin": "^1.0.0-rc2",
-    "rollup-plugin-svelte": "^7.1.0",
-    "zeromq": "^5.2.8"
+    "rollup-plugin-svelte": "^7.1.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^6.0.0-beta.61",

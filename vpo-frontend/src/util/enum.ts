@@ -1,4 +1,4 @@
-class EnumInstance {
+export class EnumInstance {
     enumDef: any; // Really an EnumDefinition, except EnumDefinition is such a fluid type
     type: number;
     value: object | null;
@@ -93,9 +93,11 @@ function assert(didPass: boolean, type: any, value: any) {
     }
 }
 
-export function createEnumDefinition(states: object) {
+export function createEnumDefinition(states: {
+    [key: string]: any
+}) {
     states = Object.freeze(states);
-    var newEnumDef = new EnumDefinition(states);
+    var newEnumDef = new (EnumDefinition as any)(states);
     var stateUid = 0;
 
     // we are creating functions for each of the enum's states

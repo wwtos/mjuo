@@ -1,7 +1,9 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 
-import client from './main/client';
+import open from "./main/client";
+
+const client = open();
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
@@ -31,10 +33,9 @@ app.on('activate', () => {
     }
 });
 
-client.on("message", message => {
+client.on("message", (message: object) => {
     console.log(JSON.stringify(message, null, 4));
 });
-client.open();
 
 require('electron-reload')(__dirname, {
     electron: path.join(__dirname, '../node_modules', '.bin', 'electron'),
