@@ -3,6 +3,7 @@ target
 
 ### frontend ###
 dist/
+build/
 
 # Logs
 logs
