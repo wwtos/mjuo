@@ -2,6 +2,8 @@
 target
 
 ### frontend ###
+dist/
+
 # Logs
 logs
 *.log
