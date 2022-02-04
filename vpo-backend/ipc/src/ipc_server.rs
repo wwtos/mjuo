@@ -27,33 +27,36 @@ impl IPCServer {
         let server = TcpListener::bind("127.0.0.1:26642").unwrap();
 
         // TODO: yes, this isn't resilient, no I don't care for now
-        let (client, _addr) = server.accept().unwrap();
-        let mut reader = BufReader::new(&client);
-        let mut writer = BufWriter::new(&client);
+        for client in server.incoming() {
+            let client = client.unwrap();
 
-        block_on(async move {
-            loop {
-                let message = handle_message(&mut reader).await.unwrap();
+            let mut reader = BufReader::new(&client);
+            let mut writer = BufWriter::new(&client);
 
-                println!("{:?}", message);
+            let res = block_on(async move {
+                loop {
+                    let message = handle_message(&mut reader).await?;
 
-                if let RawMessage::Json(message) = message {
-                    println!("{}", message);
+                    if let RawMessage::Json(message) = message {
+                        println!("{}", message);
+                    }
+
+                    let response = serde_json::to_string(&json! {{
+                        "foo": "bar",
+                        "baz": {
+                            "la": [1, 2, 3]
+                        }
+                    }}).unwrap();
+                
+                    writer
+                        .write_all(&build_message(DATA_JSON, response.as_bytes()))
+                        .unwrap();
+                    writer.flush().unwrap();
                 }
 
-                let response = serde_json::to_string(&json! {{
-                    "foo": "bar",
-                    "baz": {
-                        "la": [1, 2, 3]
-                    }
-                }}).unwrap();
-            
-                writer
-                    .write_all(&build_message(DATA_JSON, response.as_bytes()))
-                    .unwrap();
-                writer.flush().unwrap();
-            }
-        });
+                Ok::<(), io::Error>(())
+            });
+        }
     }
 }
 
