@@ -1,25 +1,25 @@
-#[derive(Debug, PartialEq)]
-pub struct Error {
-    pub message: String,
-    pub error_type: ErrorType,
-}
+use thiserror::Error;
 
-impl Error {
-    pub fn new(message: String, error_type: ErrorType) -> Error {
-        Error {
-            message,
-            error_type,
-        }
-    }
-}
+use serde_json;
 
-#[derive(Debug, PartialEq)]
-pub enum ErrorType {
-    AlreadyConnected,
+use crate::{node::NodeIndex, connection::SocketType};
+
+
+
+#[derive(Error, Debug)]
+pub enum NodeError {
+    #[error("Connection between {0} and {1} already exists")]
+    AlreadyConnected(SocketType, SocketType),
+    #[error("Socket is not connected to any node")]
     NotConnected,
-    NodeDoesNotExist,
-    IndexOutOfBounds,
-    SocketDoesNotExist,
-    IncompatibleSocketTypes,
-    ParserError,
+    #[error("Node does not exist in graph (index `{0}`")]
+    NodeDoesNotExist(NodeIndex),
+    #[error("Node index `{0}` out of bounds")]
+    IndexOutOfBounds(usize),
+    #[error("Socket type `{0}` does not exist on node")]
+    SocketDoesNotExist(SocketType),
+    #[error("Socket types `{0}` and `{1}` are incompatible")]
+    IncompatibleSocketTypes(SocketType, SocketType),
+    #[error("Json parser error")]
+    JsonParserError(#[from] serde_json::error::Error),
 }
