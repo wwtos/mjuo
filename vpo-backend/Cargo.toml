@@ -9,6 +9,7 @@ edition = "2021"
 sound-engine = { path = "./sound-engine" }
 node-engine = { path = "./node-engine" }
 ipc = { path = "./ipc" }
+async-std = "1.10.0"
 
 [workspace]
 
