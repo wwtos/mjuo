@@ -1,26 +1,15 @@
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
-use crate::errors::{Error, ErrorType};
+use std::fmt::{Display, Debug};
+
 use crate::node::NodeIndex;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
     pub to_socket_type: SocketType,
     pub to_node: NodeIndex,
-}
-
-impl Connection {
-    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
-        Ok(json!([
-            self.from_socket_type.serialize_to_json()?,
-            self.from_node.index,
-            self.to_socket_type.serialize_to_json()?,
-            self.to_node.index
-        ]))
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -46,12 +35,9 @@ pub enum SocketType {
     MethodCall(Vec<Parameter>),
 }
 
-impl SocketType {
-    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
-        match serde_json::to_value(self) {
-            Ok(result) => Ok(result),
-            Err(error) => Err(Error::new(error.to_string(), ErrorType::ParserError)),
-        }
+impl Display for SocketType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        Debug::fmt(&self, f)
     }
 }
 

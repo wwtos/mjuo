@@ -6,7 +6,7 @@ use serde_json::json;
 
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketType},
-    errors::{Error, ErrorType},
+    errors::{NodeError},
     node::{GenerationalNode, NodeIndex, NodeWrapper}, nodes::registry::NodeVariant,
 };
 
@@ -97,7 +97,7 @@ impl Graph {
         from_type: SocketType,
         to_index: NodeIndex,
         to_type: SocketType,
-    ) -> Result<Connection, Error> {
+    ) -> Result<Connection, NodeError> {
         // check that the node doesn't have an existing connection of this exact type
         // (one output can be connected to many imputs, one to many)
 
@@ -108,20 +108,14 @@ impl Graph {
         if let Some(from_extracted) = self.get_node(&from_index) {
             from = from_extracted;
         } else {
-            return Err(Error::new(
-                format!("`from` node does not exist (index {:?})", from_index),
-                ErrorType::NodeDoesNotExist,
-            ));
+            return Err(NodeError::NodeDoesNotExist(from_index));
         };
 
         // does "to" exist?
         if let Some(to_extracted) = self.get_node(&to_index) {
             to = to_extracted;
         } else {
-            return Err(Error::new(
-                format!("`to` node does not exist (index {:?})", to_index),
-                ErrorType::NodeDoesNotExist,
-            ));
+            return Err(NodeError::NodeDoesNotExist(to_index));
         };
 
         let mut from = (*from.node).borrow_mut();
@@ -130,38 +124,23 @@ impl Graph {
         // check if "to" is connected from "from"
         if let Some(to_connection) = to.get_input_connection_by_type(&to_type) {
             if to_connection.from_node == from_index {
-                return Err(Error::new(
-                    format!(
-                        "Connection between {:?} and {:?} already exists",
-                        from_type, to_type
-                    ),
-                    ErrorType::AlreadyConnected,
-                ));
+                return Err(NodeError::AlreadyConnected(from_type, to_type));
             }
         };
 
         // make sure `from_type` exists in `from's` outputs
         if !from.has_output_socket(&from_type) {
-            return Err(Error::new(
-                format!("From node does not have socket type {:?}", from_type),
-                ErrorType::SocketDoesNotExist,
-            ));
+            return Err(NodeError::SocketDoesNotExist(from_type));
         }
 
         // make sure `to_type` exists in `to's` inputs
         if !to.has_input_socket(&to_type) {
-            return Err(Error::new(
-                format!("To node does not have socket type {:?}", to_type),
-                ErrorType::SocketDoesNotExist,
-            ));
+            return Err(NodeError::SocketDoesNotExist(to_type));
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
         if mem::discriminant(&from_type) != mem::discriminant(&to_type) {
-            return Err(Error::new(
-                format!("{:?} and {:?} sockets are incompatible", to_type, from_type),
-                ErrorType::IncompatibleSocketTypes,
-            ));
+            return Err(NodeError::IncompatibleSocketTypes(to_type, from_type));
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
@@ -209,13 +188,10 @@ impl Graph {
         }
     }
 
-    pub fn remove_node(&mut self, index: &NodeIndex) -> Result<(), Error> {
+    pub fn remove_node(&mut self, index: &NodeIndex) -> Result<(), NodeError> {
         // out of bounds?
         if index.index >= self.nodes.len() {
-            return Err(Error::new(
-                format!("Index {} out of bounds!", index.index),
-                ErrorType::IndexOutOfBounds,
-            ));
+            return Err(NodeError::IndexOutOfBounds(index.index));
         }
 
         let node = &self.nodes[index.index];
@@ -226,13 +202,7 @@ impl Graph {
         if let PossibleNode::Some(node) = node {
             // make sure it's the same generation
             if node.generation != index.generation {
-                return Err(Error::new(
-                    format!(
-                        "Node at index {} does not exist! (wrong generation)",
-                        index.index
-                    ),
-                    ErrorType::NodeDoesNotExist,
-                ));
+                return Err(NodeError::IndexOutOfBounds(index.index));
             } else {
                 // remove any connected node connections
                 let node = (*((*node).node)).borrow();
@@ -270,10 +240,7 @@ impl Graph {
                 node_to_remove_index = node.get_index();
             }
         } else {
-            return Err(Error::new(
-                format!("Node at index {} does not exist!", index.index),
-                ErrorType::NodeDoesNotExist,
-            ));
+            return Err(NodeError::NodeDoesNotExist(*index));
         }
 
         // move down here so the borrow isn't in the scope anymore
@@ -289,7 +256,7 @@ impl Graph {
 }
 
 impl Graph {
-    pub fn serialize(&self) -> Result<serde_json::Value, Error> {
+    pub fn serialize(&self) -> Result<serde_json::Value, NodeError> {
         // serialize all of the graph nodes, as it currently stands
         let nodes = serde_json::Value::Array(
             self.nodes
@@ -333,7 +300,7 @@ impl Graph {
 
         let connections = connections
             .into_iter()
-            .map(|connection| connection.serialize_to_json())
+            .map(|connection| serde_json::to_value(connection))
             .collect::<Result<Vec<serde_json::Value>, _>>()?;
 
         Ok(json!({

@@ -1,13 +1,27 @@
+//! Node module
+
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
+
+use serde::{Serialize, Deserialize};
 
 use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
 
-use crate::errors::{Error, ErrorType};
+use crate::errors::NodeError;
 use crate::nodes::registry::NodeVariant;
 use crate::property::PropertyType;
 
+/// Node trait
+/// 
+/// This is the most fundamental building block of a graph node network.
+/// It is the part of the graph that does the actual thinking. Data is presented to it
+/// through its sockets. The graph will call `list_input_sockets` and `list_output_sockets`
+/// to determine what sockets the node has available. From then, the graph will take care
+/// of data flow, connecting nodes together, and such. 
+/// 
+///  It needs to implement methods listing
+/// what properties it has, what sockets it has available to 
 #[allow(unused_variables)]
 pub trait Node: Debug {
     // defaults list nothing, to reduce boilerplate necessary for
@@ -15,20 +29,20 @@ pub trait Node: Debug {
     fn list_input_sockets(&self) -> Vec<SocketType> {
         Vec::new()
     }
+
     fn list_output_sockets(&self) -> Vec<SocketType> {
         Vec::new()
     }
+
     fn list_properties(&self) -> HashMap<String, PropertyType> {
         HashMap::new()
     }
+
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+
     fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 {
         0_f32
     }
-    fn serialize_to_json(&self) -> Result<serde_json::Value, Error>;
-    fn deserialize_from_json(json: serde_json::Value) -> Self
-    where
-        Self: Sized;
 }
 
 #[derive(Debug)]
@@ -109,7 +123,7 @@ impl NodeWrapper {
         outputs_filtered
     }
 
-    pub fn remove_input_socket_connection(&mut self, to_type: &SocketType) -> Result<(), Error> {
+    pub fn remove_input_socket_connection(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()
@@ -120,10 +134,7 @@ impl NodeWrapper {
 
             Ok(())
         } else {
-            Err(Error::new(
-                "Connection doesn't exist!".to_string(),
-                ErrorType::NotConnected,
-            ))
+            Err(NodeError::NotConnected)
         }
     }
 
@@ -132,7 +143,7 @@ impl NodeWrapper {
         from_type: &SocketType,
         to_node: &NodeIndex,
         to_type: &SocketType,
-    ) -> Result<(), Error> {
+    ) -> Result<(), NodeError> {
         let to_remove = self.connected_outputs.iter().position(|input| {
             input.from_socket_type == *from_type
                 && input.to_node == *to_node
@@ -144,17 +155,14 @@ impl NodeWrapper {
 
             Ok(())
         } else {
-            Err(Error::new(
-                "Connection doesn't exist!".to_string(),
-                ErrorType::NotConnected,
-            ))
+            Err(NodeError::NotConnected)
         }
     }
 
     pub fn remove_output_socket_connections(
         &mut self,
         from_type: &SocketType,
-    ) -> Result<(), Error> {
+    ) -> Result<(), NodeError> {
         let mut found: Vec<usize> = Vec::new();
 
         for (i, connection) in self.connected_outputs.iter().enumerate() {
@@ -168,17 +176,14 @@ impl NodeWrapper {
         }
 
         if found.is_empty() {
-            Err(Error::new(
-                "Connection doesn't exist!".to_string(),
-                ErrorType::NotConnected,
-            ))
+            Err(NodeError::NotConnected)
         } else {
             Ok(())
         }
     }
 
-    pub fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
-        self.node.as_ref().serialize_to_json()
+    pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
+        Ok(serde_json::to_value(&self.node)?)
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
@@ -194,10 +199,16 @@ impl NodeWrapper {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub struct NodeIndex {
     pub index: usize,
     pub generation: u32,
+}
+
+impl Display for NodeIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "index: {}, generation: {}", self.index, self.generation)
+    }
 }
 
 #[derive(Debug, Clone)]
