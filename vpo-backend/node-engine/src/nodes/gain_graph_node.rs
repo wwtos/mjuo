@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use crate::connection::{SocketType, StreamSocketType, ValueType};
-use crate::errors::NodeError;
 use crate::node::Node;
 
 #[derive(Debug, Serialize, Deserialize)]

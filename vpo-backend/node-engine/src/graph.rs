@@ -140,7 +140,7 @@ impl Graph {
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
         if mem::discriminant(&from_type) != mem::discriminant(&to_type) {
-            return Err(NodeError::IncompatibleSocketTypes(to_type, from_type));
+            return Err(NodeError::IncompatibleSocketTypes(from_type, to_type));
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
@@ -202,7 +202,7 @@ impl Graph {
         if let PossibleNode::Some(node) = node {
             // make sure it's the same generation
             if node.generation != index.generation {
-                return Err(NodeError::IndexOutOfBounds(index.index));
+                return Err(NodeError::NodeDoesNotExist(index.clone()));
             } else {
                 // remove any connected node connections
                 let node = (*((*node).node)).borrow();
