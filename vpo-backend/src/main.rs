@@ -1,27 +1,22 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Instant};
+
+use async_std::channel::{Receiver, Sender};
 
 use ipc::ipc_message::IPCMessage;
-use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::SoundConfig;
 
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
 use sound_engine::node::mono_buffer_player::MonoBufferPlayer;
-use sound_engine::node::AudioNode;
 use sound_engine::util::wav_reader::read_wav_as_mono;
 
 use ipc::ipc_server::IPCServer;
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
-    let (server_in, server_in_thread) = mpsc::channel::<IPCMessage>();
-    let (server_out_thread, server_out) = mpsc::channel::<IPCMessage>();
-
     //thread::spawn(move || {
-    IPCServer::open(server_in_thread, server_out_thread);
+    let (server_in, server_out) = IPCServer::open();
     //});
 
     (server_in, server_out)
