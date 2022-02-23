@@ -5,7 +5,7 @@ use serde::{Serialize, Deserialize};
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueType};
 use crate::errors::NodeError;
 use crate::node::NodeIndex;
-use crate::nodes::registry::NodeVariant;
+use crate::nodes::variants::NodeVariant;
 use crate::{graph::Graph, node::Node};
 
 #[derive(Debug, Serialize, Deserialize)]

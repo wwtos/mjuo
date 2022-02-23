@@ -9,7 +9,7 @@ use serde::{Serialize, Deserialize};
 use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
 
 use crate::errors::NodeError;
-use crate::nodes::registry::NodeVariant;
+use crate::nodes::variants::NodeVariant;
 use crate::property::PropertyType;
 
 /// Node trait
