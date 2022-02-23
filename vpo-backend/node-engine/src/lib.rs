@@ -6,4 +6,4 @@ pub mod nodes;
 pub mod property;
 
 #[cfg(test)]
-mod graph_tests;
+pub mod graph_tests;
