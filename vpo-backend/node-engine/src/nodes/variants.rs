@@ -6,6 +6,7 @@ use crate::{node::Node, nodes::gain_graph_node::GainGraphNode};
 use crate::graph_tests::TestNode;
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type", content = "content")]
 pub enum NodeVariant {
     GainGraphNode(GainGraphNode),
     #[cfg(test)]
