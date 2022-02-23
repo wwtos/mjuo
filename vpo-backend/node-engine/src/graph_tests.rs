@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use serde_json;
+use serde::{Serialize, Deserialize};
 
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueType};
-use crate::errors::{Error, ErrorType};
+use crate::errors::NodeError;
+use crate::node::NodeIndex;
+use crate::nodes::registry::NodeVariant;
 use crate::{graph::Graph, node::Node};
 
-#[derive(Debug)]
-struct TestNode {}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TestNode {}
 
 impl Node for TestNode {
     fn list_input_sockets(&self) -> Vec<SocketType> {
@@ -31,17 +33,6 @@ impl Node for TestNode {
     fn get_stream_output(&mut self, _socket_type: StreamSocketType) -> f32 {
         0_f32
     }
-
-    fn serialize_to_json(&self) -> Result<serde_json::Value, Error> {
-        Ok(serde_json::Value::Null)
-    }
-
-    fn deserialize_from_json(_json: serde_json::Value) -> Self
-    where
-        Self: Sized,
-    {
-        TestNode {}
-    }
 }
 
 #[test]
@@ -49,25 +40,31 @@ fn graph_node_crud() {
     let mut graph = Graph::new();
 
     // add a new node
-    let first_node_index = graph.add_node(Box::new(TestNode {}));
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
 
     // check that the node exists
     assert!(graph.get_node(&first_node_index).is_some());
 
     // now let's remove it
-    assert_eq!(graph.remove_node(&first_node_index), Ok(()));
+    assert_eq!(
+        format!("{:?}", graph.remove_node(&first_node_index)),
+        format!("{:?}", Ok::<(), NodeError>(()))
+    );
 
     // let's try removing it twice
     assert_eq!(
-        graph.remove_node(&first_node_index).unwrap_err().error_type,
-        ErrorType::NodeDoesNotExist
+        std::mem::discriminant(&graph.remove_node(&first_node_index).unwrap_err()),
+        std::mem::discriminant(&NodeError::NodeDoesNotExist(NodeIndex {
+            index: 0,
+            generation: 0
+        }))
     );
 
     // let's try to get it with its index
     assert!(graph.get_node(&first_node_index).is_none());
 
     // now add a second node
-    let second_node_index = graph.add_node(Box::new(TestNode {}));
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
 
     // it should have taken the place of the first node
     assert_eq!(first_node_index.index, second_node_index.index);
@@ -78,15 +75,15 @@ fn graph_node_crud() {
 
     // let's see what happens if we try to delete node one
     assert_eq!(
-        graph.remove_node(&first_node_index).unwrap_err().error_type,
-        ErrorType::NodeDoesNotExist
+        format!("{:?}", &graph.remove_node(&first_node_index).unwrap_err()),
+        format!("{:?}", &NodeError::NodeDoesNotExist(first_node_index.clone()))
     );
 
     // second node should still exist though with the right generation
     assert!(graph.get_node(&second_node_index).is_some());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node(Box::new(TestNode {}));
+    graph.add_node(NodeVariant::TestNode(TestNode {}));
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph.serialize());
@@ -97,8 +94,8 @@ fn graph_connecting() {
     let mut graph = Graph::new();
 
     // add two new nodes
-    let first_node_index = graph.add_node(Box::new(TestNode {}));
-    let second_node_index = graph.add_node(Box::new(TestNode {}));
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -114,16 +111,17 @@ fn graph_connecting() {
     }
 
     assert_eq!(
-        graph
-            .connect(
-                first_node_index,
-                SocketType::Midi(MidiSocketType::Default),
-                second_node_index,
-                SocketType::Midi(MidiSocketType::Default),
-            )
-            .unwrap_err()
-            .error_type,
-        ErrorType::SocketDoesNotExist
+        format!("{:?}", 
+            graph
+                .connect(
+                    first_node_index,
+                    SocketType::Midi(MidiSocketType::Default),
+                    second_node_index,
+                    SocketType::Midi(MidiSocketType::Default),
+                )
+                .unwrap_err()
+            ),
+        format!("{:?}", NodeError::SocketDoesNotExist(SocketType::Midi(MidiSocketType::Default)))
     );
 
     // ditto with on the to side
@@ -139,30 +137,35 @@ fn graph_connecting() {
     }
 
     assert_eq!(
-        graph
-            .connect(
-                first_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Dynamic(2)),
-            )
-            .unwrap_err()
-            .error_type,
-        ErrorType::SocketDoesNotExist
+        format!("{:?}", 
+            graph
+                .connect(
+                    first_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
+                    second_node_index,
+                    SocketType::Stream(StreamSocketType::Dynamic(2)),
+                )
+                .unwrap_err()
+            ),
+        format!("{:?}", NodeError::SocketDoesNotExist(SocketType::Stream(StreamSocketType::Dynamic(2))))
     );
 
     // make sure we can't connect two different families of types (midi can't connect to audio, etc)
     assert_eq!(
-        graph
-            .connect(
-                first_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Midi(MidiSocketType::Default),
-            )
-            .unwrap_err()
-            .error_type,
-        ErrorType::IncompatibleSocketTypes
+        format!("{:?}", 
+            graph
+                .connect(
+                    first_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
+                    second_node_index,
+                    SocketType::Midi(MidiSocketType::Default),
+                )
+                .unwrap_err()
+            ),
+        format!("{:?}", NodeError::IncompatibleSocketTypes(
+            SocketType::Stream(StreamSocketType::Audio),
+            SocketType::Midi(MidiSocketType::Default)
+        ))
     );
 
     // but we should be able to connect within the same family
@@ -180,30 +183,38 @@ fn graph_connecting() {
 
     // but we can't connect twice
     assert_eq!(
-        graph
-            .connect(
-                first_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-            )
-            .unwrap_err()
-            .error_type,
-        ErrorType::AlreadyConnected
+        format!("{:?}", 
+            graph
+                .connect(
+                    first_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
+                    second_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
+                )
+                .unwrap_err()
+        ),
+        format!("{:?}", NodeError::AlreadyConnected(
+            SocketType::Stream(StreamSocketType::Audio),
+            SocketType::Stream(StreamSocketType::Audio)
+        ))
     );
 
     // nor can we connect multiple outputs to one input
     assert_eq!(
-        graph
-            .connect(
-                first_node_index,
-                SocketType::Stream(StreamSocketType::Detune),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-            )
-            .unwrap_err()
-            .error_type,
-        ErrorType::AlreadyConnected
+        format!("{:?}", 
+            graph
+                .connect(
+                    first_node_index,
+                    SocketType::Stream(StreamSocketType::Detune),
+                    second_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
+                )
+                .unwrap_err()
+        ),
+        format!("{:?}", NodeError::AlreadyConnected(
+            SocketType::Stream(StreamSocketType::Detune),
+            SocketType::Stream(StreamSocketType::Audio)
+        ))
     );
 
     // but we can connect one output to multiple inputs
@@ -223,12 +234,12 @@ fn graph_connecting() {
 /// This test makes sure that when removing a node, it also removes any
 /// connections from all the nodes it's connected to
 #[test]
-fn hanging_connections() -> Result<(), Error> {
+fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = Graph::new();
 
     // set up a simple network
-    let first_node = graph.add_node(Box::new(TestNode {}));
-    let second_node = graph.add_node(Box::new(TestNode {}));
+    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}));
 
     graph.connect(
         first_node,
