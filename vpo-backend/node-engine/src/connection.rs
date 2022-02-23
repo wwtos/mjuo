@@ -27,7 +27,7 @@ pub struct OutputSideConnection {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "content")]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
@@ -42,13 +42,13 @@ impl Display for SocketType {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "content")]
 pub enum MidiSocketType {
     Default,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "content")]
 pub enum StreamSocketType {
     Audio,
     Gate,
@@ -57,13 +57,13 @@ pub enum StreamSocketType {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "content")]
 pub enum ValueType {
     Gain,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", content = "content")]
 pub enum Parameter {
     Float(f32),
     Int(i32),
