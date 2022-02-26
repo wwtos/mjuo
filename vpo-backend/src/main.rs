@@ -1,25 +1,38 @@
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
-use std::time::{Instant};
+use std::thread;
+use std::time::{Instant, Duration};
 
-use async_std::channel::{Receiver, Sender};
+use async_std::channel::{Receiver, Sender, unbounded};
 
+use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use sound_engine::SoundConfig;
 
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
 use sound_engine::node::mono_buffer_player::MonoBufferPlayer;
+use sound_engine::node::AudioNode;
 use sound_engine::util::wav_reader::read_wav_as_mono;
+use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 
 use ipc::ipc_server::IPCServer;
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
-    //thread::spawn(move || {
-    let (server_in, server_out) = IPCServer::open();
-    //});
+    let (to_server, from_main) = unbounded::<IPCMessage>();
+    let (to_main, from_server) = unbounded::<IPCMessage>();
 
-    (server_in, server_out)
+    let to_server_cloned = to_server.clone();
+
+    thread::spawn(move || {
+        IPCServer::open(
+            to_server_cloned.clone(),
+            from_main,
+            to_main.clone()
+        );
+    });
+
+    (to_server, from_server)
 }
 
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
@@ -30,7 +43,7 @@ fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    start_ipc();
+    let (to_server, from_server) = start_ipc();
 
     let backend = connect_backend()?;
 
@@ -49,28 +62,36 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut buffer_index = 0;
     let start = Instant::now();
 
-    // loop {
-    //     let mut buffer = [0_f32; BUFFER_SIZE];
+    loop {
+        if !from_server.is_empty() {
+            let msg = block_on(async {
+                from_server.recv().await
+            });
 
-    //     for sample in buffer.iter_mut() {
-    //         *sample = player.get_output_out();
-    //         player.process();
-    //     }
+            println!("{:?}", msg);
+        }
 
-    //     backend.write(&buffer)?;
+        let mut buffer = [0_f32; BUFFER_SIZE];
 
-    //     let now = Instant::now() - start;
-    //     let sample_duration =
-    //         Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
-    //     let buffer_time =
-    //         Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
+        for sample in buffer.iter_mut() {
+            *sample = player.get_output_out();
+            player.process();
+        }
 
-    //     if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
-    //         thread::sleep(sample_duration);
-    //     }
+        backend.write(&buffer)?;
 
-    //     buffer_index += 1;
-    // }
+        let now = Instant::now() - start;
+        let sample_duration =
+            Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
+        let buffer_time =
+            Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
 
-    Ok(())
+        if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
+            thread::sleep(sample_duration);
+        }
+
+        buffer_index += 1;
+    }
+
+    //Ok(())
 }

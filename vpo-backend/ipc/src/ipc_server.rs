@@ -1,13 +1,13 @@
-use async_std::channel::{Sender, Receiver, unbounded};
+use async_std::channel::{Sender, Receiver};
 use async_std::io::{self, WriteExt};
 use async_std::io::Error;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 
-use futures::{self, AsyncReadExt, AsyncWriteExt};
+use futures::{self, AsyncReadExt};
 use futures::executor::block_on;
 use futures::join;
-use serde_json::{Value, json};
+use serde_json::{Value};
 
 use crate::communication_constants::*;
 use crate::ipc_message::IPCMessage;
@@ -23,10 +23,11 @@ enum RawMessage {
 pub struct IPCServer {}
 
 impl IPCServer {
-    pub fn open() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
-        let (to_server, from_main) = unbounded::<IPCMessage>();
-        let (to_main, from_server) = unbounded::<IPCMessage>();
-
+    pub fn open(
+        _to_server: Sender<IPCMessage>,
+        from_main: Receiver<IPCMessage>,
+        to_main: Sender<IPCMessage>
+    ) {
         block_on(async {
             let listener = TcpListener::bind("127.0.0.1:26642").await?;
             let mut incoming = listener.incoming();
@@ -51,14 +52,14 @@ impl IPCServer {
                             _ => {}
                         }
 
-                        let response = json! {{
-                            "foo": "bar",
-                            "baz": {
-                                "la": [1_i32, 2_i32, 3_i32]
-                            }
-                        }};
+                        // let response = json! {{
+                        //     "foo": "bar",
+                        //     "baz": {
+                        //         "la": [1_i32, 2_i32, 3_i32]
+                        //     }
+                        // }};
 
-                        to_server.send(IPCMessage::Json(response)).await?;
+                        // to_server.send(IPCMessage::Json(response)).await?;
                     }
 
                     #[allow(unreachable_code)]
@@ -86,8 +87,6 @@ impl IPCServer {
 
             Ok::<(), crate::error::IPCError>(())
         }).unwrap();
-
-        (to_server, from_server)
     }
 }
 
