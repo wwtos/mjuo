@@ -69,6 +69,14 @@ impl NodeWrapper {
         self.index
     }
 
+    pub fn get_property(&self, name: &str) -> Option<Property> {
+        self.properties.get(name).map(|prop| prop.clone())
+    }
+
+    pub fn set_property(&mut self, name: String, value: Property) {
+        self.properties.insert(name, value);
+    }
+ 
     pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
         self.connected_inputs.clone()
     }
