@@ -4,9 +4,8 @@ use async_std::io::Error;
 use async_std::net::{TcpListener, TcpStream};
 use async_std::prelude::*;
 
-use futures::{self, AsyncReadExt};
+use futures::{self, AsyncReadExt, try_join};
 use futures::executor::block_on;
-use futures::join;
 use serde_json::{Value};
 
 use crate::communication_constants::*;
@@ -37,7 +36,8 @@ impl IPCServer {
                 let stream = stream?;
                 let (mut reader, mut writer) = &mut (&stream, &stream);
 
-                let (read_result, write_result) = join!(async {
+                // try_join ensures if either one errors out, the loop will continue
+                let result = try_join!(async {
                     loop {
                         let message = handle_message(&mut reader).await?;
 
@@ -51,15 +51,6 @@ impl IPCServer {
                             },
                             _ => {}
                         }
-
-                        // let response = json! {{
-                        //     "foo": "bar",
-                        //     "baz": {
-                        //         "la": [1_i32, 2_i32, 3_i32]
-                        //     }
-                        // }};
-
-                        // to_server.send(IPCMessage::Json(response)).await?;
                     }
 
                     #[allow(unreachable_code)]
@@ -80,9 +71,6 @@ impl IPCServer {
                     #[allow(unreachable_code)]
                     Ok::<(), crate::error::IPCError>(())
                 });
-
-                read_result.unwrap();
-                write_result.unwrap();
             }
 
             Ok::<(), crate::error::IPCError>(())

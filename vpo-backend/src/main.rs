@@ -63,35 +63,43 @@ fn main() -> Result<(), Box<dyn Error>> {
     let start = Instant::now();
 
     loop {
-        if !from_server.is_empty() {
-            let msg = block_on(async {
-                from_server.recv().await
-            });
-
-            println!("{:?}", msg);
-        }
-
-        let mut buffer = [0_f32; BUFFER_SIZE];
-
-        for sample in buffer.iter_mut() {
-            *sample = player.get_output_out();
-            player.process();
-        }
-
-        backend.write(&buffer)?;
-
-        let now = Instant::now() - start;
-        let sample_duration =
-            Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
-        let buffer_time =
-            Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
-
-        if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
-            thread::sleep(sample_duration);
-        }
-
-        buffer_index += 1;
+        let msg = block_on(async {
+            from_server.recv().await
+        });
+        
+        println!("{:?}", msg);
     }
+
+    // loop {
+    //     if !from_server.is_empty() {
+    //         let msg = block_on(async {
+    //             from_server.recv().await
+    //         });
+
+    //         println!("{:?}", msg);
+    //     }
+
+    //     let mut buffer = [0_f32; BUFFER_SIZE];
+
+    //     for sample in buffer.iter_mut() {
+    //         *sample = player.get_output_out();
+    //         player.process();
+    //     }
+
+    //     backend.write(&buffer)?;
+
+    //     let now = Instant::now() - start;
+    //     let sample_duration =
+    //         Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
+    //     let buffer_time =
+    //         Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
+
+    //     if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
+    //         thread::sleep(sample_duration);
+    //     }
+
+    //     buffer_index += 1;
+    // }
 
     //Ok(())
 }
