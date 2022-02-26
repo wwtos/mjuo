@@ -28,7 +28,7 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
         IPCServer::open(
             to_server_cloned.clone(),
             from_main,
-            to_main.clone()
+            to_main
         );
     });
 

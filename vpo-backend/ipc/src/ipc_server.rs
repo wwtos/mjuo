@@ -37,7 +37,7 @@ impl IPCServer {
                 let (mut reader, mut writer) = &mut (&stream, &stream);
 
                 // try_join ensures if either one errors out, the loop will continue
-                let result = try_join!(async {
+                let _ = try_join!(async {
                     loop {
                         let message = handle_message(&mut reader).await?;
 

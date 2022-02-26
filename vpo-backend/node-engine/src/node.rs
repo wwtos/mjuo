@@ -10,7 +10,7 @@ use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, S
 
 use crate::errors::NodeError;
 use crate::nodes::variants::NodeVariant;
-use crate::property::PropertyType;
+use crate::property::{PropertyType, Property};
 
 /// Node trait
 /// 
@@ -51,6 +51,7 @@ pub struct NodeWrapper {
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
+    properties: HashMap<String, Property>
 }
 
 impl NodeWrapper {
@@ -60,6 +61,7 @@ impl NodeWrapper {
             index,
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
+            properties: HashMap::new()
         }
     }
 
@@ -80,8 +82,7 @@ impl NodeWrapper {
             .as_ref()
             .list_input_sockets()
             .iter()
-            .find(|socket| *socket == socket_type)
-            .is_some()
+            .any(|socket| *socket == *socket_type)
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
@@ -89,8 +90,7 @@ impl NodeWrapper {
             .as_ref()
             .list_output_sockets()
             .iter()
-            .find(|socket| *socket == socket_type)
-            .is_some()
+            .any(|socket| *socket == *socket_type)
     }
 
     pub fn get_input_connection_by_type(
