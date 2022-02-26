@@ -5,7 +5,7 @@ pub enum PropertyType {
     Bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Property {
     String(String),
     Integer(i32),
