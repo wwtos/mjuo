@@ -11,6 +11,12 @@ use crate::{graph::Graph, node::Node};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TestNode {}
 
+impl Default for TestNode {
+    fn default() -> Self {
+        TestNode {}
+    }
+}
+
 impl Node for TestNode {
     fn list_input_sockets(&self) -> Vec<SocketType> {
         vec![

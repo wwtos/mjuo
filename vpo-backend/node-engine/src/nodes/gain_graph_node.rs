@@ -6,8 +6,8 @@ use crate::node::Node;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {}
 
-impl GainGraphNode {
-    pub fn new() -> Self {
+impl Default for GainGraphNode {
+    fn default() -> Self {
         GainGraphNode {}
     }
 }
