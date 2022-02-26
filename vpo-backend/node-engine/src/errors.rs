@@ -20,4 +20,6 @@ pub enum NodeError {
     IncompatibleSocketTypes(SocketType, SocketType),
     #[error("Json parser error")]
     JsonParserError(#[from] serde_json::error::Error),
+    #[error("Node type does not exist")]
+    NodeTypeDoesNotExist
 }

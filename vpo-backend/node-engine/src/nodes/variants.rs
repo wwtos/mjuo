@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-use crate::{node::Node, nodes::gain_graph_node::GainGraphNode};
+use crate::{node::Node, nodes::gain_graph_node::GainGraphNode, errors::NodeError};
 
 #[cfg(test)]
 use crate::graph_tests::TestNode;
@@ -11,6 +11,15 @@ pub enum NodeVariant {
     GainGraphNode(GainGraphNode),
     #[cfg(test)]
     TestNode(TestNode)
+}
+
+pub fn new_variant(node_type: String) -> Result<NodeVariant, NodeError> {
+    match node_type.as_str() {
+        "GainGraphNode" => Ok(NodeVariant::GainGraphNode(GainGraphNode::default())),
+        #[cfg(test)]
+        "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
+        _ => Err(NodeError::NodeTypeDoesNotExist)
+    }
 }
 
 impl<'a> AsRef<dyn Node + 'a> for NodeVariant {
