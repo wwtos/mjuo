@@ -202,7 +202,7 @@ impl Graph {
         if let PossibleNode::Some(node) = node {
             // make sure it's the same generation
             if node.generation != index.generation {
-                return Err(NodeError::NodeDoesNotExist(index.clone()));
+                return Err(NodeError::NodeDoesNotExist(*index));
             } else {
                 // remove any connected node connections
                 let node = (*((*node).node)).borrow();
@@ -253,6 +253,10 @@ impl Graph {
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl Graph {
@@ -300,7 +304,7 @@ impl Graph {
 
         let connections = connections
             .into_iter()
-            .map(|connection| serde_json::to_value(connection))
+            .map(serde_json::to_value)
             .collect::<Result<Vec<serde_json::Value>, _>>()?;
 
         Ok(json!({
