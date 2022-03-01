@@ -62,6 +62,8 @@ class Client {
         this.dataReadingType = MessageType.PING;
         this.client = client;
 
+        let textDecoder = new TextDecoder();
+
         client.on('data', (chunk) => {
             var pointer = 0;
         
@@ -153,7 +155,7 @@ class Client {
     }
 }
 
-export default function open () {
+export function open () {
     client.connect({ port: port, host: host }, function() {
         // If there is no error, the server has accepted the request and created a new 
         // socket dedicated to us.
@@ -173,6 +175,6 @@ export default function open () {
     return new Client(client);
 }
 
-let textDecoder = new TextDecoder();
+export { RawMessage };
 
 // The client can also receive data from the server by reading from its socket.

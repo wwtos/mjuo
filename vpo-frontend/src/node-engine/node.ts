@@ -1,23 +1,34 @@
-export interface Node {
-    listInputSockets: () => object[], // Vec<SocketType>
-    listOutputSockets: () => object[], // Vec<SocketType>
-    listProperties: () => object, // hashmap of property/value pairs
-    serializeToJson:() => object,
-    deserializeFromJson: () => Node
+import { EnumInstance } from "../util/enum";
+
+export class Node {
+    inputSockets: EnumInstance[]; // Vec<SocketType>
+    outputSockets: EnumInstance[]; // Vec<SocketType>
+    listProperties: () => object; // hashmap of property/propertyType pairs
+    serializeToJson:() => object;
+    applyJson: (json: object) => void;
 }
 
-export interface NodeWrapper {
-    node: Node,
-    index: NodeIndex,
+export class NodeWrapper {
+    node: Node;
+    index: NodeIndex;
     /** [InputSideConnection] */
-    connected_inputs: [object],
+    connectedInputs: EnumInstance[];
     /** [OutputSideConnection] */
-    connected_outputs: [object]
+    connectedOutputs: EnumInstance[];
 }
 
-export interface NodeIndex {
-    index: number,
-    generation: number
+export class NodeIndex {
+    index: number;
+    generation: number;
+
+    constructor(index: number, generation: number) {
+        this.index = index;
+        this.generation = generation;
+    }
+
+    toString(): string {
+        return this.index + "," + this.generation;
+    }
 }
 
 export interface GenerationalNode {

@@ -1,15 +1,47 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, IpcMainEvent, WebContents } from 'electron';
 import path from 'path';
 
-import open from "./main/client";
+import { EnumInstance } from "./util/enum";
+
+import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
 
+interface Reply {
+    value: object,
+    channel: string
+}
+
+
 const client = open();
 
+let ipcSender: WebContents;
+let replies: Reply[] = [];
+
+function sendToRenderer(channel: string, value: object) {
+    if (ipcSender) {
+        ipcSender.send(channel, value);
+    } else {
+        replies.push({
+            value: value,
+            channel
+        });
+    }
+}
+
 ipcMain.on("send", (event, data) => {
+    ipcSender = event.sender;
+
+    if (replies.length > 0) {
+        for (var oldReply of replies) {
+            ipcSender.send(oldReply.channel, oldReply.value);
+        }
+
+        replies.length = 0;
+    }
+
     client.sendJson(data);
-})
+});
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
@@ -42,8 +74,12 @@ app.on('activate', () => {
     }
 });
 
-client.on("message", (message: object) => {
-    console.log(JSON.stringify(message, null, 4));
+client.on("message", (event: EnumInstance) => {
+    event.match([
+        [RawMessage.ids.Json, ([json]) => {
+            sendToRenderer("receive", json);
+        }]
+    ]);
 });
 
 require('electron-reload')(__dirname, {
