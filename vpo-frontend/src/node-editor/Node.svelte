@@ -1,7 +1,10 @@
-<script>
+<script lang="ts">
     import Socket from "./Socket.svelte";
     import { onMount } from 'svelte';
     import {storeWatcher} from "../util/store-watcher";
+    import { NodeIndex, NodeWrapper } from "../node-engine/node";
+    import { EnumInstance } from "../util/enum";
+    import { SocketType, StreamSocketType } from "../node-engine/connection";
 
     const ROUNDNESS = 7;
     const PADDING = 10;
@@ -28,53 +31,46 @@
             }]
         }, "OUTPUT"]
     ];
+
+    let wrapper: NodeWrapper = {
+        node: {
+            inputSockets: [StreamSocketType.Audio],
+            outputSockets: [StreamSocketType.Audio],
+            listProperties: function(): EnumInstance[] {
+                return [];
+            },
+            serializeToJson: function(): object {
+                return {}
+            },
+            applyJson: function(json) {}
+        },
+        index: new NodeIndex(0, 0),
+        connectedInputs: [],
+        connectedOutputs: []
+    };
+
     export let width = 200;
     export let x = 100;
     export let y = 100;
-    export let mouseStore;
-    export let viewportStore;
 
-    let viewport = new storeWatcher(viewportStore);
+    export let onMousedown = function() {};
 
     let computedHeight = SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * (properties.length - 1) + TEXT_SIZE + PADDING;
 
     let dragging = false;
     let dragAnchor = {x: 0, y: 0};
-
-    function clicked ({clientX, clientY}) {
-        dragging = true;
-        dragAnchor = {
-            x: clientX - x - viewport.get().left,
-            y: clientY - y - viewport.get().top
-        };
-    }
-
-    function released () {
-        dragging = false;
-    }
-
-    mouseStore.subscribe(([mouseX, mouseY]) => {
-        if (dragging) {
-            x = mouseX - dragAnchor.x;
-            y = mouseY - dragAnchor.y;
-        }
-    });
-
-    onMount(() => {
-        document.addEventListener("mouseup", released);
-    })
 </script>
 
 <g transform="translate({x}, {y})">
-<rect width="{width}" height="{computedHeight}" rx="{ROUNDNESS}" class="background" on:mousedown={clicked} />
-<text x={PADDING} y={PADDING_TOP} class="title" on:mousedown={clicked}>{title}</text>
+<rect width="{width}" height="{computedHeight}" rx="{ROUNDNESS}" class="background" on:mousedown={onMousedown} />
+<text x={PADDING} y={PADDING_TOP} class="title" on:mousedown={onMousedown}>{title}</text>
 
-{#each properties as property, i (property[0])}
-    {#if property[2] === "INPUT"}
-        <text x={TEXT_PADDING} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} on:mousedown={clicked}>{property[0]}</text>
+{#each [...wrapper.node.inputSockets, ...wrapper.node.outputSockets] as socket, i (index.toString())}
+    {#if i < wrapper.node.inputSockets.length}
+        <text x={TEXT_PADDING} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} on:mousedown={onMousedown}>{property[0]}</text>
         <Socket x={0} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} type={property[1].type} />
     {:else}
-        <text x={width - TEXT_PADDING} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} class="right-align" on:mousedown={clicked}>{property[0]}</text>
+        <text x={width - TEXT_PADDING} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} class="right-align" on:mousedown={onMousedown}>{property[0]}</text>
         <Socket x={width} y={SOCKET_LIST_START + SOCKET_VERTICAL_SPACING * i} type={property[1].type} />
     {/if}
 {/each}

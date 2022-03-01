@@ -1,4 +1,5 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
+import { GenerationalNode, NodeWrapper } from "./node";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -7,29 +8,28 @@ export const PossibleNode = createEnumDefinition({
     "None": "u32", // generation last held
 });
 
-function create_new_node (node: Node): EnumInstance {
-    return PossibleNode.Some([
-        /*GenerationalNode*/ {
-            node: /*NodeWrapper*/ {
-                node: node,
-                index: /*NodeIndex*/ {
-                    index: 0,
-                    generation: 0,
-
-                },
-                connected_inputs: [],
-                connected_outputs: []
-            },
-            generation: 0
-        }
-    ]);
-}
-
 export class Graph {
-    nodes: object[]; // PossibleNode
+    nodes: EnumInstance[]; // PossibleNode
 
     constructor () {
         this.nodes = [];
+    }
+
+    getKeyedNodes (): ([string, NodeWrapper])[] {
+        let keyedNodes = [];
+
+        for (let i = 0; i < this.nodes.length; i++) {
+            this.nodes[i].match([
+                [PossibleNode.ids.Some, ([generationalNode]) => {
+                    const generation = generationalNode.generation;
+                    const nodeWrapper = generationalNode.nodeWrapper;
+
+                    keyedNodes.push([i + "," + generation, nodeWrapper]);
+                }]
+            ]);
+        }
+
+        return keyedNodes;
     }
 
     // add_node (node: Node): NodeIndex {

@@ -8,8 +8,16 @@
 	
 	const ipc = (window as any).ipcRenderer;
 
-	ipc.send("send", {
-		"foo": "bar"
+	function sendJson (json) {
+		ipc.send("send", json);
+	}
+
+	// sendJson({
+	// 	"foo": "bar"
+	// });
+
+	ipc.on("receive", function(event: object, message: object) {
+		console.log(message);
 	});
 
 	let width = 0;
