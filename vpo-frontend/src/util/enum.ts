@@ -9,6 +9,10 @@ export class EnumInstance {
         this.value = value;
     }
 
+    getType(): number {
+        return this.type;
+    }
+
     toJSON () {
         var ids = this.enumDef.ids;
         var typeName: string = "";
@@ -34,7 +38,12 @@ export class EnumInstance {
       *         // otherwise just return the value as normal
       *     }]
       * ]); **/
-    match (matchClauses: (Function | number)[][]) {
+    match (matchClauses: (Function | number)[][]): any {
+        // debugging //
+        if (matchClauses.findIndex(clause => clause === undefined) !== -1) {
+            throw "One of the match clauses is undefined!";
+        }
+
         // go through in order through the match clauses
         for (var matchClause of matchClauses) {
             // don't even run it if it's not of that type
@@ -51,7 +60,7 @@ export class EnumInstance {
                 continue;
             }
     
-            if (returnValue && !returnValue.didThisMatch) {
+            if (returnValue && returnValue.didThisMatch === false) {
                 continue; // check the next one
             }
     
