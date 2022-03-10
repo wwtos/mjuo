@@ -84,7 +84,7 @@ function verifyInput(type: (string | Function), value: any) {
         return Array.isArray(value);
     } else if (type === "string") {
         return typeof value === "string";
-    } else if (type === "f32" || type === "i32" || type === "u64" || type === "number") {
+    } else if (type === "f32" || type === "i32" || type === "u32" || type === "u64" || type === "number") {
         return typeof value === "number";
     } else if (type === "boolean") {
         return typeof value === "boolean";
@@ -126,14 +126,16 @@ export function createEnumDefinition(states: {
             var currentState = states[currentStateId];
             var enumId = newEnumDef.ids[currentStateId];
 
-
-
             // this is an empty state, so you shouldn't have to call
             // a function to create it, just use Enum.StateWithoutValue
             if (currentState === null) {
                 newEnumDef[currentStateId] = new EnumInstance(newEnumDef, enumId, null);
             } else {
                 // otherwise it's a function, so you can use Enum.State(foo, bar)
+
+                if (typeof currentState === "string") {
+                    currentState = [currentState];
+                }
 
                 if (Array.isArray(currentState)) {
                     newEnumDef[currentStateId] = function (args: any) {
