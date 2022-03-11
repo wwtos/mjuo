@@ -10,6 +10,8 @@ sound-engine = { path = "./sound-engine" }
 node-engine = { path = "./node-engine" }
 ipc = { path = "./ipc" }
 async-std = "1.10.0"
+serde = { version = "1.0.133", features = ["derive"] }
+serde_json = "1.0.74"
 
 [workspace]
 

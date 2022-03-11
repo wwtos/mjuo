@@ -1,20 +1,16 @@
-use std::cell::RefCell;
 use std::error::Error;
-use std::rc::Rc;
 use std::thread;
-use std::time::{Instant, Duration};
 
 use async_std::channel::{Receiver, Sender, unbounded};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use sound_engine::SoundConfig;
+use node_engine::graph::Graph;
 
+use node_engine::nodes::variants::new_variant;
+use serde_json::Value;
+use serde_json::json;
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
-use sound_engine::node::mono_buffer_player::MonoBufferPlayer;
-use sound_engine::node::AudioNode;
-use sound_engine::util::wav_reader::read_wav_as_mono;
-use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 
 use ipc::ipc_server::IPCServer;
 
@@ -35,71 +31,60 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
-    backend.connect()?;
-
-    Ok(backend)
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
-
-    let backend = connect_backend()?;
-
-    let wav = read_wav_as_mono("./060-C.wav")?;
-    let wav_wrapped = Rc::new(RefCell::new(wav));
-
-    let config = SoundConfig {
-        sample_rate: 48_000,
-    };
-
-    println!("loaded");
-
-    let mut player = MonoBufferPlayer::new(&config, wav_wrapped);
-    player.set_playback_rate(1.0);
-
-    let mut buffer_index = 0;
-    let start = Instant::now();
+    
+    let mut graph = Graph::new();
 
     loop {
         let msg = block_on(async {
             from_server.recv().await
         });
         
-        println!("{:?}", msg);
+        println!("Received: {:?}", msg);
+
+        let msg = msg.unwrap();
+
+        let IPCMessage::Json(json) = msg;
+            
+        if let Value::Object(message) = json {
+            let action = message.get("action");
+
+            if let Some(action) = action {
+                if let Value::String(action_name) = action {
+                    match action_name.as_str() {
+                        "graph/get" => {
+                            let json = graph.serialize().unwrap();
+
+                            block_on(async {
+                                to_server.send(IPCMessage::Json(json! {{
+                                    "action": "graph/updateGraph",
+                                    "payload": json
+                                }})).await
+                            }).unwrap();
+                        },
+                        "graph/newNode" => {
+                            let node_type_raw = message.get("payload").unwrap();
+
+                            if let Value::String(node_type) = node_type_raw {
+                                let new_node = new_variant(node_type).unwrap();
+
+                                graph.add_node(new_node);
+                            }
+
+                            let json = graph.serialize().unwrap();
+
+                            block_on(async {
+                                to_server.send(IPCMessage::Json(json! {{
+                                    "action": "graph/updateGraph",
+                                    "payload": json
+                                }})).await
+                            }).unwrap();
+                        },
+                        _ => {}
+                    }
+                }
+            }
+        }
     }
-
-    // loop {
-    //     if !from_server.is_empty() {
-    //         let msg = block_on(async {
-    //             from_server.recv().await
-    //         });
-
-    //         println!("{:?}", msg);
-    //     }
-
-    //     let mut buffer = [0_f32; BUFFER_SIZE];
-
-    //     for sample in buffer.iter_mut() {
-    //         *sample = player.get_output_out();
-    //         player.process();
-    //     }
-
-    //     backend.write(&buffer)?;
-
-    //     let now = Instant::now() - start;
-    //     let sample_duration =
-    //         Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
-    //     let buffer_time =
-    //         Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
-
-    //     if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
-    //         thread::sleep(sample_duration);
-    //     }
-
-    //     buffer_index += 1;
-    // }
-
-    //Ok(())
 }

@@ -15,6 +15,18 @@ export class NodeWrapper {
     connectedInputs: EnumInstance[];
     /** [OutputSideConnection] */
     connectedOutputs: EnumInstance[];
+
+    constructor(
+        node: Node,
+        index: NodeIndex,
+        connectedInputs: EnumInstance[]/*[InputSideConnection]*/,
+        connectedOutputs: EnumInstance[]/*[OutputSideConnection]*/
+    ) {
+        this.node = node;
+        this.index = index;
+        this.connectedInputs = connectedInputs;
+        this.connectedOutputs = connectedOutputs;
+    }
 }
 
 export class NodeIndex {

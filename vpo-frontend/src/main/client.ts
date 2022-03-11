@@ -163,10 +163,7 @@ export function open () {
 
         // The client can now send data to the server by writing to its socket.
         let text = new TextEncoder().encode(JSON.stringify({
-            "foo": "bar",
-            "baz": {
-                "la": [1, false, "apple"]
-            }
+            action: "establishConnection"
         }));
         
         client.write(buildMessage(MessageType.DATA_JSON, text));

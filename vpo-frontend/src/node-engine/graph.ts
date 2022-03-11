@@ -5,14 +5,44 @@ import { GenerationalNode, NodeWrapper } from "./node";
 
 export const PossibleNode = createEnumDefinition({
     "Some": "object", // GenerationalNode
-    "None": "u32", // generation last held
+    "None": "number", // generation last held (u32)
 });
 
 export class Graph {
     nodes: EnumInstance[]; // PossibleNode
 
     constructor () {
-        this.nodes = [];
+        this.nodes = [/* PossibleNode {
+            Some(GenerationalNode {
+                node: NodeWrapper {
+                    Node {
+
+                    },
+                    NodeIndex {
+                        index: usize,
+                        generation: u32
+                    }
+                },
+                generation: u32
+            }),
+            None(u32)
+        } */];
+    }
+
+    applyJson (json: any) {
+        for (let i = 0; i < json.nodes.length; i++) {
+            let node = json.nodes[i];
+
+            var index = node.index;
+
+            if (this.nodes[index]) {
+                // are they the same generation?
+
+                if (index.generation) {
+
+                }
+            }
+        }
     }
 
     getKeyedNodes (): ([string, NodeWrapper])[] {
@@ -22,7 +52,7 @@ export class Graph {
             this.nodes[i].match([
                 [PossibleNode.ids.Some, ([generationalNode]) => {
                     const generation = generationalNode.generation;
-                    const nodeWrapper = generationalNode.nodeWrapper;
+                    const nodeWrapper = generationalNode.node;
 
                     keyedNodes.push([i + "," + generation, nodeWrapper]);
                 }]

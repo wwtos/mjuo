@@ -14,7 +14,6 @@
     "main-watch": "tsc -w --project ./tsconfig-main.json",
     "svelte-build": "rollup -c",
     "svelte-dev": "rollup -c -w",
-    "svelte-start": "sirv public",
     "svelte-ts-check": "svelte-check --tsconfig ./tsconfig-svelte.json",
     "svelte-ts-watch": "svelte-check --watch --tsconfig ./tsconfig-svelte.json"
   },
@@ -56,7 +55,8 @@
     "electron-reload": "^2.0.0-alpha.1",
     "electron-squirrel-startup": "^1.0.0",
     "esm": "^3.2.25",
-    "rollup-plugin-svelte": "^7.1.0"
+    "rollup-plugin-svelte": "^7.1.0",
+    "sirv-cli": "^2.0.2"
   },
   "devDependencies": {
     "@electron-forge/cli": "^6.0.0-beta.61",
@@ -75,7 +75,7 @@
     "rollup-plugin-livereload": "^2.0.0",
     "rollup-plugin-svelte": "^7.0.0",
     "rollup-plugin-terser": "^7.0.0",
-    "sirv": "^2.0.0",
+    "sirv": "^2.0.2",
     "svelte": "^3.0.0",
     "svelte-check": "^2.0.0",
     "svelte-preprocess": "^4.0.0",

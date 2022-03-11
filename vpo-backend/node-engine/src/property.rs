@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 pub enum PropertyType {
     String,
     Integer,
@@ -5,7 +7,8 @@ pub enum PropertyType {
     Bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
 pub enum Property {
     String(String),
     Integer(i32),

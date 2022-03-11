@@ -724,6 +724,8 @@ dependencies = [
  "async-std",
  "ipc",
  "node-engine",
+ "serde",
+ "serde_json",
  "sound-engine",
 ]
 
