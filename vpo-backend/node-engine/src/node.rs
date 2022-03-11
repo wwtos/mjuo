@@ -45,24 +45,31 @@ pub trait Node: Debug {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct NodeWrapper {
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
-    properties: HashMap<String, Property>
+    properties: HashMap<String, Property>,
+    ui_data: HashMap<String, Property>
 }
 
 impl NodeWrapper {
     pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
-        NodeWrapper {
+        let mut wrapper = NodeWrapper {
             node,
             index,
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
-            properties: HashMap::new()
-        }
+            properties: HashMap::new(),
+            ui_data: HashMap::new()
+        };
+
+        wrapper.ui_data.insert("x".to_string(), Property::Float(0.0));
+        wrapper.ui_data.insert("y".to_string(), Property::Float(0.0));
+
+        wrapper
     }
 
     pub fn get_index(&self) -> NodeIndex {
@@ -191,7 +198,7 @@ impl NodeWrapper {
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
-        Ok(serde_json::to_value(&self.node)?)
+        Ok(serde_json::to_value(&self)?)
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

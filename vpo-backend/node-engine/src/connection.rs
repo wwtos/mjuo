@@ -12,14 +12,14 @@ pub struct Connection {
     pub to_node: NodeIndex,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputSideConnection {
     pub from_socket_type: SocketType,
     pub to_node: NodeIndex,
@@ -69,4 +69,24 @@ pub enum Parameter {
     Int(i32),
     Boolean(bool),
     String(String),
+}
+
+pub fn socket_type_to_string(socket_type: SocketType) -> String {
+    match socket_type {
+        SocketType::Stream(stream) => match stream {
+            StreamSocketType::Audio => "Audio".to_string(),
+            StreamSocketType::Gate => "Gate".to_string(),
+            StreamSocketType::Detune => "Detune".to_string(),
+            StreamSocketType::Dynamic(_) => "Dynamic".to_string(),
+        },
+        SocketType::Midi(midi) => match midi {
+            MidiSocketType::Default => "Midi".to_string(),
+        },
+        SocketType::Value(value) => match value {
+            ValueType::Gain => "Gain value".to_string(),
+        },
+        SocketType::MethodCall(method_call) => {
+            format!("{:?}", method_call)
+        },
+    }
 }

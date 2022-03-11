@@ -1,30 +1,76 @@
-<script>
+<script lang="ts">
+    import { SocketType, SocketDirection } from "../node-engine/connection";
+
     const RADIUS = 12;
 
-    export let x = 300;
-    export let y = 300;
-    export let type = "Stream";
+    export let type: number;
+    export let label: string;
+    export let direction: SocketDirection;
 
-    console.log(type);
+    console.log("Node type", type);
 </script>
+<div class="container" class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input}>
+    <!-- put the text first if it's an output -->
+    {#if direction === SocketDirection.Output}
+        <div class="text">{ label }</div>
+    {/if}
 
-{#if type === "Stream"}
-    <circle cx={x} cy={y} r={RADIUS} class="socket" />
-{:else if type === "Midi" }
-    <rect x={x - RADIUS} y={y - RADIUS} width={RADIUS * 2} height={RADIUS * 2} class="midi" />
-{:else if type === "Value" }
-    <polygon points="{x - RADIUS},{y + RADIUS} {x},{y - RADIUS} {x + RADIUS},{y + RADIUS}" class="value" />
-{/if}
+    {#if type === SocketType.ids.Stream}
+        <div class="socket stream"></div>
+    {:else if type === SocketType.ids.Midi}
+        <div class="socket midi"></div>
+    {:else if type === SocketType.ids.Value}
+        <div class="socket value"></div>
+    {/if}
+
+    {#if direction === SocketDirection.Input}
+        <div class="text">{ label }</div>
+    {/if}
+</div>
 
 <style>
+.container {
+    margin: 10px 0;
+}
+
+.input {
+    text-align: left;
+}
+
+.output {
+    text-align: right;
+}
+
+.input .socket {
+    margin-left: -15px;
+}
+
+.output .socket {
+    margin-right: -15px;
+}
+
+
+.text {
+    display: inline-block;
+    color: white;
+}
+
 .socket {
-    fill: #96b38a;
-    stroke: white;
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.stream {
+    border-radius: 100%;
+    background: #96b38a;
+    border: 2px solid white;
 }
 
 .midi {
-    fill: gold;
-    stroke: white;
+    background: gold;
+    border: 2px solid white;
 }
 
 .value {

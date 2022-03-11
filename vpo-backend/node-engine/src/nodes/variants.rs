@@ -13,8 +13,8 @@ pub enum NodeVariant {
     TestNode(TestNode)
 }
 
-pub fn new_variant(node_type: String) -> Result<NodeVariant, NodeError> {
-    match node_type.as_str() {
+pub fn new_variant(node_type: &str) -> Result<NodeVariant, NodeError> {
+    match node_type {
         "GainGraphNode" => Ok(NodeVariant::GainGraphNode(GainGraphNode::default())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),

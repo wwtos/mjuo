@@ -41,10 +41,6 @@ impl IPCServer {
                     loop {
                         let message = handle_message(&mut reader).await?;
 
-                        if let RawMessage::Json(message) = &message {
-                            println!("{}", message);
-                        }
-
                         match message {
                             RawMessage::Json(json) => {
                                 to_main.send(IPCMessage::Json(json)).await?;
@@ -61,6 +57,8 @@ impl IPCServer {
 
                         match message {
                             IPCMessage::Json(json) => {
+                                println!("Sending {}", json);
+
                                 let message = build_message_json(json);
 
                                 WriteExt::write_all(&mut writer, &message).await?;

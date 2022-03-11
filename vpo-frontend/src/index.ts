@@ -82,7 +82,7 @@ client.on("message", (event: EnumInstance) => {
     ]);
 });
 
-require('electron-reload')(__dirname, {
+require('electron-reload')(path.join(__dirname, "../public"), {
     electron: path.join(__dirname, '../node_modules', '.bin', 'electron'),
     awaitWriteFinish: true,
 });

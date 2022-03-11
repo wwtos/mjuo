@@ -15,20 +15,11 @@ $: {
 }
 </script>
 
-<input type="number" style="width: 100%" bind:value={value} />
+<input type="number" bind:value={value} />
+
 <style>
 input {
-    height: 26px;
-    border: none;
+    width: 100%;
     margin: 0;
-    outline: none;
-    border-radius: 0;
-    box-shadow: none;
-    resize: none;
-}
-
-input:focus-visible {
-    border: 1px solid blue;
-    border-radius: 0;
 }
 </style>

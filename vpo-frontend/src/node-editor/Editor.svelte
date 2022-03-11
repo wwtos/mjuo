@@ -1,16 +1,36 @@
 <script lang="ts">
     import Node from "./Node.svelte";
     import { onMount } from 'svelte';
-    import { Graph } from '../node-engine/graph';
+    import { Graph, PossibleNode } from '../node-engine/graph';
+    import { NodeIndex, NodeWrapper } from "../node-engine/node";
+    import { MidiSocketType, SocketType, StreamSocketType } from "../node-engine/connection";
+    import { EnumInstance } from "../util/enum";
+    import { IPCSocket } from "../util/socket";
     
     export let width = 400;
     export let height = 400;
 
+    export let ipcSocket: IPCSocket;
+
+    let nodeTypeToCreate: string;
+
     $: changeDimensions(width, height);
 
-    export let nodes: Graph;
+    export let nodes: Graph = new Graph();
 
-    let editor: SVGElement;
+    ipcSocket.send({
+        "action": "graph/get"
+    });
+
+    ipcSocket.onMessage(message => {
+        console.log("received", message);
+
+        if (message.action === "graph/updateGraph") {
+            nodes.applyJson(message.payload);
+        }
+    });
+
+    let editor: HTMLDivElement;
 
     let viewportLeft: number = 0;
     let viewportTop: number = 0;
@@ -40,22 +60,45 @@
         });
     });
 
-    function backgroundMousedown () {
-        console.log("here");
+    function createNode () {
+        console.log(nodeTypeToCreate);
+
+        ipcSocket.send({
+            "action": "graph/newNode",
+            "payload": nodeTypeToCreate
+        });
     }
 </script>
 
-<svg viewBox="{viewportLeft} {viewportTop} {viewportWidth} {viewportHeight}">
+<div class="editor" style="width: {width}px; height: {height}px" bind:this={editor}>
     <!-- TODO: yes, I'm lazy, if things start breaking maybe fix this rect -->
-    <rect x="-10000000" y="-10000000" width="20000000" height="20000000" opacity="0" on:mousedown={backgroundMousedown} />
+    <div class="new-node" style="width: {width - 9}px">
+        New node type:
+        <select bind:value={nodeTypeToCreate}>
+            <option value="GainGraphNode">Gain graph node</option>
+        </select>
+        <button on:click={createNode}>Create!</button>
+    </div>
     
     {#each nodes.getKeyedNodes() as [key, node] (key) }
         <Node wrapper={node} />
     {/each}
-</svg>
+</div>
 
 <style>
-    svg {
-        border: 1px solid black;
-    }
+select {
+    background-color: white;
+}
+
+.new-node {
+    height: 50px;
+    position: absolute;
+    background-color: lightgray;
+    padding: 4px;
+}
+
+.editor {
+    border: 1px solid black;
+    overflow: hidden;
+}
 </style>

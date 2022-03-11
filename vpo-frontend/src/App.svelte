@@ -5,20 +5,11 @@
 	import SplitView from './layout/SplitView.svelte';
 	import {SplitDirection} from './layout/enums';
 	import {windowDimensions} from './util/window-size';
+	import {createEnumDefinition} from './util/enum';
+	import {IPCSocket} from './util/socket';
 	
 	const ipc = (window as any).ipcRenderer;
-
-	function sendJson (json) {
-		ipc.send("send", json);
-	}
-
-	// sendJson({
-	// 	"foo": "bar"
-	// });
-
-	ipc.on("receive", function(event: object, message: object) {
-		console.log(message);
-	});
+	let ipcSocket: any = new IPCSocket(ipc);
 
 	let width = 0;
 	let height = 0;
@@ -43,9 +34,36 @@
 	secondState={{
 		direction: SplitDirection.VERTICAL,
 		firstPanel: PropertyEditor,
-		secondPanel: Editor
+		secondPanel: Editor,
+		secondState: {ipcSocket: ipcSocket}
 	}} />
 </main>
 
 <style>
+:global(input) {
+    height: 26px;
+    border: none;
+    outline: none;
+    border-radius: 0;
+    box-shadow: none;
+    resize: none;
+}
+
+:global(input:focus-visible) {
+    outline: 1px solid blue;
+    border-radius: 0;
+}
+
+:global(select) {
+    border: none;
+    outline: none;
+    border-radius: 0;
+    box-shadow: none;
+    resize: none;
+}
+
+:global(select:focus-visible) {
+    outline: 1px solid blue;
+    border-radius: 0;
+}
 </style>
