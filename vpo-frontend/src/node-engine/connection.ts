@@ -1,4 +1,5 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
+import { NodeIndex } from "./node";
 
 export const MidiSocketType = createEnumDefinition({
     "Default": null
@@ -11,7 +12,7 @@ export const StreamSocketType = createEnumDefinition({
     "Dynamic": ["u64"]
 });
 
-export const ValueType = createEnumDefinition({
+export const ValueSocketType = createEnumDefinition({
     "Gain": null
 });
 
@@ -25,7 +26,7 @@ export const Parameter = createEnumDefinition({
 export const SocketType = createEnumDefinition({
     "Stream": [StreamSocketType],
     "Midi": [MidiSocketType],
-    "Value": [ValueType],
+    "Value": [ValueSocketType],
     "MethodCall": "array"
 });
 
@@ -33,6 +34,30 @@ export enum SocketDirection {
     Input = 0,
     Output = 1
 };
+
+export class InputSideConnection {
+    fromSocketType: EnumInstance; /*SocketType*/
+    fromNode: NodeIndex;
+    toSocketType: EnumInstance; /*SocketType*/
+
+    constructor (fromSocketType: EnumInstance, fromNode: NodeIndex, toSocketType: EnumInstance) {
+        this.fromSocketType = fromSocketType;
+        this.fromNode = fromNode;
+        this.toSocketType = toSocketType;
+    }
+}
+
+export class OutputSideConnection {
+    fromSocketType: EnumInstance; /*SocketType*/
+    toNode: NodeIndex;
+    toSocketType: EnumInstance; /*SocketType*/
+
+    constructor (fromSocketType: EnumInstance, toNode: NodeIndex, toSocketType: EnumInstance) {
+        this.fromSocketType = fromSocketType;
+        this.toNode = toNode;
+        this.toSocketType = toSocketType;
+    }
+}
 
 export function socketTypeToString(socketType: /*SocketType*/EnumInstance): string {
     var response = socketType.match([
@@ -49,9 +74,9 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
                 [MidiSocketType.ids.Default, () => "Midi"]
             ]);
         }],
-        [SocketType.ids.Value, ([value/* :ValueType*/]) => {
+        [SocketType.ids.Value, ([value/* :ValueSocketType*/]) => {
             return value.match([
-                [ValueType.ids.Gain, () => "Gain value"]
+                [ValueSocketType.ids.Gain, () => "Gain value"]
             ]);
         }],
         [SocketType.ids.MethodCall, () => "Method call"]

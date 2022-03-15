@@ -35,13 +35,21 @@
     ];
 
     export let width = 200;
-    export let x = 100;
-    export let y = 100;
+    
+    export let onMousedown = function(index: NodeIndex, e: MouseEvent) {};
 
-    export let onMousedown = function() {};
+    function onMousedownRaw (e: MouseEvent) {
+        onMousedown(new NodeIndex(wrapper.index.index, wrapper.index.generation), e);
+    }
+
+    let x, y, selected;
+
+    $: x = wrapper.uiData.x;
+    $: y = wrapper.uiData.y;
+    $: selected = wrapper.uiData.selected;
 </script>
 
-<div style="transform: translate({x}px, {y}px); width: {width}px" class="background" on:mousedown={onMousedown}>
+<div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected}>
     <div class="node-title">{title}</div>
 
     {#each sockets as [socket, direction] (socket.getType() + "" + direction)}
@@ -56,17 +64,20 @@
     margin: 8px;
 }
 .background {
+    position: absolute;
     background-color: rgba(110, 136, 255, 0.8);
     border: solid 2px #4e58bf;
     border-radius: 7px;
-}
-
-div {
     text-align: left;
     font-size: 14px;
     font-family: sans-serif;
     fill: white;
     user-select: none;
+    z-index: -10;
+}
+
+.background.selected {
+    background-color: rgba(110, 226, 255, 0.8);
 }
 
 .right-align {

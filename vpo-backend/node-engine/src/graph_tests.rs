@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 
-use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueType};
+use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::NodeError;
 use crate::node::NodeIndex;
 use crate::nodes::variants::NodeVariant;
@@ -29,7 +29,7 @@ impl Node for TestNode {
     fn list_output_sockets(&self) -> Vec<SocketType> {
         vec![
             SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Value(ValueType::Gain),
+            SocketType::Value(ValueSocketType::Gain),
         ]
     }
     fn list_properties(&self) -> std::collections::HashMap<String, crate::property::PropertyType> {

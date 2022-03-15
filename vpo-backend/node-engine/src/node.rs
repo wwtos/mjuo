@@ -5,6 +5,7 @@ use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Deserialize};
+use serde_json::{json, Value};
 
 use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
 
@@ -52,7 +53,7 @@ pub struct NodeWrapper {
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
     properties: HashMap<String, Property>,
-    ui_data: HashMap<String, Property>
+    ui_data: HashMap<String, Value>
 }
 
 impl NodeWrapper {
@@ -66,8 +67,8 @@ impl NodeWrapper {
             ui_data: HashMap::new()
         };
 
-        wrapper.ui_data.insert("x".to_string(), Property::Float(0.0));
-        wrapper.ui_data.insert("y".to_string(), Property::Float(0.0));
+        wrapper.ui_data.insert("x".to_string(), json! { 0.0 });
+        wrapper.ui_data.insert("y".to_string(), json! { 0.0 });
 
         wrapper
     }
@@ -198,7 +199,41 @@ impl NodeWrapper {
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
-        Ok(serde_json::to_value(&self)?)
+        Ok(json! {{
+            "node": {
+                "input_sockets": self.node.as_ref().list_input_sockets(),
+                "output_sockets": self.node.as_ref().list_output_sockets(),
+                "properties": self.node.as_ref().list_properties()
+            },
+            "index": self.index,
+            "connected_inputs": self.connected_inputs,
+            "connected_outputs": self.connected_outputs,
+            "properties": self.properties,
+            "ui_data": self.ui_data
+        }})
+    }
+
+    /// Note, this does not deserialize the node itself, only the generic properties
+    pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
+        println!("Applying json: {}", json);
+
+        let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
+        let connected_inputs: Vec<InputSideConnection> = serde_json::from_value(json["connected_inputs"].clone())?;
+        let connected_outputs: Vec<OutputSideConnection> = serde_json::from_value(json["connected_outputs"].clone())?;
+        let properties: HashMap<String, Property> = serde_json::from_value(json["properties"].clone())?;
+        let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
+
+        if index != self.index {
+            return Err(NodeError::MismatchedNodeIndex(self.index, index));
+        }
+
+        // TODO: make sure there are no duplicate inputs or outputs
+        self.connected_inputs = connected_inputs;
+        self.connected_outputs = connected_outputs;
+        self.properties = properties;
+        self.ui_data = ui_data;
+
+        Ok(())
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

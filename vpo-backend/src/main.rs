@@ -7,6 +7,7 @@ use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::graph::Graph;
 
+use node_engine::node::{self, NodeIndex};
 use node_engine::nodes::variants::new_variant;
 use serde_json::Value;
 use serde_json::json;
@@ -31,6 +32,16 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
+fn update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
+    let json = graph.serialize().unwrap();
+
+    block_on(async {
+        to_server.send(IPCMessage::Json(json! {{
+            "action": "graph/updateGraph",
+            "payload": json
+        }})).await
+    }).unwrap();
+}
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
     
@@ -54,14 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if let Value::String(action_name) = action {
                     match action_name.as_str() {
                         "graph/get" => {
-                            let json = graph.serialize().unwrap();
-
-                            block_on(async {
-                                to_server.send(IPCMessage::Json(json! {{
-                                    "action": "graph/updateGraph",
-                                    "payload": json
-                                }})).await
-                            }).unwrap();
+                            update_graph(&graph, &to_server);
                         },
                         "graph/newNode" => {
                             let node_type_raw = message.get("payload").unwrap();
@@ -72,14 +76,24 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 graph.add_node(new_node);
                             }
 
-                            let json = graph.serialize().unwrap();
+                            update_graph(&graph, &to_server);
+                        },
+                        "graph/updateNodes" => {
+                            let nodes_raw = message.get("payload").unwrap();
 
-                            block_on(async {
-                                to_server.send(IPCMessage::Json(json! {{
-                                    "action": "graph/updateGraph",
-                                    "payload": json
-                                }})).await
-                            }).unwrap();
+                            if let Value::Array(nodes_to_update) = nodes_raw {
+                                for node_json in nodes_to_update {
+                                    let index: NodeIndex = serde_json::from_value(node_json["index"].clone())?;
+
+                                    if let Some(generational_node) = graph.get_node(&index) {
+                                        let mut node = generational_node.node.borrow_mut();
+                                        
+                                        node.apply_json(node_json)?;
+                                    }                                    
+                                }
+                            }
+
+                            update_graph(&graph, &to_server);
                         },
                         _ => {}
                     }

@@ -12,6 +12,8 @@ pub enum NodeError {
     NotConnected,
     #[error("Node does not exist in graph (index `{0}`)")]
     NodeDoesNotExist(NodeIndex),
+    #[error("Mismatched node index: currently {0}, got {1}")]
+    MismatchedNodeIndex(NodeIndex, NodeIndex),
     #[error("Node index `{0}` out of bounds")]
     IndexOutOfBounds(usize),
     #[error("Socket type `{0}` does not exist on node")]
@@ -21,5 +23,7 @@ pub enum NodeError {
     #[error("Json parser error")]
     JsonParserError(#[from] serde_json::error::Error),
     #[error("Node type does not exist")]
-    NodeTypeDoesNotExist
+    NodeTypeDoesNotExist,
+    #[error("Property `{0}` missing!")]
+    PropertyMissing(String),
 }
