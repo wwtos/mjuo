@@ -6,8 +6,14 @@
     export let type: number;
     export let label: string;
     export let direction: SocketDirection;
+    export let socketMousedown = function(event: MouseEvent) {};
 
-    console.log("Node type", type);
+    function socketMousedownRaw(event: MouseEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        socketMousedown(event);
+    }
 </script>
 <div class="container" class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input}>
     <!-- put the text first if it's an output -->
@@ -16,11 +22,15 @@
     {/if}
 
     {#if type === SocketType.ids.Stream}
-        <div class="socket stream"></div>
+        <div class="socket stream" on:mousedown={socketMousedownRaw}></div>
     {:else if type === SocketType.ids.Midi}
-        <div class="socket midi"></div>
+        <div class="socket midi" on:mousedown={socketMousedownRaw}></div>
     {:else if type === SocketType.ids.Value}
-        <div class="socket value"></div>
+        <div class="socket value" on:mousedown={socketMousedownRaw}>
+            <svg viewBox="0 0 26 26">
+                <polygon points="13,1 25,25 1,25" />
+            </svg>
+        </div>
     {/if}
 
     {#if direction === SocketDirection.Input}
@@ -29,6 +39,11 @@
 </div>
 
 <style>
+.value polygon {
+    fill: orange;
+    stroke-width: 2;
+    stroke: white;
+}
 .container {
     margin: 10px 0;
 }
@@ -56,8 +71,8 @@
 }
 
 .socket {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     vertical-align: middle;
     display: inline-block;
 }
@@ -66,6 +81,8 @@
     border-radius: 100%;
     background: #96b38a;
     border: 2px solid white;
+    width: 22px;
+    height: 22px;
 }
 
 .midi {

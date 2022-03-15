@@ -1,5 +1,8 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
-import { GenerationalNode, NodeWrapper } from "./node";
+import { GenerationalNode, Node, NodeIndex, NodeWrapper, UIData } from "./node";
+import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection } from "./connection";
+import { PropertyType } from "./property";
+import { readable, Readable } from 'svelte/store';
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -8,13 +11,31 @@ export const PossibleNode = createEnumDefinition({
     "None": "number", // generation last held (u32)
 });
 
+const socketTypeLookup = {
+    Stream: StreamSocketType,
+    Midi: MidiSocketType,
+    Value: ValueSocketType
+};
+
+function jsonToSocketType(socketTypeJson: any) {
+    if (socketTypeJson.type === "MethodCall") {
+        return socketTypeJson.content.map(parameter => {
+            return Parameter[parameter.type](parameter.content);
+        });
+    } if (socketTypeJson.content.content) {
+        return SocketType[socketTypeJson.type](socketTypeLookup[socketTypeJson.type][socketTypeJson.content.type](socketTypeJson.content.content));
+    } else {
+        return SocketType[socketTypeJson.type](socketTypeLookup[socketTypeJson.type][socketTypeJson.content.type]);
+    }
+}
+
 export class Graph {
-    nodes: EnumInstance[]; // PossibleNode
+    nodes: (NodeWrapper | undefined)[];
+    store: Readable<([string, NodeWrapper])[]>;
+    storeSet: Function;
 
     constructor () {
-        this.nodes = [/* PossibleNode {
-            Some(GenerationalNode {
-                node: NodeWrapper {
+        this.nodes = [/* NodeWrapper {
                     Node {
 
                     },
@@ -24,39 +45,116 @@ export class Graph {
                     }
                 },
                 generation: u32
-            }),
-            None(u32)
-        } */];
+            } */];
+        
+        this.store = readable(this.getKeyedNodes(), (set) => {
+            this.storeSet = set;
+        });
+    }
+
+    getNode (index: NodeIndex): (NodeWrapper | undefined) {
+        if (index.index >= this.nodes.length) {
+            return undefined;
+        }
+
+        let node = this.nodes[index.index];
+
+        if (node && node.index.generation === index.generation) {
+            return node;
+        }
+
+        return undefined;
+    }
+
+    update () {
+        this.storeSet(this.getKeyedNodes());
     }
 
     applyJson (json: any) {
         for (let i = 0; i < json.nodes.length; i++) {
             let node = json.nodes[i];
-
             var index = node.index;
 
-            if (this.nodes[index]) {
-                // are they the same generation?
-
-                if (index.generation) {
-
+            // does this node already exist?
+            if (this.nodes[i] != undefined) {
+                // are they not the same generation?
+                if (index.generation !== this.nodes[i].index.generation) {
+                    // in that case erase the old one
+                    this.nodes[i] = undefined;
                 }
             }
+
+            // if it doesn't exist, create a new one
+            if (this.nodes[i] == undefined) {
+                // to be populated later on
+                this.nodes[i] = new NodeWrapper(
+                    new Node([], [], {}),
+                    index,
+                    [], [], {}, new UIData({})
+                );
+            }
+
+            // apply new properties
+            for (var data in node.properties) {
+                this.nodes[i].properties[data] = node.properties[data];
+            }
+
+            // apply new ui data
+            for (var data in node.ui_data) {
+                this.nodes[i].uiData[data] = node.ui_data[data];
+            }
+
+            // apply new input and output connections
+            this.nodes[i].connectedInputs = node.connected_inputs.map(inputConnection => {
+                return new InputSideConnection(
+                    jsonToSocketType(inputConnection.from_socket_type),
+                    new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
+                    jsonToSocketType(inputConnection.to_socket_type),
+                );
+            });
+
+            this.nodes[i].connectedOutputs = node.connected_outputs.map(outputConnection => {
+                return new OutputSideConnection(
+                    jsonToSocketType(outputConnection.from_socket_type),
+                    new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
+                    jsonToSocketType(outputConnection.to_socket_type),
+                );
+            });
+
+            // apply node stuff
+            this.nodes[i].node.inputSockets = node.node.input_sockets.map(inputSocketType => {
+                return jsonToSocketType(inputSocketType);
+            });
+
+            this.nodes[i].node.outputSockets = node.node.output_sockets.map(outputSocketType => {
+                return jsonToSocketType(outputSocketType);
+            });
+
+            node.node.usableProperties = {};
+            for (var prop in node.node.properties) {
+                this.nodes[i].node.usableProperties[prop] = PropertyType[node.node.properties[prop].type];
+            }
         }
+
+        console.log("parsed nodes", this.nodes);
+
+        this.update();
+    }
+
+    subscribeToKeyedNodes (): Readable<([string, NodeWrapper])[]> {
+        return this.store;
     }
 
     getKeyedNodes (): ([string, NodeWrapper])[] {
         let keyedNodes = [];
 
         for (let i = 0; i < this.nodes.length; i++) {
-            this.nodes[i].match([
-                [PossibleNode.ids.Some, ([generationalNode]) => {
-                    const generation = generationalNode.generation;
-                    const nodeWrapper = generationalNode.node;
+            if (this.nodes[i] != undefined) {
+                const generation = this.nodes[i].index.generation;
+                const nodeWrapper = this.nodes[i];
 
-                    keyedNodes.push([i + "," + generation, nodeWrapper]);
-                }]
-            ]);
+                keyedNodes.push([i + "," + generation, nodeWrapper]);
+            }
         }
 
         return keyedNodes;

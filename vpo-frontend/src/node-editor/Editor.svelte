@@ -6,6 +6,8 @@
     import { MidiSocketType, SocketType, StreamSocketType } from "../node-engine/connection";
     import { EnumInstance } from "../util/enum";
     import { IPCSocket } from "../util/socket";
+    import panzoom from "panzoom";
+    import { transformMouse } from "../util/mouse-transforms";
     
     export let width = 400;
     export let height = 400;
@@ -13,6 +15,8 @@
     export let ipcSocket: IPCSocket;
 
     let nodeTypeToCreate: string;
+
+    let zoomer;
 
     $: changeDimensions(width, height);
 
@@ -31,11 +35,11 @@
     });
 
     let editor: HTMLDivElement;
+    let nodeContainer: HTMLDivElement;
+    let draggedNode: (null | NodeIndex) = null;
+    let draggedOffset: (null | [number, number]) = null;
 
-    let viewportLeft: number = 0;
-    let viewportTop: number = 0;
-    let viewportWidth: number = width;
-    let viewportHeight: number = height;
+    let selectedNodes: NodeIndex[] = [];
 
     // whenever the editor is given a new size, perform the appropriate calculations
     // to readjust the various sub components and variables
@@ -43,9 +47,6 @@
         if (newWidth && newHeight) {
             width = newWidth;
             height = newHeight;
-
-            viewportWidth = width;
-            viewportHeight = height;
         }
     }
 
@@ -57,7 +58,37 @@
 
             let relativeX = clientX - boundingRect.x;
             let relativeY = clientY - boundingRect.y;
+
+            let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+
+            if (draggedNode) {
+                let node = nodes.getNode(draggedNode);
+
+                node.uiData.x = mouseX - draggedOffset[0];
+                node.uiData.y = mouseY - draggedOffset[1];
+
+                nodes.update();
+            }
+            
         });
+
+        window.addEventListener("mouseup", function() {
+            if (draggedNode) {
+                ipcSocket.send({
+                    "action": "graph/updateNodes",
+                    "payload": [
+                        nodes.getNode(draggedNode).toJSON()
+                    ]
+                });
+            }
+
+            zoomer.resume();
+            draggedNode = null;
+        });
+
+        zoomer = panzoom(nodeContainer);
+
+        console.log(zoomer);
     });
 
     function createNode () {
@@ -68,10 +99,38 @@
             "payload": nodeTypeToCreate
         });
     }
+
+    let keyedNodes = nodes.getKeyedNodes();
+
+    nodes.subscribeToKeyedNodes().subscribe(newKeyedNodes => {
+        keyedNodes = newKeyedNodes;
+    });
+
+    function handleMousedown (index: NodeIndex, event: MouseEvent) {
+        let boundingRect = editor.getBoundingClientRect();
+
+        let relativeX = event.clientX - boundingRect.x;
+        let relativeY = event.clientY - boundingRect.y;
+
+        let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+        
+        zoomer.pause();
+
+        draggedNode = index;
+
+        let node = nodes.getNode(draggedNode);
+        draggedOffset = [mouseX - node.uiData.x, mouseY - node.uiData.y];
+
+        //node.uiData.selected = true;
+    }
 </script>
 
 <div class="editor" style="width: {width}px; height: {height}px" bind:this={editor}>
-    <!-- TODO: yes, I'm lazy, if things start breaking maybe fix this rect -->
+    <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
+        {#each keyedNodes as [key, node] (key) }
+            <Node wrapper={node} onMousedown={handleMousedown} />
+        {/each}
+    </div>
     <div class="new-node" style="width: {width - 9}px">
         New node type:
         <select bind:value={nodeTypeToCreate}>
@@ -79,10 +138,6 @@
         </select>
         <button on:click={createNode}>Create!</button>
     </div>
-    
-    {#each nodes.getKeyedNodes() as [key, node] (key) }
-        <Node wrapper={node} />
-    {/each}
 </div>
 
 <style>

@@ -31,7 +31,7 @@ pub struct OutputSideConnection {
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
-    Value(ValueType),
+    Value(ValueSocketType),
     MethodCall(Vec<Parameter>),
 }
 
@@ -58,7 +58,7 @@ pub enum StreamSocketType {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
-pub enum ValueType {
+pub enum ValueSocketType {
     Gain,
 }
 
@@ -83,7 +83,7 @@ pub fn socket_type_to_string(socket_type: SocketType) -> String {
             MidiSocketType::Default => "Midi".to_string(),
         },
         SocketType::Value(value) => match value {
-            ValueType::Gain => "Gain value".to_string(),
+            ValueSocketType::Gain => "Gain value".to_string(),
         },
         SocketType::MethodCall(method_call) => {
             format!("{:?}", method_call)

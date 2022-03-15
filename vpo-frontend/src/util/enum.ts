@@ -25,7 +25,7 @@ export class EnumInstance {
     
         return {
             "type": typeName,
-            "value": this.value
+            "content": this.value
         };
     }
 

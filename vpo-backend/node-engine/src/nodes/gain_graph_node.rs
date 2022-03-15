@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{SocketType, StreamSocketType, ValueType};
+use crate::connection::{SocketType, StreamSocketType, ValueSocketType};
 use crate::node::Node;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,7 +16,7 @@ impl Node for GainGraphNode {
     fn list_input_sockets(&self) -> Vec<SocketType> {
         vec![
             SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Value(ValueType::Gain),
+            SocketType::Value(ValueSocketType::Gain),
         ]
     }
 

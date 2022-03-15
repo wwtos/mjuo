@@ -1,11 +1,33 @@
 import { EnumInstance } from "../util/enum";
 
+export class UIData {
+    x: number = 0;
+    y: number = 0;
+    selected: boolean = false;
+
+    constructor(props: object) {
+        for (var prop in props) {
+            this[prop] = props[prop];
+        }
+    }
+}
+
 export class Node {
     inputSockets: EnumInstance[]; // Vec<SocketType>
     outputSockets: EnumInstance[]; // Vec<SocketType>
-    listProperties: () => object; // hashmap of property/propertyType pairs
-    serializeToJson:() => object;
-    applyJson: (json: object) => void;
+    usableProperties: {
+        [prop: string]: EnumInstance[] // HashMap<String, PropertyType>
+    }; // hashmap of property/propertyType pairs
+
+    constructor(
+        inputSockets: EnumInstance[],
+        outputSockets: EnumInstance[],
+        usableProperties: { [prop: string]: EnumInstance[] /*HashMap<String, PropertyType>*/ }
+    ) {
+        this.inputSockets = inputSockets;
+        this.outputSockets = outputSockets;
+        this.usableProperties = usableProperties;
+    }
 }
 
 export class NodeWrapper {
@@ -15,17 +37,33 @@ export class NodeWrapper {
     connectedInputs: EnumInstance[];
     /** [OutputSideConnection] */
     connectedOutputs: EnumInstance[];
+    properties: object;
+    uiData: UIData;
 
     constructor(
         node: Node,
         index: NodeIndex,
         connectedInputs: EnumInstance[]/*[InputSideConnection]*/,
-        connectedOutputs: EnumInstance[]/*[OutputSideConnection]*/
+        connectedOutputs: EnumInstance[]/*[OutputSideConnection]*/,
+        properties: object,
+        uiData: UIData
     ) {
         this.node = node;
         this.index = index;
         this.connectedInputs = connectedInputs;
         this.connectedOutputs = connectedOutputs;
+        this.properties = properties;
+        this.uiData = uiData;
+    }
+
+    toJSON(): object {
+        return {
+            index: this.index,
+            connected_inputs: this.connectedInputs,
+            connected_outputs: this.connectedOutputs,
+            properties: this.properties,
+            ui_data: this.uiData
+        };
     }
 }
 
