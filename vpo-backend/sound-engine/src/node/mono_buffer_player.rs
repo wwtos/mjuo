@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::node::{AudioNode, InputType, OutputType};
-use crate::{error::NodeError, error::NodeErrorType};
+use crate::error::NodeError;
 use crate::{MonoSample, SoundConfig};
 
 pub struct MonoBufferPlayer {
@@ -83,25 +83,13 @@ impl AudioNode for MonoBufferPlayer {
     }
 
     fn receive_audio(&mut self, input_type: InputType, _input: f32) -> Result<(), NodeError> {
-        Err(NodeError::new(
-            format!(
-                "MonoBufferPlayer cannot input audio of type {:?}",
-                input_type
-            ),
-            NodeErrorType::UnsupportedInput,
-        ))
+        Err(NodeError::UnsupportedInput { unsupported_input_type: input_type })
     }
 
     fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
         match output_type {
             OutputType::Out => Ok(self.get_output_out()),
-            _ => Err(NodeError::new(
-                format!(
-                    "MonoBufferPlayer cannot output audio of type {:?}",
-                    output_type
-                ),
-                NodeErrorType::UnsupportedOutput,
-            )),
+            _ => Err(NodeError::UnsupportedOutput { unsupported_output_type: output_type })
         }
     }
 

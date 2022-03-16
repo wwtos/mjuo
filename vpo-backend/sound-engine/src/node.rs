@@ -2,6 +2,9 @@ pub mod dummy;
 pub mod envelope;
 pub mod filter;
 pub mod mono_buffer_player;
+pub mod oscillator;
+
+use core::fmt;
 
 use crate::error::NodeError;
 use crate::midi::messages::MidiData;
@@ -19,7 +22,7 @@ pub trait MidiNode {
     fn receive_midi(&mut self, input: &[MidiData]) -> Result<(), SimpleError>;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InputType {
     In,
     Gate,
@@ -28,9 +31,21 @@ pub enum InputType {
     Dynamic(u64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OutputType {
     Out,
     Gate,
     Dynamic(u64),
+}
+
+impl fmt::Display for InputType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl fmt::Display for OutputType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
