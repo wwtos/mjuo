@@ -1,5 +1,5 @@
 use crate::node::{AudioNode, InputType, OutputType};
-use crate::{error::NodeError, error::NodeErrorType};
+use crate::error::NodeError;
 
 pub struct Dummy {
     input_in: f32,
@@ -49,20 +49,14 @@ impl AudioNode for Dummy {
 
                 Ok(())
             }
-            _ => Err(NodeError::new(
-                format!("Dummy cannot input audio of type {:?}", input_type),
-                NodeErrorType::UnsupportedInput,
-            )),
+            _ => Err(NodeError::UnsupportedInput { unsupported_input_type: input_type }),
         }
     }
 
     fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
         match output_type {
             OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::new(
-                format!("Dummy cannot output audio of type {:?}", output_type),
-                NodeErrorType::UnsupportedOutput,
-            )),
+            _ => Err(NodeError::UnsupportedOutput { unsupported_output_type: output_type }),
         }
     }
 
