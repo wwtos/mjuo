@@ -139,65 +139,6 @@ impl NodeWrapper {
         outputs_filtered
     }
 
-    pub fn remove_input_socket_connection(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
-        let to_remove = self
-            .connected_inputs
-            .iter()
-            .position(|input| input.to_socket_type == *to_type);
-
-        if let Some(to_remove) = to_remove {
-            self.connected_inputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub fn remove_output_socket_connection(
-        &mut self,
-        from_type: &SocketType,
-        to_node: &NodeIndex,
-        to_type: &SocketType,
-    ) -> Result<(), NodeError> {
-        let to_remove = self.connected_outputs.iter().position(|input| {
-            input.from_socket_type == *from_type
-                && input.to_node == *to_node
-                && input.to_socket_type == *to_type
-        });
-
-        if let Some(to_remove) = to_remove {
-            self.connected_outputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub fn remove_output_socket_connections(
-        &mut self,
-        from_type: &SocketType,
-    ) -> Result<(), NodeError> {
-        let mut found: Vec<usize> = Vec::new();
-
-        for (i, connection) in self.connected_outputs.iter().enumerate() {
-            if connection.from_socket_type == *from_type {
-                found.push(i);
-            }
-        }
-
-        for found_index in &found {
-            self.connected_inputs.remove(*found_index);
-        }
-
-        if found.is_empty() {
-            Err(NodeError::NotConnected)
-        } else {
-            Ok(())
-        }
-    }
-
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         Ok(json! {{
             "node": {
@@ -218,8 +159,6 @@ impl NodeWrapper {
         println!("Applying json: {}", json);
 
         let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let connected_inputs: Vec<InputSideConnection> = serde_json::from_value(json["connected_inputs"].clone())?;
-        let connected_outputs: Vec<OutputSideConnection> = serde_json::from_value(json["connected_outputs"].clone())?;
         let properties: HashMap<String, Property> = serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
 
@@ -227,9 +166,6 @@ impl NodeWrapper {
             return Err(NodeError::MismatchedNodeIndex(self.index, index));
         }
 
-        // TODO: make sure there are no duplicate inputs or outputs
-        self.connected_inputs = connected_inputs;
-        self.connected_outputs = connected_outputs;
         self.properties = properties;
         self.ui_data = ui_data;
 
@@ -246,6 +182,63 @@ impl NodeWrapper {
 
     pub(in crate) fn add_output_connection_unsafe(&mut self, connection: OutputSideConnection) {
         self.connected_outputs.push(connection);
+    }
+
+    pub(in crate) fn remove_input_socket_connection_unsafe(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
+        let to_remove = self
+            .connected_inputs
+            .iter()
+            .position(|input| input.to_socket_type == *to_type);
+
+        if let Some(to_remove) = to_remove {
+            self.connected_inputs.remove(to_remove);
+
+            Ok(())
+        } else {
+            Err(NodeError::NotConnected)
+        }
+    }
+
+    pub(in crate) fn remove_output_socket_connection_unsafe(
+        &mut self,
+        connection: &OutputSideConnection
+    ) -> Result<(), NodeError> {
+        let to_remove = self.connected_outputs.iter().position(|input| {
+            input.from_socket_type == connection.from_socket_type
+                && input.to_node == connection.to_node
+                && input.to_socket_type == connection.to_socket_type
+        });
+
+        if let Some(to_remove) = to_remove {
+            self.connected_outputs.remove(to_remove);
+
+            Ok(())
+        } else {
+            Err(NodeError::NotConnected)
+        }
+    }
+
+    pub(in crate) fn remove_output_socket_connections_unsafe(
+        &mut self,
+        from_type: &SocketType,
+    ) -> Result<(), NodeError> {
+        let mut found: Vec<usize> = Vec::new();
+
+        for (i, connection) in self.connected_outputs.iter().enumerate() {
+            if connection.from_socket_type == *from_type {
+                found.push(i);
+            }
+        }
+
+        for found_index in &found {
+            self.connected_inputs.remove(*found_index);
+        }
+
+        if found.is_empty() {
+            Err(NodeError::NotConnected)
+        } else {
+            Ok(())
+        }
     }
 }
 

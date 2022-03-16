@@ -25,7 +25,7 @@
 		<SideNavbar />
 		<Editor />
 	</div> -->
-	<SplitView 
+	<!-- <SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
@@ -36,6 +36,15 @@
 		firstPanel: PropertyEditor,
 		secondPanel: Editor,
 		secondState: {ipcSocket: ipcSocket}
+	}} /> -->
+	<SplitView 
+	direction={SplitDirection.VERTICAL}
+	{width} {height}
+	hasFixedWidth={true} fixedWidth={48}
+	firstPanel={SideNavbar}
+	secondPanel={Editor}
+	secondState={{
+		ipcSocket: ipcSocket
 	}} />
 </main>
 

@@ -8,6 +8,8 @@ use crate::{node::NodeIndex, connection::SocketType};
 pub enum NodeError {
     #[error("Connection between {0} and {1} already exists")]
     AlreadyConnected(SocketType, SocketType),
+    #[error("Input socket already occupied (Input {0})")]
+    InputSocketOccupied(SocketType),
     #[error("Socket is not connected to any node")]
     NotConnected,
     #[error("Node does not exist in graph (index `{0}`)")]

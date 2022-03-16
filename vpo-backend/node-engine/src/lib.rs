@@ -7,3 +7,5 @@ pub mod property;
 
 #[cfg(test)]
 pub mod graph_tests;
+#[cfg(test)]
+pub mod connection_tests;

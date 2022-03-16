@@ -1,6 +1,6 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { GenerationalNode, Node, NodeIndex, NodeWrapper, UIData } from "./node";
-import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection } from "./connection";
+import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection, Connection, socketTypeToKey } from "./connection";
 import { PropertyType } from "./property";
 import { readable, Readable } from 'svelte/store';
 
@@ -31,8 +31,10 @@ function jsonToSocketType(socketTypeJson: any) {
 
 export class Graph {
     nodes: (NodeWrapper | undefined)[];
-    store: Readable<([string, NodeWrapper])[]>;
-    storeSet: Function;
+    nodeStore: Readable<([string, NodeWrapper])[]>;
+    nodeStoreSet: Function;
+    connectionStore: Readable<([string, Connection])[]>;
+    connectionStoreSet: Function;
 
     constructor () {
         this.nodes = [/* NodeWrapper {
@@ -47,8 +49,12 @@ export class Graph {
                 generation: u32
             } */];
         
-        this.store = readable(this.getKeyedNodes(), (set) => {
-            this.storeSet = set;
+        this.nodeStore = readable(this.getKeyedNodes(), (set) => {
+            this.nodeStoreSet = set;
+        });
+
+        this.connectionStore = readable(this.getKeyedConnections(), (set) => {
+            this.connectionStoreSet = set;
         });
     }
 
@@ -67,13 +73,14 @@ export class Graph {
     }
 
     update () {
-        this.storeSet(this.getKeyedNodes());
+        this.nodeStoreSet(this.getKeyedNodes());
+        this.connectionStoreSet(this.getKeyedConnections());
     }
 
     applyJson (json: any) {
         for (let i = 0; i < json.nodes.length; i++) {
             let node = json.nodes[i];
-            var index = node.index;
+            var index = new NodeIndex(node.index.index, node.index.generation);
 
             // does this node already exist?
             if (this.nodes[i] != undefined) {
@@ -142,7 +149,28 @@ export class Graph {
     }
 
     subscribeToKeyedNodes (): Readable<([string, NodeWrapper])[]> {
-        return this.store;
+        return this.nodeStore;
+    }
+
+    subscribeToKeyedConnections (): Readable<([string, Connection][])> {
+        return this.connectionStore;
+    }
+
+    getKeyedConnections (): ([string, Connection])[] {
+        let keyedConnections = [];
+
+        for (let node of this.nodes) {
+            for (let connection of node.connectedInputs) {
+                let newConnection = new Connection(connection.fromSocketType, connection.fromNode, connection.toSocketType, node.index);
+
+                keyedConnections.push([
+                    newConnection.getKey(),
+                    newConnection
+                ]);
+            }
+        }
+
+        return keyedConnections;
     }
 
     getKeyedNodes (): ([string, NodeWrapper])[] {

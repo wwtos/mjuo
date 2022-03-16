@@ -14,18 +14,24 @@ export class EnumInstance {
     }
 
     toJSON () {
-        var ids = this.enumDef.ids;
-        var typeName: string = "";
+        let ids = this.enumDef.ids;
+        let typeName: string = "";
     
         for (let id of Object.keys(ids)) {
             if (this.type === ids[id]) {
                 typeName = id;
             }
         }
+
+        let value = this.value;
+
+        if (Array.isArray(this.enumDef.states[typeName]) && this.enumDef.states[typeName].length === 1) {
+            value = value[0];
+        }
     
         return {
             "type": typeName,
-            "content": this.value
+            "content": value
         };
     }
 
