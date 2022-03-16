@@ -4,7 +4,7 @@
     import {storeWatcher} from "../util/store-watcher";
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
-    import { SocketType, StreamSocketType, MidiSocketType, SocketDirection, socketTypeToString } from "../node-engine/connection";
+    import { SocketType, StreamSocketType, MidiSocketType, SocketDirection, socketTypeToString, socketTypeToKey, socketToKey } from "../node-engine/connection";
     
     export let title = "Test title";
 
@@ -25,7 +25,25 @@
         connectedOutputs: []
     }*/;
 
-    console.log("Wrapper", wrapper);
+    export let exportSocketPositionMapping = function(
+        socketPositionMapping: ({ [key: string]: DOMRect }),
+        key: string,
+        nodeLocation: DOMRect
+    ) {};
+
+    export let socketPositionMapping: ({
+        [key: string]: DOMRect
+    }) = {};
+
+    let node: HTMLDivElement;
+
+    function exportSocketPosition(socket: EnumInstance/*SocketType*/, direction: SocketDirection, rect: DOMRect) {
+        var key = socketToKey(socket, direction);
+
+        socketPositionMapping[key] = rect;
+
+        exportSocketPositionMapping(socketPositionMapping, wrapper.index.toKey(), node.getBoundingClientRect());
+    }
 
     let sockets: any[][];
 
@@ -37,9 +55,19 @@
     export let width = 200;
     
     export let onMousedown = function(index: NodeIndex, e: MouseEvent) {};
+    export let onSocketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
+    export let onSocketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
 
     function onMousedownRaw (e: MouseEvent) {
         onMousedown(new NodeIndex(wrapper.index.index, wrapper.index.generation), e);
+    }
+
+    function onSocketMousedownRaw (event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+        onSocketMousedown(event, socket, direction, wrapper.index);
+    }
+
+    function onSocketMouseupRaw (event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+        onSocketMouseup(event, socket, direction, wrapper.index);
     }
 
     let x, y, selected;
@@ -49,11 +77,11 @@
     $: selected = wrapper.uiData.selected;
 </script>
 
-<div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected}>
+<div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected} bind:this={node}>
     <div class="node-title">{title}</div>
 
     {#each sockets as [socket, direction] (socket.getType() + "" + direction)}
-        <Socket type={socket.getType()} direction={direction} label={socketTypeToString(socket)} />
+        <Socket type={socket} direction={direction} label={socketTypeToString(socket)} socketMousedown={onSocketMousedownRaw} socketMouseup={onSocketMouseupRaw} exportSocketPosition={exportSocketPosition} />
     {/each}
 </div>
 

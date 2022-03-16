@@ -30,10 +30,56 @@ export const SocketType = createEnumDefinition({
     "MethodCall": "array"
 });
 
+export function socketTypeToKey(socketType: EnumInstance, recursiveKey?: string) {
+    if (!recursiveKey) recursiveKey = "";
+
+    recursiveKey += "," + socketType.getType();
+
+    if (socketType.value && socketType.value[0] instanceof EnumInstance) {
+        return socketTypeToKey(socketType.value[0], recursiveKey);
+    } else {
+        return recursiveKey;
+    }
+};
+
+export function socketToKey(socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+    return socketTypeToKey(socket) + ":" + direction;
+}
+
 export enum SocketDirection {
     Input = 0,
     Output = 1
 };
+
+export class Connection {
+    fromSocketType: EnumInstance; /*SocketType*/
+    fromNode: NodeIndex;
+    toSocketType: EnumInstance; /*SocketType*/
+    toNode: NodeIndex;
+
+    constructor(fromSocketType: EnumInstance, fromNode: NodeIndex, toSocketType: EnumInstance, toNode: NodeIndex) {
+        this.fromSocketType = fromSocketType;
+        this.fromNode = fromNode;
+        this.toSocketType = toSocketType;
+        this.toNode = toNode;
+    }
+
+    toJSON() {
+        return {
+            from_socket_type: this.fromSocketType,
+            from_node: this.fromNode,
+            to_socket_type: this.toSocketType,
+            to_node: this.toNode
+        }
+    }
+
+    getKey(): string {
+        return socketTypeToKey(this.fromSocketType) + ":" +
+               this.fromNode.toKey() + ":" +
+               socketTypeToKey(this.toSocketType) + ":" +
+               this.toNode.toKey();
+    }
+}
 
 export class InputSideConnection {
     fromSocketType: EnumInstance; /*SocketType*/

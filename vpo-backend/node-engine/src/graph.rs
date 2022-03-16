@@ -94,9 +94,9 @@ impl Graph {
     pub fn connect(
         &mut self,
         from_index: NodeIndex,
-        from_type: SocketType,
+        from_socket_type: SocketType,
         to_index: NodeIndex,
-        to_type: SocketType,
+        to_socket_type: SocketType,
     ) -> Result<Connection, NodeError> {
         // check that the node doesn't have an existing connection of this exact type
         // (one output can be connected to many imputs, one to many)
@@ -122,25 +122,28 @@ impl Graph {
         let mut to = (*to.node).borrow_mut();
 
         // check if "to" is connected from "from"
-        if let Some(to_connection) = to.get_input_connection_by_type(&to_type) {
+        if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
             if to_connection.from_node == from_index {
-                return Err(NodeError::AlreadyConnected(from_type, to_type));
+                return Err(NodeError::AlreadyConnected(from_socket_type, to_socket_type));
             }
-        };
+
+            // it can't be connected twice by anything
+            return Err(NodeError::InputSocketOccupied(to_socket_type));
+        }
 
         // make sure `from_type` exists in `from's` outputs
-        if !from.has_output_socket(&from_type) {
-            return Err(NodeError::SocketDoesNotExist(from_type));
+        if !from.has_output_socket(&from_socket_type) {
+            return Err(NodeError::SocketDoesNotExist(from_socket_type));
         }
 
         // make sure `to_type` exists in `to's` inputs
-        if !to.has_input_socket(&to_type) {
-            return Err(NodeError::SocketDoesNotExist(to_type));
+        if !to.has_input_socket(&to_socket_type) {
+            return Err(NodeError::SocketDoesNotExist(to_socket_type));
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
-        if mem::discriminant(&from_type) != mem::discriminant(&to_type) {
-            return Err(NodeError::IncompatibleSocketTypes(from_type, to_type));
+        if mem::discriminant(&from_socket_type) != mem::discriminant(&to_socket_type) {
+            return Err(NodeError::IncompatibleSocketTypes(from_socket_type, to_socket_type));
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
@@ -148,21 +151,81 @@ impl Graph {
 
         // now we'll create the connection (two-way)
         to.add_input_connection_unsafe(InputSideConnection {
-            from_socket_type: from_type.clone(),
+            from_socket_type: from_socket_type.clone(),
             from_node: from.get_index(),
-            to_socket_type: to_type.clone(),
+            to_socket_type: to_socket_type.clone(),
         });
 
         from.add_output_connection_unsafe(OutputSideConnection {
-            from_socket_type: from_type.clone(),
+            from_socket_type: from_socket_type.clone(),
             to_node: to.get_index(),
-            to_socket_type: to_type.clone(),
+            to_socket_type: to_socket_type.clone(),
         });
 
         Ok(Connection {
-            from_socket_type: from_type,
+            from_socket_type,
             from_node: from.get_index(),
-            to_socket_type: to_type,
+            to_socket_type,
+            to_node: to.get_index(),
+        })
+    }
+
+    pub fn disconnect(
+        &mut self,
+        from_index: NodeIndex,
+        from_socket_type: SocketType,
+        to_index: NodeIndex,
+        to_socket_type: SocketType,
+    ) -> Result<Connection, NodeError> {
+        // check that the connection exists
+        let from;
+        let to;
+
+        // does "from" exist?
+        if let Some(from_extracted) = self.get_node(&from_index) {
+            from = from_extracted;
+        } else {
+            return Err(NodeError::NodeDoesNotExist(from_index));
+        };
+
+        // does "to" exist?
+        if let Some(to_extracted) = self.get_node(&to_index) {
+            to = to_extracted;
+        } else {
+            return Err(NodeError::NodeDoesNotExist(to_index));
+        };
+
+        let mut from = (*from.node).borrow_mut();
+        let mut to = (*to.node).borrow_mut();
+
+        // check if "to" is connected from "from"
+        let already_connected = if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
+            to_connection.from_node == from_index
+        } else {
+            false
+        };
+
+        if (!already_connected) {
+            return Err(NodeError::NotConnected);
+        }
+
+        // unless the graph invariant isn't upheld where every connection is referenced both ways
+        // (from both connected nodes), we should be good here
+
+
+        // now we'll remove the connection on both nodes
+        to.remove_input_socket_connection_unsafe(&to_socket_type)?;
+
+        from.remove_output_socket_connection_unsafe(&OutputSideConnection {
+            from_socket_type: from_socket_type.clone(),
+            to_node: to.get_index(),
+            to_socket_type: to_socket_type.clone(),
+        })?;
+
+        Ok(Connection {
+            from_socket_type,
+            from_node: from.get_index(),
+            to_socket_type,
             to_node: to.get_index(),
         })
     }
@@ -215,11 +278,11 @@ impl Graph {
                         let from_node = from_node.node;
                         let mut from_node = (*from_node).borrow_mut();
 
-                        from_node.remove_output_socket_connection(
-                            &input_socket.from_socket_type,
-                            &node.get_index(),
-                            &input_socket.to_socket_type,
-                        )?;
+                        from_node.remove_output_socket_connection_unsafe(&OutputSideConnection {
+                            from_socket_type: input_socket.from_socket_type,
+                            to_node: node.get_index(),
+                            to_socket_type: input_socket.to_socket_type,
+                        })?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }
@@ -232,7 +295,7 @@ impl Graph {
                         let to_node = to_node.node;
                         let mut to_node = (*to_node).borrow_mut();
 
-                        to_node.remove_input_socket_connection(&output_socket.to_socket_type)?;
+                        to_node.remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }

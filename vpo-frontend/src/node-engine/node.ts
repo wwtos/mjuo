@@ -1,4 +1,5 @@
 import { EnumInstance } from "../util/enum";
+import { InputSideConnection, OutputSideConnection } from "./connection";
 
 export class UIData {
     x: number = 0;
@@ -33,18 +34,16 @@ export class Node {
 export class NodeWrapper {
     node: Node;
     index: NodeIndex;
-    /** [InputSideConnection] */
-    connectedInputs: EnumInstance[];
-    /** [OutputSideConnection] */
-    connectedOutputs: EnumInstance[];
+    connectedInputs: InputSideConnection[];
+    connectedOutputs: OutputSideConnection[];
     properties: object;
     uiData: UIData;
 
     constructor(
         node: Node,
         index: NodeIndex,
-        connectedInputs: EnumInstance[]/*[InputSideConnection]*/,
-        connectedOutputs: EnumInstance[]/*[OutputSideConnection]*/,
+        connectedInputs: InputSideConnection[],
+        connectedOutputs: OutputSideConnection[],
         properties: object,
         uiData: UIData
     ) {
@@ -76,7 +75,7 @@ export class NodeIndex {
         this.generation = generation;
     }
 
-    toString(): string {
+    toKey(): string {
         return this.index + "," + this.generation;
     }
 }

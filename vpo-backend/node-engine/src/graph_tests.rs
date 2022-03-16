@@ -102,6 +102,7 @@ fn graph_connecting() {
     // add two new nodes
     let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
     let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -210,15 +211,14 @@ fn graph_connecting() {
         format!("{:?}", 
             graph
                 .connect(
-                    first_node_index,
-                    SocketType::Stream(StreamSocketType::Detune),
+                    third_node_index,
+                    SocketType::Stream(StreamSocketType::Audio),
                     second_node_index,
                     SocketType::Stream(StreamSocketType::Audio),
                 )
                 .unwrap_err()
         ),
-        format!("{:?}", NodeError::AlreadyConnected(
-            SocketType::Stream(StreamSocketType::Detune),
+        format!("{:?}", NodeError::InputSocketOccupied(
             SocketType::Stream(StreamSocketType::Audio)
         ))
     );
@@ -227,7 +227,7 @@ fn graph_connecting() {
     assert_eq!(
         graph
             .connect(
-                first_node_index,
+                third_node_index,
                 SocketType::Stream(StreamSocketType::Audio),
                 second_node_index,
                 SocketType::Stream(StreamSocketType::Detune),
