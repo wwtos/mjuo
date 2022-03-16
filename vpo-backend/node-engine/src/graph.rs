@@ -313,6 +313,10 @@ impl Graph {
         Ok(())
     }
 
+    pub(crate) fn get_nodes(&self) -> &Vec<PossibleNode> {
+        &self.nodes
+    }
+
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
