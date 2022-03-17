@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 pub type Channel = u8;
 pub type Note = u8;
 pub type Velocity = u8;
@@ -10,14 +12,14 @@ pub type ExclusiveMessage = Vec<u8>;
 pub type ManufacturerID = [u8; 3];
 pub type TimecodeRate = u8;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Timecode {
     hours: u8,
     minutes: u8,
     seconds: u8,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SystemCommonMessageData {
     SystemExclusive {
         id: ManufacturerID,
@@ -31,7 +33,7 @@ pub enum SystemCommonMessageData {
        // Tune Request
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SystemRealtimeMessageData {
     TimingClock,
     Start,
@@ -41,7 +43,7 @@ pub enum SystemRealtimeMessageData {
     Reset,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MidiData {
     NoteOff {
         channel: Channel,

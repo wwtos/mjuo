@@ -6,8 +6,9 @@ use std::{cell::RefCell, rc::Rc};
 
 use serde::{Serialize, Deserialize};
 use serde_json::{json, Value};
+use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType};
+use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter};
 
 use crate::errors::NodeError;
 use crate::nodes::variants::NodeVariant;
@@ -39,10 +40,24 @@ pub trait Node: Debug {
         HashMap::new()
     }
 
+    fn process(&mut self) {}
+
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
 
-    fn get_stream_output(&mut self, socket_type: StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         0_f32
+    }
+
+    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: Vec<MidiData>) {}
+
+    fn get_midi_output(&self, socket_type: MidiSocketType) -> Vec<MidiData> {
+        vec![]
+    }
+
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {}
+
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+        None
     }
 }
 
@@ -170,6 +185,34 @@ impl NodeWrapper {
         self.ui_data = ui_data;
 
         Ok(())
+    }
+
+    pub fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
+        self.node.as_mut().accept_stream_input(socket_type, value);
+    }
+
+    pub fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
+        self.node.as_ref().get_stream_output(socket_type)
+    }
+
+    pub fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: Vec<MidiData>) {
+        self.node.as_mut().accept_midi_input(socket_type, value);
+    }
+
+    pub fn get_midi_output(&self, socket_type: MidiSocketType) -> Vec<MidiData> {
+        self.node.as_ref().get_midi_output(socket_type)
+    }
+
+    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+        self.node.as_mut().accept_value_input(socket_type, value);
+    }
+
+    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+        self.node.as_ref().get_value_output(socket_type)
+    }
+
+    pub fn process(&mut self) {
+        self.node.as_mut().process();
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

@@ -1,4 +1,6 @@
 use alsa::seq::Input;
+use serde::Deserialize;
+use serde::Serialize;
 use simple_error::bail;
 use simple_error::SimpleError;
 
@@ -10,16 +12,21 @@ use crate::wave::interpolate::interpolate;
 use crate::wave::tables::{WAVETABLE_SIZE};
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
-pub trait Oscillator {
-    fn get_frequency(&self) -> f32;
-    fn set_frequency(&mut self, frequency: f32);
-}
-
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Waveform {
     Sine,
     Triangle,
     Sawtooth,
     Square,
+}
+
+pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZE]> {
+    match waveform {
+        Waveform::Sine => &SINE_VALUES,
+        Waveform::Triangle => &TRIANGLE_VALUES,
+        Waveform::Sawtooth => &SAWTOOTH_VALUES,
+        Waveform::Square => &SQUARE_VALUES
+    }
 }
 
 /// A sinsouid oscillator
@@ -29,61 +36,57 @@ pub enum Waveform {
 ///
 /// # Outputs
 /// `out` - Mono waveform out.
-pub struct OscillatorNode {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Oscillator {
     phase: f32,
     frequency: f32,
     output_out: f32,
-    wavetable: &'static Vec<[f32; WAVETABLE_SIZE]>,
+    waveform: Waveform,
 }
 
-impl OscillatorNode {
-    pub fn new(waveform: Waveform) -> OscillatorNode {
-        OscillatorNode {
+impl Oscillator {
+    pub fn new(waveform: Waveform) -> Oscillator {
+        Oscillator {
             phase: 0_f32,
             frequency: 440_f32,
             output_out: 0_f32,
-            wavetable: match waveform {
-                Waveform::Sine => &*SINE_VALUES,
-                Waveform::Square => &*SQUARE_VALUES,
-                Waveform::Sawtooth => &*SAWTOOTH_VALUES,
-                Waveform::Triangle => &*TRIANGLE_VALUES,
-            },
+            waveform: waveform,
         }
     }
 
-    pub fn new_with_frequency(waveform: Waveform, frequency: f32) -> OscillatorNode {
-        let mut oscillator = OscillatorNode::new(waveform);
+    pub fn new_with_frequency(waveform: Waveform, frequency: f32) -> Oscillator {
+        let mut oscillator = Oscillator::new(waveform);
         oscillator.set_frequency(frequency);
 
         oscillator
     }
 
     pub fn set_waveform(&mut self, waveform: Waveform) {
-        self.wavetable = match waveform {
-            Waveform::Sine => &*SINE_VALUES,
-            Waveform::Square => &*SQUARE_VALUES,
-            Waveform::Sawtooth => &*SAWTOOTH_VALUES,
-            Waveform::Triangle => &*TRIANGLE_VALUES,
-        };
+        self.waveform = waveform;
+    }
+
+    #[inline]
+    pub fn process_fast(&mut self) -> f32 {
+        let phase_advance = self.frequency / (SAMPLE_RATE as f32) * TWO_PI;
+        self.phase = (self.phase + phase_advance) % TWO_PI;
+
+        interpolate(wavetable_lookup(&self.waveform), self.frequency, self.phase)
     }
 }
 
-impl Oscillator for OscillatorNode {
-    fn get_frequency(&self) -> f32 {
+impl Oscillator {
+    pub fn get_frequency(&self) -> f32 {
         self.frequency
     }
 
-    fn set_frequency(&mut self, frequency: f32) {
+    pub fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
     }
 }
 
-impl AudioNode for OscillatorNode {
+impl AudioNode for Oscillator {
     fn process(&mut self) {
-        let phase_advance = self.frequency / (SAMPLE_RATE as f32) * TWO_PI;
-        self.phase = (self.phase + phase_advance) % TWO_PI;
-
-        self.output_out = interpolate(self.wavetable, self.frequency, self.phase);
+        self.output_out = self.process_fast();
     }
 
     fn receive_audio(&mut self, input_type: InputType, _input: f32) -> Result<(), NodeError> {

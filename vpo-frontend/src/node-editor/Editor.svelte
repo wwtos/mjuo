@@ -9,6 +9,7 @@
     import { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
     import { transformMouse } from "../util/mouse-transforms";
+    import { variants } from "../node-engine/variants";
     
     export let width = 400;
     export let height = 400;
@@ -301,7 +302,9 @@
     <div class="new-node" style="width: {width - 9}px">
         New node type:
         <select bind:value={nodeTypeToCreate}>
-            <option value="GainGraphNode">Gain graph node</option>
+            {#each variants as {name, internal} }
+                <option value="{internal}">{name}</option>
+            {/each}
         </select>
         <button on:click={createNode}>Create!</button>
     </div>

@@ -12,3 +12,4 @@ pulse = { package = "libpulse-binding", version = "2.25.0" }
 psimple = { package = "libpulse-simple-binding", version = "2.24.1" }
 lazy_static = "1.4.0"
 snafu = "0.7.0"
+serde = { version = "1.0.133", features = ["derive"] }

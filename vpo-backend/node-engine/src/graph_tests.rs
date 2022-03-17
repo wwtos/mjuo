@@ -35,10 +35,6 @@ impl Node for TestNode {
     fn list_properties(&self) -> std::collections::HashMap<String, crate::property::PropertyType> {
         HashMap::new()
     }
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, _value: f32) {}
-    fn get_stream_output(&mut self, _socket_type: StreamSocketType) -> f32 {
-        0_f32
-    }
 }
 
 #[test]
