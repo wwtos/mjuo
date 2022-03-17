@@ -35,12 +35,6 @@ pub enum SocketType {
     MethodCall(Vec<Parameter>),
 }
 
-impl Display for SocketType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        Debug::fmt(&self, f)
-    }
-}
-
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
 pub enum MidiSocketType {
@@ -60,6 +54,7 @@ pub enum StreamSocketType {
 #[serde(tag = "type", content = "content")]
 pub enum ValueSocketType {
     Gain,
+    Frequency
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -69,6 +64,78 @@ pub enum Parameter {
     Int(i32),
     Boolean(bool),
     String(String),
+}
+
+impl Parameter {
+    #[inline]
+    pub fn as_float(self) -> Option<f32> {
+        match self {
+            Parameter::Float(float) => Some(float),
+            Parameter::Int(int) => Some(int as f32),
+            Parameter::Boolean(boolean) => Some(if boolean { 1.0 } else { 0.0 }),
+            _ => None
+        }
+    }
+
+    #[inline]
+    pub fn as_int(self) -> Option<i32> {
+        match self {
+            Parameter::Int(int) => Some(int),
+            Parameter::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
+            _ => None
+        }
+    }
+
+    #[inline]
+    pub fn as_boolean(self) -> Option<bool> {
+        match self {
+            Parameter::Boolean(boolean) => Some(boolean),
+            _ => None
+        }
+    }
+
+    #[inline]
+    pub fn as_string(self) -> Option<String> {
+        match self {
+            Parameter::String(string) => Some(string),
+            Parameter::Float(float) => Some(float.to_string()),
+            Parameter::Int(int) => Some(int.to_string()),
+            Parameter::Boolean(boolean) => Some(boolean.to_string()),
+            _ => None
+        }
+    }
+}
+
+impl Display for SocketType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        Debug::fmt(&self, f)
+    }
+}
+
+impl SocketType {
+    #[inline]
+    pub fn as_stream(self) -> Option<StreamSocketType> {
+        match self {
+            SocketType::Stream(stream) => Some(stream),
+            _ => None
+        }
+    }
+
+    #[inline]
+    pub fn as_midi(self) -> Option<MidiSocketType> {
+        match self {
+            SocketType::Midi(midi) => Some(midi),
+            _ => None
+        }
+    }
+
+    #[inline]
+    pub fn as_value(self) -> Option<ValueSocketType> {
+        match self {
+            SocketType::Value(value) => Some(value),
+            _ => None
+        }
+    }
 }
 
 pub fn socket_type_to_string(socket_type: SocketType) -> String {
@@ -84,6 +151,7 @@ pub fn socket_type_to_string(socket_type: SocketType) -> String {
         },
         SocketType::Value(value) => match value {
             ValueSocketType::Gain => "Gain value".to_string(),
+            ValueSocketType::Frequency => "Frequency value".to_string(),
         },
         SocketType::MethodCall(method_call) => {
             format!("{:?}", method_call)

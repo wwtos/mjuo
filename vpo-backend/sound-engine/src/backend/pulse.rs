@@ -52,9 +52,9 @@ impl AudioClientBackend for PulseClientBackend {
 
         // TODO: would memcpy work here faster?
         for i in 0..BUFFER_SIZE {
-            if data[i] > 1.0 || data[i] < -1.0 {
-                print!("Clipping!");
-            }
+            // if data[i] > 1.0 || data[i] < -1.0 {
+            //     print!("Clipping!");
+            // }
 
             let num = data[i].to_le_bytes();
 
