@@ -11,7 +11,7 @@ use sound_engine::midi::messages::MidiData;
 use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter};
 
 use crate::errors::NodeError;
-use crate::nodes::variants::NodeVariant;
+use crate::nodes::variants::{NodeVariant, variant_to_name};
 use crate::property::{PropertyType, Property};
 
 /// Node trait
@@ -73,6 +73,8 @@ pub struct NodeWrapper {
 
 impl NodeWrapper {
     pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
+        let name = variant_to_name(&node);
+
         let mut wrapper = NodeWrapper {
             node,
             index,
@@ -84,6 +86,8 @@ impl NodeWrapper {
 
         wrapper.ui_data.insert("x".to_string(), json! { 0.0 });
         wrapper.ui_data.insert("y".to_string(), json! { 0.0 });
+
+        wrapper.ui_data.insert("title".to_string(), json! { name });
 
         wrapper
     }

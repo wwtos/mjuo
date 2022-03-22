@@ -1,4 +1,3 @@
-use std::fmt;
 use snafu::prelude::*;
 
 use crate::node::{InputType, OutputType};

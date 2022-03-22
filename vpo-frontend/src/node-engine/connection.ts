@@ -2,7 +2,7 @@ import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { NodeIndex } from "./node";
 
 export const MidiSocketType = createEnumDefinition({
-    "Default": null
+    "Default": null,
 });
 
 export const StreamSocketType = createEnumDefinition({
@@ -13,7 +13,9 @@ export const StreamSocketType = createEnumDefinition({
 });
 
 export const ValueSocketType = createEnumDefinition({
-    "Gain": null
+    "Gain": null,
+    "Frequency": null,
+    "Gate": null
 });
 
 export const Parameter = createEnumDefinition({
@@ -122,7 +124,9 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
         }],
         [SocketType.ids.Value, ([value/* :ValueSocketType*/]) => {
             return value.match([
-                [ValueSocketType.ids.Gain, () => "Gain value"]
+                [ValueSocketType.ids.Gain, () => "Gain value"],
+                [ValueSocketType.ids.Frequency, () => "Frequency value"],
+                [ValueSocketType.ids.Gate, () => "Gate value"],
             ]);
         }],
         [SocketType.ids.MethodCall, () => "Method call"]
