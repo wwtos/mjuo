@@ -1,7 +1,7 @@
 pub mod communication_constants;
+pub mod error;
 pub mod ipc_message;
 pub mod ipc_server;
-pub mod error;
 
 #[cfg(test)]
 mod tests {

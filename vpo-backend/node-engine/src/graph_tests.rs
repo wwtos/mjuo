@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::NodeError;
@@ -78,7 +78,10 @@ fn graph_node_crud() {
     // let's see what happens if we try to delete node one
     assert_eq!(
         format!("{:?}", &graph.remove_node(&first_node_index).unwrap_err()),
-        format!("{:?}", &NodeError::NodeDoesNotExist(first_node_index.clone()))
+        format!(
+            "{:?}",
+            &NodeError::NodeDoesNotExist(first_node_index.clone())
+        )
     );
 
     // second node should still exist though with the right generation
@@ -114,7 +117,8 @@ fn graph_connecting() {
     }
 
     assert_eq!(
-        format!("{:?}", 
+        format!(
+            "{:?}",
             graph
                 .connect(
                     first_node_index,
@@ -123,8 +127,11 @@ fn graph_connecting() {
                     SocketType::Midi(MidiSocketType::Default),
                 )
                 .unwrap_err()
-            ),
-        format!("{:?}", NodeError::SocketDoesNotExist(SocketType::Midi(MidiSocketType::Default)))
+        ),
+        format!(
+            "{:?}",
+            NodeError::SocketDoesNotExist(SocketType::Midi(MidiSocketType::Default))
+        )
     );
 
     // ditto with on the to side
@@ -140,7 +147,8 @@ fn graph_connecting() {
     }
 
     assert_eq!(
-        format!("{:?}", 
+        format!(
+            "{:?}",
             graph
                 .connect(
                     first_node_index,
@@ -149,13 +157,17 @@ fn graph_connecting() {
                     SocketType::Stream(StreamSocketType::Dynamic(2)),
                 )
                 .unwrap_err()
-            ),
-        format!("{:?}", NodeError::SocketDoesNotExist(SocketType::Stream(StreamSocketType::Dynamic(2))))
+        ),
+        format!(
+            "{:?}",
+            NodeError::SocketDoesNotExist(SocketType::Stream(StreamSocketType::Dynamic(2)))
+        )
     );
 
     // make sure we can't connect two different families of types (midi can't connect to audio, etc)
     assert_eq!(
-        format!("{:?}", 
+        format!(
+            "{:?}",
             graph
                 .connect(
                     first_node_index,
@@ -164,11 +176,14 @@ fn graph_connecting() {
                     SocketType::Midi(MidiSocketType::Default),
                 )
                 .unwrap_err()
-            ),
-        format!("{:?}", NodeError::IncompatibleSocketTypes(
-            SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Midi(MidiSocketType::Default)
-        ))
+        ),
+        format!(
+            "{:?}",
+            NodeError::IncompatibleSocketTypes(
+                SocketType::Stream(StreamSocketType::Audio),
+                SocketType::Midi(MidiSocketType::Default)
+            )
+        )
     );
 
     // but we should be able to connect within the same family
@@ -186,7 +201,8 @@ fn graph_connecting() {
 
     // but we can't connect twice
     assert_eq!(
-        format!("{:?}", 
+        format!(
+            "{:?}",
             graph
                 .connect(
                     first_node_index,
@@ -196,15 +212,19 @@ fn graph_connecting() {
                 )
                 .unwrap_err()
         ),
-        format!("{:?}", NodeError::AlreadyConnected(
-            SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Stream(StreamSocketType::Audio)
-        ))
+        format!(
+            "{:?}",
+            NodeError::AlreadyConnected(
+                SocketType::Stream(StreamSocketType::Audio),
+                SocketType::Stream(StreamSocketType::Audio)
+            )
+        )
     );
 
     // nor can we connect multiple outputs to one input
     assert_eq!(
-        format!("{:?}", 
+        format!(
+            "{:?}",
             graph
                 .connect(
                     third_node_index,
@@ -214,9 +234,10 @@ fn graph_connecting() {
                 )
                 .unwrap_err()
         ),
-        format!("{:?}", NodeError::InputSocketOccupied(
-            SocketType::Stream(StreamSocketType::Audio)
-        ))
+        format!(
+            "{:?}",
+            NodeError::InputSocketOccupied(SocketType::Stream(StreamSocketType::Audio))
+        )
     );
 
     // but we can connect one output to multiple inputs

@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
-use crate::{graph::{PossibleNode}, connection::Connection};
-use petgraph::prelude::*;
-use petgraph::algo::{greedy_feedback_arc_set, toposort};
+use crate::connection::Connection;
+use crate::graph::PossibleNode;
 
-pub fn calculate_graph_traverse_order(original_graph: &crate::graph::Graph)-> Vec<crate::node::NodeIndex> {
+use petgraph::algo::{greedy_feedback_arc_set, toposort};
+use petgraph::prelude::*;
+
+pub fn calculate_graph_traverse_order(
+    original_graph: &crate::graph::Graph,
+) -> Vec<crate::node::NodeIndex> {
     // traverse backward and build a list of traverse order
 
     let mut graph = StableGraph::<usize, Connection>::new();
@@ -14,7 +18,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::graph::Graph)-> Ve
         match original_node {
             PossibleNode::Some(_) => {
                 graph_lookup.insert(i, graph.add_node(i));
-            },
+            }
             PossibleNode::None(_) => {}
         }
     }
@@ -28,18 +32,16 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::graph::Graph)-> Ve
                 for input in node.list_input_sockets() {
                     graph.add_edge(
                         *graph_lookup.get(&input.from_node.index).unwrap(),
-                        *graph_lookup.get(& node.get_index().index).unwrap(),
+                        *graph_lookup.get(&node.get_index().index).unwrap(),
                         Connection {
                             from_socket_type: input.from_socket_type,
                             from_node: input.from_node,
                             to_socket_type: input.to_socket_type,
-                            to_node: node_index
-                        }
+                            to_node: node_index,
+                        },
                     );
                 }
-
-                
-            },
+            }
             PossibleNode::None(_) => {}
         }
     }
@@ -48,7 +50,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::graph::Graph)-> Ve
 
     let mut connections: Vec<Connection> = Vec::new();
     let mut edge_indexes: Vec<EdgeIndex> = Vec::new();
-    
+
     for edge in edges {
         connections.push(edge.weight().clone());
         edge_indexes.push(edge.id());
@@ -60,13 +62,14 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::graph::Graph)-> Ve
 
     let node_order = toposort(&graph, None).unwrap();
 
-    node_order.iter().map(|index| {
-        crate::node::NodeIndex {
+    node_order
+        .iter()
+        .map(|index| crate::node::NodeIndex {
             index: index.index(),
             generation: match &original_graph.get_nodes()[index.index()] {
                 PossibleNode::Some(node) => node.generation,
-                PossibleNode::None(_) => panic!("unreachable")
-            }
-        }
-    }).collect::<Vec<crate::node::NodeIndex>>()
+                PossibleNode::None(_) => panic!("unreachable"),
+            },
+        })
+        .collect::<Vec<crate::node::NodeIndex>>()
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use std::fmt::{Display, Debug};
+use std::fmt::{Debug, Display};
 
 use crate::node::NodeIndex;
 
@@ -55,7 +55,7 @@ pub enum StreamSocketType {
 pub enum ValueSocketType {
     Gain,
     Frequency,
-    Gate
+    Gate,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -74,7 +74,7 @@ impl Parameter {
             Parameter::Float(float) => Some(float),
             Parameter::Int(int) => Some(int as f32),
             Parameter::Boolean(boolean) => Some(if boolean { 1.0 } else { 0.0 }),
-            _ => None
+            _ => None,
         }
     }
 
@@ -83,7 +83,7 @@ impl Parameter {
         match self {
             Parameter::Int(int) => Some(int),
             Parameter::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
-            _ => None
+            _ => None,
         }
     }
 
@@ -91,7 +91,7 @@ impl Parameter {
     pub fn as_boolean(self) -> Option<bool> {
         match self {
             Parameter::Boolean(boolean) => Some(boolean),
-            _ => None
+            _ => None,
         }
     }
 
@@ -102,7 +102,6 @@ impl Parameter {
             Parameter::Float(float) => Some(float.to_string()),
             Parameter::Int(int) => Some(int.to_string()),
             Parameter::Boolean(boolean) => Some(boolean.to_string()),
-            _ => None
         }
     }
 }
@@ -118,7 +117,7 @@ impl SocketType {
     pub fn as_stream(self) -> Option<StreamSocketType> {
         match self {
             SocketType::Stream(stream) => Some(stream),
-            _ => None
+            _ => None,
         }
     }
 
@@ -126,7 +125,7 @@ impl SocketType {
     pub fn as_midi(self) -> Option<MidiSocketType> {
         match self {
             SocketType::Midi(midi) => Some(midi),
-            _ => None
+            _ => None,
         }
     }
 
@@ -134,7 +133,7 @@ impl SocketType {
     pub fn as_value(self) -> Option<ValueSocketType> {
         match self {
             SocketType::Value(value) => Some(value),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -157,6 +156,6 @@ pub fn socket_type_to_string(socket_type: SocketType) -> String {
         },
         SocketType::MethodCall(method_call) => {
             format!("{:?}", method_call)
-        },
+        }
     }
 }

@@ -14,14 +14,13 @@ fn index_deserialize() {
 
     let index = serde_json::from_str::<NodeIndex>(json_str.as_str()).unwrap();
 
-    assert_eq!(index, NodeIndex {
-        index: 1,
-        generation: 0
-    });
-}
-
-fn socket_type_deserialize() {
-
+    assert_eq!(
+        index,
+        NodeIndex {
+            index: 1,
+            generation: 0
+        }
+    );
 }
 
 #[test]
@@ -29,11 +28,11 @@ fn connection_deserialize() {
     let json = json! {{
         "from_socket_type": {
             "type": "Stream",
-            "content": 
+            "content":
                 {
                     "type": "Audio"
                 }
-            
+
         },
         "from_node": {
             "index": 0_i32,
@@ -41,11 +40,11 @@ fn connection_deserialize() {
         },
         "to_socket_type": {
             "type": "Stream",
-            "content": 
+            "content":
                 {
                     "type": "Audio"
                 }
-            
+
         },
         "to_node": {
             "index": 1_i32,
@@ -57,7 +56,8 @@ fn connection_deserialize() {
 
     println!("{}", json_str);
 
-    let connection: Result<Connection, serde_json::Error> = serde_json::from_str::<Connection>(json_str.as_str());
+    let connection: Result<Connection, serde_json::Error> =
+        serde_json::from_str::<Connection>(json_str.as_str());
 
     println!("{:?}", connection);
 }

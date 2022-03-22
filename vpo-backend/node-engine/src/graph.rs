@@ -6,8 +6,9 @@ use serde_json::json;
 
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketType},
-    errors::{NodeError},
-    node::{GenerationalNode, NodeIndex, NodeWrapper}, nodes::variants::NodeVariant,
+    errors::NodeError,
+    node::{GenerationalNode, NodeIndex, NodeWrapper},
+    nodes::variants::NodeVariant,
 };
 
 #[derive(Debug)]
@@ -124,7 +125,10 @@ impl Graph {
         // check if "to" is connected from "from"
         if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
             if to_connection.from_node == from_index {
-                return Err(NodeError::AlreadyConnected(from_socket_type, to_socket_type));
+                return Err(NodeError::AlreadyConnected(
+                    from_socket_type,
+                    to_socket_type,
+                ));
             }
 
             // it can't be connected twice by anything
@@ -143,7 +147,10 @@ impl Graph {
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
         if mem::discriminant(&from_socket_type) != mem::discriminant(&to_socket_type) {
-            return Err(NodeError::IncompatibleSocketTypes(from_socket_type, to_socket_type));
+            return Err(NodeError::IncompatibleSocketTypes(
+                from_socket_type,
+                to_socket_type,
+            ));
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
@@ -199,19 +206,19 @@ impl Graph {
         let mut to = (*to.node).borrow_mut();
 
         // check if "to" is connected from "from"
-        let already_connected = if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
-            to_connection.from_node == from_index
-        } else {
-            false
-        };
+        let already_connected =
+            if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
+                to_connection.from_node == from_index
+            } else {
+                false
+            };
 
-        if (!already_connected) {
+        if !already_connected {
             return Err(NodeError::NotConnected);
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
         // (from both connected nodes), we should be good here
-
 
         // now we'll remove the connection on both nodes
         to.remove_input_socket_connection_unsafe(&to_socket_type)?;
@@ -278,11 +285,13 @@ impl Graph {
                         let from_node = from_node.node;
                         let mut from_node = (*from_node).borrow_mut();
 
-                        from_node.remove_output_socket_connection_unsafe(&OutputSideConnection {
-                            from_socket_type: input_socket.from_socket_type,
-                            to_node: node.get_index(),
-                            to_socket_type: input_socket.to_socket_type,
-                        })?;
+                        from_node.remove_output_socket_connection_unsafe(
+                            &OutputSideConnection {
+                                from_socket_type: input_socket.from_socket_type,
+                                to_node: node.get_index(),
+                                to_socket_type: input_socket.to_socket_type,
+                            },
+                        )?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }
@@ -295,7 +304,8 @@ impl Graph {
                         let to_node = to_node.node;
                         let mut to_node = (*to_node).borrow_mut();
 
-                        to_node.remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
+                        to_node
+                            .remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
                     }
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }

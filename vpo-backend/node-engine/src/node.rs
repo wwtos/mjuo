@@ -4,26 +4,29 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{InputSideConnection, OutputSideConnection, SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter};
+use crate::connection::{
+    InputSideConnection, MidiSocketType, OutputSideConnection, Parameter, SocketType,
+    StreamSocketType, ValueSocketType,
+};
 
 use crate::errors::NodeError;
-use crate::nodes::variants::{NodeVariant, variant_to_name};
-use crate::property::{PropertyType, Property};
+use crate::nodes::variants::{variant_to_name, NodeVariant};
+use crate::property::{Property, PropertyType};
 
 /// Node trait
-/// 
+///
 /// This is the most fundamental building block of a graph node network.
 /// It is the part of the graph that does the actual thinking. Data is presented to it
 /// through its sockets. The graph will call `list_input_sockets` and `list_output_sockets`
 /// to determine what sockets the node has available. From then, the graph will take care
-/// of data flow, connecting nodes together, and such. 
-/// 
+/// of data flow, connecting nodes together, and such.
+///
 ///  It needs to implement methods listing
-/// what properties it has, what sockets it has available to 
+/// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 pub trait Node: Debug {
     // defaults list nothing, to reduce boilerplate necessary for
@@ -68,7 +71,7 @@ pub struct NodeWrapper {
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
     properties: HashMap<String, Property>,
-    ui_data: HashMap<String, Value>
+    ui_data: HashMap<String, Value>,
 }
 
 impl NodeWrapper {
@@ -81,7 +84,7 @@ impl NodeWrapper {
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
             properties: HashMap::new(),
-            ui_data: HashMap::new()
+            ui_data: HashMap::new(),
         };
 
         wrapper.ui_data.insert("x".to_string(), json! { 0.0 });
@@ -103,7 +106,7 @@ impl NodeWrapper {
     pub fn set_property(&mut self, name: String, value: Property) {
         self.properties.insert(name, value);
     }
- 
+
     pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
         self.connected_inputs.clone()
     }
@@ -178,7 +181,8 @@ impl NodeWrapper {
         println!("Applying json: {}", json);
 
         let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let properties: HashMap<String, Property> = serde_json::from_value(json["properties"].clone())?;
+        let properties: HashMap<String, Property> =
+            serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
 
         if index != self.index {
@@ -231,7 +235,10 @@ impl NodeWrapper {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unsafe(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
+    pub(in crate) fn remove_input_socket_connection_unsafe(
+        &mut self,
+        to_type: &SocketType,
+    ) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()
@@ -248,7 +255,7 @@ impl NodeWrapper {
 
     pub(in crate) fn remove_output_socket_connection_unsafe(
         &mut self,
-        connection: &OutputSideConnection
+        connection: &OutputSideConnection,
     ) -> Result<(), NodeError> {
         let to_remove = self.connected_outputs.iter().position(|input| {
             input.from_socket_type == connection.from_socket_type
