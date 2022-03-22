@@ -54,7 +54,8 @@ pub enum StreamSocketType {
 #[serde(tag = "type", content = "content")]
 pub enum ValueSocketType {
     Gain,
-    Frequency
+    Frequency,
+    Gate
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -152,6 +153,7 @@ pub fn socket_type_to_string(socket_type: SocketType) -> String {
         SocketType::Value(value) => match value {
             ValueSocketType::Gain => "Gain value".to_string(),
             ValueSocketType::Frequency => "Frequency value".to_string(),
+            ValueSocketType::Gate => "Gate value".to_string(),
         },
         SocketType::MethodCall(method_call) => {
             format!("{:?}", method_call)

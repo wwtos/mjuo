@@ -7,10 +7,11 @@ use async_std::channel::{Receiver, Sender, unbounded};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{Connection, StreamSocketType};
+use node_engine::connection::{Connection, StreamSocketType, SocketType, MidiSocketType};
 use node_engine::errors::NodeError;
 use node_engine::graph::Graph;
 
+use node_engine::graph_manager::GraphManager;
 use node_engine::graph_traverse::calculate_graph_traverse_order;
 use node_engine::node::{NodeIndex};
 use node_engine::nodes::midi_input::MidiInNode;
@@ -229,8 +230,11 @@ fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiPars
 
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
+
+    let mut graph_manager = GraphManager::new();
+    let graph_index = graph_manager.new_graph();
     
-    let mut graph = Graph::new();
+    let mut graph = graph_manager.get_graph_mut(&graph_index).unwrap();
     let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()));
     let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()));
     let mut traverse_order = calculate_graph_traverse_order(&graph);
@@ -251,6 +255,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         let midi = get_midi(&mut midi_backend, &mut parser);
+
+        if !midi.is_empty() {
+            let midi_node = graph.get_node(&midi_in_node).unwrap().node;
+            let mut midi_node = (*midi_node).borrow_mut();
+
+            midi_node.accept_midi_input(MidiSocketType::Default, midi.clone());
+        }
 
         let mut buffer = [0_f32; BUFFER_SIZE];
 

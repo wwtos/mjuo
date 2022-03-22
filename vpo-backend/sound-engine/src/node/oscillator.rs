@@ -1,8 +1,5 @@
-use alsa::seq::Input;
 use serde::Deserialize;
 use serde::Serialize;
-use simple_error::bail;
-use simple_error::SimpleError;
 
 use crate::constants::{SAMPLE_RATE, TWO_PI};
 
