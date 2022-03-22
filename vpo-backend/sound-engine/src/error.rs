@@ -7,5 +7,5 @@ pub enum NodeError {
     #[snafu(display("Input not supported: {unsupported_input_type}"))]
     UnsupportedInput { unsupported_input_type: InputType },
     #[snafu(display("Output not supported: {unsupported_output_type}"))]
-    UnsupportedOutput { unsupported_output_type: OutputType }
+    UnsupportedOutput { unsupported_output_type: OutputType },
 }

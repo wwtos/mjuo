@@ -30,11 +30,8 @@ impl Node for OscillatorNode {
     }
 
     fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
-        match socket_type {
-            ValueSocketType::Frequency => {
-                self.oscillator.set_frequency(value.as_float().unwrap());
-            }
-            _ => {}
+        if socket_type == ValueSocketType::Frequency {
+            self.oscillator.set_frequency(value.as_float().unwrap());
         }
     }
 

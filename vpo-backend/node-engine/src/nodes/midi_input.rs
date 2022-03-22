@@ -4,17 +4,9 @@ use sound_engine::midi::messages::MidiData;
 use crate::connection::{MidiSocketType, SocketType};
 use crate::node::Node;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MidiInNode {
     midi_in: Vec<MidiData>,
-}
-
-impl Default for MidiInNode {
-    fn default() -> Self {
-        MidiInNode {
-            midi_in: Vec::new(),
-        }
-    }
 }
 
 impl Node for MidiInNode {

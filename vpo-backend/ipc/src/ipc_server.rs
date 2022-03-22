@@ -42,11 +42,8 @@ impl IPCServer {
                         loop {
                             let message = handle_message(&mut reader).await?;
 
-                            match message {
-                                RawMessage::Json(json) => {
-                                    to_main.send(IPCMessage::Json(json)).await?;
-                                }
-                                _ => {}
+                            if let RawMessage::Json(json) = message {
+                                to_main.send(IPCMessage::Json(json)).await?;
                             }
                         }
 

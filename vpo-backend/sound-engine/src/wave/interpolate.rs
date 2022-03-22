@@ -3,11 +3,7 @@ use crate::util::lerp;
 
 use super::tables::{BASE_FREQUENCY, WAVETABLE_SIZE};
 
-pub fn interpolate(
-    wavetable: &Vec<[f32; WAVETABLE_SIZE]>,
-    frequency: f32,
-    phase: f32,
-) -> f32 {
+pub fn interpolate(wavetable: &[[f32; WAVETABLE_SIZE]], frequency: f32, phase: f32) -> f32 {
     let phase = (phase / TWO_PI) % 1.0; // make phase bound
 
     let wavetable_index = (frequency / BASE_FREQUENCY) as usize; // which wavetable to use (rounded down)
@@ -26,6 +22,6 @@ pub fn interpolate(
     lerp(
         sample_lower,
         sample_higher,
-        (frequency - (BASE_FREQUENCY * (wavetable_index) as f32)) / BASE_FREQUENCY
+        (frequency - (BASE_FREQUENCY * (wavetable_index) as f32)) / BASE_FREQUENCY,
     )
 }

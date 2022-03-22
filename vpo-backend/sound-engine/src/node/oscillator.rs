@@ -6,7 +6,7 @@ use crate::constants::{SAMPLE_RATE, TWO_PI};
 use crate::error::NodeError;
 use crate::node::{AudioNode, InputType, OutputType};
 use crate::wave::interpolate::interpolate;
-use crate::wave::tables::{WAVETABLE_SIZE};
+use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
         Waveform::Sine => &SINE_VALUES,
         Waveform::Triangle => &TRIANGLE_VALUES,
         Waveform::Sawtooth => &SAWTOOTH_VALUES,
-        Waveform::Square => &SQUARE_VALUES
+        Waveform::Square => &SQUARE_VALUES,
     }
 }
 
@@ -47,7 +47,7 @@ impl Oscillator {
             phase: 0_f32,
             frequency: 440_f32,
             output_out: 0_f32,
-            waveform: waveform,
+            waveform,
         }
     }
 
@@ -87,13 +87,17 @@ impl AudioNode for Oscillator {
     }
 
     fn receive_audio(&mut self, input_type: InputType, _input: f32) -> Result<(), NodeError> {
-        Err(NodeError::UnsupportedInput { unsupported_input_type: input_type })
+        Err(NodeError::UnsupportedInput {
+            unsupported_input_type: input_type,
+        })
     }
 
     fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
         match output_type {
             OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::UnsupportedOutput { unsupported_output_type: output_type }),
+            _ => Err(NodeError::UnsupportedOutput {
+                unsupported_output_type: output_type,
+            }),
         }
     }
 

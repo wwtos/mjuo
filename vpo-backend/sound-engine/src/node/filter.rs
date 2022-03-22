@@ -1,7 +1,7 @@
 use crate::constants::PI;
+use crate::error::NodeError;
 use crate::node::{AudioNode, InputType, OutputType};
 use crate::SoundConfig;
-use crate::error::NodeError;
 
 #[derive(Clone, Copy)]
 pub enum FilterType {
@@ -156,14 +156,18 @@ impl AudioNode for Filter {
 
                 Ok(())
             }
-            _ => Err(NodeError::UnsupportedInput { unsupported_input_type: input_type }),
+            _ => Err(NodeError::UnsupportedInput {
+                unsupported_input_type: input_type,
+            }),
         }
     }
 
     fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
         match output_type {
             OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::UnsupportedOutput { unsupported_output_type: output_type }),
+            _ => Err(NodeError::UnsupportedOutput {
+                unsupported_output_type: output_type,
+            }),
         }
     }
 
