@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{SocketType, MidiSocketType, ValueSocketType, Parameter};
+use crate::connection::{MidiSocketType, Parameter, SocketType, ValueSocketType};
 use crate::node::Node;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 enum ChangedState {
     NewInfo,
     InfoProcessed,
-    NoInfo
+    NoInfo,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,19 +42,27 @@ impl Node for MidiToValuesNode {
         self.state = match self.state {
             ChangedState::NewInfo => ChangedState::InfoProcessed,
             ChangedState::InfoProcessed => ChangedState::NoInfo,
-            ChangedState::NoInfo => ChangedState::NoInfo
+            ChangedState::NoInfo => ChangedState::NoInfo,
         };
 
         for data in &self.midi_in {
             match data {
-                MidiData::NoteOn { channel: _, note, velocity } => {
+                MidiData::NoteOn {
+                    channel: _,
+                    note,
+                    velocity,
+                } => {
                     self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
                     self.velocity = (*velocity as f32) / 127.0;
                     self.gate = true;
-                },
-                MidiData::NoteOff { channel: _, note: _, velocity: _ } => {
+                }
+                MidiData::NoteOff {
+                    channel: _,
+                    note: _,
+                    velocity: _,
+                } => {
                     self.gate = false;
-                },
+                }
                 _ => {}
             }
         }
@@ -66,15 +74,9 @@ impl Node for MidiToValuesNode {
         }
 
         match socket_type {
-            ValueSocketType::Frequency => {
-                Some(Parameter::Float(self.frequency))
-            },
-            ValueSocketType::Gate => {
-                Some(Parameter::Boolean(self.gate))
-            },
-            _ => {
-                None
-            }
+            ValueSocketType::Frequency => Some(Parameter::Float(self.frequency)),
+            ValueSocketType::Gate => Some(Parameter::Boolean(self.gate)),
+            _ => None,
         }
     }
 
@@ -85,7 +87,7 @@ impl Node for MidiToValuesNode {
     fn list_output_sockets(&self) -> Vec<SocketType> {
         vec![
             SocketType::Value(ValueSocketType::Frequency),
-            SocketType::Value(ValueSocketType::Gate)
+            SocketType::Value(ValueSocketType::Gate),
         ]
     }
 }

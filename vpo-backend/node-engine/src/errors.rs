@@ -2,7 +2,8 @@ use thiserror::Error;
 
 use serde_json;
 
-use crate::{node::NodeIndex, connection::SocketType};
+use crate::connection::SocketType;
+use crate::node::NodeIndex;
 
 #[derive(Error, Debug)]
 pub enum NodeError {

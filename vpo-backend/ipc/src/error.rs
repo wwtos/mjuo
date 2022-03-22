@@ -9,5 +9,5 @@ pub enum IPCError {
     #[error("Channel receive error")]
     ChannelReceiveError(#[from] async_std::channel::RecvError),
     #[error("Async IO error")]
-    AsyncIOError(#[from] async_std::io::Error)
+    AsyncIOError(#[from] async_std::io::Error),
 }

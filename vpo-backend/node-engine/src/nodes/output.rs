@@ -5,22 +5,18 @@ use crate::node::Node;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OutputNode {
-    current_value: f32
+    current_value: f32,
 }
 
 impl Default for OutputNode {
     fn default() -> Self {
-        OutputNode {
-            current_value: 0.0
-        }
+        OutputNode { current_value: 0.0 }
     }
 }
 
 impl Node for OutputNode {
     fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio)
-        ]
+        vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 
     fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {

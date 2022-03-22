@@ -6,14 +6,14 @@ use crate::node::Node;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {
     gain: f32,
-    value: f32
+    value: f32,
 }
 
 impl Default for GainGraphNode {
     fn default() -> Self {
         GainGraphNode {
             gain: 0.2,
-            value: 0.0
+            value: 0.0,
         }
     }
 }

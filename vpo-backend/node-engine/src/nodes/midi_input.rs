@@ -1,21 +1,18 @@
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
-use sound_engine::node::AudioNode;
-use sound_engine::node::oscillator::Oscillator;
-use sound_engine::node::oscillator::{Waveform};
 
-use crate::connection::{SocketType, StreamSocketType, MidiSocketType};
+use crate::connection::{MidiSocketType, SocketType};
 use crate::node::Node;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MidiInNode {
-    midi_in: Vec<MidiData>
+    midi_in: Vec<MidiData>,
 }
 
 impl Default for MidiInNode {
     fn default() -> Self {
         MidiInNode {
-            midi_in: Vec::new()
+            midi_in: Vec::new(),
         }
     }
 }
