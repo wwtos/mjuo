@@ -100,7 +100,7 @@ impl NodeWrapper {
     }
 
     pub fn get_property(&self, name: &str) -> Option<Property> {
-        self.properties.get(name).map(|prop| prop.clone())
+        self.properties.get(name).cloned()
     }
 
     pub fn set_property(&mut self, name: String, value: Property) {
