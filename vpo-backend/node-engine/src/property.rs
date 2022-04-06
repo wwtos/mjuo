@@ -7,6 +7,7 @@ pub enum PropertyType {
     Integer,
     Float,
     Bool,
+    MultipleChoice(Vec<String>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,4 +17,5 @@ pub enum Property {
     Integer(i32),
     Float(f32),
     Bool(bool),
+    MultipleChoice(String),
 }
