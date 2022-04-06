@@ -8,3 +8,12 @@ export function transformMouse(panzoom: PanZoom, mouseX: number, mouseY: number)
 
     return [transformedX, transformedY];
 }
+
+export function transformMouseRelativeToEditor(editor: HTMLDivElement, panzoom: PanZoom, mouseX: number, mouseY: number) {
+    let boundingRect = editor.getBoundingClientRect();
+
+    let relativeX = mouseX - boundingRect.x;
+    let relativeY = mouseY - boundingRect.y;
+
+    return transformMouse(panzoom, relativeX, relativeY);
+}

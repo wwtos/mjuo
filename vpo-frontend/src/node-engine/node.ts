@@ -18,13 +18,13 @@ export class Node {
     inputSockets: EnumInstance[]; // Vec<SocketType>
     outputSockets: EnumInstance[]; // Vec<SocketType>
     usableProperties: {
-        [prop: string]: EnumInstance[] // HashMap<String, PropertyType>
+        [prop: string]: EnumInstance // HashMap<String, PropertyType>
     }; // hashmap of property/propertyType pairs
 
     constructor(
         inputSockets: EnumInstance[],
         outputSockets: EnumInstance[],
-        usableProperties: { [prop: string]: EnumInstance[] /*HashMap<String, PropertyType>*/ }
+        usableProperties: { [prop: string]: EnumInstance /*HashMap<String, PropertyType>*/ }
     ) {
         this.inputSockets = inputSockets;
         this.outputSockets = outputSockets;
