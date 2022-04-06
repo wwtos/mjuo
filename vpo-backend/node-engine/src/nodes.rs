@@ -4,3 +4,4 @@ pub mod midi_to_values;
 pub mod oscillator;
 pub mod output;
 pub mod variants;
+pub mod envelope;
