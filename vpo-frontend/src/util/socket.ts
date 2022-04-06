@@ -1,4 +1,5 @@
 import {Connection} from "../node-engine/connection";
+import { NodeWrapper } from "../node-engine/node";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -22,6 +23,15 @@ export class IPCSocket {
         this.send({
             "action": "graph/newNode",
             "payload": type
+        });
+    }
+
+    updateNodes (nodes: NodeWrapper[]) {
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+
+        this.send({
+            "action": "graph/updateNodes",
+            "payload": nodesToUpdateJson
         });
     }
 

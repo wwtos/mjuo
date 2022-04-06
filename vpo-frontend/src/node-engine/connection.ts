@@ -32,13 +32,30 @@ export const SocketType = createEnumDefinition({
     "MethodCall": "array"
 });
 
+export function jsonToSocketType (json: object) {
+    switch (json["type"]) {
+        case "Stream":
+            return SocketType.Stream(StreamSocketType[json["content"]["type"]]);
+        break;
+        case "Midi":
+            return SocketType.Midi(MidiSocketType[json["content"]["type"]]);
+        break;
+        case "Value":
+            return SocketType.Value(ValueSocketType[json["content"]["type"]]);
+        break;
+        case "MethodCall":
+            return SocketType.MethodCall(json["content"]);
+        break;
+    }
+}
+
 export function socketTypeToKey(socketType: EnumInstance, recursiveKey?: string) {
     if (!recursiveKey) recursiveKey = "";
 
     recursiveKey += "," + socketType.getType();
 
-    if (socketType.value && socketType.value[0] instanceof EnumInstance) {
-        return socketTypeToKey(socketType.value[0], recursiveKey);
+    if (socketType.content && socketType.content[0] instanceof EnumInstance) {
+        return socketTypeToKey(socketType.content[0], recursiveKey);
     } else {
         return recursiveKey;
     }

@@ -1,8 +1,9 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { GenerationalNode, Node, NodeIndex, NodeWrapper, UIData } from "./node";
-import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection, Connection, socketTypeToKey } from "./connection";
-import { PropertyType } from "./property";
-import { readable, Readable } from 'svelte/store';
+import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
+import { jsonToProperty, PropertyType } from "./property";
+import { readable, Readable, writable, Writable } from 'svelte/store';
+import { IPCSocket } from "../util/socket";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -11,32 +12,18 @@ export const PossibleNode = createEnumDefinition({
     "None": "number", // generation last held (u32)
 });
 
-const socketTypeLookup = {
-    Stream: StreamSocketType,
-    Midi: MidiSocketType,
-    Value: ValueSocketType
-};
-
-function jsonToSocketType(socketTypeJson: any) {
-    if (socketTypeJson.type === "MethodCall") {
-        return socketTypeJson.content.map(parameter => {
-            return Parameter[parameter.type](parameter.content);
-        });
-    } if (socketTypeJson.content.content) {
-        return SocketType[socketTypeJson.type](socketTypeLookup[socketTypeJson.type][socketTypeJson.content.type](socketTypeJson.content.content));
-    } else {
-        return SocketType[socketTypeJson.type](socketTypeLookup[socketTypeJson.type][socketTypeJson.content.type]);
-    }
-}
-
 export class Graph {
     nodes: (NodeWrapper | undefined)[];
-    nodeStore: Readable<([string, NodeWrapper])[]>;
-    nodeStoreSet: Function;
-    connectionStore: Readable<([string, Connection])[]>;
-    connectionStoreSet: Function;
+    keyedNodeStore: Writable<([string, NodeWrapper])[]>;
+    keyedConnectionStore: Writable<([string, Connection])[]>;
+    nodeStore: Writable<NodeWrapper[]>;
+    changedNodes: NodeIndex[];
+    ipcSocket: IPCSocket;
+    selectedNodes: [];
 
-    constructor () {
+    constructor (ipcSocket: IPCSocket) {
+        this.ipcSocket = ipcSocket;
+
         this.nodes = [/* NodeWrapper {
                     Node {
 
@@ -48,14 +35,11 @@ export class Graph {
                 },
                 generation: u32
             } */];
-        
-        this.nodeStore = readable(this.getKeyedNodes(), (set) => {
-            this.nodeStoreSet = set;
-        });
 
-        this.connectionStore = readable(this.getKeyedConnections(), (set) => {
-            this.connectionStoreSet = set;
-        });
+        this.nodeStore = writable(this.nodes);
+        this.keyedNodeStore = writable(this.getKeyedNodes());
+        this.keyedConnectionStore = writable(this.getKeyedConnections());
+        this.changedNodes = [];
     }
 
     getNode (index: NodeIndex): (NodeWrapper | undefined) {
@@ -72,9 +56,14 @@ export class Graph {
         return undefined;
     }
 
+    getNodes(): NodeWrapper[] {
+        return this.nodes;
+    }
+
     update () {
-        this.nodeStoreSet(this.getKeyedNodes());
-        this.connectionStoreSet(this.getKeyedConnections());
+        this.keyedNodeStore.set(this.getKeyedNodes());
+        this.keyedConnectionStore.set(this.getKeyedConnections());
+        this.nodeStore.set(this.nodes);
     }
 
     applyJson (json: any) {
@@ -102,8 +91,8 @@ export class Graph {
             }
 
             // apply new properties
-            for (var data in node.properties) {
-                this.nodes[i].properties[data] = node.properties[data];
+            for (let data in node.properties) {
+                this.nodes[i].properties[data] = jsonToProperty(node.properties[data]);
             }
 
             // apply new ui data
@@ -148,12 +137,12 @@ export class Graph {
         this.update();
     }
 
-    subscribeToKeyedNodes (): Readable<([string, NodeWrapper])[]> {
-        return this.nodeStore;
+    subscribeToKeyedNodes (): Writable<([string, NodeWrapper])[]> {
+        return this.keyedNodeStore;
     }
 
-    subscribeToKeyedConnections (): Readable<([string, Connection][])> {
-        return this.connectionStore;
+    subscribeToKeyedConnections (): Writable<([string, Connection][])> {
+        return this.keyedConnectionStore;
     }
 
     getKeyedConnections (): ([string, Connection])[] {
@@ -188,18 +177,27 @@ export class Graph {
         return keyedNodes;
     }
 
-    // add_node (node: Node): NodeIndex {
-    //     let index;
-    //     let new_generation;
+    markNodeAsUpdated(index: NodeIndex) {
+        this.changedNodes.push(index);
+    }
 
-    //     if (this.nodes.length === 0) {
-    //         this.nodes.push(create_new_node(node));
+    writeChangedNodesToServer() {
+        // only write changes if any nodes were marked for updating
+        if (this.changedNodes.length > 0) {
+            const nodesToUpdateJson = 
+                JSON.parse(JSON.stringify(this.changedNodes.map(
+                    (nodeIndex) => {
+                        return this.getNode(nodeIndex);
+                    }
+                )));
 
-    //         index = this.nodes.length - 1;
-    //         new_generation = 0;
-    //     } else {
-    //         // find an empty slot (if any)
-    //     }
-    // }
+            this.ipcSocket.send({
+                "action": "graph/updateNodes",
+                "payload": nodesToUpdateJson
+            });
+
+            this.changedNodes.length = 0;
+        }
+    }
 }
 

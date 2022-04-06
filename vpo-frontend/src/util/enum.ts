@@ -1,16 +1,33 @@
+function containsOtherObjects(value) {
+    return typeof value === "object" && value !== null;
+}
+
 export class EnumInstance {
     enumDef: any; // Really an EnumDefinition, except EnumDefinition is such a fluid type
     type: number;
-    value: object | null;
+    content: object | null;
 
-    constructor (enumDef: object, type: number, value: object | null) {
+    constructor (enumDef: object, type: number, content: object | null) {
         this.enumDef = enumDef;
         this.type = type;
-        this.value = value;
+        this.content = content;
     }
 
     getType(): number {
         return this.type;
+    }
+
+    toName () {
+        let ids = this.enumDef.ids;
+        let typeName: string = "";
+    
+        for (let id of Object.keys(ids)) {
+            if (this.type === ids[id]) {
+                typeName = id;
+            }
+        }
+
+        return typeName;
     }
 
     toJSON () {
@@ -23,15 +40,15 @@ export class EnumInstance {
             }
         }
 
-        let value = this.value;
+        let content = this.content;
 
-        if (Array.isArray(this.enumDef.states[typeName]) && this.enumDef.states[typeName].length === 1) {
-            value = value[0];
+        if ((Array.isArray(this.enumDef.states[typeName]) && this.enumDef.states[typeName].length === 1)) {
+            content = content[0];
         }
     
         return {
             "type": typeName,
-            "content": value
+            "content": content
         };
     }
 
@@ -59,9 +76,9 @@ export class EnumInstance {
     
             // -1 is catch all
             if (clauseType === -1) {
-                returnValue = (matchClause[1] as Function)(this.value);
+                returnValue = (matchClause[1] as Function)(this.content);
             } else if (clauseType === this.type) {
-                returnValue = (matchClause[1] as Function)(this.value);
+                returnValue = (matchClause[1] as Function)(this.content);
             } else if (clauseType !== this.type) {
                 continue;
             }
@@ -140,10 +157,16 @@ export function createEnumDefinition(states: {
                 // otherwise it's a function, so you can use Enum.State(foo, bar)
 
                 if (typeof currentState === "string") {
-                    currentState = [currentState];
-                }
+                    newEnumDef[currentStateId] = function (arg: any) {
+                        if (arguments.length > 1) {
+                            throw "This enum only has one state!";
+                        }
 
-                if (Array.isArray(currentState)) {
+                        assert(verifyInput(currentState, arg), currentState, arg);
+
+                        return new EnumInstance(newEnumDef, enumId, arg);
+                    };
+                } else if (Array.isArray(currentState)) {
                     newEnumDef[currentStateId] = function (args: any) {
                         if (arguments.length > 1 || !Array.isArray(args)) {
                             args = Array.from(arguments);
