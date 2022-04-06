@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::Write;
 use std::sync::Arc;
@@ -9,7 +9,6 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::sync::Mutex;
 use async_std::task::block_on;
-use ipc::error::IPCError;
 use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{Connection, MidiSocketType, StreamSocketType};
 use node_engine::errors::NodeError;
@@ -21,19 +20,19 @@ use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::{new_variant, NodeVariant};
-use routerify::Router;
 use serde_json::json;
 use serde_json::Value;
+use sound_engine::SoundConfig;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 
-use hyper::{Body, Request, Response, Server, StatusCode};
-
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
+use vpo_backend::route;
+
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
@@ -62,119 +61,27 @@ fn update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
     .unwrap();
 }
 
-fn route(
-    msg: IPCMessage,
-    graph: &mut Graph,
-    to_server: &Sender<IPCMessage>,
-) -> Result<bool, NodeError> {
-    let IPCMessage::Json(json) = msg;
-
-    if let Value::Object(message) = json {
-        let action = message.get("action");
-
-        if let Some(Value::String(action_name)) = action {
-            return match action_name.as_str() {
-                "graph/get" => {
-                    update_graph(graph, to_server);
-
-                    Ok(false)
-                }
-                "graph/newNode" => {
-                    let node_type_raw = message.get("payload").unwrap();
-
-                    if let Value::String(node_type) = node_type_raw {
-                        let new_node = new_variant(node_type).unwrap();
-
-                        graph.add_node(new_node);
-                    }
-
-                    update_graph(graph, to_server);
-
-                    Ok(true)
-                }
-                "graph/updateNodes" => {
-                    let nodes_raw = message.get("payload").unwrap();
-
-                    if let Value::Array(nodes_to_update) = nodes_raw {
-                        for node_json in nodes_to_update {
-                            let index: NodeIndex =
-                                serde_json::from_value(node_json["index"].clone())?;
-
-                            let did_apply_json =
-                                if let Some(generational_node) = graph.get_node(&index) {
-                                    let mut node = (*generational_node.node).borrow_mut();
-
-                                    node.apply_json(node_json)?;
-
-                                    true
-                                } else {
-                                    false
-                                };
-
-                            if did_apply_json {
-                                graph.init_node(&index)?;
-                            }
-                        }
-                    }
-
-                    //update_graph(graph, to_server);
-
-                    Ok(false)
-                }
-                "graph/connectNode" => {
-                    if let Value::Object(_) = &message["payload"] {
-                        let connection: Connection =
-                            serde_json::from_value(message["payload"].clone())?;
-
-                        graph.connect(
-                            connection.from_node,
-                            connection.from_socket_type,
-                            connection.to_node,
-                            connection.to_socket_type,
-                        )?;
-                    }
-
-                    update_graph(graph, to_server);
-
-                    Ok(true)
-                }
-                "graph/disconnectNode" => {
-                    if let Value::Object(_) = &message["payload"] {
-                        let connection: Connection =
-                            serde_json::from_value(message["payload"].clone())?;
-
-                        graph.disconnect(
-                            connection.from_node,
-                            connection.from_socket_type,
-                            connection.to_node,
-                            connection.to_socket_type,
-                        )?;
-                    }
-
-                    update_graph(graph, to_server);
-
-                    Ok(true)
-                }
-                _ => Ok(false),
-            };
-        }
-    }
-
-    Ok(false)
-}
-
 fn handle_msg(
     msg: IPCMessage,
     graph: &mut Graph,
     to_server: &Sender<IPCMessage>,
     traverse_order: &mut Vec<NodeIndex>,
+    sound_config: &SoundConfig,
 ) {
-    let result = route(msg, graph, to_server);
+    let result = route(msg, graph, to_server, sound_config);
     println!("\n\n{:?}\n\n", traverse_order);
 
     match result {
-        Ok(graph_structure_changed) => {
-            if graph_structure_changed {
+        Ok(route_result) => {
+            let should_reindex_graph;
+
+            if let Some(route_result) = route_result {
+                should_reindex_graph = route_result.should_reindex_graph;
+            } else {
+                should_reindex_graph = false;
+            }
+
+            if should_reindex_graph {
                 *traverse_order = calculate_graph_traverse_order(graph);
             }
         }
@@ -222,12 +129,12 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex]) -> Result<(),
                     }
                 }
                 node_engine::connection::SocketType::Value(value_type) => {
-                    let midi = other_node_wrapper.get_value_output(value_type);
+                    let value = other_node_wrapper.get_value_output(value_type);
 
-                    if let Some(midi) = midi {
+                    if let Some(value) = value {
                         node_wrapper.accept_value_input(
                             connection.to_socket_type.as_value().unwrap(),
-                            midi,
+                            value,
                         );
                     }
                 }
@@ -291,6 +198,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let backend = connect_backend()?;
 
+    let sound_config = SoundConfig {
+        sample_rate: SAMPLE_RATE
+    };
+
     let mut midi_backend = connect_midi_backend()?;
     let mut parser = MidiParser::new();
 
@@ -301,7 +212,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, graph, &to_server, &mut traverse_order);
+            handle_msg(msg, graph, &to_server, &mut traverse_order, &sound_config);
         }
 
         let midi = get_midi(&mut midi_backend, &mut parser);
@@ -311,6 +222,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut midi_node = (*midi_node).borrow_mut();
 
             midi_node.accept_midi_input(MidiSocketType::Default, midi.clone());
+        } else {
+            let midi_node = graph.get_node(&midi_in_node).unwrap().node;
+            let mut midi_node = (*midi_node).borrow_mut();
+
+            midi_node.accept_midi_input(MidiSocketType::Default, Vec::new());
         }
 
         let mut buffer = [0_f32; BUFFER_SIZE];
