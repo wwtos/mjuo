@@ -31,34 +31,56 @@ use crate::property::{Property, PropertyType};
 pub trait Node: Debug {
     // defaults list nothing, to reduce boilerplate necessary for
     // nodes that don't use all node functionality
+
+    /// Returns a list of what input sockets this node has.
     fn list_input_sockets(&self) -> Vec<SocketType> {
         Vec::new()
     }
 
+    /// Returns a list of what output sockets this node has.
     fn list_output_sockets(&self) -> Vec<SocketType> {
         Vec::new()
     }
 
+    /// Returns a list of what properties this node has.
     fn list_properties(&self) -> HashMap<String, PropertyType> {
         HashMap::new()
     }
 
+    /// Called when any properties are changed. Allows for the node to reinitialize any
+    /// values that are based on properties it exposes. Returns two things: Firstly, whether
+    /// it changed what sockets or properties it has (so it can be reindexed), and secondly,
+    /// if it modified any of the properties it was provided with.
+    fn init(
+        &mut self,
+        properties: &HashMap<String, Property>,
+    ) -> (bool, Option<HashMap<String, Property>>) {
+        (false, None)
+    }
+
+    /// Process received data.
     fn process(&mut self) {}
 
+    /// Accept incoming stream data of type `socket_type`
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
 
+    /// Return outgoing stream data of type `socket_type`
     fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         0_f32
     }
 
+    /// Accept incoming midi data of type `socket_type`
     fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: Vec<MidiData>) {}
 
+    /// Return outgoing midi data of type `socket_type`
     fn get_midi_output(&self, socket_type: MidiSocketType) -> Vec<MidiData> {
         vec![]
     }
 
+    /// Accept incoming value data of type `socket_type`
     fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {}
 
+    /// Return outgoing value data of type `socket_type`
     fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
         None
     }
@@ -105,6 +127,14 @@ impl NodeWrapper {
 
     pub fn set_property(&mut self, name: String, value: Property) {
         self.properties.insert(name, value);
+    }
+
+    pub fn get_properties(&self) -> &HashMap<String, Property> {
+        &self.properties
+    }
+
+    pub fn set_properties(&mut self, properties: HashMap<String, Property>) {
+        self.properties = properties;
     }
 
     pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
