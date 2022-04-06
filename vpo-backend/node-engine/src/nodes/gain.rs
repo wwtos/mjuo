@@ -40,7 +40,7 @@ impl Node for GainGraphNode {
         &mut self,
         properties: &HashMap<String, Property>,
     ) -> (bool, Option<HashMap<String, Property>>) {
-        if let Some(gain_prop) = properties.get("Default gain") {
+        if let Some(gain_prop) = properties.get("default_gain") {
             if let Property::Float(gain) = gain_prop {
                 self.gain = gain.clamp(0.0, 1.0);
             }
@@ -63,7 +63,7 @@ impl Node for GainGraphNode {
     fn list_properties(&self) -> HashMap<String, PropertyType> {
         let mut props = HashMap::new();
 
-        props.insert("Default gain".to_string(), PropertyType::Float);
+        props.insert("default_gain".to_string(), PropertyType::Float);
 
         props
     }
