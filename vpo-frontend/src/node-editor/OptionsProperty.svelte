@@ -1,7 +1,7 @@
-<script>
-export let onchange = function() {};
+<script lang="ts">
+export let onchange: Function = function() {};
 export let value;
-export let states; // {"id": "value"}
+export let states: string[]; // {"id": "value"}
 
 let firstTime = true;
 
@@ -17,8 +17,8 @@ $: {
 </script>
 
 <select bind:value={value}>
-{#each Object.entries(states) as [i, state]}
-    <option value={i}>{state}</option>
+{#each states as state}
+    <option value={state}>{state}</option>
 {/each}
 </select>
 

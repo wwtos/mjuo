@@ -7,6 +7,8 @@
 	import {windowDimensions} from './util/window-size';
 	import {createEnumDefinition} from './util/enum';
 	import {IPCSocket} from './util/socket';
+import { Graph } from './node-engine/graph';
+import Toasts from './ui/Toasts.svelte';
 	
 	const ipc = (window as any).ipcRenderer;
 	let ipcSocket: any = new IPCSocket(ipc);
@@ -18,6 +20,8 @@
 		width = windowWidth - 1;
 		height = windowHeight - 3;
 	});
+
+	let nodes = new Graph(ipcSocket);
 </script>
 
 <main>
@@ -25,7 +29,7 @@
 		<SideNavbar />
 		<Editor />
 	</div> -->
-	<!-- <SplitView 
+	<SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
@@ -34,18 +38,28 @@
 	secondState={{
 		direction: SplitDirection.VERTICAL,
 		firstPanel: PropertyEditor,
+		firstState: {
+			ipcSocket: ipcSocket,
+			nodes: nodes
+		},
 		secondPanel: Editor,
-		secondState: {ipcSocket: ipcSocket}
-	}} /> -->
-	<SplitView 
+		initialSplitRatio: 0.3,
+		secondState: {
+			ipcSocket: ipcSocket,
+			nodes: nodes
+		}
+	}} />
+	<Toasts ipcSocket={ipcSocket} />
+	<!-- <SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
 	firstPanel={SideNavbar}
 	secondPanel={Editor}
 	secondState={{
-		ipcSocket: ipcSocket
-	}} />
+		ipcSocket: ipcSocket,
+		nodes: nodes
+	}} /> -->
 </main>
 
 <style>

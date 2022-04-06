@@ -8,7 +8,7 @@
     import { EnumInstance } from "../util/enum";
     import { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
-    import { transformMouse } from "../util/mouse-transforms";
+    import { transformMouse, transformMouseRelativeToEditor } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
     
     export let width = 400;
@@ -16,7 +16,7 @@
 
     export let ipcSocket: IPCSocket;
 
-    export let nodes: Graph = new Graph();
+    export let nodes: Graph;
 
     // TODO: remove debugging VVV
     window["ipcSocket"] = ipcSocket;
@@ -41,9 +41,12 @@
 
     let editor: HTMLDivElement;
     let nodeContainer: HTMLDivElement;
+
+    // node being actively dragged as well as the mouse offset
     let draggedNode: (null | NodeIndex) = null;
     let draggedOffset: (null | [number, number]) = null;
 
+    // the points of the connection being created
     let connectionBeingCreated: (null | {x1: number, y1: number, x2: number, y2: number}) = null;
     let connectionBeingCreatedFrom: {
         index: NodeIndex,
@@ -52,17 +55,16 @@
     };
 
     let selectedNodes: NodeIndex[] = [];
+
+    // map a node socket to its xy coords in the editor
     let nodeSocketPositionMapping = {};
 
     onMount(async () => {
         window.addEventListener("mousemove", ({clientX, clientY}) => {
-            let boundingRect = editor.getBoundingClientRect();
+            // convert window coordinates to editor coordinates
+            let [mouseX, mouseY] = transformMouseRelativeToEditor(editor, zoomer, clientX, clientY);
 
-            let relativeX = clientX - boundingRect.x;
-            let relativeY = clientY - boundingRect.y;
-
-            let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
-
+            // if the mouse was moved and we are dragging a node, update that node's position
             if (draggedNode) {
                 let node = nodes.getNode(draggedNode);
 
@@ -78,13 +80,11 @@
 
         window.addEventListener("mouseup", function() {
             if (draggedNode) {
-                ipcSocket.send({
-                    "action": "graph/updateNodes",
-                    "payload": [
-                        JSON.parse(JSON.stringify(nodes.getNode(draggedNode)))
-                    ]
-                });
+                nodes.markNodeAsUpdated(draggedNode);
+                nodes.update();
             }
+
+            nodes.writeChangedNodesToServer();
 
             zoomer.resume();
             draggedNode = null;
@@ -109,6 +109,16 @@
         keyedConnections = newKeyedConnections;
     });
 
+    function deselectAll () {
+        for (var i = 0; i < nodes.nodes.length; i++) {
+            if (nodes.nodes[i].uiData.selected) {
+                nodes.markNodeAsUpdated(nodes.nodes[i].index);
+
+                nodes.nodes[i].uiData.selected = false;
+            }
+        }
+    }
+
     function handleNodeMousedown (index: NodeIndex, event: MouseEvent) {
         if (event.button === 0) {
             let boundingRect = editor.getBoundingClientRect();
@@ -125,7 +135,9 @@
             let node = nodes.getNode(draggedNode);
             draggedOffset = [mouseX - node.uiData.x, mouseY - node.uiData.y];
 
-            //node.uiData.selected = true;
+            deselectAll();
+
+            node.uiData.selected = true;
         }
     }
 
@@ -169,8 +181,8 @@
                 const fromSocket = fromNodeSockets[socketToKey(connection.fromSocketType, SocketDirection.Output)];
 
                 connectionBeingCreated = {
-                    x1: fromSocket.x + fromNode.uiData.x,
-                    y1: fromSocket.y + fromNode.uiData.y,
+                    x1: fromSocket[0] + fromNode.uiData.x,
+                    y1: fromSocket[1] + fromNode.uiData.y,
                     x2: mouseX,
                     y2: mouseY
                 }
@@ -226,26 +238,8 @@
         })));
     }
 
-    function handleExportSocketPositionMapping(socketPositionMapping: ({ [key: string]: DOMRect }), key: string, nodeLocation: DOMRect) {
-        // calculate relative values for all the node sockets
+    function handleExportSocketPositionMapping(socketPositionMapping: ({ [key: string]: [number, number] }), key: string) {
         nodeSocketPositionMapping[key] = socketPositionMapping;
-
-        Object.keys(nodeSocketPositionMapping[key]).forEach(function(innerKey, index) {
-            var pos = nodeSocketPositionMapping[key][innerKey];
-
-            if (!pos.width) return;
-
-            var mappedPos = transformMouse(
-                zoomer,
-                pos.x + (pos.width / 2) - nodeLocation.x,
-                pos.y + (pos.height / 2) - nodeLocation.y
-            );
-
-            nodeSocketPositionMapping[key][innerKey] = {
-                x: mappedPos[0],
-                y: mappedPos[1]
-            };
-        });
     }
 
     function connectionToPoints(connection: any): {x1: number, y1: number, x2: number, y2: number} {
@@ -265,10 +259,10 @@
         const toSocket = toNodeSockets[socketToKey(connection.toSocketType, SocketDirection.Input)];
 
         return {
-            x1: fromSocket.x + fromNode.uiData.x,
-            y1: fromSocket.y + fromNode.uiData.y,
-            x2: toSocket.x + toNode.uiData.x,
-            y2: toSocket.y + toNode.uiData.y
+            x1: fromSocket[0] + fromNode.uiData.x,
+            y1: fromSocket[1] + fromNode.uiData.y,
+            x2: toSocket[0] + toNode.uiData.x,
+            y2: toSocket[1] + toNode.uiData.y
         };
     }
 
@@ -325,5 +319,6 @@ select {
 .editor {
     border: 1px solid black;
     overflow: hidden;
+    background-color: #fafafa;
 }
 </style>
