@@ -237,6 +237,34 @@ impl Graph {
         })
     }
 
+    pub fn init_node(&mut self, index: &NodeIndex) -> Result<(), NodeError> {
+        if let Some(node_ref) = self.get_node(index) {
+            let mut node_wrapper = (*node_ref.node).borrow_mut();
+
+            let props = node_wrapper.get_properties().clone();
+            let old_input_sockets = node_wrapper.list_input_sockets();
+            let old_output_sockets = node_wrapper.list_output_sockets();
+
+            let node = node_wrapper.node.as_mut();
+
+            let (sockets_changed, new_props) = node.init(&props);
+
+            if sockets_changed {
+                // TODO: implement sockets changing properly
+                // aka, if a socket is removed, safely disconnect it from the
+                // other node
+
+                unimplemented!("Can't handle changing sockets yet!");
+            }
+
+            if let Some(new_props) = new_props {
+                node_wrapper.set_properties(new_props);
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn get_node(&self, index: &NodeIndex) -> Option<GenerationalNode> {
         // out of bounds?
         if index.index >= self.nodes.len() {
