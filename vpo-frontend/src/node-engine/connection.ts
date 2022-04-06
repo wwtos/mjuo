@@ -8,6 +8,7 @@ export const MidiSocketType = createEnumDefinition({
 export const StreamSocketType = createEnumDefinition({
     "Audio": null,
     "Gate": null,
+    "Gain": null,
     "Detune": null,
     "Dynamic": ["u64"]
 });
@@ -130,6 +131,7 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
             return stream.match([
                 [StreamSocketType.ids.Audio, () => "Audio"],
                 [StreamSocketType.ids.Gate, () => "Gate"],
+                [StreamSocketType.ids.Gain, () => "Gain"],
                 [StreamSocketType.ids.Detune, () => "Detune"],
                 [StreamSocketType.ids.Dynamic, (_) => "Dynamic"],
             ]);
