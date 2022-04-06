@@ -1,13 +1,10 @@
 <script>
 export let onchange = function() {};
 export let value;
-export let step = 1;
 
 let firstTime = true;
 
 $: {
-    console.log("Number property got value", value);
-
     if(!firstTime && value !== undefined) {
         onchange(value);
     }
@@ -18,7 +15,7 @@ $: {
 }
 </script>
 
-<input type="number" bind:value={value} step={step} />
+<input type="text" bind:value={value} />
 
 <style>
 input {

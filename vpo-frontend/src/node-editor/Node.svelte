@@ -5,8 +5,13 @@
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
     import { SocketType, StreamSocketType, MidiSocketType, SocketDirection, socketTypeToString, socketTypeToKey, socketToKey } from "../node-engine/connection";
-    
-    export let title = "Test title";
+
+    // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
+    const TITLE_HEIGHT = 30;
+    const SOCKET_HEIGHT = 36;
+    const SOCKET_OFFSET = -10;
+
+    export let width = 200;
 
     export let wrapper: NodeWrapper/* = {
         node: {
@@ -26,24 +31,9 @@
     }*/;
 
     export let exportSocketPositionMapping = function(
-        socketPositionMapping: ({ [key: string]: DOMRect }),
-        key: string,
-        nodeLocation: DOMRect
+        socketPositionMapping: ({ [key: string]: [number, number] }),
+        key: string
     ) {};
-
-    export let socketPositionMapping: ({
-        [key: string]: DOMRect
-    }) = {};
-
-    let node: HTMLDivElement;
-
-    function exportSocketPosition(socket: EnumInstance/*SocketType*/, direction: SocketDirection, rect: DOMRect) {
-        var key = socketToKey(socket, direction);
-
-        socketPositionMapping[key] = rect;
-
-        exportSocketPositionMapping(socketPositionMapping, wrapper.index.toKey(), node.getBoundingClientRect());
-    }
 
     let sockets: any[][];
 
@@ -52,7 +42,29 @@
         ...wrapper.node.outputSockets.map(outputSocket => [outputSocket, SocketDirection.Output]),
     ];
 
-    export let width = 200;
+    let node: HTMLDivElement;
+
+    // whenever the socket list changes, update the relative positions of all the sockets
+    $: {
+        let socketPositionMapping: ({
+            [key: string]: [number, number]
+        }) = {};
+
+        let y = TITLE_HEIGHT;
+
+        for (let socket of sockets) {
+            const socketKey = socketToKey(socket[0], socket[1]);
+
+            y += SOCKET_HEIGHT;
+
+            socketPositionMapping[socketKey] = [
+                (socket[1] === SocketDirection.Output ? width : 0),
+                y + SOCKET_OFFSET
+            ];
+        }
+
+        exportSocketPositionMapping(socketPositionMapping, wrapper.index.toKey());
+    }
     
     export let onMousedown = function(index: NodeIndex, e: MouseEvent) {};
     export let onSocketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
@@ -70,18 +82,19 @@
         onSocketMouseup(event, socket, direction, wrapper.index);
     }
 
-    let x, y, selected;
+    let x, y, selected, title;
 
     $: x = wrapper.uiData.x;
     $: y = wrapper.uiData.y;
     $: selected = wrapper.uiData.selected;
+    $: title = wrapper.uiData.title;
 </script>
 
 <div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected} bind:this={node}>
-    <div class="node-title">{title}</div>
+    <div class="node-title">{title && title.length > 0 ? title : " "}</div>
 
-    {#each sockets as [socket, direction] (socket.getType() + "" + direction)}
-        <Socket type={socket} direction={direction} label={socketTypeToString(socket)} socketMousedown={onSocketMousedownRaw} socketMouseup={onSocketMouseupRaw} exportSocketPosition={exportSocketPosition} />
+    {#each sockets as [socket, direction] (socketToKey(socket, direction))}
+        <Socket type={socket} direction={direction} label={socketTypeToString(socket)} socketMousedown={onSocketMousedownRaw} socketMouseup={onSocketMouseupRaw} />
     {/each}
 </div>
 
@@ -89,7 +102,11 @@
 .node-title {
     color: white;
     font-size: 18px;
+    min-height: 22px;
     margin: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
 }
 .background {
     position: absolute;
@@ -105,7 +122,7 @@
 }
 
 .background.selected {
-    background-color: rgba(110, 226, 255, 0.8);
+    background-color: rgba(148, 195, 255, 0.8);
 }
 
 .right-align {

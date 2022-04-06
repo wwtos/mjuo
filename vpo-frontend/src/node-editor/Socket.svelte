@@ -11,13 +11,8 @@ import { onMount } from "svelte";
     export let direction: SocketDirection;
     export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
-    export let exportSocketPosition = function(socket: EnumInstance/*SocketType*/, direction: SocketDirection, rect: DOMRect) {};
     
     let socket: HTMLDivElement;
-
-    onMount(async () => {
-        exportSocketPosition(type, direction, socket.getBoundingClientRect());
-    });
 
     function socketMousedownRaw(event: MouseEvent) {
         event.preventDefault();
@@ -61,6 +56,7 @@ import { onMount } from "svelte";
 }
 .container {
     margin: 10px 0;
+    height: 26px;
 }
 
 .input {
@@ -103,6 +99,8 @@ import { onMount } from "svelte";
 .midi {
     background: gold;
     border: 2px solid white;
+    width: 24px;
+    height: 24px;
 }
 
 .value {

@@ -15,6 +15,7 @@
     export let canResize = true;
     export let hasFixedWidth = false;
     export let fixedWidth = 0;
+    export let initialSplitRatio = 0.5;
 
     $: if (hasFixedWidth) {
         canResize = false;
@@ -34,12 +35,12 @@
     if (!hasFixedWidth) {
         switch (direction) {
             case SplitDirection.VERTICAL:
-                firstWidth = Math.floor(width / 2);
+                firstWidth = Math.floor(width * initialSplitRatio);
 
                 firstHeight = height;
             break;
             case SplitDirection.HORIZONTAL:
-                firstHeight = Math.floor(height / 2);
+                firstHeight = Math.floor(height * initialSplitRatio);
 
                 firstWidth = width;
             break;
