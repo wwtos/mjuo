@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{errors::NodeError, node::Node, nodes::gain_graph_node::GainGraphNode};
+use crate::{errors::NodeError, node::Node, nodes::gain::GainGraphNode};
 
 #[cfg(test)]
 use crate::graph_tests::TestNode;
