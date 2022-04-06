@@ -137,6 +137,18 @@ impl NodeWrapper {
         self.properties = properties;
     }
 
+    pub fn get_ui_data(&self) -> &HashMap<String, Value> {
+        &self.ui_data
+    }
+
+    pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) {
+        self.ui_data = ui_data;
+    }
+
+    pub fn set_ui_data_property(&mut self, key: String, value: Value) {
+        self.ui_data.insert(key, value);
+    }
+
     pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
         self.connected_inputs.clone()
     }

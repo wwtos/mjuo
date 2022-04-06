@@ -1,5 +1,5 @@
 import {Connection} from "../node-engine/connection";
-import { NodeWrapper } from "../node-engine/node";
+import { NodeWrapper, UIData } from "../node-engine/node";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -19,10 +19,13 @@ export class IPCSocket {
         });
     }
 
-    createNode (type: string) {
+    createNode (type: string, uiData: UIData) {
         this.send({
             "action": "graph/newNode",
-            "payload": type
+            "payload": {
+                "type": type,
+                "uiData": uiData
+            }
         });
     }
 
