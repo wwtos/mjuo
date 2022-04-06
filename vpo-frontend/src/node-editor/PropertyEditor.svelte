@@ -1,6 +1,6 @@
 <script lang="ts">
 import { Graph } from "../node-engine/graph";
-import { NodeWrapper } from "../node-engine/node";
+import { NodeIndex, NodeWrapper } from "../node-engine/node";
 import { Property, PropertyType } from "../node-engine/property";
 import { IPCSocket } from "../util/socket";
 import FloatProperty from "./FloatProperty.svelte";
@@ -15,13 +15,23 @@ export let height: number;
 export let ipcSocket: IPCSocket;
 export let nodes: Graph;
 
+let selectedIndex: NodeIndex;
 let selected: NodeWrapper;
 
-nodes.nodeStore.subscribe(nodes => {
-    selected = nodes.find(node => node.uiData.selected);
+nodes.nodeStore.subscribe(nodeList => {
+    const possiblySelected = nodeList.find(node => node.uiData.selected);
+
+    if (possiblySelected) {
+        selectedIndex = possiblySelected.index;
+        selected = nodes.getNode(selectedIndex);
+    } else {
+        selectedIndex = undefined;
+    }
 });
 
 function changeSelectedUIData(prop, content) {
+    const selected = nodes.getNode(selectedIndex);
+
     // if the content is the same, disregard (to stop an infinite network update loop)
     if (selected.uiData[prop] === content) return;
 
@@ -36,6 +46,8 @@ function changeSelectedUIData(prop, content) {
 }
 
 function changeSelectedProp(prop, content) {
+    const selected = nodes.getNode(selectedIndex);
+
     // if the content is the same, disregard (to stop an infinite network update loop)
     if (selected.properties[prop] && selected.properties[prop].content === content) return;
 
@@ -54,6 +66,8 @@ function changeSelectedProp(prop, content) {
         ipcSocket.updateNodes([selected]);
     }
 }
+
+let usableProperties: any[];
 </script>
 
 <div style="width: {width}px; height: {height}px">
@@ -66,7 +80,7 @@ function changeSelectedProp(prop, content) {
                     <StringProperty value={selected.uiData.title} onchange={changeSelectedUIData.bind(null, "title")} />
                 </div>
             </div>
-            {#each Object.entries(selected.node.usableProperties) as [id, propertyType] }
+            {#each Object.entries(selected.node.usableProperties) as [id, propertyType] (id + "," + selectedIndex.toKey()) }
                 <div class="row">
                     <div class="prop-name">{id}</div>
                     <div class="horizontal-divide"></div>
