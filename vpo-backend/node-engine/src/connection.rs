@@ -46,6 +46,7 @@ pub enum MidiSocketType {
 pub enum StreamSocketType {
     Audio,
     Gate,
+    Gain,
     Detune,
     Dynamic(u64),
 }
@@ -134,28 +135,6 @@ impl SocketType {
         match self {
             SocketType::Value(value) => Some(value),
             _ => None,
-        }
-    }
-}
-
-pub fn socket_type_to_string(socket_type: SocketType) -> String {
-    match socket_type {
-        SocketType::Stream(stream) => match stream {
-            StreamSocketType::Audio => "Audio".to_string(),
-            StreamSocketType::Gate => "Gate".to_string(),
-            StreamSocketType::Detune => "Detune".to_string(),
-            StreamSocketType::Dynamic(_) => "Dynamic".to_string(),
-        },
-        SocketType::Midi(midi) => match midi {
-            MidiSocketType::Default => "Midi".to_string(),
-        },
-        SocketType::Value(value) => match value {
-            ValueSocketType::Gain => "Gain value".to_string(),
-            ValueSocketType::Frequency => "Frequency value".to_string(),
-            ValueSocketType::Gate => "Gate value".to_string(),
-        },
-        SocketType::MethodCall(method_call) => {
-            format!("{:?}", method_call)
         }
     }
 }
