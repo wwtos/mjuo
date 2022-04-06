@@ -1,11 +1,15 @@
+use std::convert::Infallible;
 use std::error::Error;
 use std::io::Write;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use async_std::channel::{unbounded, Receiver, Sender};
 
+use async_std::sync::Mutex;
 use async_std::task::block_on;
+use ipc::error::IPCError;
 use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{Connection, MidiSocketType, StreamSocketType};
 use node_engine::errors::NodeError;
@@ -17,12 +21,15 @@ use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::{new_variant, NodeVariant};
+use routerify::Router;
 use serde_json::json;
 use serde_json::Value;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
+
+use hyper::{Body, Request, Response, Server, StatusCode};
 
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
@@ -93,15 +100,24 @@ fn route(
                             let index: NodeIndex =
                                 serde_json::from_value(node_json["index"].clone())?;
 
-                            if let Some(generational_node) = graph.get_node(&index) {
-                                let mut node = (*generational_node.node).borrow_mut();
+                            let did_apply_json =
+                                if let Some(generational_node) = graph.get_node(&index) {
+                                    let mut node = (*generational_node.node).borrow_mut();
 
-                                node.apply_json(node_json)?;
+                                    node.apply_json(node_json)?;
+
+                                    true
+                                } else {
+                                    false
+                                };
+
+                            if did_apply_json {
+                                graph.init_node(&index)?;
                             }
                         }
                     }
 
-                    update_graph(graph, to_server);
+                    //update_graph(graph, to_server);
 
                     Ok(false)
                 }
@@ -256,6 +272,10 @@ fn get_midi(
     }
 
     messages
+}
+
+struct State {
+    graph_manager: Arc<Mutex<GraphManager>>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
