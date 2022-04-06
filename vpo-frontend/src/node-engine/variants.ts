@@ -10,5 +10,9 @@ export const variants = [
     {
         name: "Midi To Values Node",
         internal: "MidiToValuesNode"
+    },
+    {
+        name: "Envelope Node",
+        internal: "EnvelopeNode"
     }
 ];

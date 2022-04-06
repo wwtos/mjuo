@@ -1,6 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 use crate::node::{AudioNode, InputType, OutputType};
 use crate::{error::NodeError, SoundConfig};
 
+const GATE_THRESHOLD: f32 = 0.001;
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum EnvelopeState {
     Attacking,
     Decaying,
@@ -8,12 +13,13 @@ pub enum EnvelopeState {
     Releasing,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Envelope {
     sample_rate: u32,
-    attack: f32,
-    decay: f32,
-    sustain: f32,
-    release: f32,
+    pub attack: f32,
+    pub decay: f32,
+    pub sustain: f32,
+    pub release: f32,
     state: EnvelopeState,
     curve_position: f32, // between 0 and 1
     // amplitude_anchor is the spot where the attack is being based on
@@ -146,8 +152,8 @@ impl Envelope {
 }
 
 impl Envelope {
-    pub fn process(&mut self) {
-        let engaged = self.input_gate > 0.0;
+    pub fn do_envelope(&mut self, gate: f32) {
+        let engaged = gate > GATE_THRESHOLD;
 
         if engaged {
             self.process_gate_engaged();
@@ -158,18 +164,22 @@ impl Envelope {
         self.output_out = self.current_value;
     }
 
-    pub fn receive_audio(&mut self, input: f32) {
-        self.input_gate = input;
+    pub fn set_gate(&mut self, gate: f32) {
+        self.input_gate = gate;
     }
 
-    pub fn get_output_audio(&self) -> f32 {
+    pub fn get_gate(&self) -> f32 {
+        self.input_gate
+    }
+
+    pub fn get_gain(&self) -> f32 {
         self.output_out
     }
 }
 
 impl AudioNode for Envelope {
     fn process(&mut self) {
-        self.process();
+        self.do_envelope(self.input_gate);
     }
 
     fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
