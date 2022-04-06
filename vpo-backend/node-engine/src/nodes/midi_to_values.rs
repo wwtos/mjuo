@@ -39,37 +39,41 @@ impl Node for MidiToValuesNode {
     }
 
     fn process(&mut self) {
+        if self.state == ChangedState::NewInfo {
+            for data in &self.midi_in {
+                match data {
+                    MidiData::NoteOn {
+                        channel: _,
+                        note,
+                        velocity,
+                    } => {
+                        self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
+                        self.velocity = (*velocity as f32) / 127.0;
+                        self.gate = true;
+                    }
+                    MidiData::NoteOff {
+                        channel: _,
+                        note: _,
+                        velocity: _,
+                    } => {
+                        self.gate = false;
+                    }
+                    _ => {}
+                }
+            }
+
+            self.midi_in.clear();
+        }
+
         self.state = match self.state {
             ChangedState::NewInfo => ChangedState::InfoProcessed,
             ChangedState::InfoProcessed => ChangedState::NoInfo,
             ChangedState::NoInfo => ChangedState::NoInfo,
         };
-
-        for data in &self.midi_in {
-            match data {
-                MidiData::NoteOn {
-                    channel: _,
-                    note,
-                    velocity,
-                } => {
-                    self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
-                    self.velocity = (*velocity as f32) / 127.0;
-                    self.gate = true;
-                }
-                MidiData::NoteOff {
-                    channel: _,
-                    note: _,
-                    velocity: _,
-                } => {
-                    self.gate = false;
-                }
-                _ => {}
-            }
-        }
     }
 
     fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
-        if self.state != ChangedState::InfoProcessed {
+        if self.state == ChangedState::NoInfo {
             return None;
         }
 
