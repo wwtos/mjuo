@@ -22,18 +22,16 @@ impl Default for GainGraphNode {
 }
 
 impl Node for GainGraphNode {
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
-        self.value = value;
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
+        match socket_type {
+            StreamSocketType::Audio => self.value = value,
+            StreamSocketType::Gain => self.gain = value,
+            _ => {}
+        };
     }
 
     fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.value * self.gain
-    }
-
-    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Parameter) {
-        if let Some(gain) = value.as_float() {
-            self.gain = gain;
-        }
     }
 
     fn init(
@@ -52,7 +50,7 @@ impl Node for GainGraphNode {
     fn list_input_sockets(&self) -> Vec<SocketType> {
         vec![
             SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Value(ValueSocketType::Gain),
+            SocketType::Stream(StreamSocketType::Gain),
         ]
     }
 
