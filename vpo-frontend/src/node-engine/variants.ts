@@ -1,18 +1,20 @@
+import { i18n } from '../i18n.js';
+
 export const variants = [
     {
-        name: "Gain Graph Node",
+        name: i18n.t("nodes.gainGraphNode"),
         internal: "GainGraphNode"
     },
     {
-        name: "Oscillator Node",
+        name: i18n.t("nodes.oscillatorNode"),
         internal: "OscillatorNode"
     },
     {
-        name: "Midi To Values Node",
+        name: i18n.t("nodes.midiToValuesNode"),
         internal: "MidiToValuesNode"
     },
     {
-        name: "Envelope Node",
+        name: i18n.t("nodes.envelopeNode"),
         internal: "EnvelopeNode"
     }
 ];

@@ -1,0 +1,34 @@
+{
+    "translation": {
+        "socketType": {
+            "stream": {
+                "audio": "Audio",
+                "gate": "Gate",
+                "gain": "Gain",
+                "detune": "Detune",
+                "dynamic": "Dynamic({{uid}})"
+            },
+            "midi": {
+                "default": "Default",
+                "dynamic": "Dynamic({{uid}})"
+            },
+            "value": {
+                "gain": "Gain",
+                "frequency": "Frequency",
+                "gate": "Gate",
+                "dynamic": "Dynamic({{uid}})"
+            }
+        },
+        "nodes": {
+            "gainGraphNode": "Potato",
+            "oscillatorNode": "Oscillator Node",
+            "midiToValuesNode": "Midi To Values Node",
+            "envelopeNode": "Envelope Node"
+        },
+        "editor": {
+            "create": "Create!",
+            "newNodeType": "New node type: "
+        },
+        "key": "hello world"
+    }
+}

@@ -7,8 +7,10 @@
 	import {windowDimensions} from './util/window-size';
 	import {createEnumDefinition} from './util/enum';
 	import {IPCSocket} from './util/socket';
-import { Graph } from './node-engine/graph';
-import Toasts from './ui/Toasts.svelte';
+	import { Graph } from './node-engine/graph';
+	import Toasts from './ui/Toasts.svelte';
+
+	import { i18nStore } from './i18n.js';
 	
 	const ipc = (window as any).ipcRenderer;
 	let ipcSocket: any = new IPCSocket(ipc);
