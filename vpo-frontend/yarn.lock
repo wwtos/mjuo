@@ -23,6 +23,13 @@
     "chalk" "^2.0.0"
     "js-tokens" "^4.0.0"
 
+"@babel/runtime@^7.17.2":
+  "integrity" "sha512-lSiBBvodq29uShpWGNbgFdKYNiFDo5/HIYsaCEY9ff4sb10x9jizo2+pRrSyF4jKZCXqgzuqBOQKbUm90gQwJg=="
+  "resolved" "https://registry.npmjs.org/@babel/runtime/-/runtime-7.17.9.tgz"
+  "version" "7.17.9"
+  dependencies:
+    "regenerator-runtime" "^0.13.4"
+
 "@electron-forge/async-ora@6.0.0-beta.63":
   "integrity" "sha512-e1BbeUV20yWZWeRJ3LDLcloPPgHwTXV1wAJXpAdDbmTmcRyAGx9iVx2Qyh6t878c7zX36XXlqfCIOvODsgiuOQ=="
   "resolved" "https://registry.npmjs.org/@electron-forge/async-ora/-/async-ora-6.0.0-beta.63.tgz"
@@ -369,6 +376,13 @@
     "magic-string" "^0.25.7"
     "resolve" "^1.17.0"
 
+"@rollup/plugin-json@^4.1.0":
+  "integrity" "sha512-yfLbTdNS6amI/2OpmbiBoW12vngr5NW2jCJVZSBEz+H5KfUJZ2M7sDjk0U6GOOdCWFVScShte29o9NezJ53TPw=="
+  "resolved" "https://registry.npmjs.org/@rollup/plugin-json/-/plugin-json-4.1.0.tgz"
+  "version" "4.1.0"
+  dependencies:
+    "@rollup/pluginutils" "^3.0.8"
+
 "@rollup/plugin-node-resolve@^11.0.0":
   "integrity" "sha512-yc2n43jcqVyGE2sqV5/YCmocy9ArjVAP/BeXyTtADTBBX6V0e5UMqwO8CdQ0kzjb6zu5P1qMzsScCMRvE9OlVg=="
   "resolved" "https://registry.npmjs.org/@rollup/plugin-node-resolve/-/plugin-node-resolve-11.2.1.tgz"
@@ -389,7 +403,7 @@
     "@rollup/pluginutils" "^3.1.0"
     "resolve" "^1.17.0"
 
-"@rollup/pluginutils@^3.1.0":
+"@rollup/pluginutils@^3.0.8", "@rollup/pluginutils@^3.1.0":
   "integrity" "sha512-GksZ6pr6TpIjHm8h9lSQ8pi8BE9VeubNT0OMJ3B5uZJ8pz73NPiqOtCog/x2/QzM1ENChPKxMDhiQuRHsqc+lg=="
   "resolved" "https://registry.npmjs.org/@rollup/pluginutils/-/pluginutils-3.1.0.tgz"
   "version" "3.1.0"
@@ -2108,6 +2122,13 @@
   dependencies:
     "ms" "^2.0.0"
 
+"i18next@*", "i18next@^21.6.16":
+  "integrity" "sha512-xJlzrVxG9CyAGsbMP1aKuiNr1Ed2m36KiTB7hjGMG2Zo4idfw3p9THUEu+GjBwIgEZ7F11ZbCzJcfv4uyfKNuw=="
+  "resolved" "https://registry.npmjs.org/i18next/-/i18next-21.6.16.tgz"
+  "version" "21.6.16"
+  dependencies:
+    "@babel/runtime" "^7.17.2"
+
 "iconv-lite@^0.4.24":
   "integrity" "sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA=="
   "resolved" "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz"
@@ -3436,6 +3457,11 @@
     "indent-string" "^2.1.0"
     "strip-indent" "^1.0.1"
 
+"regenerator-runtime@^0.13.4":
+  "integrity" "sha512-p3VT+cOEgxFsRRA9X4lkI1E+k2/CtnKtU4gcxyaCUreilL/vqI6CdZ3wxVUx3UOUg+gnUOQQcRI7BmSI656MYA=="
+  "resolved" "https://registry.npmjs.org/regenerator-runtime/-/regenerator-runtime-0.13.9.tgz"
+  "version" "0.13.9"
+
 "repeating@^2.0.0":
   "integrity" "sha1-UhTFOpJtNVJwdSf7q0FdvAjQbdo="
   "resolved" "https://registry.npmjs.org/repeating/-/repeating-2.0.1.tgz"
@@ -3637,7 +3663,7 @@
     "@types/estree" "0.0.39"
     "@types/node" "*"
 
-"rollup@^1.20.0||^2.0.0", "rollup@^2.0.0", "rollup@^2.14.0", "rollup@^2.3.4", "rollup@^2.30.0", "rollup@>=2.0.0", "rollup@1 || 2":
+"rollup@^1.20.0 || ^2.0.0", "rollup@^1.20.0||^2.0.0", "rollup@^2.0.0", "rollup@^2.14.0", "rollup@^2.3.4", "rollup@^2.30.0", "rollup@>=2.0.0", "rollup@1 || 2":
   "integrity" "sha512-W83AaERwvDiHwHEF/dfAfS3z1Be5wf7n+pO3ZAO5IQadCT2lBTr7WQ2MwZZe+nodbD+n3HtC4OCOAdsOPPcKZQ=="
   "resolved" "https://registry.npmjs.org/rollup/-/rollup-2.67.0.tgz"
   "version" "2.67.0"
@@ -4065,6 +4091,11 @@
     "svelte-preprocess" "^4.0.0"
     "typescript" "*"
 
+"svelte-i18next@^1.2.2":
+  "integrity" "sha512-a5eNuDpxAD6TO0s7jlWuFjOYvT4kggbkXpcZCHBeNnWMHj+sNELQdrVsvubD2hLr8WC7OoF0pDfU/IuuvZp7OQ=="
+  "resolved" "https://registry.npmjs.org/svelte-i18next/-/svelte-i18next-1.2.2.tgz"
+  "version" "1.2.2"
+
 "svelte-preprocess@^4.0.0":
   "integrity" "sha512-aPpkCreSo8EL/y8kJSa1trhiX0oyAtTjlNNM7BNjRAsMJ8Yy2LtqHt0zyd4pQPXt+D4PzbO3qTjjio3kwOxDlA=="
   "resolved" "https://registry.npmjs.org/svelte-preprocess/-/svelte-preprocess-4.10.2.tgz"
@@ -4077,7 +4108,7 @@
     "sorcery" "^0.10.0"
     "strip-indent" "^3.0.0"
 
-"svelte@^3.0.0", "svelte@^3.23.0", "svelte@^3.24.0", "svelte@>=3.5.0":
+"svelte@*", "svelte@^3.0.0", "svelte@^3.23.0", "svelte@^3.24.0", "svelte@>=3.5.0":
   "integrity" "sha512-qKJzw6DpA33CIa+C/rGp4AUdSfii0DOTCzj/2YpSKKayw5WGSS624Et9L1nU1k2OVRS9vaENQXp2CVZNU+xvIg=="
   "resolved" "https://registry.npmjs.org/svelte/-/svelte-3.46.4.tgz"
   "version" "3.46.4"

@@ -2,10 +2,10 @@ import { EnumInstance } from "../util/enum";
 import { InputSideConnection, OutputSideConnection } from "./connection";
 
 export class UIData {
-    x: number = 0;
-    y: number = 0;
-    selected: boolean = false;
-    title: string = "Node";
+    x?: number = 0;
+    y?: number = 0;
+    selected?: boolean = false;
+    title?: string = "Node";
 
     constructor(props: object) {
         for (var prop in props) {

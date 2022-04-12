@@ -19,12 +19,12 @@ export class IPCSocket {
         });
     }
 
-    createNode (type: string, uiData: UIData) {
+    createNode (type: string, uiData?: UIData) {
         this.send({
             "action": "graph/newNode",
             "payload": {
                 "type": type,
-                "uiData": uiData
+                "ui_data": uiData
             }
         });
     }

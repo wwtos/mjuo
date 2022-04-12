@@ -1,8 +1,10 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { NodeIndex } from "./node";
+import { i18n } from '../i18n';
 
 export const MidiSocketType = createEnumDefinition({
     "Default": null,
+    "Dynamic": "u64",
 });
 
 export const StreamSocketType = createEnumDefinition({
@@ -10,13 +12,14 @@ export const StreamSocketType = createEnumDefinition({
     "Gate": null,
     "Gain": null,
     "Detune": null,
-    "Dynamic": ["u64"]
+    "Dynamic": "u64",
 });
 
 export const ValueSocketType = createEnumDefinition({
     "Gain": null,
     "Frequency": null,
-    "Gate": null
+    "Gate": null,
+    "Dynamic": "u64",
 });
 
 export const Parameter = createEnumDefinition({
@@ -129,23 +132,25 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
     var response = socketType.match([
         [SocketType.ids.Stream, ([stream/*: StreamSocketType*/]) => {
             return stream.match([
-                [StreamSocketType.ids.Audio, () => "Audio"],
-                [StreamSocketType.ids.Gate, () => "Gate"],
-                [StreamSocketType.ids.Gain, () => "Gain"],
-                [StreamSocketType.ids.Detune, () => "Detune"],
-                [StreamSocketType.ids.Dynamic, (_) => "Dynamic"],
+                [StreamSocketType.ids.Audio, () => i18n.t("socketType.stream.audio")],
+                [StreamSocketType.ids.Gate, () => i18n.t("socketType.stream.gate")],
+                [StreamSocketType.ids.Gain, () => i18n.t("socketType.stream.gain")],
+                [StreamSocketType.ids.Detune, () => i18n.t("socketType.stream.detune")],
+                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.stream.dynamic", { uid })],
             ]);
         }],
         [SocketType.ids.Midi, ([midi/* :MidiSocketType*/]) => {
             return midi.match([
-                [MidiSocketType.ids.Default, () => "Midi"]
+                [MidiSocketType.ids.Default, () => i18n.t("socketType.midi.default")],
+                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.midi.dynamic", { uid })],
             ]);
         }],
         [SocketType.ids.Value, ([value/* :ValueSocketType*/]) => {
             return value.match([
-                [ValueSocketType.ids.Gain, () => "Gain value"],
-                [ValueSocketType.ids.Frequency, () => "Frequency value"],
-                [ValueSocketType.ids.Gate, () => "Gate value"],
+                [ValueSocketType.ids.Gain, () => i18n.t("socketType.value.gain")],
+                [ValueSocketType.ids.Frequency, () => i18n.t("socketType.value.frequency")],
+                [ValueSocketType.ids.Gate, () => i18n.t("socketType.value.gate")],
+                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.value.dynamic", { uid })],
             ]);
         }],
         [SocketType.ids.MethodCall, () => "Method call"]

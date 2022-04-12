@@ -10,6 +10,7 @@
     import panzoom from "panzoom";
     import { transformMouse, transformMouseRelativeToEditor } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
+    import { i18nStore } from '../i18n.js';
     
     export let width = 400;
     export let height = 400;
@@ -95,7 +96,9 @@
     });
 
     function createNode () {
-        ipcSocket.createNode(nodeTypeToCreate);
+        ipcSocket.createNode(nodeTypeToCreate, {
+            title: variants.find(variant => variant.internal === nodeTypeToCreate).name
+        });
     }
 
     let keyedNodes;
@@ -294,13 +297,13 @@
     </div>
 
     <div class="new-node" style="width: {width - 9}px">
-        New node type:
+        {$i18nStore.t('editor.newNodeType')}
         <select bind:value={nodeTypeToCreate}>
             {#each variants as {name, internal} }
                 <option value="{internal}">{name}</option>
             {/each}
         </select>
-        <button on:click={createNode}>Create!</button>
+        <button on:click={createNode}>{$i18nStore.t('editor.create')}</button>
     </div>
 </div>
 
