@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{SocketType, StreamSocketType, ValueSocketType, Parameter};
+use crate::connection::{SocketType, StreamSocketType};
 use crate::node::Node;
 use crate::property::{Property, PropertyType};
 

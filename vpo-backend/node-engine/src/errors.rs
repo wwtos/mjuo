@@ -29,4 +29,6 @@ pub enum NodeError {
     NodeTypeDoesNotExist,
     #[error("Property `{0}` missing!")]
     PropertyMissing(String),
+    #[error("Socket by the name of `{0}` registered under different type")]
+    RegistryCollision(String),
 }

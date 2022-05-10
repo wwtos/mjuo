@@ -1,25 +1,25 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use sound_engine::SoundConfig;
-use sound_engine::node::AudioNode;
 use sound_engine::node::envelope::Envelope;
+use sound_engine::node::AudioNode;
+use sound_engine::SoundConfig;
 
-use crate::connection::{SocketType, StreamSocketType, ValueSocketType, Parameter};
+use crate::connection::{Parameter, SocketType, StreamSocketType, ValueSocketType};
 use crate::node::Node;
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvelopeNode {
     envelope: Envelope,
-    last_val: f32
+    last_val: f32,
 }
 
 impl EnvelopeNode {
     pub fn new(config: &SoundConfig) -> Self {
         EnvelopeNode {
             envelope: Envelope::new(config, 0.02, 0.2, 0.8, 0.5),
-            last_val: 0.0
+            last_val: 0.0,
         }
     }
 }
@@ -73,15 +73,11 @@ impl Node for EnvelopeNode {
     }
 
     fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Value(ValueSocketType::Gate),
-        ]
+        vec![SocketType::Value(ValueSocketType::Gate)]
     }
 
     fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Gain),
-        ]
+        vec![SocketType::Stream(StreamSocketType::Gain)]
     }
 
     fn list_properties(&self) -> HashMap<String, PropertyType> {

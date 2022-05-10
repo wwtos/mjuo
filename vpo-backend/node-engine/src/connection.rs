@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
@@ -26,7 +27,7 @@ pub struct OutputSideConnection {
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(tag = "type", content = "content")]
 pub enum SocketType {
     Stream(StreamSocketType),
@@ -39,6 +40,7 @@ pub enum SocketType {
 #[serde(tag = "type", content = "content")]
 pub enum MidiSocketType {
     Default,
+    Dynamic(u64),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -57,6 +59,7 @@ pub enum ValueSocketType {
     Gain,
     Frequency,
     Gate,
+    Dynamic(u64),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
