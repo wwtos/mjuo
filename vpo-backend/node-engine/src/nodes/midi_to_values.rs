@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiSocketType, Parameter, SocketType, ValueSocketType};
+use crate::connection::{MidiSocketType, Primitive, SocketType, ValueSocketType};
 use crate::node::Node;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -72,14 +72,14 @@ impl Node for MidiToValuesNode {
         };
     }
 
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         if self.state == ChangedState::NoInfo {
             return None;
         }
 
         match socket_type {
-            ValueSocketType::Frequency => Some(Parameter::Float(self.frequency)),
-            ValueSocketType::Gate => Some(Parameter::Boolean(self.gate)),
+            ValueSocketType::Frequency => Some(Primitive::Float(self.frequency)),
+            ValueSocketType::Gate => Some(Primitive::Boolean(self.gate)),
             _ => None,
         }
     }

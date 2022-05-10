@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
-    InputSideConnection, MidiSocketType, OutputSideConnection, Parameter, SocketType,
+    InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
     StreamSocketType, ValueSocketType,
 };
 
@@ -78,10 +78,10 @@ pub trait Node: Debug {
     }
 
     /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {}
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
 
     /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         None
     }
 }
@@ -253,11 +253,11 @@ impl NodeWrapper {
         self.node.as_ref().get_midi_output(socket_type)
     }
 
-    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         self.node.as_mut().accept_value_input(socket_type, value);
     }
 
-    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         self.node.as_ref().get_value_output(socket_type)
     }
 

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
-use crate::connection::{Parameter, SocketType, StreamSocketType, ValueSocketType};
+use crate::connection::{Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::node::Node;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -29,7 +29,7 @@ impl Node for OscillatorNode {
         self.audio_out = self.oscillator.process_fast();
     }
 
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         if socket_type == ValueSocketType::Frequency {
             self.oscillator.set_frequency(value.as_float().unwrap());
         }

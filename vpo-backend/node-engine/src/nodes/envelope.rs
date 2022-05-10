@@ -5,7 +5,7 @@ use sound_engine::node::envelope::Envelope;
 use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
 
-use crate::connection::{Parameter, SocketType, StreamSocketType, ValueSocketType};
+use crate::connection::{Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::node::Node;
 use crate::property::{Property, PropertyType};
 
@@ -25,7 +25,7 @@ impl EnvelopeNode {
 }
 
 impl Node for EnvelopeNode {
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         if socket_type == ValueSocketType::Gate {
             if let Some(gate) = value.as_float() {
                 self.envelope.set_gate(gate);

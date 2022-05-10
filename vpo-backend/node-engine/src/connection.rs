@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sound_engine::midi::messages::MidiData;
 use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
@@ -33,7 +34,13 @@ pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
     Value(ValueSocketType),
-    MethodCall(Vec<Parameter>),
+    MethodCall(Vec<Primitive>),
+}
+
+pub enum SocketValue {
+    Stream(f32),
+    Midi(Vec<MidiData>),
+    Value(Primitive),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -64,20 +71,20 @@ pub enum ValueSocketType {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
-pub enum Parameter {
+pub enum Primitive {
     Float(f32),
     Int(i32),
     Boolean(bool),
     String(String),
 }
 
-impl Parameter {
+impl Primitive {
     #[inline]
     pub fn as_float(self) -> Option<f32> {
         match self {
-            Parameter::Float(float) => Some(float),
-            Parameter::Int(int) => Some(int as f32),
-            Parameter::Boolean(boolean) => Some(if boolean { 1.0 } else { 0.0 }),
+            Primitive::Float(float) => Some(float),
+            Primitive::Int(int) => Some(int as f32),
+            Primitive::Boolean(boolean) => Some(if boolean { 1.0 } else { 0.0 }),
             _ => None,
         }
     }
@@ -85,8 +92,8 @@ impl Parameter {
     #[inline]
     pub fn as_int(self) -> Option<i32> {
         match self {
-            Parameter::Int(int) => Some(int),
-            Parameter::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
+            Primitive::Int(int) => Some(int),
+            Primitive::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
             _ => None,
         }
     }
@@ -94,7 +101,7 @@ impl Parameter {
     #[inline]
     pub fn as_boolean(self) -> Option<bool> {
         match self {
-            Parameter::Boolean(boolean) => Some(boolean),
+            Primitive::Boolean(boolean) => Some(boolean),
             _ => None,
         }
     }
@@ -102,10 +109,10 @@ impl Parameter {
     #[inline]
     pub fn as_string(self) -> Option<String> {
         match self {
-            Parameter::String(string) => Some(string),
-            Parameter::Float(float) => Some(float.to_string()),
-            Parameter::Int(int) => Some(int.to_string()),
-            Parameter::Boolean(boolean) => Some(boolean.to_string()),
+            Primitive::String(string) => Some(string),
+            Primitive::Float(float) => Some(float.to_string()),
+            Primitive::Int(int) => Some(int.to_string()),
+            Primitive::Boolean(boolean) => Some(boolean.to_string()),
         }
     }
 }
