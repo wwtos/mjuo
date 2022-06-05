@@ -17,6 +17,17 @@ use crate::errors::NodeError;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum NodeRow {
+    StreamInput(StreamSocketType, f32),
+    MidiInput(MidiSocketType, Vec<MidiData>),
+    ValueInput(ValueSocketType, Primitive),
+    StreamOutput(StreamSocketType, f32),
+    MidiOutput(MidiSocketType, Vec<MidiData>),
+    ValueOutput(ValueSocketType, Primitive),
+    Property(String, PropertyType, Property)
+}
+
 /// Node trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -29,33 +40,8 @@ use crate::property::{Property, PropertyType};
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 pub trait Node: Debug {
-    // defaults list nothing, to reduce boilerplate necessary for
-    // nodes that don't use all node functionality
-
-    /// Returns a list of what input sockets this node has.
-    fn list_input_sockets(&self) -> Vec<SocketType> {
+    fn init(&self, props: &HashMap<String, Property>) -> Vec<NodeRow> {
         Vec::new()
-    }
-
-    /// Returns a list of what output sockets this node has.
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        Vec::new()
-    }
-
-    /// Returns a list of what properties this node has.
-    fn list_properties(&self) -> HashMap<String, PropertyType> {
-        HashMap::new()
-    }
-
-    /// Called when any properties are changed. Allows for the node to reinitialize any
-    /// values that are based on properties it exposes. Returns two things: Firstly, whether
-    /// it changed what sockets or properties it has (so it can be reindexed), and secondly,
-    /// if it modified any of the properties it was provided with.
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-    ) -> (bool, Option<HashMap<String, Property>>) {
-        (false, None)
     }
 
     /// Process received data.
@@ -92,6 +78,7 @@ pub struct NodeWrapper {
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
+    node_rows: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
 }
@@ -100,17 +87,21 @@ impl NodeWrapper {
     pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
         let name = variant_to_name(&node);
 
+        let node_rows = node.as_ref().init(&HashMap::new());
+        // TODO: check validity of node_rows here
+
         let mut wrapper = NodeWrapper {
             node,
             index,
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
+            node_rows,
             properties: HashMap::new(),
             ui_data: HashMap::new(),
         };
 
-        wrapper.ui_data.insert("x".to_string(), json! { 0.0 });
-        wrapper.ui_data.insert("y".to_string(), json! { 0.0 });
+        wrapper.ui_data.insert("x".to_string(), json! { 0.0_f32 });
+        wrapper.ui_data.insert("y".to_string(), json! { 0.0_f32 });
 
         wrapper.ui_data.insert("title".to_string(), json! { name });
 
@@ -149,12 +140,20 @@ impl NodeWrapper {
         self.ui_data.insert(key, value);
     }
 
-    pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
+    pub fn list_connected_input_sockets(&self) -> Vec<InputSideConnection> {
         self.connected_inputs.clone()
     }
 
-    pub fn list_output_sockets(&self) -> Vec<OutputSideConnection> {
+    pub fn list_connected_output_sockets(&self) -> Vec<OutputSideConnection> {
         self.connected_outputs.clone()
+    }
+
+    pub fn list_input_sockets(&self) -> Vec<SocketType> {
+
+    }
+
+    pub fn list_output_sockets(&self) -> Vec<SocketType> {
+        
     }
 
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {

@@ -29,7 +29,7 @@ pub fn calculate_graph_traverse_order(
                 let node = node.node.borrow();
                 let node_index = node.get_index();
 
-                for input in node.list_input_sockets() {
+                for input in node.list_connected_input_sockets() {
                     graph.add_edge(
                         *graph_lookup.get(&input.from_node.index).unwrap(),
                         *graph_lookup.get(&node.get_index().index).unwrap(),

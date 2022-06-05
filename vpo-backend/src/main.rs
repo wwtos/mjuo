@@ -106,7 +106,7 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex]) -> Result<(),
         let node_wrapper = graph.get_node(node_index).unwrap().node;
         let mut node_wrapper = (*node_wrapper).borrow_mut();
 
-        let referenced_nodes = node_wrapper.list_input_sockets();
+        let referenced_nodes = node_wrapper.list_connected_input_sockets();
 
         for connection in referenced_nodes {
             let other_node_wrapper = graph.get_node(&connection.from_node).unwrap().node;

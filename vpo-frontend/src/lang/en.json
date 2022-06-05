@@ -20,7 +20,7 @@
             }
         },
         "nodes": {
-            "gainGraphNode": "Potato",
+            "gainGraphNode": "Gain Graph Node",
             "oscillatorNode": "Oscillator Node",
             "midiToValuesNode": "Midi To Values Node",
             "envelopeNode": "Envelope Node"

@@ -275,7 +275,7 @@ fn hanging_connections() -> Result<(), NodeError> {
         let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
         let first_node = (*first_node_wrapped).borrow();
 
-        assert_eq!(first_node.list_output_sockets().len(), 1); // it should be connected here
+        assert_eq!(first_node.list_connected_output_sockets().len(), 1); // it should be connected here
     }
 
     graph.remove_node(&second_node)?;
@@ -284,7 +284,7 @@ fn hanging_connections() -> Result<(), NodeError> {
         let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
         let first_node = (*first_node_wrapped).borrow();
 
-        assert_eq!(first_node.list_output_sockets().len(), 0); // it shouldn't be connected to anything
+        assert_eq!(first_node.list_connected_output_sockets().len(), 0); // it shouldn't be connected to anything
     }
 
     Ok(())

@@ -37,12 +37,6 @@ pub enum SocketType {
     MethodCall(Vec<Primitive>),
 }
 
-pub enum SocketValue {
-    Stream(f32),
-    Midi(Vec<MidiData>),
-    Value(Primitive),
-}
-
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
 pub enum MidiSocketType {

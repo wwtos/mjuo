@@ -242,8 +242,8 @@ impl Graph {
             let mut node_wrapper = (*node_ref.node).borrow_mut();
 
             let props = node_wrapper.get_properties().clone();
-            let old_input_sockets = node_wrapper.list_input_sockets();
-            let old_output_sockets = node_wrapper.list_output_sockets();
+            let old_input_sockets = node_wrapper.list_connected_input_sockets();
+            let old_output_sockets = node_wrapper.list_connected_output_sockets();
 
             let node = node_wrapper.node.as_mut();
 
@@ -305,7 +305,7 @@ impl Graph {
                 // remove any connected node connections
                 let node = (*((*node).node)).borrow();
 
-                for input_socket in node.list_input_sockets() {
+                for input_socket in node.list_connected_input_sockets() {
                     // follow the input socket
                     let from_node = self.get_node(&input_socket.from_node);
 
@@ -324,7 +324,7 @@ impl Graph {
                     // if it doesn't exist, obviously we don't need to worry about removing its connection
                 }
 
-                for output_socket in node.list_output_sockets() {
+                for output_socket in node.list_connected_output_sockets() {
                     // follow the output socket
                     let to_node = self.get_node(&output_socket.to_node);
 
@@ -394,7 +394,7 @@ impl Graph {
                 let node = &some_node.node;
                 let node = (*node).borrow();
 
-                let input_sockets = node.list_input_sockets();
+                let input_sockets = node.list_connected_input_sockets();
 
                 for socket in input_sockets {
                     connections.push(Connection {
