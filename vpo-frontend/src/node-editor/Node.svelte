@@ -1,8 +1,8 @@
 <script lang="ts">
-    import Socket from "./Socket.svelte";
+    import NodeRowUI from "./NodeRow.svelte";
     import { onMount } from 'svelte';
     import {storeWatcher} from "../util/store-watcher";
-    import { NodeIndex, NodeWrapper } from "../node-engine/node";
+    import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
     import { SocketType, StreamSocketType, MidiSocketType, SocketDirection, socketTypeToString, socketTypeToKey, socketToKey } from "../node-engine/connection";
 
@@ -37,10 +37,17 @@
 
     let sockets: any[][];
 
-    $: sockets = [
-        ...wrapper.node.inputSockets.map(inputSocket => [inputSocket, SocketDirection.Input]),
-        ...wrapper.node.outputSockets.map(outputSocket => [outputSocket, SocketDirection.Output]),
-    ];
+    $: sockets = wrapper.nodeRows.map(nodeRow => {
+        return nodeRow.match([
+            [NodeRow.ids.StreamInput, ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def]],
+            [NodeRow.ids.MidiInput, ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def]],
+            [NodeRow.ids.ValueInput, ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def]],
+            [NodeRow.ids.StreamOutput, ([streamOutput, def]) => [SocketType.Stream(streamOutput), SocketDirection.Output, def]],
+            [NodeRow.ids.MidiOutput, ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def]],
+            [NodeRow.ids.ValueOutput, ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def]],
+            [NodeRow.ids._, () => {}]
+        ]);
+    }).filter(maybeSomething => !!maybeSomething);
 
     let node: HTMLDivElement;
 
@@ -93,8 +100,16 @@
 <div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected} bind:this={node}>
     <div class="node-title">{title && title.length > 0 ? title : " "}</div>
 
-    {#each sockets as [socket, direction] (socketToKey(socket, direction))}
-        <Socket type={socket} direction={direction} label={socketTypeToString(socket)} socketMousedown={onSocketMousedownRaw} socketMouseup={onSocketMouseupRaw} />
+    {#each sockets as [socket, direction, def] (socketToKey(socket, direction))}
+        <NodeRowUI
+            type={socket}
+            direction={direction}
+            label={socketTypeToString(socket)}
+            defaultValue={def}
+            socketMousedown={onSocketMousedownRaw}
+            socketMouseup={onSocketMouseupRaw}
+            nodeWrapper={wrapper}
+        />
     {/each}
 </div>
 

@@ -5,8 +5,8 @@ use sound_engine::node::envelope::Envelope;
 use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
 
-use crate::connection::{Primitive, SocketType, StreamSocketType, ValueSocketType, SocketValue};
-use crate::node::{Node, NodeRow};
+use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
+use crate::node::{Node, NodeRow, InitResult};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -36,47 +36,44 @@ impl Node for EnvelopeNode {
     fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.envelope.get_gain()
     }
-
-    // fn init(
-    //     &mut self,
-    //     properties: &HashMap<String, Property>,
-    // ) -> (bool, Option<HashMap<String, Property>>) {
-    //     if let Some(attack_raw) = properties.get("attack") {
-    //         if let Property::Float(attack) = attack_raw {
-    //             self.envelope.attack = *attack;
-    //         }
-    //     }
-
-    //     if let Some(decay_raw) = properties.get("decay") {
-    //         if let Property::Float(decay) = decay_raw {
-    //             self.envelope.decay = *decay;
-    //         }
-    //     }
-
-    //     if let Some(sustain_raw) = properties.get("sustain") {
-    //         if let Property::Float(sustain) = sustain_raw {
-    //             self.envelope.sustain = *sustain;
-    //         }
-    //     }
-
-    //     if let Some(release_raw) = properties.get("release") {
-    //         if let Property::Float(release) = release_raw {
-    //             self.envelope.release = *release;
-    //         }
-    //     }
-
-    //     (false, None)
-    // }
     
-    fn init(&self, props: &HashMap<String, Property>) -> Vec<NodeRow> {
-        vec![
-            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
-            NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
-            NodeRow::Property("attack".to_string(), PropertyType::Float, Property::Float(0.0)),
-            NodeRow::Property("decay".to_string(), PropertyType::Float, Property::Float(0.0)),
-            NodeRow::Property("sustain".to_string(), PropertyType::Float, Property::Float(0.0)),
-            NodeRow::Property("release".to_string(), PropertyType::Float, Property::Float(0.0)),
-        ]
+    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        if let Some(attack_raw) = properties.get("attack") {
+            if let Property::Float(attack) = attack_raw {
+                self.envelope.attack = *attack;
+            }
+        }
+
+        if let Some(decay_raw) = properties.get("decay") {
+            if let Property::Float(decay) = decay_raw {
+                self.envelope.decay = *decay;
+            }
+        }
+
+        if let Some(sustain_raw) = properties.get("sustain") {
+            if let Property::Float(sustain) = sustain_raw {
+                self.envelope.sustain = *sustain;
+            }
+        }
+
+        if let Some(release_raw) = properties.get("release") {
+            if let Property::Float(release) = release_raw {
+                self.envelope.release = *release;
+            }
+        }
+
+        InitResult {
+            did_rows_change: false,
+            node_rows: vec![
+                NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
+                NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
+                NodeRow::Property("attack".to_string(), PropertyType::Float, Property::Float(0.0)),
+                NodeRow::Property("decay".to_string(), PropertyType::Float, Property::Float(0.0)),
+                NodeRow::Property("sustain".to_string(), PropertyType::Float, Property::Float(0.0)),
+                NodeRow::Property("release".to_string(), PropertyType::Float, Property::Float(0.0)),
+            ],
+            changed_properties: None
+        }
     }
 
     fn process(&mut self) {

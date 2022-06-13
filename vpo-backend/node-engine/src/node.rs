@@ -17,7 +17,8 @@ use crate::errors::NodeError;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
 pub enum NodeRow {
     StreamInput(StreamSocketType, f32),
     MidiInput(MidiSocketType, Vec<MidiData>),
@@ -26,6 +27,22 @@ pub enum NodeRow {
     MidiOutput(MidiSocketType, Vec<MidiData>),
     ValueOutput(ValueSocketType, Primitive),
     Property(String, PropertyType, Property)
+}
+
+pub struct InitResult {
+    pub did_rows_change: bool,
+    pub node_rows: Vec<NodeRow>,
+    pub changed_properties: Option<HashMap<String, Property>>
+}
+
+impl InitResult {
+    pub fn simple(node_rows: Vec<NodeRow>) -> InitResult {
+        InitResult {
+            did_rows_change: false,
+            node_rows: node_rows,
+            changed_properties: None
+        }
+    }
 }
 
 /// Node trait
@@ -40,9 +57,7 @@ pub enum NodeRow {
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 pub trait Node: Debug {
-    fn init(&self, props: &HashMap<String, Property>) -> Vec<NodeRow> {
-        Vec::new()
-    }
+    fn init(&mut self, props: &HashMap<String, Property>) -> InitResult;
 
     /// Process received data.
     fn process(&mut self) {}
@@ -84,22 +99,35 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
+    pub fn new(mut node: NodeVariant, index: NodeIndex) -> NodeWrapper {
         let name = variant_to_name(&node);
 
-        let node_rows = node.as_ref().init(&HashMap::new());
-        // TODO: check validity of node_rows here
+        let init_result = node.as_mut().init(&HashMap::new());
+
+        // TODO: check validity of node_rows here (no socket duplicates)
+
+        // extract properties from result from `init`
+        // this fills the properties with the default values
+        let properties = init_result.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::Property(name, _, default) => Some((name, default)),
+                _ => None
+            }
+        }).fold(HashMap::new(), |mut accum, (name, default)| {
+            accum.insert(name.clone(), default.clone()); accum
+        });
 
         let mut wrapper = NodeWrapper {
             node,
             index,
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
-            node_rows,
-            properties: HashMap::new(),
+            node_rows: init_result.node_rows,
+            properties,
             ui_data: HashMap::new(),
         };
 
+        // insert some initial UI data
         wrapper.ui_data.insert("x".to_string(), json! { 0.0_f32 });
         wrapper.ui_data.insert("y".to_string(), json! { 0.0_f32 });
 
@@ -149,24 +177,42 @@ impl NodeWrapper {
     }
 
     pub fn list_input_sockets(&self) -> Vec<SocketType> {
-
+        self.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
+                NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
+                NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
+                NodeRow::StreamOutput(_, _) => None,
+                NodeRow::MidiOutput(_, _) => None,
+                NodeRow::ValueOutput(_, _) => None,
+                NodeRow::Property(..) => None,
+            }
+        }).collect()
     }
 
     pub fn list_output_sockets(&self) -> Vec<SocketType> {
-        
+        self.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::StreamInput(_, _) => None,
+                NodeRow::MidiInput(_, _) => None,
+                NodeRow::ValueInput(_, _) => None,
+                NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
+                NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
+                NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
+                NodeRow::Property(..) => None,
+            }
+        }).collect()
     }
 
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.node
-            .as_ref()
+        self
             .list_input_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.node
-            .as_ref()
+        self
             .list_output_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
@@ -204,11 +250,7 @@ impl NodeWrapper {
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         Ok(json! {{
-            "node": {
-                "input_sockets": self.node.as_ref().list_input_sockets(),
-                "output_sockets": self.node.as_ref().list_output_sockets(),
-                "properties": self.node.as_ref().list_properties()
-            },
+            "node_rows": self.node_rows.clone(),
             "index": self.index,
             "connected_inputs": self.connected_inputs,
             "connected_outputs": self.connected_outputs,

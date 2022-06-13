@@ -181,10 +181,6 @@ fn get_midi(
     messages
 }
 
-struct State {
-    graph_manager: Arc<Mutex<GraphManager>>,
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
 

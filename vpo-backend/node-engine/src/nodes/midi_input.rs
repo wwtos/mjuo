@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiSocketType, SocketType};
-use crate::node::Node;
+use crate::connection::MidiSocketType;
+use crate::node::{Node, InitResult, NodeRow};
+use crate::property::Property;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct MidiInNode {
@@ -18,11 +21,13 @@ impl Node for MidiInNode {
         self.midi_in.clone()
     }
 
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![]
-    }
-
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![SocketType::Midi(MidiSocketType::Default)]
+    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        InitResult {
+            did_rows_change: false,
+            node_rows: vec![
+                NodeRow::MidiOutput(MidiSocketType::Default, vec![]),
+            ],
+            changed_properties: None
+        }
     }
 }

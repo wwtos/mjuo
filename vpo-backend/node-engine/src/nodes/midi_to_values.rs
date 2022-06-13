@@ -1,8 +1,11 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, ValueSocketType};
-use crate::node::Node;
+use crate::node::{Node, NodeRow, InitResult};
+use crate::property::Property;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 enum ChangedState {
@@ -72,6 +75,14 @@ impl Node for MidiToValuesNode {
         };
     }
 
+    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        InitResult::simple(vec![
+            NodeRow::MidiInput(MidiSocketType::Default, vec![]),
+            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),
+            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false))
+        ])
+    }
+
     fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         if self.state == ChangedState::NoInfo {
             return None;
@@ -82,16 +93,5 @@ impl Node for MidiToValuesNode {
             ValueSocketType::Gate => Some(Primitive::Boolean(self.gate)),
             _ => None,
         }
-    }
-
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![SocketType::Midi(MidiSocketType::Default)]
-    }
-
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Value(ValueSocketType::Frequency),
-            SocketType::Value(ValueSocketType::Gate),
-        ]
     }
 }

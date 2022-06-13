@@ -97,7 +97,7 @@ export class EnumInstance {
 // checks that `value` conforms to `type`
 function verifyInput(type: (string | Function), value: any) {
     if (type instanceof EnumDefinition) {
-        return value.enumDef === type;
+        return !!value && value.enumDef === type;
     } else if (type instanceof Function) {
         // for custom validators
         return type(value);

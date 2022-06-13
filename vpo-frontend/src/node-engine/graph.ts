@@ -1,7 +1,7 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
-import { GenerationalNode, Node, NodeIndex, NodeWrapper, UIData } from "./node";
-import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
-import { jsonToProperty, PropertyType } from "./property";
+import { GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper, UiData } from "./node";
+import { InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
+import { Property, PropertyType } from "./property";
 import { readable, Readable, writable, Writable } from 'svelte/store';
 import { IPCSocket } from "../util/socket";
 
@@ -86,13 +86,13 @@ export class Graph {
                 this.nodes[i] = new NodeWrapper(
                     new Node([], [], {}),
                     index,
-                    [], [], {}, new UIData({})
+                    [], [], [], {}, new UiData({})
                 );
             }
 
             // apply new properties
             for (let data in node.properties) {
-                this.nodes[i].properties[data] = jsonToProperty(node.properties[data]);
+                this.nodes[i].properties[data] = Property.deserialize(node.properties[data]);
             }
 
             // apply new ui data
@@ -118,18 +118,7 @@ export class Graph {
             });
 
             // apply node stuff
-            this.nodes[i].node.inputSockets = node.node.input_sockets.map(inputSocketType => {
-                return jsonToSocketType(inputSocketType);
-            });
-
-            this.nodes[i].node.outputSockets = node.node.output_sockets.map(outputSocketType => {
-                return jsonToSocketType(outputSocketType);
-            });
-
-            node.node.usableProperties = {};
-            for (var prop in node.node.properties) {
-                this.nodes[i].node.usableProperties[prop] = PropertyType[node.node.properties[prop].type];
-            }
+            this.nodes[i].nodeRows = node.node_rows.map(NodeRow.deserialize);
         }
 
         console.log("parsed nodes", this.nodes);

@@ -58,6 +58,7 @@
     "i18next": "^21.6.16",
     "panzoom": "^9.4.2",
     "rollup-plugin-svelte": "^7.1.0",
+    "rxjs": "^6.6.7",
     "sirv-cli": "^2.0.2",
     "svelte-i18next": "^1.2.2"
   },

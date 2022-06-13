@@ -247,9 +247,9 @@ impl Graph {
 
             let node = node_wrapper.node.as_mut();
 
-            let (sockets_changed, new_props) = node.init(&props);
+            let init_result = node.init(&props);
 
-            if sockets_changed {
+            if init_result.did_rows_change {
                 // TODO: implement sockets changing properly
                 // aka, if a socket is removed, safely disconnect it from the
                 // other node
@@ -257,7 +257,7 @@ impl Graph {
                 unimplemented!("Can't handle changing sockets yet!");
             }
 
-            if let Some(new_props) = new_props {
+            if let Some(new_props) = init_result.changed_properties {
                 node_wrapper.set_properties(new_props);
             }
         }
