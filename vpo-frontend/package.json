@@ -55,6 +55,7 @@
     "electron-reload": "^2.0.0-alpha.1",
     "electron-squirrel-startup": "^1.0.0",
     "esm": "^3.2.25",
+    "fast-equals": "^4.0.1",
     "i18next": "^21.6.16",
     "panzoom": "^9.4.2",
     "rollup-plugin-svelte": "^7.1.0",

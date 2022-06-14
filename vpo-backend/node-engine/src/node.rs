@@ -10,7 +10,7 @@ use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
-    StreamSocketType, ValueSocketType,
+    StreamSocketType, ValueSocketType, SocketDirection,
 };
 
 use crate::errors::NodeError;

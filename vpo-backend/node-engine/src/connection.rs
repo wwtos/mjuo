@@ -37,6 +37,13 @@ pub enum SocketType {
     MethodCall(Vec<Primitive>),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
+pub enum SocketDirection {
+    Input,
+    Output
+}
+
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "content")]
 pub enum MidiSocketType {

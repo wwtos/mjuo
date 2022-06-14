@@ -1,7 +1,16 @@
 import { createEnumDefinition, EnumInstance } from "../util/enum";
-import { InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType, StreamSocketType, ValueSocketType } from "./connection";
+import { InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import { Property, PropertyType } from "./property";
-import { Readable, readable } from "svelte/store";
+import { BehaviorSubject, Observable, Subject } from "rxjs";
+import { distinctUntilChanged, map, mergeMap } from "rxjs/operators";
+import { shallowEqual } from 'fast-equals';
+import { Readable, writable, Writable } from "svelte/store";
+import { wrapStore } from "../util/wrap-store";
+
+const TITLE_HEIGHT = 30;
+const SOCKET_HEIGHT = 36;
+const SOCKET_OFFSET = 24;
+const NODE_WIDTH = 200;
 
 export const NodeRow = createEnumDefinition({
     "StreamInput": [StreamSocketType, "f32"],
@@ -13,8 +22,18 @@ export const NodeRow = createEnumDefinition({
     "Property": ["string", PropertyType, Property]
 });
 
+NodeRow.asTypeAndDirection = function (nodeRow: EnumInstance): [EnumInstance/* SocketType */, SocketDirection] {
+    return nodeRow.match([
+        [NodeRow.ids.StreamInput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Input]],
+        [NodeRow.ids.MidiInput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Input]],
+        [NodeRow.ids.ValueInput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Input]],
+        [NodeRow.ids.StreamOutput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Output]],
+        [NodeRow.ids.MidiOutput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Output]],
+        [NodeRow.ids.ValueOutput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Output]],
+    ]);
+};
+
 NodeRow.deserialize = function (json) {
-    console.log("deserializing", json);
     switch (json.type) {
         case "StreamInput":
             return NodeRow.StreamInput(StreamSocketType.deserialize(json.content[0]), json.content[1]);
@@ -79,13 +98,13 @@ export class Node {
 }
 
 export class NodeWrapper {
-    private node: Readable<Node>;
-    private index: Readable<NodeIndex>;
-    private connectedInputs: Readable<InputSideConnection[]>;
-    private connectedOutputs: Readable<OutputSideConnection[]>;
-    private nodeRows: /* NodeRow */Readable<EnumInstance[]>;
-    private properties: Readable<object>;
-    private uiData: Readable<UiData>;
+    node: BehaviorSubject<Node>;
+    index: NodeIndex;
+    connectedInputs: BehaviorSubject<InputSideConnection[]>;
+    connectedOutputs: BehaviorSubject<OutputSideConnection[]>;
+    nodeRows: /* NodeRow */BehaviorSubject<EnumInstance[]>;
+    properties: BehaviorSubject<object>;
+    uiData: BehaviorSubject<UiData>;
 
     constructor(
         node: Node,
@@ -96,67 +115,84 @@ export class NodeWrapper {
         properties: object,
         uiData: UiData
     ) {
-        const self = this;
-
-        this.node = readable(node, function start(set) {
-            self.updateNode = set;
-        });
-
-        this.index = readable(index, function start(set) {
-            self.updateIndex = set;
-        });
-
-        this.connectedInputs = readable(connectedInputs, function start(set) {
-            self.updateConnectedInputs = set;
-        });
-
-        this.connectedOutputs = readable(connectedOutputs, function start(set) {
-            self.updateConnectedOutputs = set;
-        });
-
-        this.nodeRows = readable(nodeRows, function start(set) {
-            self.updateNodeRows = set;
-        });
-
-        this.properties = readable(properties, function start(set) {
-            self.updateProperties = set;
-        });
-
-        this.uiData = readable(uiData, function start(set) {
-            
-        });
+        this.node = new BehaviorSubject(node);
+        this.index = index;
+        this.connectedInputs = new BehaviorSubject(connectedInputs);
+        this.connectedOutputs = new BehaviorSubject(connectedOutputs);
+        this.nodeRows = new BehaviorSubject(nodeRows);
+        this.properties = new BehaviorSubject(properties);
+        this.uiData = new BehaviorSubject(uiData);
     }
-
-    updateNode(node: Node) {}
-
-    updateIndex(index: NodeIndex) {}
-
-    updateConnectedInputs(connectedInputs: InputSideConnection[]) {}
-
-    updateConnectedOutputs(connectedOutputs: OutputSideConnection[]) {}
-
-    updateNodeRows(nodeRows: /* NodeRow */EnumInstance[]) {}
-
-    updateProperties(properties: object) {}
-
-    updateUiData(uiData: UiData) {}
 
     toJSON(): object {
         return {
             index: this.index,
-            connected_inputs: this.connectedInputs,
-            connected_outputs: this.connectedOutputs,
-            properties: this.properties,
-            ui_data: this.uiData
+            connected_inputs: this.connectedInputs.getValue(),
+            connected_outputs: this.connectedOutputs.getValue(),
+            properties: this.properties.getValue(),
+            ui_data: this.uiData.getValue()
         };
     }
 
-    getInputConnectionByType(inputSocketType: EnumInstance /* SocketType */): Readable<InputSideConnection | undefined> {
-        return this.connectedInputs.find(input => input.toSocketType === inputSocketType);
+    getInputConnectionByType(inputSocketType: EnumInstance /* SocketType */): Observable<InputSideConnection | undefined> {
+        return this.connectedInputs.pipe(
+            map(connectedInputs => {
+                return connectedInputs.find(input => input.toSocketType === inputSocketType);
+            }),
+            distinctUntilChanged(shallowEqual)
+        );
     }
 
-    getOutputConnectionsByType(outputSocketType: EnumInstance /* SocketType */): OutputSideConnection[] {
-        return this.connectedOutputs.filter(input => input.fromSocketType === outputSocketType);
+    getOutputConnectionsByType(outputSocketType: EnumInstance /* SocketType */): Observable<OutputSideConnection[]> {
+        return this.connectedOutputs.pipe(
+            map(connectedOutputs => {
+                return connectedOutputs.filter(input => input.fromSocketType === outputSocketType);
+            },
+            distinctUntilChanged(shallowEqual)
+        ));
+    }
+
+    getSocketXY(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<[number, number] | undefined> {
+        return this.nodeRows.pipe(
+            mergeMap(nodeRows => {
+                const rowIndex = nodeRows.findIndex(nodeRow => {
+                    const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+
+                    return socketType.getType() === rowSocketType.getType() &&
+                           (socketType.content as any).getType() === rowSocketType.content.getType() &&
+                           direction === rowDirection;
+                });
+
+                if (rowIndex === -1) return undefined;
+
+                const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
+                const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
+
+                return this.uiData.pipe<[number, number]>(
+                    map(uiData => [uiData.x + relativeX, uiData.y + relativeY])
+                );
+            })
+        );
+    }
+
+    getSocketXYCurrent(socketType: EnumInstance /* SocketType */, direction: SocketDirection): [number, number] | undefined {
+        const nodeRows = this.nodeRows.getValue();
+        const rowIndex = nodeRows.findIndex(nodeRow => {
+            const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+
+            return socketType.getType() === rowSocketType.getType() &&
+                    (socketType.content[0] as any).getType() === rowSocketType.content[0].getType() &&
+                    direction === rowDirection;
+        });
+
+        if (rowIndex === -1) return undefined;
+
+        const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
+        const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
+
+        const uiData = this.uiData.getValue();
+
+        return [uiData.x + relativeX, uiData.y + relativeY];
     }
 
     // list_input_sockets(&self) => EnumInstance[] /* Vec<SocketType> */ {

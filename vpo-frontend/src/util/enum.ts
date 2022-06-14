@@ -61,7 +61,7 @@ export class EnumInstance {
       *         // otherwise just return the value as normal
       *     }]
       * ]); **/
-    match (matchClauses: (Function | number)[][]): any {
+    match<Type>(matchClauses: ([number, Function])[]): Type {
         // debugging //
         if (matchClauses.findIndex(clause => clause === undefined) !== -1) {
             throw "One of the match clauses is undefined!";

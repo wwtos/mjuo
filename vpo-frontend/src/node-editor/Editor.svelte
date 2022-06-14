@@ -4,13 +4,14 @@
     import { onMount } from 'svelte';
     import { Graph, PossibleNode } from '../node-engine/graph';
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
-    import { MidiSocketType, SocketDirection, socketToKey, SocketType, StreamSocketType, Connection as ConnectionObj } from "../node-engine/connection";
+    import { MidiSocketType, SocketDirection, socketToKey, Connection as ConnectionObj } from "../node-engine/connection";
     import { EnumInstance } from "../util/enum";
     import { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
     import { transformMouse, transformMouseRelativeToEditor } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
     import { i18nStore } from '../i18n.js';
+    import { get } from "svelte/store";
     
     export let width = 400;
     export let height = 400;
@@ -69,8 +70,12 @@
             if (draggedNode) {
                 let node = nodes.getNode(draggedNode);
 
-                node.uiData.x = mouseX - draggedOffset[0];
-                node.uiData.y = mouseY - draggedOffset[1];
+                node.uiData.next({
+                    ...node.uiData.getValue(),
+                    x: mouseX - draggedOffset[0],
+                    y: mouseY - draggedOffset[1]
+
+                });
 
                 nodes.update();
             } else if (connectionBeingCreated) {
@@ -104,20 +109,25 @@
     let keyedNodes;
     let keyedConnections;
 
-    nodes.subscribeToKeyedNodes().subscribe(newKeyedNodes => {
+    nodes.keyedNodeStore.subscribe(newKeyedNodes => {
         keyedNodes = newKeyedNodes;
     });
 
-    nodes.subscribeToKeyedConnections().subscribe(newKeyedConnections => {
+    nodes.keyedConnectionStore.subscribe(newKeyedConnections => {
         keyedConnections = newKeyedConnections;
     });
 
     function deselectAll () {
-        for (var i = 0; i < nodes.nodes.length; i++) {
-            if (nodes.nodes[i].uiData.selected) {
-                nodes.markNodeAsUpdated(nodes.nodes[i].index);
+        const currentNodes = get(nodes.nodeStore);
 
-                nodes.nodes[i].uiData.selected = false;
+        for (var i = 0; i < currentNodes.length; i++) {
+            if (currentNodes[i] && currentNodes[i].uiData.getValue().selected) {
+                nodes.markNodeAsUpdated(currentNodes[i].index);
+
+                currentNodes[i].uiData.next({
+                    ...currentNodes[i].uiData.getValue(),
+                    selected: false
+                });
             }
         }
     }
@@ -136,11 +146,14 @@
             draggedNode = index;
 
             let node = nodes.getNode(draggedNode);
-            draggedOffset = [mouseX - node.uiData.x, mouseY - node.uiData.y];
+            draggedOffset = [mouseX - node.uiData.getValue().x, mouseY - node.uiData.getValue().y];
 
             deselectAll();
 
-            node.uiData.selected = true;
+            node.uiData.next({
+                ...node.uiData.getValue(),
+                selected: true
+            });
         }
     }
 
@@ -156,10 +169,9 @@
             // see if it's already connected, in which case we're disconnecting it
             const disconnectingFrom = nodes.getNode(index);
 
-            let connection = disconnectingFrom.connectedInputs.find(inputSocket => {
+            let connection = disconnectingFrom.connectedInputs.getValue().find(inputSocket => {
                 return socketToKey(inputSocket.toSocketType, direction) === socketToKey(socket, direction);
             });
-
 
             if (connection) {
                 let fullConnection = new ConnectionObj(
@@ -179,13 +191,11 @@
                 };
 
                 const fromNode = nodes.getNode(connection.fromNode);
-                const fromNodeKey = connection.fromNode.toKey();
-                const fromNodeSockets = nodeSocketPositionMapping[fromNodeKey];
-                const fromSocket = fromNodeSockets[socketToKey(connection.fromSocketType, SocketDirection.Output)];
+                const fromNodeXY = fromNode.getSocketXYCurrent(connection.fromSocketType, SocketDirection.Output);
 
                 connectionBeingCreated = {
-                    x1: fromSocket[0] + fromNode.uiData.x,
-                    y1: fromSocket[1] + fromNode.uiData.y,
+                    x1: fromNodeXY[0],
+                    y1: fromNodeXY[1],
                     x2: mouseX,
                     y2: mouseY
                 }
@@ -247,25 +257,17 @@
 
     function connectionToPoints(connection: any): {x1: number, y1: number, x2: number, y2: number} {
         const fromNode = nodes.getNode(connection.fromNode);
-        const fromNodeKey = connection.fromNode.toKey();
-        const fromNodeSockets = nodeSocketPositionMapping[fromNodeKey];
-
         const toNode = nodes.getNode(connection.toNode);
-        const toNodeKey = connection.toNode.toKey();
-        const toNodeSockets = nodeSocketPositionMapping[toNodeKey];
 
-        if (!fromNodeSockets) return {
-            x1: 0, y1: 0, x2: 0, y2: 0
-        };
+        const fromXY = fromNode.getSocketXYCurrent(connection.fromSocketType, SocketDirection.Output);
+        const toXY = toNode.getSocketXYCurrent(connection.toSocketType, SocketDirection.Input);
 
-        const fromSocket = fromNodeSockets[socketToKey(connection.fromSocketType, SocketDirection.Output)];
-        const toSocket = toNodeSockets[socketToKey(connection.toSocketType, SocketDirection.Input)];
 
         return {
-            x1: fromSocket[0] + fromNode.uiData.x,
-            y1: fromSocket[1] + fromNode.uiData.y,
-            x2: toSocket[0] + toNode.uiData.x,
-            y2: toSocket[1] + toNode.uiData.y
+            x1: fromXY[0],
+            y1: fromXY[1],
+            x2: toXY[0],
+            y2: toXY[1]
         };
     }
 
@@ -291,7 +293,7 @@
         </div>
         <div style="z-index: 10">
             {#each keyedNodes as [key, node] (key) }
-                <Node wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} exportSocketPositionMapping={handleExportSocketPositionMapping} />
+                <Node wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} />
             {/each}
         </div>
     </div>

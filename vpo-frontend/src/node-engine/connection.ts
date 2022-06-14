@@ -67,7 +67,6 @@ export const Primitive = createEnumDefinition({
 });
 
 Primitive.deserialize = function(json) {
-    console.log("deserialize", json);
     return Primitive[json.type](json.content);
 };
 
@@ -171,7 +170,7 @@ export class OutputSideConnection {
 }
 
 export function socketTypeToString(socketType: /*SocketType*/EnumInstance): string {
-    var response = socketType.match([
+    let response = socketType.match<string>([
         [SocketType.ids.Stream, ([stream/*: StreamSocketType*/]) => {
             return stream.match([
                 [StreamSocketType.ids.Audio, () => i18n.t("socketType.stream.audio")],
