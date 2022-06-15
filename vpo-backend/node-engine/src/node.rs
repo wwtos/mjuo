@@ -87,13 +87,14 @@ pub trait Node: Debug {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct NodeWrapper {
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
     node_rows: Vec<NodeRow>,
+    default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
 }
@@ -120,6 +121,7 @@ impl NodeWrapper {
         let mut wrapper = NodeWrapper {
             node,
             index,
+            default_overrides: Vec::new(),
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
             node_rows: init_result.node_rows,
@@ -251,6 +253,7 @@ impl NodeWrapper {
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         Ok(json! {{
             "node_rows": self.node_rows.clone(),
+            "default_overrides": self.default_overrides.clone(),
             "index": self.index,
             "connected_inputs": self.connected_inputs,
             "connected_outputs": self.connected_outputs,
@@ -267,12 +270,14 @@ impl NodeWrapper {
         let properties: HashMap<String, Property> =
             serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
+        let default_overrides = serde_json::from_value(json["default_overrides"].clone())?;
 
         if index != self.index {
             return Err(NodeError::MismatchedNodeIndex(self.index, index));
         }
 
         self.properties = properties;
+        self.default_overrides = default_overrides;
         self.ui_data = ui_data;
 
         Ok(())

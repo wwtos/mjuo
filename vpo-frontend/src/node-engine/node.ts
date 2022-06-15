@@ -1,15 +1,15 @@
 import { createEnumDefinition, EnumInstance } from "../util/enum";
 import { InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import { Property, PropertyType } from "./property";
-import { BehaviorSubject, Observable, Subject } from "rxjs";
-import { distinctUntilChanged, map, mergeMap } from "rxjs/operators";
-import { shallowEqual } from 'fast-equals';
+import { BehaviorSubject, combineLatest, Observable, Subject } from "rxjs";
+import { distinctUntilChanged, map, mergeMap, tap } from "rxjs/operators";
+import { circularDeepEqual, shallowEqual } from 'fast-equals';
 import { Readable, writable, Writable } from "svelte/store";
 import { wrapStore } from "../util/wrap-store";
 
 const TITLE_HEIGHT = 30;
 const SOCKET_HEIGHT = 36;
-const SOCKET_OFFSET = 24;
+const SOCKET_OFFSET = 26;
 const NODE_WIDTH = 200;
 
 export const NodeRow = createEnumDefinition({
@@ -51,6 +51,7 @@ NodeRow.deserialize = function (json) {
             return NodeRow.Property(json.content[0], PropertyType.deserialize(json.content[1]), Property.deserialize(json.content[2]));
     }
 };
+
 
 export class InitResult {
     did_rows_change: boolean;
@@ -100,6 +101,7 @@ export class Node {
 export class NodeWrapper {
     node: BehaviorSubject<Node>;
     index: NodeIndex;
+    defaultOverrides: /* NodeRow */BehaviorSubject<EnumInstance[]>;
     connectedInputs: BehaviorSubject<InputSideConnection[]>;
     connectedOutputs: BehaviorSubject<OutputSideConnection[]>;
     nodeRows: /* NodeRow */BehaviorSubject<EnumInstance[]>;
@@ -111,6 +113,7 @@ export class NodeWrapper {
         index: NodeIndex,
         connectedInputs: InputSideConnection[],
         connectedOutputs: OutputSideConnection[],
+        defaultOverrides: EnumInstance[]/* NodeRow */,
         nodeRows: /* NodeRow */EnumInstance[],
         properties: object,
         uiData: UiData
@@ -120,6 +123,7 @@ export class NodeWrapper {
         this.connectedInputs = new BehaviorSubject(connectedInputs);
         this.connectedOutputs = new BehaviorSubject(connectedOutputs);
         this.nodeRows = new BehaviorSubject(nodeRows);
+        this.defaultOverrides = new BehaviorSubject(defaultOverrides);
         this.properties = new BehaviorSubject(properties);
         this.uiData = new BehaviorSubject(uiData);
     }
@@ -130,6 +134,7 @@ export class NodeWrapper {
             connected_inputs: this.connectedInputs.getValue(),
             connected_outputs: this.connectedOutputs.getValue(),
             properties: this.properties.getValue(),
+            default_overrides: this.defaultOverrides.getValue(),
             ui_data: this.uiData.getValue()
         };
     }
@@ -137,7 +142,7 @@ export class NodeWrapper {
     getInputConnectionByType(inputSocketType: EnumInstance /* SocketType */): Observable<InputSideConnection | undefined> {
         return this.connectedInputs.pipe(
             map(connectedInputs => {
-                return connectedInputs.find(input => input.toSocketType === inputSocketType);
+                return connectedInputs.find(input => circularDeepEqual(input.toSocketType, inputSocketType));
             }),
             distinctUntilChanged(shallowEqual)
         );
@@ -152,6 +157,34 @@ export class NodeWrapper {
         ));
     }
 
+    getSocketDefault(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<any> {
+        return combineLatest([this.nodeRows, this.defaultOverrides]).pipe(
+            map(([nodeRows, defaultOverrides]) => {
+                const defaultOverride = defaultOverrides.find(defaultOverride => {
+                    const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
+
+                    return socketType.getType() === overrideSocketType.getType() &&
+                           (socketType.content[0] as any).getType() === overrideSocketType.content[0].getType() &&
+                           direction === overrideDirection;
+                });
+
+                if (defaultOverride) {
+                    return defaultOverride.content[1];
+                }
+
+                const defaultNodeRow = nodeRows.find(nodeRow => {
+                    const [nodeRowSocketType, nodeRowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+
+                    return socketType.getType() === nodeRowSocketType.getType() &&
+                           (socketType.content[0] as any).getType() === nodeRowSocketType.content[0].getType() &&
+                           direction === nodeRowDirection;
+                });
+
+                return defaultNodeRow.content[1];
+            })
+        );
+    }
+
     getSocketXY(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<[number, number] | undefined> {
         return this.nodeRows.pipe(
             mergeMap(nodeRows => {
@@ -159,7 +192,7 @@ export class NodeWrapper {
                     const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
 
                     return socketType.getType() === rowSocketType.getType() &&
-                           (socketType.content as any).getType() === rowSocketType.content.getType() &&
+                           (socketType.content[0] as any).getType() === rowSocketType.content[0].getType() &&
                            direction === rowDirection;
                 });
 

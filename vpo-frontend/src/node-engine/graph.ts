@@ -86,7 +86,7 @@ export class Graph {
                 this.nodes[i] = new NodeWrapper(
                     new Node([], [], {}),
                     index,
-                    [], [], [], {}, new UiData({})
+                    [], [], [], [], {}, new UiData({})
                 );
             }
 
@@ -120,6 +120,7 @@ export class Graph {
 
             // apply node stuff
             this.nodes[i].nodeRows.next(node.node_rows.map(NodeRow.deserialize));
+            this.nodes[i].defaultOverrides.next(node.default_overrides.map(NodeRow.deserialize));
         }
 
         console.log("parsed nodes", this.nodes);
@@ -179,7 +180,6 @@ export class Graph {
                 JSON.parse(JSON.stringify(this.changedNodes.map(
                     (nodeIndex) => {
                         const node = this.getNode(nodeIndex);
-                        console.log("node to be serialized:", node.toJSON());
                         return node;
                     }
                 )));
