@@ -1,14 +1,14 @@
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
-use crate::{errors::NodeError, node::Node, nodes::gain::GainGraphNode};
+use crate::{errors::NodeError, node::Node};
 
 #[cfg(test)]
 use crate::graph_tests::TestNode;
 
 use super::{
     envelope::EnvelopeNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
-    oscillator::OscillatorNode, output::OutputNode,
+    oscillator::OscillatorNode, output::OutputNode, gain::GainGraphNode,
 };
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -2,10 +2,11 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
+use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType, Primitive};
 use crate::errors::NodeError;
-use crate::node::NodeIndex;
+use crate::node::{NodeIndex, NodeRow, InitResult};
 use crate::nodes::variants::NodeVariant;
+use crate::property::Property;
 use crate::{graph::Graph, node::Node};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -18,22 +19,14 @@ impl Default for TestNode {
 }
 
 impl Node for TestNode {
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Stream(StreamSocketType::Detune),
-            SocketType::Midi(MidiSocketType::Default),
-        ]
-    }
-
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Value(ValueSocketType::Gain),
-        ]
-    }
-    fn list_properties(&self) -> std::collections::HashMap<String, crate::property::PropertyType> {
-        HashMap::new()
+    fn init(&mut self, _props: &HashMap<String, Property>) -> InitResult {
+        InitResult::simple(vec![
+            NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
+            NodeRow::MidiInput(MidiSocketType::Default, vec![]),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0))
+        ])
     }
 }
 
@@ -275,7 +268,7 @@ fn hanging_connections() -> Result<(), NodeError> {
         let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
         let first_node = (*first_node_wrapped).borrow();
 
-        assert_eq!(first_node.list_output_sockets().len(), 1); // it should be connected here
+        assert_eq!(first_node.list_connected_output_sockets().len(), 1); // it should be connected here
     }
 
     graph.remove_node(&second_node)?;
@@ -284,7 +277,7 @@ fn hanging_connections() -> Result<(), NodeError> {
         let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
         let first_node = (*first_node_wrapped).borrow();
 
-        assert_eq!(first_node.list_output_sockets().len(), 0); // it shouldn't be connected to anything
+        assert_eq!(first_node.list_connected_output_sockets().len(), 0); // it shouldn't be connected to anything
     }
 
     Ok(())

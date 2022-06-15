@@ -1,8 +1,8 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
-import { GenerationalNode, Node, NodeIndex, NodeWrapper, UIData } from "./node";
-import { SocketType, StreamSocketType, MidiSocketType, ValueSocketType, Parameter, InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
-import { jsonToProperty, PropertyType } from "./property";
-import { readable, Readable, writable, Writable } from 'svelte/store';
+import { GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper, UiData } from "./node";
+import { InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
+import { Property, PropertyType } from "./property";
+import { readable, Readable, writable, Writable, get } from 'svelte/store';
 import { IPCSocket } from "../util/socket";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
@@ -13,7 +13,7 @@ export const PossibleNode = createEnumDefinition({
 });
 
 export class Graph {
-    nodes: (NodeWrapper | undefined)[];
+    private nodes: (NodeWrapper | undefined)[];
     keyedNodeStore: Writable<([string, NodeWrapper])[]>;
     keyedConnectionStore: Writable<([string, Connection])[]>;
     nodeStore: Writable<NodeWrapper[]>;
@@ -56,17 +56,17 @@ export class Graph {
         return undefined;
     }
 
-    getNodes(): NodeWrapper[] {
-        return this.nodes;
+    getNodes(): Readable<NodeWrapper[]> {
+        return this.nodeStore;
     }
 
-    update () {
+    update() {
         this.keyedNodeStore.set(this.getKeyedNodes());
         this.keyedConnectionStore.set(this.getKeyedConnections());
         this.nodeStore.set(this.nodes);
     }
 
-    applyJson (json: any) {
+    applyJson(json: any) {
         for (let i = 0; i < json.nodes.length; i++) {
             let node = json.nodes[i];
             var index = new NodeIndex(node.index.index, node.index.generation);
@@ -86,50 +86,41 @@ export class Graph {
                 this.nodes[i] = new NodeWrapper(
                     new Node([], [], {}),
                     index,
-                    [], [], {}, new UIData({})
+                    [], [], [], [], {}, new UiData({})
                 );
             }
 
             // apply new properties
             for (let data in node.properties) {
-                this.nodes[i].properties[data] = jsonToProperty(node.properties[data]);
+                this.nodes[i].properties[data] = Property.deserialize(node.properties[data]);
             }
 
             // apply new ui data
-            for (var data in node.ui_data) {
-                this.nodes[i].uiData[data] = node.ui_data[data];
-            }
+            this.nodes[i].uiData.next({
+                ...this.nodes[i].uiData.getValue(),
+                ...node.ui_data
+            });
 
             // apply new input and output connections
-            this.nodes[i].connectedInputs = node.connected_inputs.map(inputConnection => {
+            this.nodes[i].connectedInputs.next(node.connected_inputs.map(inputConnection => {
                 return new InputSideConnection(
                     jsonToSocketType(inputConnection.from_socket_type),
                     new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
                     jsonToSocketType(inputConnection.to_socket_type),
                 );
-            });
+            }));
 
-            this.nodes[i].connectedOutputs = node.connected_outputs.map(outputConnection => {
+            this.nodes[i].connectedOutputs.next(node.connected_outputs.map(outputConnection => {
                 return new OutputSideConnection(
                     jsonToSocketType(outputConnection.from_socket_type),
                     new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
                     jsonToSocketType(outputConnection.to_socket_type),
                 );
-            });
+            }));
 
             // apply node stuff
-            this.nodes[i].node.inputSockets = node.node.input_sockets.map(inputSocketType => {
-                return jsonToSocketType(inputSocketType);
-            });
-
-            this.nodes[i].node.outputSockets = node.node.output_sockets.map(outputSocketType => {
-                return jsonToSocketType(outputSocketType);
-            });
-
-            node.node.usableProperties = {};
-            for (var prop in node.node.properties) {
-                this.nodes[i].node.usableProperties[prop] = PropertyType[node.node.properties[prop].type];
-            }
+            this.nodes[i].nodeRows.next(node.node_rows.map(NodeRow.deserialize));
+            this.nodes[i].defaultOverrides.next(node.default_overrides.map(NodeRow.deserialize));
         }
 
         console.log("parsed nodes", this.nodes);
@@ -145,11 +136,12 @@ export class Graph {
         return this.keyedConnectionStore;
     }
 
-    getKeyedConnections (): ([string, Connection])[] {
+    // TODO: this is very naïve and inefficient
+    private getKeyedConnections (): ([string, Connection])[] {
         let keyedConnections = [];
 
         for (let node of this.nodes) {
-            for (let connection of node.connectedInputs) {
+            for (let connection of node.connectedInputs.getValue()) {
                 let newConnection = new Connection(connection.fromSocketType, connection.fromNode, connection.toSocketType, node.index);
 
                 keyedConnections.push([
@@ -162,7 +154,7 @@ export class Graph {
         return keyedConnections;
     }
 
-    getKeyedNodes (): ([string, NodeWrapper])[] {
+    private getKeyedNodes (): ([string, NodeWrapper])[] {
         let keyedNodes = [];
 
         for (let i = 0; i < this.nodes.length; i++) {
@@ -187,7 +179,8 @@ export class Graph {
             const nodesToUpdateJson = 
                 JSON.parse(JSON.stringify(this.changedNodes.map(
                     (nodeIndex) => {
-                        return this.getNode(nodeIndex);
+                        const node = this.getNode(nodeIndex);
+                        return node;
                     }
                 )));
 

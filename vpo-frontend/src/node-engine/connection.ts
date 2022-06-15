@@ -7,6 +7,15 @@ export const MidiSocketType = createEnumDefinition({
     "Dynamic": "u64",
 });
 
+MidiSocketType.deserialize = function (json) {
+    switch (json.type) {
+        case "Default":
+            return MidiSocketType.Default;
+        case "Dynamic":
+            return MidiSocketType.Dynamic(json.content);
+    }
+};
+
 export const StreamSocketType = createEnumDefinition({
     "Audio": null,
     "Gate": null,
@@ -15,6 +24,21 @@ export const StreamSocketType = createEnumDefinition({
     "Dynamic": "u64",
 });
 
+StreamSocketType.deserialize = function (json) {
+    switch (json.type) {
+        case "Audio":
+            return StreamSocketType.Audio;
+        case "Gate":
+            return StreamSocketType.Gate;
+        case "Gain":
+            return StreamSocketType.Gain;
+        case "Detune":
+            return StreamSocketType.Detune;
+        case "Dynamic":
+            return StreamSocketType.Dynamic(json.content);
+    }
+};
+
 export const ValueSocketType = createEnumDefinition({
     "Gain": null,
     "Frequency": null,
@@ -22,12 +46,29 @@ export const ValueSocketType = createEnumDefinition({
     "Dynamic": "u64",
 });
 
-export const Parameter = createEnumDefinition({
-    "Float": ["f32"],
-    "Int": ["i32"],
-    "Boolean": ["boolean"],
-    "String": ["string"]
+ValueSocketType.deserialize = function (json) {
+    switch (json.type) {
+        case "Gain":
+            return ValueSocketType.Gain;
+        case "Frequency":
+            return ValueSocketType.Frequency;
+        case "Gate":
+            return ValueSocketType.Gate;
+        case "Dynamic":
+            return ValueSocketType.Dynamic(json.content);
+    }
+};
+
+export const Primitive = createEnumDefinition({
+    "Float": "f32",
+    "Int": "i32",
+    "Boolean": "boolean",
+    "String": "string"
 });
+
+Primitive.deserialize = function(json) {
+    return Primitive[json.type](json.content);
+};
 
 export const SocketType = createEnumDefinition({
     "Stream": [StreamSocketType],
@@ -129,7 +170,7 @@ export class OutputSideConnection {
 }
 
 export function socketTypeToString(socketType: /*SocketType*/EnumInstance): string {
-    var response = socketType.match([
+    let response = socketType.match<string>([
         [SocketType.ids.Stream, ([stream/*: StreamSocketType*/]) => {
             return stream.match([
                 [StreamSocketType.ids.Audio, () => i18n.t("socketType.stream.audio")],
