@@ -4,6 +4,7 @@
     import { SocketType, SocketDirection, Primitive } from "../node-engine/connection";
     import { NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
+    import { BehaviorSubject } from "rxjs";
 
     import Socket from "./Socket.svelte";
 
@@ -16,21 +17,22 @@
     export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let defaultValue;
-
-    console.log(defaultValue, defaultValue.enumDef === Primitive);
     
     let socket: HTMLDivElement;
+
+    let isConnected = direction === SocketDirection.Input ? nodeWrapper.getInputConnectionByType(type) : new BehaviorSubject(undefined);
+    let socketDefault = nodeWrapper.getSocketDefault(type, direction);
 </script>
 <div class="container" class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input}>
     {#if direction === SocketDirection.Input}
         <Socket {direction} {type} {socketMousedown} {socketMouseup} />
     {/if}
 
-    {#if type.getType() === SocketType.ids.Value && direction === SocketDirection.Input && !nodeWrapper.getInputConnectionByType(type) }
+    {#if type.getType() === SocketType.ids.Value && direction === SocketDirection.Input && !$isConnected }
         {#if defaultValue.getType() === Primitive.ids.Float}
             <div class="flex">
                 <label>
-                    <input />
+                    <input value={($socketDefault).content} />
                     <span class="input-hover-text">{ label }</span>
                 </label>
             </div>
