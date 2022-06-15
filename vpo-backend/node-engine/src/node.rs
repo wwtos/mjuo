@@ -9,13 +9,41 @@ use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
-    InputSideConnection, MidiSocketType, OutputSideConnection, Parameter, SocketType,
-    StreamSocketType, ValueSocketType,
+    InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
+    StreamSocketType, ValueSocketType, SocketDirection,
 };
 
 use crate::errors::NodeError;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
+pub enum NodeRow {
+    StreamInput(StreamSocketType, f32),
+    MidiInput(MidiSocketType, Vec<MidiData>),
+    ValueInput(ValueSocketType, Primitive),
+    StreamOutput(StreamSocketType, f32),
+    MidiOutput(MidiSocketType, Vec<MidiData>),
+    ValueOutput(ValueSocketType, Primitive),
+    Property(String, PropertyType, Property)
+}
+
+pub struct InitResult {
+    pub did_rows_change: bool,
+    pub node_rows: Vec<NodeRow>,
+    pub changed_properties: Option<HashMap<String, Property>>
+}
+
+impl InitResult {
+    pub fn simple(node_rows: Vec<NodeRow>) -> InitResult {
+        InitResult {
+            did_rows_change: false,
+            node_rows: node_rows,
+            changed_properties: None
+        }
+    }
+}
 
 /// Node trait
 ///
@@ -29,34 +57,7 @@ use crate::property::{Property, PropertyType};
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 pub trait Node: Debug {
-    // defaults list nothing, to reduce boilerplate necessary for
-    // nodes that don't use all node functionality
-
-    /// Returns a list of what input sockets this node has.
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        Vec::new()
-    }
-
-    /// Returns a list of what output sockets this node has.
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        Vec::new()
-    }
-
-    /// Returns a list of what properties this node has.
-    fn list_properties(&self) -> HashMap<String, PropertyType> {
-        HashMap::new()
-    }
-
-    /// Called when any properties are changed. Allows for the node to reinitialize any
-    /// values that are based on properties it exposes. Returns two things: Firstly, whether
-    /// it changed what sockets or properties it has (so it can be reindexed), and secondly,
-    /// if it modified any of the properties it was provided with.
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-    ) -> (bool, Option<HashMap<String, Property>>) {
-        (false, None)
-    }
+    fn init(&mut self, props: &HashMap<String, Property>) -> InitResult;
 
     /// Process received data.
     fn process(&mut self) {}
@@ -78,39 +79,59 @@ pub trait Node: Debug {
     }
 
     /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {}
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
 
     /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         None
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct NodeWrapper {
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
+    node_rows: Vec<NodeRow>,
+    default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
 }
 
 impl NodeWrapper {
-    pub fn new(node: NodeVariant, index: NodeIndex) -> NodeWrapper {
+    pub fn new(mut node: NodeVariant, index: NodeIndex) -> NodeWrapper {
         let name = variant_to_name(&node);
+
+        let init_result = node.as_mut().init(&HashMap::new());
+
+        // TODO: check validity of node_rows here (no socket duplicates)
+
+        // extract properties from result from `init`
+        // this fills the properties with the default values
+        let properties = init_result.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::Property(name, _, default) => Some((name, default)),
+                _ => None
+            }
+        }).fold(HashMap::new(), |mut accum, (name, default)| {
+            accum.insert(name.clone(), default.clone()); accum
+        });
 
         let mut wrapper = NodeWrapper {
             node,
             index,
+            default_overrides: Vec::new(),
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
-            properties: HashMap::new(),
+            node_rows: init_result.node_rows,
+            properties,
             ui_data: HashMap::new(),
         };
 
-        wrapper.ui_data.insert("x".to_string(), json! { 0.0 });
-        wrapper.ui_data.insert("y".to_string(), json! { 0.0 });
+        // insert some initial UI data
+        wrapper.ui_data.insert("x".to_string(), json! { 0.0_f32 });
+        wrapper.ui_data.insert("y".to_string(), json! { 0.0_f32 });
 
         wrapper.ui_data.insert("title".to_string(), json! { name });
 
@@ -149,25 +170,51 @@ impl NodeWrapper {
         self.ui_data.insert(key, value);
     }
 
-    pub fn list_input_sockets(&self) -> Vec<InputSideConnection> {
+    pub fn list_connected_input_sockets(&self) -> Vec<InputSideConnection> {
         self.connected_inputs.clone()
     }
 
-    pub fn list_output_sockets(&self) -> Vec<OutputSideConnection> {
+    pub fn list_connected_output_sockets(&self) -> Vec<OutputSideConnection> {
         self.connected_outputs.clone()
     }
 
+    pub fn list_input_sockets(&self) -> Vec<SocketType> {
+        self.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
+                NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
+                NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
+                NodeRow::StreamOutput(_, _) => None,
+                NodeRow::MidiOutput(_, _) => None,
+                NodeRow::ValueOutput(_, _) => None,
+                NodeRow::Property(..) => None,
+            }
+        }).collect()
+    }
+
+    pub fn list_output_sockets(&self) -> Vec<SocketType> {
+        self.node_rows.iter().filter_map(|row| {
+            match row {
+                NodeRow::StreamInput(_, _) => None,
+                NodeRow::MidiInput(_, _) => None,
+                NodeRow::ValueInput(_, _) => None,
+                NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
+                NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
+                NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
+                NodeRow::Property(..) => None,
+            }
+        }).collect()
+    }
+
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.node
-            .as_ref()
+        self
             .list_input_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.node
-            .as_ref()
+        self
             .list_output_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
@@ -205,11 +252,8 @@ impl NodeWrapper {
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         Ok(json! {{
-            "node": {
-                "input_sockets": self.node.as_ref().list_input_sockets(),
-                "output_sockets": self.node.as_ref().list_output_sockets(),
-                "properties": self.node.as_ref().list_properties()
-            },
+            "node_rows": self.node_rows.clone(),
+            "default_overrides": self.default_overrides.clone(),
             "index": self.index,
             "connected_inputs": self.connected_inputs,
             "connected_outputs": self.connected_outputs,
@@ -226,12 +270,14 @@ impl NodeWrapper {
         let properties: HashMap<String, Property> =
             serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
+        let default_overrides = serde_json::from_value(json["default_overrides"].clone())?;
 
         if index != self.index {
             return Err(NodeError::MismatchedNodeIndex(self.index, index));
         }
 
         self.properties = properties;
+        self.default_overrides = default_overrides;
         self.ui_data = ui_data;
 
         Ok(())
@@ -253,11 +299,11 @@ impl NodeWrapper {
         self.node.as_ref().get_midi_output(socket_type)
     }
 
-    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         self.node.as_mut().accept_value_input(socket_type, value);
     }
 
-    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Parameter> {
+    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         self.node.as_ref().get_value_output(socket_type)
     }
 

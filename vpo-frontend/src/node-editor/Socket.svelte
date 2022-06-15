@@ -1,18 +1,11 @@
 <script lang="ts">
-import { onMount } from "svelte";
-
-    import { SocketType, SocketDirection } from "../node-engine/connection";
+    import { SocketType, SocketDirection, Primitive } from "../node-engine/connection";
     import { EnumInstance } from "../util/enum";
 
-    const RADIUS = 12;
-
-    export let type: EnumInstance/*SocketType*/;
-    export let label: string;
     export let direction: SocketDirection;
+    export let type: EnumInstance/*SocketType*/;
     export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
-    
-    let socket: HTMLDivElement;
 
     function socketMousedownRaw(event: MouseEvent) {
         event.preventDefault();
@@ -25,60 +18,32 @@ import { onMount } from "svelte";
         socketMouseup(event, type, direction);
     }
 </script>
-<div class="container" class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input}>
-    <!-- put the text first if it's an output -->
-    {#if direction === SocketDirection.Output}
-        <div class="text">{ label }</div>
-    {/if}
 
+<div class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input} class="socket-container">
     {#if type.getType() === SocketType.ids.Stream}
-        <div class="socket stream" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw} bind:this={socket}></div>
+        <div class="socket stream" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
     {:else if type.getType() === SocketType.ids.Midi}
-        <div class="socket midi" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw} bind:this={socket}></div>
+        <div class="socket midi" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
     {:else if type.getType() === SocketType.ids.Value}
-        <div class="socket value" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw} bind:this={socket}>
+        <div class="socket value" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}>
             <svg viewBox="0 0 26 26">
                 <polygon points="13,1 25,25 1,25" />
             </svg>
         </div>
     {/if}
-
-    {#if direction === SocketDirection.Input}
-        <div class="text">{ label }</div>
-    {/if}
 </div>
 
+
 <style>
-.value polygon {
-    fill: orange;
-    stroke-width: 2;
-    stroke: white;
+.socket-container {
+    display: inline-block;
 }
-.container {
-    margin: 10px 0;
-    height: 26px;
-}
-
-.input {
-    text-align: left;
-}
-
-.output {
-    text-align: right;
-}
-
 .input .socket {
     margin-left: -15px;
 }
 
 .output .socket {
     margin-right: -15px;
-}
-
-
-.text {
-    display: inline-block;
-    color: white;
 }
 
 .socket {
@@ -107,4 +72,11 @@ import { onMount } from "svelte";
     fill: rgb(255, 166, 0);
     stroke: white;
 }
+
+.value polygon {
+    fill: orange;
+    stroke-width: 2;
+    stroke: white;
+}
+
 </style>

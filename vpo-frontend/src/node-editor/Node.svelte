@@ -1,15 +1,14 @@
 <script lang="ts">
-    import Socket from "./Socket.svelte";
+    import NodeRowUI from "./NodeRow.svelte";
     import { onMount } from 'svelte';
     import {storeWatcher} from "../util/store-watcher";
-    import { NodeIndex, NodeWrapper } from "../node-engine/node";
+    import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
-    import { SocketType, StreamSocketType, MidiSocketType, SocketDirection, socketTypeToString, socketTypeToKey, socketToKey } from "../node-engine/connection";
+    import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
+    import { map, filter } from "rxjs/operators";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
-    const TITLE_HEIGHT = 30;
-    const SOCKET_HEIGHT = 36;
-    const SOCKET_OFFSET = -10;
+    // update in node-engine/node.ts, constants at the top
 
     export let width = 200;
 
@@ -30,41 +29,23 @@
         connectedOutputs: []
     }*/;
 
-    export let exportSocketPositionMapping = function(
-        socketPositionMapping: ({ [key: string]: [number, number] }),
-        key: string
-    ) {};
-
-    let sockets: any[][];
-
-    $: sockets = [
-        ...wrapper.node.inputSockets.map(inputSocket => [inputSocket, SocketDirection.Input]),
-        ...wrapper.node.outputSockets.map(outputSocket => [outputSocket, SocketDirection.Output]),
-    ];
+    let sockets = wrapper.nodeRows.pipe(
+        map(nodeRows => {
+            return nodeRows.map(nodeRow => {
+                return nodeRow.match<[EnumInstance/* SocketType */, SocketDirection, any]>([
+                    [NodeRow.ids.StreamInput, ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def]],
+                    [NodeRow.ids.MidiInput, ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def]],
+                    [NodeRow.ids.ValueInput, ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def]],
+                    [NodeRow.ids.StreamOutput, ([streamOutput, def]) => [SocketType.Stream(streamOutput), SocketDirection.Output, def]],
+                    [NodeRow.ids.MidiOutput, ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def]],
+                    [NodeRow.ids.ValueOutput, ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def]],
+                    [NodeRow.ids._, () => {}]
+                ]);
+            }).filter(maybeSomething => !!maybeSomething);
+        })
+    );
 
     let node: HTMLDivElement;
-
-    // whenever the socket list changes, update the relative positions of all the sockets
-    $: {
-        let socketPositionMapping: ({
-            [key: string]: [number, number]
-        }) = {};
-
-        let y = TITLE_HEIGHT;
-
-        for (let socket of sockets) {
-            const socketKey = socketToKey(socket[0], socket[1]);
-
-            y += SOCKET_HEIGHT;
-
-            socketPositionMapping[socketKey] = [
-                (socket[1] === SocketDirection.Output ? width : 0),
-                y + SOCKET_OFFSET
-            ];
-        }
-
-        exportSocketPositionMapping(socketPositionMapping, wrapper.index.toKey());
-    }
     
     export let onMousedown = function(index: NodeIndex, e: MouseEvent) {};
     export let onSocketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
@@ -82,19 +63,22 @@
         onSocketMouseup(event, socket, direction, wrapper.index);
     }
 
-    let x, y, selected, title;
-
-    $: x = wrapper.uiData.x;
-    $: y = wrapper.uiData.y;
-    $: selected = wrapper.uiData.selected;
-    $: title = wrapper.uiData.title;
+    const uiData = wrapper.uiData;
 </script>
 
-<div class="background" style="transform: translate({x}px, {y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={selected} bind:this={node}>
-    <div class="node-title">{title && title.length > 0 ? title : " "}</div>
+<div class="background" style="transform: translate({$uiData.x}px, {$uiData.y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={$uiData.selected} bind:this={node}>
+    <div class="node-title">{$uiData.title && $uiData.title.length > 0 ? $uiData.title : " "}</div>
 
-    {#each sockets as [socket, direction] (socketToKey(socket, direction))}
-        <Socket type={socket} direction={direction} label={socketTypeToString(socket)} socketMousedown={onSocketMousedownRaw} socketMouseup={onSocketMouseupRaw} />
+    {#each $sockets as [socket, direction, def] (socketToKey(socket, direction))}
+        <NodeRowUI
+            type={socket}
+            direction={direction}
+            label={socketTypeToString(socket)}
+            defaultValue={def}
+            socketMousedown={onSocketMousedownRaw}
+            socketMouseup={onSocketMouseupRaw}
+            nodeWrapper={wrapper}
+        />
     {/each}
 </div>
 

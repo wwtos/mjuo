@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{SocketType, StreamSocketType};
-use crate::node::Node;
+use crate::connection::StreamSocketType;
+use crate::node::{Node, NodeRow, InitResult};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -34,35 +34,22 @@ impl Node for GainGraphNode {
         self.value * self.gain
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-    ) -> (bool, Option<HashMap<String, Property>>) {
+    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
         if let Some(gain_prop) = properties.get("default_gain") {
             if let Property::Float(gain) = gain_prop {
                 self.gain = gain.clamp(0.0, 1.0);
             }
         }
 
-        (false, None)
-    }
-
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio),
-            SocketType::Stream(StreamSocketType::Gain),
-        ]
-    }
-
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![SocketType::Stream(StreamSocketType::Audio)]
-    }
-
-    fn list_properties(&self) -> HashMap<String, PropertyType> {
-        let mut props = HashMap::new();
-
-        props.insert("default_gain".to_string(), PropertyType::Float);
-
-        props
+        InitResult {
+            did_rows_change: false,
+            node_rows: vec![
+                NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
+                NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
+                NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+                NodeRow::Property("default_gain".to_string(), PropertyType::Float, Property::Float(0.0)),
+            ],
+            changed_properties: None
+        }
     }
 }

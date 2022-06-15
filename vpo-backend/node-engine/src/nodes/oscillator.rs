@@ -1,9 +1,14 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
-use crate::connection::{Parameter, SocketType, StreamSocketType, ValueSocketType};
+use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
+use crate::node::InitResult;
 use crate::node::Node;
+use crate::node::NodeRow;
+use crate::property::Property;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OscillatorNode {
@@ -21,15 +26,18 @@ impl Default for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
-    fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![SocketType::Value(ValueSocketType::Frequency)]
+    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        InitResult::simple(vec![
+            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0)),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0)
+        ])
     }
 
     fn process(&mut self) {
         self.audio_out = self.oscillator.process_fast();
     }
 
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Parameter) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         if socket_type == ValueSocketType::Frequency {
             self.oscillator.set_frequency(value.as_float().unwrap());
         }
@@ -40,9 +48,5 @@ impl Node for OscillatorNode {
             StreamSocketType::Audio => self.audio_out,
             _ => 0_f32,
         }
-    }
-
-    fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 }
