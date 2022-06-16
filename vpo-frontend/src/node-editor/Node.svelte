@@ -1,11 +1,9 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
-    import { onMount } from 'svelte';
-    import {storeWatcher} from "../util/store-watcher";
     import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
     import { EnumInstance } from "../util/enum";
     import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
-    import { map, filter } from "rxjs/operators";
+    import { map } from "rxjs/operators";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -36,9 +34,11 @@
                     [NodeRow.ids.StreamInput, ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def]],
                     [NodeRow.ids.MidiInput, ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def]],
                     [NodeRow.ids.ValueInput, ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def]],
+                    [NodeRow.ids.NodeRefInput, ([nodeRefInput, def]) => [SocketType.NodeRef(nodeRefInput), SocketDirection.Input, def]],
                     [NodeRow.ids.StreamOutput, ([streamOutput, def]) => [SocketType.Stream(streamOutput), SocketDirection.Output, def]],
                     [NodeRow.ids.MidiOutput, ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def]],
                     [NodeRow.ids.ValueOutput, ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def]],
+                    [NodeRow.ids.NodeRefOutput, ([nodeRefOutput, def]) => [SocketType.NodeRef(nodeRefOutput), SocketDirection.Output, def]],
                     [NodeRow.ids._, () => {}]
                 ]);
             }).filter(maybeSomething => !!maybeSomething);

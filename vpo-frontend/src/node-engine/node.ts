@@ -1,5 +1,5 @@
 import { createEnumDefinition, EnumInstance } from "../util/enum";
-import { InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
+import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import { Property, PropertyType } from "./property";
 import { BehaviorSubject, combineLatest, Observable, Subject } from "rxjs";
 import { distinctUntilChanged, map, mergeMap, tap } from "rxjs/operators";
@@ -16,9 +16,11 @@ export const NodeRow = createEnumDefinition({
     "StreamInput": [StreamSocketType, "f32"],
     "MidiInput": [MidiSocketType, "array"],
     "ValueInput": [ValueSocketType, Primitive],
+    "NodeRefInput": [NodeRefSocketType],
     "StreamOutput": [StreamSocketType, "f32"],
     "MidiOutput": [MidiSocketType, "array"],
     "ValueOutput": [ValueSocketType, Primitive],
+    "NodeRefOutput": [NodeRefSocketType],
     "Property": ["string", PropertyType, Property]
 });
 
@@ -27,9 +29,11 @@ NodeRow.asTypeAndDirection = function (nodeRow: EnumInstance): [EnumInstance/* S
         [NodeRow.ids.StreamInput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Input]],
         [NodeRow.ids.MidiInput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Input]],
         [NodeRow.ids.ValueInput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Input]],
+        [NodeRow.ids.NodeRefInput, ([socketType]) => [SocketType.NodeRef(socketType), SocketDirection.Input]],
         [NodeRow.ids.StreamOutput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Output]],
         [NodeRow.ids.MidiOutput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Output]],
         [NodeRow.ids.ValueOutput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Output]],
+        [NodeRow.ids.NodeRefOutput, ([socketType]) => [SocketType.NodeRef(socketType), SocketDirection.Output]],
     ]);
 };
 
@@ -41,12 +45,16 @@ NodeRow.deserialize = function (json) {
             return NodeRow.MidiInput(MidiSocketType.deserialize(json.content[0]), json.content[1]);
         case "ValueInput":
             return NodeRow.ValueInput(ValueSocketType.deserialize(json.content[0]), Primitive.deserialize(json.content[1]));
+        case "NodeRefInput":
+            return NodeRow.NodeRefInput(NodeRefSocketType.deserialize(json.content[0]));
         case "StreamOutput":
             return NodeRow.StreamOutput(StreamSocketType.deserialize(json.content[0]), json.content[1]);
         case "MidiOutput":
             return NodeRow.MidiOutput(MidiSocketType.deserialize(json.content[0]), json.content[1]);
         case "ValueOutput":
             return NodeRow.ValueOutput(ValueSocketType.deserialize(json.content[0]), Primitive.deserialize(json.content[1]));
+        case "NodeRefOutput":
+            return NodeRow.NodeRefOutput(NodeRefSocketType.deserialize(json.content[0]));
         case "Property":
             return NodeRow.Property(json.content[0], PropertyType.deserialize(json.content[1]), Property.deserialize(json.content[2]));
     }
@@ -68,8 +76,8 @@ export class InitResult {
 }
 
 export class UiData {
-    x?: number = 0;
-    y?: number = 0;
+    x: number = 0;
+    y: number = 0;
     selected?: boolean = false;
     title?: string = "Node";
 
@@ -164,23 +172,21 @@ export class NodeWrapper {
                     const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
 
                     return socketType.getType() === overrideSocketType.getType() &&
-                           (socketType.content[0] as any).getType() === overrideSocketType.content[0].getType() &&
+                           (socketType.content as any)[0].getType() === overrideSocketType.content[0].getType() &&
                            direction === overrideDirection;
                 });
 
-                if (defaultOverride) {
-                    return defaultOverride.content[1];
-                }
+                if (defaultOverride) return (defaultOverride.content as any)[1];
 
                 const defaultNodeRow = nodeRows.find(nodeRow => {
                     const [nodeRowSocketType, nodeRowDirection] = NodeRow.asTypeAndDirection(nodeRow);
 
                     return socketType.getType() === nodeRowSocketType.getType() &&
-                           (socketType.content[0] as any).getType() === nodeRowSocketType.content[0].getType() &&
+                           (socketType.content as any)[0].getType() === nodeRowSocketType.content[0].getType() &&
                            direction === nodeRowDirection;
                 });
-
-                return defaultNodeRow.content[1];
+                
+                if (defaultNodeRow) return (defaultNodeRow.content as any)[1];
             })
         );
     }
@@ -192,11 +198,11 @@ export class NodeWrapper {
                     const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
 
                     return socketType.getType() === rowSocketType.getType() &&
-                           (socketType.content[0] as any).getType() === rowSocketType.content[0].getType() &&
+                           (socketType.content as any)[0].getType() === rowSocketType.content[0].getType() &&
                            direction === rowDirection;
                 });
 
-                if (rowIndex === -1) return undefined;
+                if (rowIndex === -1) return new BehaviorSubject(undefined);
 
                 const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
                 const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
@@ -214,7 +220,7 @@ export class NodeWrapper {
             const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
 
             return socketType.getType() === rowSocketType.getType() &&
-                    (socketType.content[0] as any).getType() === rowSocketType.content[0].getType() &&
+                    (socketType.content as any)[0].getType() === rowSocketType.content[0].getType() &&
                     direction === rowDirection;
         });
 

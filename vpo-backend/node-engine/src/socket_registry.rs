@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::mem;
 
-use crate::errors::NodeError;
+use crate::{errors::NodeError, connection::NodeRefSocketType};
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
@@ -50,6 +50,7 @@ impl SocketRegistry {
                 SocketType::Stream(_) => SocketType::Stream(StreamSocketType::Dynamic(uid)),
                 SocketType::Midi(_) => SocketType::Midi(MidiSocketType::Dynamic(uid)),
                 SocketType::Value(_) => SocketType::Value(ValueSocketType::Dynamic(uid)),
+                SocketType::NodeRef(_) => SocketType::NodeRef(NodeRefSocketType::Dynamic(uid)),
                 SocketType::MethodCall(_) => todo!(),
             };
 
