@@ -102,7 +102,9 @@
 
     function createNode () {
         ipcSocket.createNode(nodeTypeToCreate, {
-            title: variants.find(variant => variant.internal === nodeTypeToCreate).name
+            title: variants.find(variant => variant.internal === nodeTypeToCreate).name,
+            x: 0,
+            y: 0
         });
     }
 
@@ -293,7 +295,7 @@
         </div>
         <div style="z-index: 10">
             {#each keyedNodes as [key, node] (key) }
-                <Node wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} />
+                <Node {nodes} wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} />
             {/each}
         </div>
     </div>

@@ -1,6 +1,7 @@
 import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { NodeIndex } from "./node";
 import { i18n } from '../i18n';
+import { circularDeepEqual } from "fast-equals";
 
 export const MidiSocketType = createEnumDefinition({
     "Default": null,
@@ -91,6 +92,11 @@ export const SocketType = createEnumDefinition({
     "NodeRef": [NodeRefSocketType],
     "MethodCall": "array"
 });
+
+// TODO: faster implementation
+export function areSocketTypesEqual(socketType1: EnumInstance, socketType2: EnumInstance): boolean {
+    return circularDeepEqual(socketType1, socketType2);
+}
 
 export function jsonToSocketType (json: object) {
     switch (json["type"]) {

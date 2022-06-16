@@ -1,11 +1,9 @@
 use serde::{Deserialize, Serialize};
-use sound_engine::midi::messages::MidiData;
 use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
 use crate::node::NodeIndex;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     pub from_socket_type: SocketType,
@@ -38,7 +36,7 @@ pub enum SocketType {
     MethodCall(Vec<Primitive>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type", content = "content")]
 pub enum SocketDirection {
     Input,
