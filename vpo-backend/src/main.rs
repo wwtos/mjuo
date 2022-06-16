@@ -138,6 +138,7 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex]) -> Result<(),
                         );
                     }
                 }
+                node_engine::connection::SocketType::NodeRef(_) => {},
                 node_engine::connection::SocketType::MethodCall(_) => todo!(),
             }
         }

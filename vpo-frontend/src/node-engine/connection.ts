@@ -59,6 +59,20 @@ ValueSocketType.deserialize = function (json) {
     }
 };
 
+export const NodeRefSocketType = createEnumDefinition({
+    "Button": null,
+    "Dynamic": "u64",
+});
+
+NodeRefSocketType.deserialize = function (json) {
+    switch (json.type) {
+        case "Button":
+            return NodeRefSocketType.Button;
+        case "Dynamic":
+            return NodeRefSocketType.Dynamic(json.content);
+    }
+};
+
 export const Primitive = createEnumDefinition({
     "Float": "f32",
     "Int": "i32",
@@ -74,6 +88,7 @@ export const SocketType = createEnumDefinition({
     "Stream": [StreamSocketType],
     "Midi": [MidiSocketType],
     "Value": [ValueSocketType],
+    "NodeRef": [NodeRefSocketType],
     "MethodCall": "array"
 });
 

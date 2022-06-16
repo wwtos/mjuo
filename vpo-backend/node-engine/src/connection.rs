@@ -34,6 +34,7 @@ pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
     Value(ValueSocketType),
+    NodeRef(NodeRefSocketType),
     MethodCall(Vec<Primitive>),
 }
 
@@ -67,6 +68,13 @@ pub enum ValueSocketType {
     Gain,
     Frequency,
     Gate,
+    Dynamic(u64),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", content = "content")]
+pub enum NodeRefSocketType {
+    Button,
     Dynamic(u64),
 }
 

@@ -10,7 +10,7 @@ use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
-    StreamSocketType, ValueSocketType, SocketDirection,
+    StreamSocketType, ValueSocketType, NodeRefSocketType,
 };
 
 use crate::errors::NodeError;
@@ -23,9 +23,11 @@ pub enum NodeRow {
     StreamInput(StreamSocketType, f32),
     MidiInput(MidiSocketType, Vec<MidiData>),
     ValueInput(ValueSocketType, Primitive),
+    NodeRefInput(NodeRefSocketType),
     StreamOutput(StreamSocketType, f32),
     MidiOutput(MidiSocketType, Vec<MidiData>),
     ValueOutput(ValueSocketType, Primitive),
+    NodeRefOutput(NodeRefSocketType),
     Property(String, PropertyType, Property)
 }
 
@@ -184,9 +186,11 @@ impl NodeWrapper {
                 NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
                 NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
                 NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
+                NodeRow::NodeRefInput(node_ref_input_type) => Some(SocketType::NodeRef(node_ref_input_type.clone())),
                 NodeRow::StreamOutput(_, _) => None,
                 NodeRow::MidiOutput(_, _) => None,
                 NodeRow::ValueOutput(_, _) => None,
+                NodeRow::NodeRefOutput(_) => None,
                 NodeRow::Property(..) => None,
             }
         }).collect()
@@ -198,9 +202,11 @@ impl NodeWrapper {
                 NodeRow::StreamInput(_, _) => None,
                 NodeRow::MidiInput(_, _) => None,
                 NodeRow::ValueInput(_, _) => None,
+                NodeRow::NodeRefInput(_) => None,
                 NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
                 NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
                 NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
+                NodeRow::NodeRefOutput(node_ref_output_type) => Some(SocketType::NodeRef(node_ref_output_type.clone())),
                 NodeRow::Property(..) => None,
             }
         }).collect()
