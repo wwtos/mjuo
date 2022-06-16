@@ -1,6 +1,7 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
+    import { Graph } from "../node-engine/graph";
     import { EnumInstance } from "../util/enum";
     import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
     import { map } from "rxjs/operators";
@@ -10,6 +11,7 @@
 
     export let width = 200;
 
+    export let nodes: Graph;
     export let wrapper: NodeWrapper/* = {
         node: {
             inputSockets: [SocketType.Midi(MidiSocketType.Default)],
@@ -71,6 +73,7 @@
 
     {#each $sockets as [socket, direction, def] (socketToKey(socket, direction))}
         <NodeRowUI
+            {nodes}
             type={socket}
             direction={direction}
             label={socketTypeToString(socket)}
@@ -107,6 +110,7 @@
 
 .background.selected {
     background-color: rgba(148, 195, 255, 0.8);
+    border: solid 2px #84b8e9;
 }
 
 .right-align {

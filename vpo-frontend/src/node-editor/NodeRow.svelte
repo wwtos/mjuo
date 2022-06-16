@@ -1,9 +1,11 @@
 <script lang="ts">
     import { onMount } from "svelte";
 
-    import { SocketType, SocketDirection, Primitive } from "../node-engine/connection";
-    import { NodeWrapper } from "../node-engine/node";
+    import { SocketType, SocketDirection, Primitive, ValueSocketType, areSocketTypesEqual } from "../node-engine/connection";
+    import { NodeRow, NodeWrapper } from "../node-engine/node";
+    import { Graph } from "../node-engine/graph";
     import { EnumInstance } from "../util/enum";
+    import { fixDigits } from "../util/fix-digits";
     import { BehaviorSubject } from "rxjs";
 
     import Socket from "./Socket.svelte";
@@ -17,27 +19,91 @@
     export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
     export let defaultValue;
+    export let nodes: Graph;
     
     let socket: HTMLDivElement;
 
     let isConnected = direction === SocketDirection.Input ? nodeWrapper.getInputConnectionByType(type) : new BehaviorSubject(undefined);
-    let socketDefault = nodeWrapper.getSocketDefault(type, direction);
+
+    let socketDefault = new BehaviorSubject(undefined);
+    nodeWrapper.getSocketDefault(type, direction).subscribe(socketDefault);
+
+    function updateOverrides(event) {
+        const newValue = event.target.value;
+        
+        const newValueParsed = type.match([
+            [SocketType.ids.Stream, () => {
+                const num = parseFloat(newValue);
+                event.target.value = num;
+
+                return isNaN(num) ? 0.0 : num;
+            }],
+            [SocketType.ids.Value, valueType => {
+                return socketDefault.getValue().match([
+                    [Primitive.ids.Float, _ => {
+                        const num = parseFloat(newValue);
+                        event.target.value = num;
+
+                        return Primitive.Float(isNaN(num) ? 0.0 : num);
+                    }],
+                    // booleans are special
+                    [Primitive.ids.Boolean, _ => {
+                        return Primitive.Boolean(event.target.checked);
+                    }]
+                ]);
+            }]
+        ]);
+        
+        // check if this override is already in there, in which case the value needs to be updated
+        let override = nodeWrapper.defaultOverrides.getValue().find(defaultOverride => {
+            const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
+
+            return areSocketTypesEqual(type, overrideSocketType) &&
+                   direction === overrideDirection;
+        });
+
+        console.log(newValueParsed);
+
+        if (override) {
+            override.content[1] = newValueParsed;
+        } else {
+            nodeWrapper.defaultOverrides.next([
+                ...nodeWrapper.defaultOverrides.getValue(),
+                NodeRow.fromTypeAndDirection(type, direction, newValueParsed)
+            ]);
+        }
+
+        nodes.markNodeAsUpdated(nodeWrapper.index);
+        nodes.writeChangedNodesToServer();
+    }
 </script>
 <div class="container" class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input}>
     {#if direction === SocketDirection.Input}
         <Socket {direction} {type} {socketMousedown} {socketMouseup} />
     {/if}
 
-    {#if type.getType() === SocketType.ids.Value && direction === SocketDirection.Input && !$isConnected }
-        {#if defaultValue.getType() === Primitive.ids.Float}
+    {#if direction === SocketDirection.Input && !$isConnected}
+        {#if type.getType() === SocketType.ids.Value}
+            {#if defaultValue.getType() === Primitive.ids.Float}
+                <div class="flex">
+                    <label>
+                        <input value={fixDigits(($socketDefault).content, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
+                        <span class="input-hover-text">{ label }</span>
+                    </label>
+                </div>
+            {:else if defaultValue.getType() === Primitive.ids.Boolean}
+                <input type="checkbox" on:change={updateOverrides} checked={($socketDefault).content} />
+                <div class="text">{ label }</div>
+            {/if}
+        {:else if type.getType() === SocketType.ids.Stream}
             <div class="flex">
                 <label>
-                    <input value={($socketDefault).content} />
+                    <input value={fixDigits($socketDefault, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
                     <span class="input-hover-text">{ label }</span>
                 </label>
             </div>
-        {:else if defaultValue.getType() === Primitive.ids.Boolean}
-            <input type="checkbox" />
+        {:else}
+        <div class="text">{ label }</div>
         {/if}
     {:else}
         <div class="text">{ label }</div>

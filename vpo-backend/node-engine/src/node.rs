@@ -10,7 +10,7 @@ use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
-    StreamSocketType, ValueSocketType, NodeRefSocketType,
+    StreamSocketType, ValueSocketType, NodeRefSocketType, SocketDirection,
 };
 
 use crate::errors::NodeError;
@@ -29,6 +29,22 @@ pub enum NodeRow {
     ValueOutput(ValueSocketType, Primitive),
     NodeRefOutput(NodeRefSocketType),
     Property(String, PropertyType, Property)
+}
+
+impl NodeRow {
+    pub fn to_type_and_direction(self) -> Option<(SocketType, SocketDirection)> {
+        match self {
+            NodeRow::StreamInput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
+            NodeRow::MidiInput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
+            NodeRow::ValueInput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Input)),
+            NodeRow::NodeRefInput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input)),
+            NodeRow::StreamOutput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
+            NodeRow::MidiOutput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
+            NodeRow::ValueOutput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Output)),
+            NodeRow::NodeRefOutput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output)),
+            NodeRow::Property(_, _, _) => None,
+        }
+    }
 }
 
 pub struct InitResult {
@@ -254,6 +270,22 @@ impl NodeWrapper {
         }
 
         outputs_filtered
+    }
+
+    pub fn get_default(&self, socket_type: &SocketType, direction: &SocketDirection) -> NodeRow {
+        let possible_override = self.default_overrides.iter().find(|override_row| {
+            let (override_type, override_direction) = (*override_row).clone().to_type_and_direction().unwrap();
+            socket_type == &override_type && direction == &override_direction
+        });
+
+        if let Some(row_override) = possible_override {
+            return row_override.clone()
+        }
+
+        self.node_rows.iter().find(|node_row| {
+            let (override_type, override_direction) = (*node_row).clone().to_type_and_direction().unwrap();
+            socket_type == &override_type && direction == &override_direction
+        }).unwrap().clone()
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {

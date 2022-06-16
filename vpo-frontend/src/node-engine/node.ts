@@ -1,11 +1,10 @@
 import { createEnumDefinition, EnumInstance } from "../util/enum";
-import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
+import { areSocketTypesEqual, InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import { Property, PropertyType } from "./property";
 import { BehaviorSubject, combineLatest, Observable, Subject } from "rxjs";
 import { distinctUntilChanged, map, mergeMap, tap } from "rxjs/operators";
 import { circularDeepEqual, shallowEqual } from 'fast-equals';
 import { Readable, writable, Writable } from "svelte/store";
-import { wrapStore } from "../util/wrap-store";
 
 const TITLE_HEIGHT = 30;
 const SOCKET_HEIGHT = 36;
@@ -35,6 +34,24 @@ NodeRow.asTypeAndDirection = function (nodeRow: EnumInstance): [EnumInstance/* S
         [NodeRow.ids.ValueOutput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Output]],
         [NodeRow.ids.NodeRefOutput, ([socketType]) => [SocketType.NodeRef(socketType), SocketDirection.Output]],
     ]);
+};
+
+NodeRow.fromTypeAndDirection = function (type: EnumInstance/* SocketType */, direction: SocketDirection, defaultValue: any) {
+    if (direction === SocketDirection.Input) {
+        return type.match([
+            [SocketType.ids.Stream, ([streamSocketType]) => NodeRow.StreamInput(streamSocketType, defaultValue)],
+            [SocketType.ids.Midi, ([midiSocketType]) => NodeRow.MidiInput(midiSocketType, defaultValue)],
+            [SocketType.ids.Value, ([valueSocketType]) => NodeRow.ValueInput(valueSocketType, defaultValue)],
+            [SocketType.ids.NodeRef, ([nodeRefSocketType]) => NodeRow.NodeRefInput(nodeRefSocketType)],
+        ]);
+    } else {
+        return type.match([
+            [SocketType.ids.Stream, ([streamSocketType]) => NodeRow.StreamOutput(streamSocketType, defaultValue)],
+            [SocketType.ids.Midi, ([midiSocketType]) => NodeRow.MidiOutput(midiSocketType, defaultValue)],
+            [SocketType.ids.Value, ([valueSocketType]) => NodeRow.ValueOutput(valueSocketType, defaultValue)],
+            [SocketType.ids.NodeRef, ([nodeRefSocketType]) => NodeRow.NodeRefOutput(nodeRefSocketType)],
+        ]);
+    }
 };
 
 NodeRow.deserialize = function (json) {
@@ -171,8 +188,7 @@ export class NodeWrapper {
                 const defaultOverride = defaultOverrides.find(defaultOverride => {
                     const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
 
-                    return socketType.getType() === overrideSocketType.getType() &&
-                           (socketType.content as any)[0].getType() === overrideSocketType.content[0].getType() &&
+                    return areSocketTypesEqual(socketType, overrideSocketType) &&
                            direction === overrideDirection;
                 });
 
@@ -181,8 +197,7 @@ export class NodeWrapper {
                 const defaultNodeRow = nodeRows.find(nodeRow => {
                     const [nodeRowSocketType, nodeRowDirection] = NodeRow.asTypeAndDirection(nodeRow);
 
-                    return socketType.getType() === nodeRowSocketType.getType() &&
-                           (socketType.content as any)[0].getType() === nodeRowSocketType.content[0].getType() &&
+                    return areSocketTypesEqual(socketType, nodeRowSocketType) &&
                            direction === nodeRowDirection;
                 });
                 
