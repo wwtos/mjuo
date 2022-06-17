@@ -182,6 +182,27 @@ export class NodeWrapper {
         ));
     }
 
+    getPropertyValue(propertyName: string): Observable<any> {
+        return combineLatest([this.properties, this.nodeRows]).pipe(
+            map(([properties, nodeRows]) => {
+                if (properties[propertyName] !== undefined) {
+                    return properties[propertyName];
+                } else {
+                    // else find property in defaults
+                    const row = nodeRows.find(nodeRow => {
+                        return nodeRow.match([
+                            [NodeRow.ids.Property, ([rowName, rowType, rowDefault]) => {
+                                return rowName === propertyName;
+                            }]
+                        ]);
+                    });
+
+                    return row ? row.content ? row.content[2] : undefined : undefined;
+                }
+            })
+        );
+    }
+
     getSocketDefault(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<any> {
         return combineLatest([this.nodeRows, this.defaultOverrides]).pipe(
             map(([nodeRows, defaultOverrides]) => {

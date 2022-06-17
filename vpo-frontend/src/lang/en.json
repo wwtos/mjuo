@@ -16,11 +16,15 @@
                 "gain": "Gain",
                 "frequency": "Frequency",
                 "gate": "Gate",
+                "attack": "Attack",
+                "decay": "Decay",
+                "sustain": "Sustain",
+                "release": "Release",
                 "dynamic": "Dynamic({{uid}})"
             }
         },
         "nodes": {
-            "gainGraphNode": "Gain Graph Node",
+            "gainGraphNode": "Gain Node",
             "oscillatorNode": "Oscillator Node",
             "midiToValuesNode": "Midi To Values Node",
             "envelopeNode": "Envelope Node"

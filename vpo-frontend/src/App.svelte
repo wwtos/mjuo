@@ -36,20 +36,10 @@
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
 	firstPanel={SideNavbar}
-	secondPanel={SplitView}
+	secondPanel={Editor}
 	secondState={{
-		direction: SplitDirection.VERTICAL,
-		firstPanel: PropertyEditor,
-		firstState: {
-			ipcSocket: ipcSocket,
-			nodes: nodes
-		},
-		secondPanel: Editor,
-		initialSplitRatio: 0.3,
-		secondState: {
-			ipcSocket: ipcSocket,
-			nodes: nodes
-		}
+		ipcSocket: ipcSocket,
+		nodes: nodes
 	}} />
 	<Toasts ipcSocket={ipcSocket} />
 	<!-- <SplitView 

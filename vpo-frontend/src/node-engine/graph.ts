@@ -74,7 +74,7 @@ export class Graph {
             // does this node already exist?
             if (this.nodes[i] != undefined) {
                 // are they not the same generation?
-                if (index.generation !== this.nodes[i].index.generation) {
+                if (index.generation !== this.nodes[i]?.index.generation) {
                     // in that case erase the old one
                     this.nodes[i] = undefined;
                 }
@@ -91,18 +91,22 @@ export class Graph {
             }
 
             // apply new properties
+            let newProps = {};
+
             for (let data in node.properties) {
-                this.nodes[i].properties[data] = Property.deserialize(node.properties[data]);
+                newProps[data] = Property.deserialize(node.properties[data]);
             }
 
+            this.nodes[i]?.properties.next(newProps);
+
             // apply new ui data
-            this.nodes[i].uiData.next({
-                ...this.nodes[i].uiData.getValue(),
+            this.nodes[i]?.uiData.next({
+                ...this.nodes[i]?.uiData.getValue(),
                 ...node.ui_data
             });
 
             // apply new input and output connections
-            this.nodes[i].connectedInputs.next(node.connected_inputs.map(inputConnection => {
+            this.nodes[i]?.connectedInputs.next(node.connected_inputs.map(inputConnection => {
                 return new InputSideConnection(
                     jsonToSocketType(inputConnection.from_socket_type),
                     new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
@@ -110,7 +114,7 @@ export class Graph {
                 );
             }));
 
-            this.nodes[i].connectedOutputs.next(node.connected_outputs.map(outputConnection => {
+            this.nodes[i]?.connectedOutputs.next(node.connected_outputs.map(outputConnection => {
                 return new OutputSideConnection(
                     jsonToSocketType(outputConnection.from_socket_type),
                     new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
@@ -119,8 +123,8 @@ export class Graph {
             }));
 
             // apply node stuff
-            this.nodes[i].nodeRows.next(node.node_rows.map(NodeRow.deserialize));
-            this.nodes[i].defaultOverrides.next(node.default_overrides.map(NodeRow.deserialize));
+            this.nodes[i]?.nodeRows.next(node.node_rows.map(NodeRow.deserialize));
+            this.nodes[i]?.defaultOverrides.next(node.default_overrides.map(NodeRow.deserialize));
         }
 
         console.log("parsed nodes", this.nodes);

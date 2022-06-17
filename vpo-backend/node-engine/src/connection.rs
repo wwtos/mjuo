@@ -66,6 +66,10 @@ pub enum ValueSocketType {
     Gain,
     Frequency,
     Gate,
+    Attack,
+    Decay,
+    Sustain,
+    Release,
     Dynamic(u64),
 }
 

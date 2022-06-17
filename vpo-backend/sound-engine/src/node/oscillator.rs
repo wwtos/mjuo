@@ -17,6 +17,18 @@ pub enum Waveform {
     Square,
 }
 
+impl Waveform {
+    pub fn from_string(waveform: &str) -> Option<Waveform> {
+        match waveform {
+            "sine" => Some(Waveform::Sine),
+            "triangle" => Some(Waveform::Triangle),
+            "sawtooth" => Some(Waveform::Sawtooth),
+            "square" => Some(Waveform::Square),
+            _ => None
+        }
+    }
+}
+
 pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZE]> {
     match waveform {
         Waveform::Sine => &SINE_VALUES,
@@ -60,6 +72,12 @@ impl Oscillator {
 
     pub fn set_waveform(&mut self, waveform: Waveform) {
         self.waveform = waveform;
+    }
+
+    pub fn get_phase(&self) -> f32 { self.phase }
+
+    pub fn set_phase(&mut self, phase: f32) {
+        self.phase = phase;
     }
 
     #[inline]

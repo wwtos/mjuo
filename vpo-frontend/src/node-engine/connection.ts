@@ -44,6 +44,10 @@ export const ValueSocketType = createEnumDefinition({
     "Gain": null,
     "Frequency": null,
     "Gate": null,
+    "Attack": null,
+    "Decay": null,
+    "Sustain": null,
+    "Release": null,
     "Dynamic": "u64",
 });
 
@@ -55,6 +59,14 @@ ValueSocketType.deserialize = function (json) {
             return ValueSocketType.Frequency;
         case "Gate":
             return ValueSocketType.Gate;
+        case "Attack":
+            return ValueSocketType.Attack;
+        case "Decay":
+            return ValueSocketType.Decay;
+        case "Sustain":
+            return ValueSocketType.Sustain;
+        case "Release":
+            return ValueSocketType.Release;
         case "Dynamic":
             return ValueSocketType.Dynamic(json.content);
     }
@@ -204,7 +216,7 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
         [SocketType.ids.Midi, ([midi/* :MidiSocketType*/]) => {
             return midi.match([
                 [MidiSocketType.ids.Default, () => i18n.t("socketType.midi.default")],
-                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.midi.dynamic", { uid })],
+                [MidiSocketType.ids.Dynamic, (uid) => i18n.t("socketType.midi.dynamic", { uid })],
             ]);
         }],
         [SocketType.ids.Value, ([value/* :ValueSocketType*/]) => {
@@ -212,7 +224,11 @@ export function socketTypeToString(socketType: /*SocketType*/EnumInstance): stri
                 [ValueSocketType.ids.Gain, () => i18n.t("socketType.value.gain")],
                 [ValueSocketType.ids.Frequency, () => i18n.t("socketType.value.frequency")],
                 [ValueSocketType.ids.Gate, () => i18n.t("socketType.value.gate")],
-                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.value.dynamic", { uid })],
+                [ValueSocketType.ids.Attack, () => i18n.t("socketType.value.attack")],
+                [ValueSocketType.ids.Decay, () => i18n.t("socketType.value.decay")],
+                [ValueSocketType.ids.Sustain, () => i18n.t("socketType.value.sustain")],
+                [ValueSocketType.ids.Release, () => i18n.t("socketType.value.release")],
+                [ValueSocketType.ids.Dynamic, (uid) => i18n.t("socketType.value.dynamic", { uid })],
             ]);
         }],
         [SocketType.ids.MethodCall, () => "Method call"]

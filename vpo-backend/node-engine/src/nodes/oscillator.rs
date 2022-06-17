@@ -9,6 +9,7 @@ use crate::node::InitResult;
 use crate::node::Node;
 use crate::node::NodeRow;
 use crate::property::Property;
+use crate::property::PropertyType;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OscillatorNode {
@@ -27,9 +28,26 @@ impl Default for OscillatorNode {
 
 impl Node for OscillatorNode {
     fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        if let Some(waveform) = properties.get("waveform") {
+            let last_phase = self.oscillator.get_phase();
+
+            self.oscillator = Oscillator::new(Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap());
+            self.oscillator.set_phase(last_phase);
+        }
+
         InitResult::simple(vec![
             NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0)
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::Property(
+                "waveform".to_string(),
+                PropertyType::MultipleChoice(vec![
+                    "sine".to_string(),
+                    "sawtooth".to_string(),
+                    "square".to_string(),
+                    "triangle".to_string()
+                ]),
+                Property::MultipleChoice("square".to_string())
+            )
         ])
     }
 
