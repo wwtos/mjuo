@@ -26,10 +26,33 @@ impl EnvelopeNode {
 
 impl Node for EnvelopeNode {
     fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        if socket_type == ValueSocketType::Gate {
-            if let Some(gate) = value.as_float() {
-                self.envelope.set_gate(gate);
+        match socket_type {
+            ValueSocketType::Gate => {
+                if let Some(gate) = value.as_float() {
+                    self.envelope.set_gate(gate);
+                }
             }
+            ValueSocketType::Attack => {
+                if let Some(attack) = value.as_float() {
+                    self.envelope.attack = attack;
+                }
+            }
+            ValueSocketType::Decay => {
+                if let Some(decay) = value.as_float() {
+                    self.envelope.decay = decay;
+                }
+            }
+            ValueSocketType::Sustain => {
+                if let Some(sustain) = value.as_float() {
+                    self.envelope.sustain = sustain;
+                }
+            }
+            ValueSocketType::Release => {
+                if let Some(release) = value.as_float() {
+                    self.envelope.release = release;
+                }
+            }
+            _ => {}
         }
     }
 
@@ -37,40 +60,16 @@ impl Node for EnvelopeNode {
         self.envelope.get_gain()
     }
     
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
-        if let Some(attack_raw) = properties.get("attack") {
-            if let Property::Float(attack) = attack_raw {
-                self.envelope.attack = *attack;
-            }
-        }
-
-        if let Some(decay_raw) = properties.get("decay") {
-            if let Property::Float(decay) = decay_raw {
-                self.envelope.decay = *decay;
-            }
-        }
-
-        if let Some(sustain_raw) = properties.get("sustain") {
-            if let Property::Float(sustain) = sustain_raw {
-                self.envelope.sustain = *sustain;
-            }
-        }
-
-        if let Some(release_raw) = properties.get("release") {
-            if let Property::Float(release) = release_raw {
-                self.envelope.release = *release;
-            }
-        }
-
+    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
         InitResult {
             did_rows_change: false,
             node_rows: vec![
                 NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
                 NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
-                NodeRow::Property("attack".to_string(), PropertyType::Float, Property::Float(0.0)),
-                NodeRow::Property("decay".to_string(), PropertyType::Float, Property::Float(0.0)),
-                NodeRow::Property("sustain".to_string(), PropertyType::Float, Property::Float(0.0)),
-                NodeRow::Property("release".to_string(), PropertyType::Float, Property::Float(0.0)),
+                NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01)),
+                NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3)),
+                NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8)),
+                NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5)),
             ],
             changed_properties: None
         }

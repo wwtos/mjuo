@@ -62,8 +62,6 @@
                    direction === overrideDirection;
         });
 
-        console.log(newValueParsed);
-
         if (override) {
             override.content[1] = newValueParsed;
         } else {

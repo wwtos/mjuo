@@ -5,6 +5,7 @@
     import { EnumInstance } from "../util/enum";
     import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
     import { map } from "rxjs/operators";
+    import NodePropertyRow from "./NodePropertyRow.svelte";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -32,7 +33,7 @@
     let sockets = wrapper.nodeRows.pipe(
         map(nodeRows => {
             return nodeRows.map(nodeRow => {
-                return nodeRow.match<[EnumInstance/* SocketType */, SocketDirection, any]>([
+                return nodeRow.match<any>([
                     [NodeRow.ids.StreamInput, ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def]],
                     [NodeRow.ids.MidiInput, ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def]],
                     [NodeRow.ids.ValueInput, ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def]],
@@ -41,6 +42,9 @@
                     [NodeRow.ids.MidiOutput, ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def]],
                     [NodeRow.ids.ValueOutput, ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def]],
                     [NodeRow.ids.NodeRefOutput, ([nodeRefOutput, def]) => [SocketType.NodeRef(nodeRefOutput), SocketDirection.Output, def]],
+                    [NodeRow.ids.Property, ([propName, propType, propDefault]) => {
+                        return ["property", propName, propType, propDefault];
+                    }],
                     [NodeRow.ids._, () => {}]
                 ]);
             }).filter(maybeSomething => !!maybeSomething);
@@ -66,22 +70,35 @@
     }
 
     const uiData = wrapper.uiData;
+
+    function rowToKey(row): string {
+        return row[0] !== "property" ? socketToKey(row[0], row[1]) : ("prop" + row[1]);
+    }
 </script>
 
 <div class="background" style="transform: translate({$uiData.x}px, {$uiData.y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={$uiData.selected} bind:this={node}>
     <div class="node-title">{$uiData.title && $uiData.title.length > 0 ? $uiData.title : " "}</div>
 
-    {#each $sockets as [socket, direction, def] (socketToKey(socket, direction))}
-        <NodeRowUI
-            {nodes}
-            type={socket}
-            direction={direction}
-            label={socketTypeToString(socket)}
-            defaultValue={def}
-            socketMousedown={onSocketMousedownRaw}
-            socketMouseup={onSocketMouseupRaw}
-            nodeWrapper={wrapper}
-        />
+    {#each $sockets as row (rowToKey(row))}
+        {#if row[0] !== "property"}
+            <NodeRowUI
+                {nodes}
+                type={row[0]}
+                direction={row[1]}
+                label={socketTypeToString(row[0])}
+                defaultValue={row[2]}
+                socketMousedown={onSocketMousedownRaw}
+                socketMouseup={onSocketMouseupRaw}
+                nodeWrapper={wrapper}
+            />
+        {:else}
+            <NodePropertyRow
+                {nodes}
+                nodeWrapper={wrapper}
+                propName={row[1]}
+                propType={row[2]}
+            />
+        {/if}
     {/each}
 </div>
 

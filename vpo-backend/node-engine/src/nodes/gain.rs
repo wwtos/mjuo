@@ -47,7 +47,6 @@ impl Node for GainGraphNode {
                 NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
                 NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
                 NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
-                NodeRow::Property("default_gain".to_string(), PropertyType::Float, Property::Float(0.0)),
             ],
             changed_properties: None
         }
