@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::StreamSocketType;
-use crate::node::{Node, NodeRow, InitResult};
+use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,7 +48,7 @@ impl Node for GainGraphNode {
                 NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
                 NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
             ],
-            changed_properties: None
+            changed_properties: None,
         }
     }
 }

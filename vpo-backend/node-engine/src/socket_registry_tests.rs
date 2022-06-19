@@ -71,11 +71,7 @@ fn test_request_existing_socket_name_different_type() {
 }
 
 #[test]
-fn test_get_list() {
-    
-}
+fn test_get_list() {}
 
 #[test]
-fn test_get_metadata() {
-
-}
+fn test_get_metadata() {}

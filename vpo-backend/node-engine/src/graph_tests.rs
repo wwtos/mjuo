@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType, Primitive};
+use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::NodeError;
-use crate::node::{NodeIndex, NodeRow, InitResult};
+use crate::node::{InitResult, NodeIndex, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::property::Property;
 use crate::{graph::Graph, node::Node};
@@ -25,7 +25,7 @@ impl Node for TestNode {
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
-            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0))
+            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0)),
         ])
     }
 }

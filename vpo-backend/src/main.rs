@@ -10,7 +10,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::sync::Mutex;
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{Connection, MidiSocketType, StreamSocketType, SocketDirection};
+use node_engine::connection::{Connection, MidiSocketType, SocketDirection, StreamSocketType};
 use node_engine::errors::NodeError;
 use node_engine::graph::Graph;
 
@@ -22,17 +22,16 @@ use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::{new_variant, NodeVariant};
 use serde_json::json;
 use serde_json::Value;
-use sound_engine::SoundConfig;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
+use sound_engine::SoundConfig;
 
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
 use vpo_backend::route;
-
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
@@ -101,7 +100,11 @@ fn handle_msg(
     }
 }
 
-fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex], is_first_time: bool) -> Result<(), NodeError> {
+fn traverse_graph(
+    graph: &mut Graph,
+    traverse_order: &[NodeIndex],
+    is_first_time: bool,
+) -> Result<(), NodeError> {
     for node_index in traverse_order {
         let node_wrapper = graph.get_node(node_index).unwrap().node;
         let mut node_wrapper = (*node_wrapper).borrow_mut();
@@ -110,7 +113,9 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex], is_first_time
 
         // TODO: This is super unoptimized
         for input_socket in node_wrapper.list_input_sockets() {
-            let possible_connection = referenced_nodes.iter().find(|connection| connection.to_socket_type == input_socket);
+            let possible_connection = referenced_nodes
+                .iter()
+                .find(|connection| connection.to_socket_type == input_socket);
 
             if let Some(connection) = possible_connection {
                 let other_node_wrapper = graph.get_node(&connection.from_node).unwrap().node;
@@ -128,8 +133,10 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex], is_first_time
                         let midi = other_node_wrapper.get_midi_output(midi_type.clone());
 
                         if !midi.is_empty() {
-                            node_wrapper
-                                .accept_midi_input(connection.to_socket_type.clone().as_midi().unwrap(), midi);
+                            node_wrapper.accept_midi_input(
+                                connection.to_socket_type.clone().as_midi().unwrap(),
+                                midi,
+                            );
                         }
                     }
                     node_engine::connection::SocketType::Value(value_type) => {
@@ -142,7 +149,7 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex], is_first_time
                             );
                         }
                     }
-                    node_engine::connection::SocketType::NodeRef(_) => {},
+                    node_engine::connection::SocketType::NodeRef(_) => {}
                     node_engine::connection::SocketType::MethodCall(_) => todo!(),
                 }
             } else {
@@ -152,19 +159,19 @@ fn traverse_graph(graph: &mut Graph, traverse_order: &[NodeIndex], is_first_time
                 match default {
                     node_engine::node::NodeRow::StreamInput(socket_type, default) => {
                         node_wrapper.accept_stream_input(socket_type, default);
-                    },
+                    }
                     node_engine::node::NodeRow::MidiInput(socket_type, default) => {
                         if is_first_time {
                             node_wrapper.accept_midi_input(socket_type, default);
                         }
-                    },
+                    }
                     node_engine::node::NodeRow::ValueInput(socket_type, default) => {
                         if is_first_time {
                             node_wrapper.accept_value_input(socket_type, default);
                         }
-                    },
-                    node_engine::node::NodeRow::NodeRefInput(_) => {},
-                    _ => unreachable!()
+                    }
+                    node_engine::node::NodeRow::NodeRefInput(_) => {}
+                    _ => unreachable!(),
                 }
             }
         }
@@ -222,7 +229,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = connect_backend()?;
 
     let sound_config = SoundConfig {
-        sample_rate: SAMPLE_RATE
+        sample_rate: SAMPLE_RATE,
     };
 
     let mut midi_backend = connect_midi_backend()?;

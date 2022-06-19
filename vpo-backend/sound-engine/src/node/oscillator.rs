@@ -24,7 +24,7 @@ impl Waveform {
             "triangle" => Some(Waveform::Triangle),
             "sawtooth" => Some(Waveform::Sawtooth),
             "square" => Some(Waveform::Square),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -74,7 +74,9 @@ impl Oscillator {
         self.waveform = waveform;
     }
 
-    pub fn get_phase(&self) -> f32 { self.phase }
+    pub fn get_phase(&self) -> f32 {
+        self.phase
+    }
 
     pub fn set_phase(&mut self, phase: f32) {
         self.phase = phase;

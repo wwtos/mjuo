@@ -31,7 +31,9 @@ impl Node for OscillatorNode {
         if let Some(waveform) = properties.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
-            self.oscillator = Oscillator::new(Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap());
+            self.oscillator = Oscillator::new(
+                Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap(),
+            );
             self.oscillator.set_phase(last_phase);
         }
 
@@ -44,10 +46,10 @@ impl Node for OscillatorNode {
                     "sine".to_string(),
                     "sawtooth".to_string(),
                     "square".to_string(),
-                    "triangle".to_string()
+                    "triangle".to_string(),
                 ]),
-                Property::MultipleChoice("square".to_string())
-            )
+                Property::MultipleChoice("square".to_string()),
+            ),
         ])
     }
 

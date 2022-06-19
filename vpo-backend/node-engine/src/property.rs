@@ -24,21 +24,21 @@ impl Property {
     pub fn as_string(self) -> Option<String> {
         match self {
             Property::String(value) => Some(value),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn as_float(self) -> Option<f32> {
         match self {
             Property::Float(value) => Some(value),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn as_multiple_choice(self) -> Option<String> {
         match self {
             Property::MultipleChoice(value) => Some(value),
-            _ => None
+            _ => None,
         }
     }
 }
