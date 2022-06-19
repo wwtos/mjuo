@@ -1,20 +1,19 @@
-use async_std::{channel::Sender};
+use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{graph::Graph, errors::NodeError, connection::Connection};
-use serde_json::{Value, Map};
+use node_engine::{connection::Connection, errors::NodeError, graph::Graph};
+use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 
-use crate::{RouteReturn, util::update_graph};
+use crate::{util::update_graph, RouteReturn};
 
 pub fn route(
     message: Map<String, Value>,
     graph: &mut Graph,
     to_server: &Sender<IPCMessage>,
-    _config: &SoundConfig
+    _config: &SoundConfig,
 ) -> Result<Option<RouteReturn>, NodeError> {
     if let Value::Object(_) = &message["payload"] {
-        let connection: Connection =
-            serde_json::from_value(message["payload"].clone())?;
+        let connection: Connection = serde_json::from_value(message["payload"].clone())?;
 
         graph.connect(
             connection.from_node,
@@ -27,6 +26,6 @@ pub fn route(
     update_graph(graph, to_server);
 
     Ok(Some(RouteReturn {
-        should_reindex_graph: true
+        should_reindex_graph: true,
     }))
 }

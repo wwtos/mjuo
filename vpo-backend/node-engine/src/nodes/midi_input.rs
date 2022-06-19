@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::MidiSocketType;
-use crate::node::{Node, InitResult, NodeRow};
+use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -24,10 +24,8 @@ impl Node for MidiInNode {
     fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
         InitResult {
             did_rows_change: false,
-            node_rows: vec![
-                NodeRow::MidiOutput(MidiSocketType::Default, vec![]),
-            ],
-            changed_properties: None
+            node_rows: vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])],
+            changed_properties: None,
         }
     }
 }

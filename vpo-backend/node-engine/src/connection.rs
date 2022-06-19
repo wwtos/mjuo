@@ -40,7 +40,7 @@ pub enum SocketType {
 #[serde(tag = "type", content = "content")]
 pub enum SocketDirection {
     Input,
-    Output
+    Output,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 use std::mem;
 
-use crate::{errors::NodeError, connection::NodeRefSocketType};
-use serde::{Serialize, Deserialize};
+use crate::{connection::NodeRefSocketType, errors::NodeError};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::connection::{
-    MidiSocketType, SocketType, StreamSocketType, ValueSocketType,
-};
+use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
 
 #[derive(Serialize, Deserialize)]
 pub struct RegistryValue {
@@ -69,6 +67,4 @@ impl SocketRegistry {
             Ok(new_socket_type)
         }
     }
-
-    
 }

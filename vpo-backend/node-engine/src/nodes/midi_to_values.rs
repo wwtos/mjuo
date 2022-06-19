@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, ValueSocketType};
-use crate::node::{Node, NodeRow, InitResult};
+use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -79,7 +79,7 @@ impl Node for MidiToValuesNode {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false))
+            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false)),
         ])
     }
 

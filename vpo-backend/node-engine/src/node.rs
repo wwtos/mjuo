@@ -9,8 +9,8 @@ use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
-    InputSideConnection, MidiSocketType, OutputSideConnection, Primitive, SocketType,
-    StreamSocketType, ValueSocketType, NodeRefSocketType, SocketDirection,
+    InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive,
+    SocketDirection, SocketType, StreamSocketType, ValueSocketType,
 };
 
 use crate::errors::NodeError;
@@ -28,20 +28,36 @@ pub enum NodeRow {
     MidiOutput(MidiSocketType, Vec<MidiData>),
     ValueOutput(ValueSocketType, Primitive),
     NodeRefOutput(NodeRefSocketType),
-    Property(String, PropertyType, Property)
+    Property(String, PropertyType, Property),
 }
 
 impl NodeRow {
     pub fn to_type_and_direction(self) -> Option<(SocketType, SocketDirection)> {
         match self {
-            NodeRow::StreamInput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
-            NodeRow::MidiInput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
-            NodeRow::ValueInput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Input)),
-            NodeRow::NodeRefInput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input)),
-            NodeRow::StreamOutput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
-            NodeRow::MidiOutput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
-            NodeRow::ValueOutput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Output)),
-            NodeRow::NodeRefOutput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output)),
+            NodeRow::StreamInput(stream_type, _) => {
+                Some((SocketType::Stream(stream_type), SocketDirection::Input))
+            }
+            NodeRow::MidiInput(midi_type, _) => {
+                Some((SocketType::Midi(midi_type), SocketDirection::Input))
+            }
+            NodeRow::ValueInput(value_type, _) => {
+                Some((SocketType::Value(value_type), SocketDirection::Input))
+            }
+            NodeRow::NodeRefInput(node_ref_type) => {
+                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input))
+            }
+            NodeRow::StreamOutput(stream_type, _) => {
+                Some((SocketType::Stream(stream_type), SocketDirection::Output))
+            }
+            NodeRow::MidiOutput(midi_type, _) => {
+                Some((SocketType::Midi(midi_type), SocketDirection::Output))
+            }
+            NodeRow::ValueOutput(value_type, _) => {
+                Some((SocketType::Value(value_type), SocketDirection::Output))
+            }
+            NodeRow::NodeRefOutput(node_ref_type) => {
+                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output))
+            }
             NodeRow::Property(_, _, _) => None,
         }
     }
@@ -50,7 +66,7 @@ impl NodeRow {
 pub struct InitResult {
     pub did_rows_change: bool,
     pub node_rows: Vec<NodeRow>,
-    pub changed_properties: Option<HashMap<String, Property>>
+    pub changed_properties: Option<HashMap<String, Property>>,
 }
 
 impl InitResult {
@@ -58,7 +74,7 @@ impl InitResult {
         InitResult {
             did_rows_change: false,
             node_rows: node_rows,
-            changed_properties: None
+            changed_properties: None,
         }
     }
 }
@@ -127,14 +143,17 @@ impl NodeWrapper {
 
         // extract properties from result from `init`
         // this fills the properties with the default values
-        let properties = init_result.node_rows.iter().filter_map(|row| {
-            match row {
+        let properties = init_result
+            .node_rows
+            .iter()
+            .filter_map(|row| match row {
                 NodeRow::Property(name, _, default) => Some((name, default)),
-                _ => None
-            }
-        }).fold(HashMap::new(), |mut accum, (name, default)| {
-            accum.insert(name.clone(), default.clone()); accum
-        });
+                _ => None,
+            })
+            .fold(HashMap::new(), |mut accum, (name, default)| {
+                accum.insert(name.clone(), default.clone());
+                accum
+            });
 
         let mut wrapper = NodeWrapper {
             node,
@@ -197,47 +216,63 @@ impl NodeWrapper {
     }
 
     pub fn list_input_sockets(&self) -> Vec<SocketType> {
-        self.node_rows.iter().filter_map(|row| {
-            match row {
-                NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
-                NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
-                NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
-                NodeRow::NodeRefInput(node_ref_input_type) => Some(SocketType::NodeRef(node_ref_input_type.clone())),
+        self.node_rows
+            .iter()
+            .filter_map(|row| match row {
+                NodeRow::StreamInput(stream_input_type, _) => {
+                    Some(SocketType::Stream(stream_input_type.clone()))
+                }
+                NodeRow::MidiInput(midi_input_type, _) => {
+                    Some(SocketType::Midi(midi_input_type.clone()))
+                }
+                NodeRow::ValueInput(value_input_type, _) => {
+                    Some(SocketType::Value(value_input_type.clone()))
+                }
+                NodeRow::NodeRefInput(node_ref_input_type) => {
+                    Some(SocketType::NodeRef(node_ref_input_type.clone()))
+                }
                 NodeRow::StreamOutput(_, _) => None,
                 NodeRow::MidiOutput(_, _) => None,
                 NodeRow::ValueOutput(_, _) => None,
                 NodeRow::NodeRefOutput(_) => None,
                 NodeRow::Property(..) => None,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     pub fn list_output_sockets(&self) -> Vec<SocketType> {
-        self.node_rows.iter().filter_map(|row| {
-            match row {
+        self.node_rows
+            .iter()
+            .filter_map(|row| match row {
                 NodeRow::StreamInput(_, _) => None,
                 NodeRow::MidiInput(_, _) => None,
                 NodeRow::ValueInput(_, _) => None,
                 NodeRow::NodeRefInput(_) => None,
-                NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
-                NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
-                NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
-                NodeRow::NodeRefOutput(node_ref_output_type) => Some(SocketType::NodeRef(node_ref_output_type.clone())),
+                NodeRow::StreamOutput(stream_output_type, _) => {
+                    Some(SocketType::Stream(stream_output_type.clone()))
+                }
+                NodeRow::MidiOutput(midi_output_type, _) => {
+                    Some(SocketType::Midi(midi_output_type.clone()))
+                }
+                NodeRow::ValueOutput(value_output_type, _) => {
+                    Some(SocketType::Value(value_output_type.clone()))
+                }
+                NodeRow::NodeRefOutput(node_ref_output_type) => {
+                    Some(SocketType::NodeRef(node_ref_output_type.clone()))
+                }
                 NodeRow::Property(..) => None,
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self
-            .list_input_sockets()
+        self.list_input_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self
-            .list_output_sockets()
+        self.list_output_sockets()
             .iter()
             .any(|socket| *socket == *socket_type)
     }
@@ -274,18 +309,24 @@ impl NodeWrapper {
 
     pub fn get_default(&self, socket_type: &SocketType, direction: &SocketDirection) -> NodeRow {
         let possible_override = self.default_overrides.iter().find(|override_row| {
-            let (override_type, override_direction) = (*override_row).clone().to_type_and_direction().unwrap();
+            let (override_type, override_direction) =
+                (*override_row).clone().to_type_and_direction().unwrap();
             socket_type == &override_type && direction == &override_direction
         });
 
         if let Some(row_override) = possible_override {
-            return row_override.clone()
+            return row_override.clone();
         }
 
-        self.node_rows.iter().find(|node_row| {
-            let (override_type, override_direction) = (*node_row).clone().to_type_and_direction().unwrap();
-            socket_type == &override_type && direction == &override_direction
-        }).unwrap().clone()
+        self.node_rows
+            .iter()
+            .find(|node_row| {
+                let (override_type, override_direction) =
+                    (*node_row).clone().to_type_and_direction().unwrap();
+                socket_type == &override_type && direction == &override_direction
+            })
+            .unwrap()
+            .clone()
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {

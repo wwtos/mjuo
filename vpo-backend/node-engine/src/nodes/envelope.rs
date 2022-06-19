@@ -6,7 +6,7 @@ use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::node::{Node, NodeRow, InitResult};
+use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -59,7 +59,7 @@ impl Node for EnvelopeNode {
     fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.envelope.get_gain()
     }
-    
+
     fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
         InitResult {
             did_rows_change: false,
@@ -71,7 +71,7 @@ impl Node for EnvelopeNode {
                 NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8)),
                 NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5)),
             ],
-            changed_properties: None
+            changed_properties: None,
         }
     }
 

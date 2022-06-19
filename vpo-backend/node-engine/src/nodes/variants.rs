@@ -7,8 +7,8 @@ use crate::{errors::NodeError, node::Node};
 use crate::graph_tests::TestNode;
 
 use super::{
-    envelope::EnvelopeNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
-    oscillator::OscillatorNode, output::OutputNode, gain::GainGraphNode,
+    envelope::EnvelopeNode, gain::GainGraphNode, midi_input::MidiInNode,
+    midi_to_values::MidiToValuesNode, oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
