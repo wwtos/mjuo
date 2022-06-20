@@ -1,31 +1,33 @@
-import {createEnumDefinition, EnumInstance} from "../util/enum";
 import { NodeIndex } from "./node";
 import { i18n } from '../i18n';
 import { circularDeepEqual } from "fast-equals";
+import {makeTaggedUnion, MemberType, none} from "safety-match";
 
-export const MidiSocketType = createEnumDefinition({
-    "Default": null,
-    "Dynamic": "u64",
+export const MidiSocketType = makeTaggedUnion({
+    Default: none,
+    Dynamic: (uid) => uid,
 });
 
-MidiSocketType.deserialize = function (json) {
+export function deserializeMidiSocketType(json): MemberType<typeof MidiSocketType> {
     switch (json.type) {
         case "Default":
             return MidiSocketType.Default;
         case "Dynamic":
             return MidiSocketType.Dynamic(json.content);
     }
+
+    throw "Failed to parse json";
 };
 
-export const StreamSocketType = createEnumDefinition({
-    "Audio": null,
-    "Gate": null,
-    "Gain": null,
-    "Detune": null,
-    "Dynamic": "u64",
+export const StreamSocketType = makeTaggedUnion({
+    Audio: none,
+    Gate: none,
+    Gain: none,
+    Detune: none,
+    Dynamic: (uid: number) => uid,
 });
 
-StreamSocketType.deserialize = function (json) {
+export function deserializeStreamSocketType(json): MemberType<typeof StreamSocketType> {
     switch (json.type) {
         case "Audio":
             return StreamSocketType.Audio;
@@ -38,20 +40,24 @@ StreamSocketType.deserialize = function (json) {
         case "Dynamic":
             return StreamSocketType.Dynamic(json.content);
     }
+
+    throw "Failed to parse json";
 };
 
-export const ValueSocketType = createEnumDefinition({
-    "Gain": null,
-    "Frequency": null,
-    "Gate": null,
-    "Attack": null,
-    "Decay": null,
-    "Sustain": null,
-    "Release": null,
-    "Dynamic": "u64",
+export const ValueSocketType = makeTaggedUnion({
+    Gain: none,
+    Frequency: none,
+    Gate: none,
+    Attack: none,
+    Decay: none,
+    Sustain: none,
+    Release: none,
+    Dynamic: (uid: number) => uid,
 });
 
-ValueSocketType.deserialize = function (json) {
+const foo = ValueSocketType.Dynamic(25);
+
+export function deserializeValueSocketType(json): MemberType<typeof ValueSocketType> {
     switch (json.type) {
         case "Gain":
             return ValueSocketType.Gain;
@@ -70,43 +76,47 @@ ValueSocketType.deserialize = function (json) {
         case "Dynamic":
             return ValueSocketType.Dynamic(json.content);
     }
+
+    throw "Failed to parse json";
 };
 
-export const NodeRefSocketType = createEnumDefinition({
-    "Button": null,
-    "Dynamic": "u64",
+export const NodeRefSocketType = makeTaggedUnion({
+    Button: none,
+    Dynamic: (uid) => uid,
 });
 
-NodeRefSocketType.deserialize = function (json) {
+export function deserializeNodeRefSocketType(json): MemberType<typeof NodeRefSocketType> {
     switch (json.type) {
         case "Button":
             return NodeRefSocketType.Button;
         case "Dynamic":
             return NodeRefSocketType.Dynamic(json.content);
     }
+
+    throw "Failed to parse json";
 };
 
-export const Primitive = createEnumDefinition({
-    "Float": "f32",
-    "Int": "i32",
-    "Boolean": "boolean",
-    "String": "string"
+export const Primitive = makeTaggedUnion({
+    Float: (number: number) => number,
+    Int: (number: number) => number,
+    Boolean: (bool: boolean) => bool,
+    String: (string: String) => string,
 });
 
-Primitive.deserialize = function(json) {
+export function deserializePrimitive(json): MemberType<typeof Primitive> {
     return Primitive[json.type](json.content);
 };
 
-export const SocketType = createEnumDefinition({
-    "Stream": [StreamSocketType],
-    "Midi": [MidiSocketType],
-    "Value": [ValueSocketType],
-    "NodeRef": [NodeRefSocketType],
-    "MethodCall": "array"
+export const SocketType = makeTaggedUnion({
+    Stream: (streamType: MemberType<typeof StreamSocketType>) => streamType,
+    Midi: (midiType: MemberType<typeof MidiSocketType>) => midiType,
+    Value: (valueType: MemberType<typeof ValueSocketType>) => valueType,
+    NodeRef: (nodeRef: MemberType<typeof NodeRefSocketType>) => nodeRef,
+    MethodCall: (args: MemberType<typeof Primitive>[]) => args
 });
 
 // TODO: faster implementation
-export function areSocketTypesEqual(socketType1: EnumInstance, socketType2: EnumInstance): boolean {
+export function areSocketTypesEqual(socketType1: MemberType<typeof SocketType>, socketType2: MemberType<typeof SocketType>): boolean {
     return circularDeepEqual(socketType1, socketType2);
 }
 
@@ -127,19 +137,17 @@ export function jsonToSocketType (json: object) {
     }
 }
 
-export function socketTypeToKey(socketType: EnumInstance, recursiveKey?: string) {
-    if (!recursiveKey) recursiveKey = "";
-
-    recursiveKey += "," + socketType.getType();
-
-    if (socketType.content && socketType.content[0] instanceof EnumInstance) {
-        return socketTypeToKey(socketType.content[0], recursiveKey);
-    } else {
-        return recursiveKey;
-    }
+export function socketTypeToKey(socketType: MemberType<typeof SocketType>, recursiveKey?: string) {
+    return socketType.variant + ", " + socketType.match({
+        Stream: stream => stream.variant,
+        Midi: midi => midi.variant,
+        Value: value => value.variant,
+        NodeRef: nodeRef => nodeRef.variant,
+        MethodCall: args => args.toString()
+    });
 };
 
-export function socketToKey(socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+export function socketToKey(socket: MemberType<typeof SocketType>, direction: SocketDirection) {
     return socketTypeToKey(socket) + ":" + direction;
 }
 
@@ -149,12 +157,12 @@ export enum SocketDirection {
 };
 
 export class Connection {
-    fromSocketType: EnumInstance; /*SocketType*/
+    fromSocketType: MemberType<typeof SocketType>;
     fromNode: NodeIndex;
-    toSocketType: EnumInstance; /*SocketType*/
+    toSocketType: MemberType<typeof SocketType>;
     toNode: NodeIndex;
 
-    constructor(fromSocketType: EnumInstance, fromNode: NodeIndex, toSocketType: EnumInstance, toNode: NodeIndex) {
+    constructor(fromSocketType: MemberType<typeof SocketType>, fromNode: NodeIndex, toSocketType: MemberType<typeof SocketType>, toNode: NodeIndex) {
         this.fromSocketType = fromSocketType;
         this.fromNode = fromNode;
         this.toSocketType = toSocketType;
@@ -179,11 +187,11 @@ export class Connection {
 }
 
 export class InputSideConnection {
-    fromSocketType: EnumInstance; /*SocketType*/
+    fromSocketType: MemberType<typeof SocketType>;
     fromNode: NodeIndex;
-    toSocketType: EnumInstance; /*SocketType*/
+    toSocketType: MemberType<typeof SocketType>;
 
-    constructor (fromSocketType: EnumInstance, fromNode: NodeIndex, toSocketType: EnumInstance) {
+    constructor (fromSocketType: MemberType<typeof SocketType>, fromNode: NodeIndex, toSocketType: MemberType<typeof SocketType>) {
         this.fromSocketType = fromSocketType;
         this.fromNode = fromNode;
         this.toSocketType = toSocketType;
@@ -191,48 +199,46 @@ export class InputSideConnection {
 }
 
 export class OutputSideConnection {
-    fromSocketType: EnumInstance; /*SocketType*/
+    fromSocketType: MemberType<typeof SocketType>;
     toNode: NodeIndex;
-    toSocketType: EnumInstance; /*SocketType*/
+    toSocketType: MemberType<typeof SocketType>;
 
-    constructor (fromSocketType: EnumInstance, toNode: NodeIndex, toSocketType: EnumInstance) {
+    constructor (fromSocketType: MemberType<typeof SocketType>, toNode: NodeIndex, toSocketType: MemberType<typeof SocketType>) {
         this.fromSocketType = fromSocketType;
         this.toNode = toNode;
         this.toSocketType = toSocketType;
     }
 }
 
-export function socketTypeToString(socketType: /*SocketType*/EnumInstance): string {
-    let response = socketType.match<string>([
-        [SocketType.ids.Stream, ([stream/*: StreamSocketType*/]) => {
-            return stream.match([
-                [StreamSocketType.ids.Audio, () => i18n.t("socketType.stream.audio")],
-                [StreamSocketType.ids.Gate, () => i18n.t("socketType.stream.gate")],
-                [StreamSocketType.ids.Gain, () => i18n.t("socketType.stream.gain")],
-                [StreamSocketType.ids.Detune, () => i18n.t("socketType.stream.detune")],
-                [StreamSocketType.ids.Dynamic, (uid) => i18n.t("socketType.stream.dynamic", { uid })],
-            ]);
-        }],
-        [SocketType.ids.Midi, ([midi/* :MidiSocketType*/]) => {
-            return midi.match([
-                [MidiSocketType.ids.Default, () => i18n.t("socketType.midi.default")],
-                [MidiSocketType.ids.Dynamic, (uid) => i18n.t("socketType.midi.dynamic", { uid })],
-            ]);
-        }],
-        [SocketType.ids.Value, ([value/* :ValueSocketType*/]) => {
-            return value.match([
-                [ValueSocketType.ids.Gain, () => i18n.t("socketType.value.gain")],
-                [ValueSocketType.ids.Frequency, () => i18n.t("socketType.value.frequency")],
-                [ValueSocketType.ids.Gate, () => i18n.t("socketType.value.gate")],
-                [ValueSocketType.ids.Attack, () => i18n.t("socketType.value.attack")],
-                [ValueSocketType.ids.Decay, () => i18n.t("socketType.value.decay")],
-                [ValueSocketType.ids.Sustain, () => i18n.t("socketType.value.sustain")],
-                [ValueSocketType.ids.Release, () => i18n.t("socketType.value.release")],
-                [ValueSocketType.ids.Dynamic, (uid) => i18n.t("socketType.value.dynamic", { uid })],
-            ]);
-        }],
-        [SocketType.ids.MethodCall, () => "Method call"]
-    ]);
+export function socketTypeToString(socketType: MemberType<typeof SocketType>): string {
+    let response = socketType.match({
+        Stream: (stream) => stream.match({
+            Audio: () => i18n.t("socketType.stream.audio"),
+            Gate: () => i18n.t("socketType.stream.gate"),
+            Gain: () => i18n.t("socketType.stream.gain"),
+            Detune: () => i18n.t("socketType.stream.detune"),
+            Dynamic: (uid) => i18n.t("socketType.midi.stream", { uid })
+        }),
+        Midi: (midi) => midi.match({
+            Default: () => i18n.t("socketType.midi.default"),
+            Dynamic: (uid) => i18n.t("socketType.midi.dynamic", { uid })
+        }),
+        Value: (value) => value.match({
+            Gain: () => i18n.t("socketType.value.gain"),
+            Frequency: () => i18n.t("socketType.value.frequency"),
+            Gate: () => i18n.t("socketType.value.gate"),
+            Attack: () => i18n.t("socketType.value.attack"),
+            Decay: () => i18n.t("socketType.value.decay"),
+            Sustain: () => i18n.t("socketType.value.sustain"),
+            Release: () => i18n.t("socketType.value.release"),
+            Dynamic: (uid) => i18n.t("socketType.value.dynamic", { uid })
+        }),
+        NodeRef: (nodeRef) => nodeRef.match({
+            Button: () => i18n.t("socketType.noderef.button"),
+            Dynamic: (uid) => i18n.t("socketType.noderef.dynamic", { uid })
+        }),
+        MethodCall: () => "Method call",
+    });
 
     return response;
 }
