@@ -1,22 +1,22 @@
-import {createEnumDefinition, EnumInstance} from "../util/enum";
-import { GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper, UiData } from "./node";
+import { GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper, UiData, deserializeNodeRow } from "./node";
 import { InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
-import { Property, PropertyType } from "./property";
+import { deserializeProperty, Property, PropertyType } from "./property";
 import { readable, Readable, writable, Writable, get } from 'svelte/store';
 import { IPCSocket } from "../util/socket";
+import { makeTaggedUnion } from "safety-match";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
-export const PossibleNode = createEnumDefinition({
-    "Some": "object", // GenerationalNode
-    "None": "number", // generation last held (u32)
+export const PossibleNode = makeTaggedUnion({
+    "Some": (node: GenerationalNode) => node, // GenerationalNode
+    "None": (generation: number) => generation, // generation last held (u32)
 });
 
 export class Graph {
     private nodes: (NodeWrapper | undefined)[];
     keyedNodeStore: Writable<([string, NodeWrapper])[]>;
     keyedConnectionStore: Writable<([string, Connection])[]>;
-    nodeStore: Writable<NodeWrapper[]>;
+    nodeStore: Writable<(NodeWrapper | undefined)[]>;
     changedNodes: NodeIndex[];
     ipcSocket: IPCSocket;
     selectedNodes: [];
@@ -24,17 +24,7 @@ export class Graph {
     constructor (ipcSocket: IPCSocket) {
         this.ipcSocket = ipcSocket;
 
-        this.nodes = [/* NodeWrapper {
-                    Node {
-
-                    },
-                    NodeIndex {
-                        index: usize,
-                        generation: u32
-                    }
-                },
-                generation: u32
-            } */];
+        this.nodes = [];
 
         this.nodeStore = writable(this.nodes);
         this.keyedNodeStore = writable(this.getKeyedNodes());
@@ -56,7 +46,7 @@ export class Graph {
         return undefined;
     }
 
-    getNodes(): Readable<NodeWrapper[]> {
+    getNodes(): Readable<(NodeWrapper | undefined)[]> {
         return this.nodeStore;
     }
 
@@ -94,7 +84,7 @@ export class Graph {
             let newProps = {};
 
             for (let data in node.properties) {
-                newProps[data] = Property.deserialize(node.properties[data]);
+                newProps[data] = deserializeProperty(node.properties[data]);
             }
 
             this.nodes[i]?.properties.next(newProps);
@@ -123,8 +113,8 @@ export class Graph {
             }));
 
             // apply node stuff
-            this.nodes[i]?.nodeRows.next(node.node_rows.map(NodeRow.deserialize));
-            this.nodes[i]?.defaultOverrides.next(node.default_overrides.map(NodeRow.deserialize));
+            this.nodes[i]?.nodeRows.next(node.node_rows.map(deserializeNodeRow));
+            this.nodes[i]?.defaultOverrides.next(node.default_overrides.map(deserializeNodeRow));
         }
 
         console.log("parsed nodes", this.nodes);
@@ -142,9 +132,11 @@ export class Graph {
 
     // TODO: this is very naïve and inefficient
     private getKeyedConnections (): ([string, Connection])[] {
-        let keyedConnections = [];
+        let keyedConnections: ([string, Connection])[] = [];
 
         for (let node of this.nodes) {
+            if (!node) continue;
+
             for (let connection of node.connectedInputs.getValue()) {
                 let newConnection = new Connection(connection.fromSocketType, connection.fromNode, connection.toSocketType, node.index);
 
@@ -159,15 +151,17 @@ export class Graph {
     }
 
     private getKeyedNodes (): ([string, NodeWrapper])[] {
-        let keyedNodes = [];
+        let keyedNodes: ([string, NodeWrapper])[] = [];
 
         for (let i = 0; i < this.nodes.length; i++) {
-            if (this.nodes[i] != undefined) {
-                const generation = this.nodes[i].index.generation;
-                const nodeWrapper = this.nodes[i];
+            const node = this.nodes[i];
 
-                keyedNodes.push([i + "," + generation, nodeWrapper]);
-            }
+            if (node === undefined) continue;
+
+            const generation = node.index.generation;
+            const nodeWrapper = node;
+
+            keyedNodes.push([i + "," + generation, nodeWrapper]);
         }
 
         return keyedNodes;
