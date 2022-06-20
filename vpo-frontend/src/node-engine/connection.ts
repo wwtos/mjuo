@@ -1,6 +1,6 @@
 import { NodeIndex } from "./node";
 import { i18n } from '../i18n';
-import { circularDeepEqual } from "fast-equals";
+import { deepEqual } from "fast-equals";
 import {makeTaggedUnion, MemberType, none} from "safety-match";
 
 export const MidiSocketType = makeTaggedUnion({
@@ -117,7 +117,7 @@ export const SocketType = makeTaggedUnion({
 
 // TODO: faster implementation
 export function areSocketTypesEqual(socketType1: MemberType<typeof SocketType>, socketType2: MemberType<typeof SocketType>): boolean {
-    return circularDeepEqual(socketType1, socketType2);
+    return deepEqual(socketType1, socketType2);
 }
 
 export function jsonToSocketType (json: object) {

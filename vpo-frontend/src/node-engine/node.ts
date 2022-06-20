@@ -1,79 +1,87 @@
-import { createEnumDefinition, EnumInstance } from "../util/enum";
-import { areSocketTypesEqual, InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
-import { Property, PropertyType } from "./property";
-import { BehaviorSubject, combineLatest, Observable, Subject } from "rxjs";
-import { distinctUntilChanged, map, mergeMap, tap } from "rxjs/operators";
-import { circularDeepEqual, shallowEqual } from 'fast-equals';
-import { Readable, writable, Writable } from "svelte/store";
+import { areSocketTypesEqual, InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection,
+         Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType, deserializeStreamSocketType,
+         deserializeMidiSocketType, deserializeNodeRefSocketType, deserializeValueSocketType, deserializePrimitive } from "./connection";
+import { deserializeProperty, deserializePropertyType, Property, PropertyType } from "./property";
+import { BehaviorSubject, combineLatest, Observable } from "rxjs";
+import { distinctUntilChanged, map, mergeMap } from "rxjs/operators";
+import { shallowEqual } from 'fast-equals';
+import { makeTaggedUnion, MemberType } from "safety-match";
 
 const TITLE_HEIGHT = 30;
 const SOCKET_HEIGHT = 36;
 const SOCKET_OFFSET = 26;
 const NODE_WIDTH = 200;
 
-export const NodeRow = createEnumDefinition({
-    "StreamInput": [StreamSocketType, "f32"],
-    "MidiInput": [MidiSocketType, "array"],
-    "ValueInput": [ValueSocketType, Primitive],
-    "NodeRefInput": [NodeRefSocketType],
-    "StreamOutput": [StreamSocketType, "f32"],
-    "MidiOutput": [MidiSocketType, "array"],
-    "ValueOutput": [ValueSocketType, Primitive],
-    "NodeRefOutput": [NodeRefSocketType],
-    "Property": ["string", PropertyType, Property]
+export const NodeRow = makeTaggedUnion({
+    "StreamInput": (type: MemberType<typeof StreamSocketType>, defaultVal: number): [MemberType<typeof StreamSocketType>, number] => [type, defaultVal],
+    "MidiInput": (type: MemberType<typeof MidiSocketType>, defaultVal: any[]): [MemberType<typeof MidiSocketType>, any[]] => [type, defaultVal],
+    "ValueInput": (type: MemberType<typeof ValueSocketType>, defaultVal: MemberType<typeof Primitive>): [MemberType<typeof ValueSocketType>, MemberType<typeof Primitive>] => [type, defaultVal],
+    "NodeRefInput": (type: MemberType<typeof NodeRefSocketType>) => type,
+    "StreamOutput": (type: MemberType<typeof StreamSocketType>, defaultVal: number): [MemberType<typeof StreamSocketType>, number] => [type, defaultVal],
+    "MidiOutput": (type: MemberType<typeof MidiSocketType>, defaultVal: any[]): [MemberType<typeof MidiSocketType>, any[]] => [type, defaultVal],
+    "ValueOutput": (type: MemberType<typeof ValueSocketType>, defaultVal: MemberType<typeof Primitive>): [MemberType<typeof ValueSocketType>, MemberType<typeof Primitive>] => [type, defaultVal],
+    "NodeRefOutput": (type: MemberType<typeof NodeRefSocketType>) => type,
+    "Property": (name: string, type: MemberType<typeof PropertyType>, defaultVal: MemberType<typeof Property>): [string, MemberType<typeof PropertyType>, MemberType<typeof Property>] => [name, type, defaultVal]
 });
 
-NodeRow.asTypeAndDirection = function (nodeRow: EnumInstance): [EnumInstance/* SocketType */, SocketDirection] {
-    return nodeRow.match([
-        [NodeRow.ids.StreamInput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Input]],
-        [NodeRow.ids.MidiInput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Input]],
-        [NodeRow.ids.ValueInput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Input]],
-        [NodeRow.ids.NodeRefInput, ([socketType]) => [SocketType.NodeRef(socketType), SocketDirection.Input]],
-        [NodeRow.ids.StreamOutput, ([socketType]) => [SocketType.Stream(socketType), SocketDirection.Output]],
-        [NodeRow.ids.MidiOutput, ([socketType]) => [SocketType.Midi(socketType), SocketDirection.Output]],
-        [NodeRow.ids.ValueOutput, ([socketType]) => [SocketType.Value(socketType), SocketDirection.Output]],
-        [NodeRow.ids.NodeRefOutput, ([socketType]) => [SocketType.NodeRef(socketType), SocketDirection.Output]],
-    ]);
+const NodeRowAsTypeAndDirection = function (nodeRow: MemberType<typeof NodeRow > ): /* [MemberType<typeof SocketType>, SocketDirection]*/ any {
+    return nodeRow.match({
+        StreamInput: ([type, _]) => [SocketType.Stream(type), SocketDirection.Input],
+        MidiInput: ([type, _]) => [SocketType.Midi(type), SocketDirection.Input],
+        ValueInput: ([type, _]) => [SocketType.Value(type), SocketDirection.Input],
+        NodeRefInput: (type) => [SocketType.NodeRef(type), SocketDirection.Input],
+        StreamOutput: ([type, _]) => [SocketType.Stream(type), SocketDirection.Output],
+        MidiOutput: ([type, _]) => [SocketType.Midi(type), SocketDirection.Output],
+        ValueOutput: ([type, _]) => [SocketType.Value(type), SocketDirection.Output],
+        NodeRefOutput: (type) => [SocketType.NodeRef(type), SocketDirection.Output],
+        Property: ([name, type, defaultVal]) => [SocketType.Stream(StreamSocketType.Audio), SocketDirection.Input]
+    });
 };
 
-NodeRow.fromTypeAndDirection = function (type: EnumInstance/* SocketType */, direction: SocketDirection, defaultValue: any) {
+const NodeRowFromTypeAndDirection = function (type: MemberType<typeof SocketType>, direction: SocketDirection, defaultValue: any): MemberType<typeof NodeRow> {
     if (direction === SocketDirection.Input) {
-        return type.match([
-            [SocketType.ids.Stream, ([streamSocketType]) => NodeRow.StreamInput(streamSocketType, defaultValue)],
-            [SocketType.ids.Midi, ([midiSocketType]) => NodeRow.MidiInput(midiSocketType, defaultValue)],
-            [SocketType.ids.Value, ([valueSocketType]) => NodeRow.ValueInput(valueSocketType, defaultValue)],
-            [SocketType.ids.NodeRef, ([nodeRefSocketType]) => NodeRow.NodeRefInput(nodeRefSocketType)],
-        ]);
+        return type.match({
+            Stream: (streamSocketType) => NodeRow.StreamInput(streamSocketType, defaultValue),
+            Midi: (midiSocketType) => NodeRow.MidiInput(midiSocketType, defaultValue),
+            Value: (valueSocketType) => NodeRow.ValueInput(valueSocketType, defaultValue),
+            NodeRef: (nodeRefSocketType) => NodeRow.NodeRefInput(nodeRefSocketType),
+            MethodCall: (params) => {
+                throw "why do I still have this"
+            }
+        });
     } else {
-        return type.match([
-            [SocketType.ids.Stream, ([streamSocketType]) => NodeRow.StreamOutput(streamSocketType, defaultValue)],
-            [SocketType.ids.Midi, ([midiSocketType]) => NodeRow.MidiOutput(midiSocketType, defaultValue)],
-            [SocketType.ids.Value, ([valueSocketType]) => NodeRow.ValueOutput(valueSocketType, defaultValue)],
-            [SocketType.ids.NodeRef, ([nodeRefSocketType]) => NodeRow.NodeRefOutput(nodeRefSocketType)],
-        ]);
+        return type.match({
+            Stream: (streamSocketType) => NodeRow.StreamOutput(streamSocketType, defaultValue),
+            Midi: (midiSocketType) => NodeRow.MidiOutput(midiSocketType, defaultValue),
+            Value: (valueSocketType) => NodeRow.ValueOutput(valueSocketType, defaultValue),
+            NodeRef: (nodeRefSocketType) => NodeRow.NodeRefOutput(nodeRefSocketType),
+            MethodCall: (params) => {
+                throw "why do I still have this"
+            }
+        });
     }
 };
 
-NodeRow.deserialize = function (json) {
+const deserializeNodeRow = function (json) {
     switch (json.type) {
         case "StreamInput":
-            return NodeRow.StreamInput(StreamSocketType.deserialize(json.content[0]), json.content[1]);
+            return NodeRow.StreamInput(deserializeStreamSocketType(json.content[0]), json.content[1]);
         case "MidiInput":
-            return NodeRow.MidiInput(MidiSocketType.deserialize(json.content[0]), json.content[1]);
+            return NodeRow.MidiInput(deserializeMidiSocketType(json.content[0]), json.content[1]);
         case "ValueInput":
-            return NodeRow.ValueInput(ValueSocketType.deserialize(json.content[0]), Primitive.deserialize(json.content[1]));
+            return NodeRow.ValueInput(deserializeValueSocketType(json.content[0]), deserializePrimitive(json.content[1]));
         case "NodeRefInput":
-            return NodeRow.NodeRefInput(NodeRefSocketType.deserialize(json.content[0]));
+            return NodeRow.NodeRefInput(deserializeNodeRefSocketType(json.content[0]));
         case "StreamOutput":
-            return NodeRow.StreamOutput(StreamSocketType.deserialize(json.content[0]), json.content[1]);
+            return NodeRow.StreamOutput(deserializeStreamSocketType(json.content[0]), json.content[1]);
         case "MidiOutput":
-            return NodeRow.MidiOutput(MidiSocketType.deserialize(json.content[0]), json.content[1]);
+            return NodeRow.MidiOutput(deserializeMidiSocketType(json.content[0]), json.content[1]);
         case "ValueOutput":
-            return NodeRow.ValueOutput(ValueSocketType.deserialize(json.content[0]), Primitive.deserialize(json.content[1]));
+            return NodeRow.ValueOutput(deserializeValueSocketType(json.content[0]), deserializePrimitive(json.content[1]));
         case "NodeRefOutput":
-            return NodeRow.NodeRefOutput(NodeRefSocketType.deserialize(json.content[0]));
+            return NodeRow.NodeRefOutput(deserializeNodeRefSocketType(json.content[0]));
         case "Property":
-            return NodeRow.Property(json.content[0], PropertyType.deserialize(json.content[1]), Property.deserialize(json.content[2]));
+            return NodeRow.Property(json.content[0], deserializePropertyType(json.content[1]), deserializeProperty(json.content[2]));
     }
 };
 
@@ -81,11 +89,13 @@ NodeRow.deserialize = function (json) {
 export class InitResult {
     did_rows_change: boolean;
     /* Vec<NodeRow> */
-    node_rows: Array<EnumInstance>;
+    node_rows: Array <MemberType<typeof NodeRow>> ;
     /* Option<HashMap<String, Property>> */
-    changed_properties?: {[key: string]: EnumInstance}
+    changed_properties ? : {
+        [key: string]: MemberType<typeof Property>
+    }
 
-    constructor (obj) {
+    constructor(obj) {
         for (var i in obj) {
             this[i] = obj[i];
         }
@@ -95,8 +105,8 @@ export class InitResult {
 export class UiData {
     x: number = 0;
     y: number = 0;
-    selected?: boolean = false;
-    title?: string = "Node";
+    selected ? : boolean = false;
+    title ? : string = "Node";
 
     constructor(props: object) {
         for (var prop in props) {
@@ -106,16 +116,18 @@ export class UiData {
 }
 
 export class Node {
-    inputSockets: EnumInstance[]; // Vec<SocketType>
-    outputSockets: EnumInstance[]; // Vec<SocketType>
+    inputSockets: MemberType<typeof SocketType>[];
+    outputSockets: MemberType<typeof SocketType>[];
     usableProperties: {
-        [prop: string]: EnumInstance // HashMap<String, PropertyType>
-    }; // hashmap of property/propertyType pairs
+        [prop: string]: MemberType<typeof PropertyType>
+    }; 
 
     constructor(
-        inputSockets: EnumInstance[],
-        outputSockets: EnumInstance[],
-        usableProperties: { [prop: string]: EnumInstance /*HashMap<String, PropertyType>*/ }
+        inputSockets: MemberType<typeof SocketType>[],
+        outputSockets: MemberType<typeof SocketType>[],
+        usableProperties: {
+            [prop: string]: MemberType<typeof PropertyType>
+        }
     ) {
         this.inputSockets = inputSockets;
         this.outputSockets = outputSockets;
@@ -126,10 +138,10 @@ export class Node {
 export class NodeWrapper {
     node: BehaviorSubject<Node>;
     index: NodeIndex;
-    defaultOverrides: /* NodeRow */BehaviorSubject<EnumInstance[]>;
+    defaultOverrides: BehaviorSubject<MemberType<typeof NodeRow>[]>;
     connectedInputs: BehaviorSubject<InputSideConnection[]>;
     connectedOutputs: BehaviorSubject<OutputSideConnection[]>;
-    nodeRows: /* NodeRow */BehaviorSubject<EnumInstance[]>;
+    nodeRows: BehaviorSubject<MemberType<typeof NodeRow>[]>;
     properties: BehaviorSubject<object>;
     uiData: BehaviorSubject<UiData>;
 
@@ -138,8 +150,8 @@ export class NodeWrapper {
         index: NodeIndex,
         connectedInputs: InputSideConnection[],
         connectedOutputs: OutputSideConnection[],
-        defaultOverrides: EnumInstance[]/* NodeRow */,
-        nodeRows: /* NodeRow */EnumInstance[],
+        defaultOverrides: MemberType<typeof NodeRow>[],
+        nodeRows: MemberType<typeof NodeRow>[],
         properties: object,
         uiData: UiData
     ) {
@@ -164,25 +176,25 @@ export class NodeWrapper {
         };
     }
 
-    getInputConnectionByType(inputSocketType: EnumInstance /* SocketType */): Observable<InputSideConnection | undefined> {
+    getInputConnectionByType(inputSocketType: MemberType<typeof SocketType>): Observable < InputSideConnection | undefined > {
         return this.connectedInputs.pipe(
             map(connectedInputs => {
-                return connectedInputs.find(input => circularDeepEqual(input.toSocketType, inputSocketType));
+                return connectedInputs.find(input => areSocketTypesEqual(input.toSocketType, inputSocketType));
             }),
             distinctUntilChanged(shallowEqual)
         );
     }
 
-    getOutputConnectionsByType(outputSocketType: EnumInstance /* SocketType */): Observable<OutputSideConnection[]> {
+    getOutputConnectionsByType(outputSocketType: MemberType<typeof SocketType>): Observable < OutputSideConnection[] > {
         return this.connectedOutputs.pipe(
             map(connectedOutputs => {
-                return connectedOutputs.filter(input => input.fromSocketType === outputSocketType);
-            },
-            distinctUntilChanged(shallowEqual)
-        ));
+                    return connectedOutputs.filter(input => input.fromSocketType === outputSocketType);
+                },
+                distinctUntilChanged(shallowEqual)
+            ));
     }
 
-    getPropertyValue(propertyName: string): Observable<any> {
+    getPropertyValue(propertyName: string): Observable < any > {
         return combineLatest([this.properties, this.nodeRows]).pipe(
             map(([properties, nodeRows]) => {
                 if (properties[propertyName] !== undefined) {
@@ -190,52 +202,56 @@ export class NodeWrapper {
                 } else {
                     // else find property in defaults
                     const row = nodeRows.find(nodeRow => {
-                        return nodeRow.match([
-                            [NodeRow.ids.Property, ([rowName, rowType, rowDefault]) => {
+                        return nodeRow.match({
+                            Property: ([rowName, rowType, rowDefault]) => {
                                 return rowName === propertyName;
-                            }]
-                        ]);
+                            },
+                            _: () => { return false; }
+                        });
                     });
 
-                    return row ? row.content ? row.content[2] : undefined : undefined;
+                    if (!row) return undefined;
+
+                    return row.match({
+                        Property: ([_name, _type, defaultVal]) => defaultVal,
+                        _: () => { throw "unreachable" }
+                    });
                 }
             })
         );
     }
 
-    getSocketDefault(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<any> {
+    getSocketDefault(socketType: MemberType<typeof SocketType>, direction: SocketDirection): Observable<any> {
         return combineLatest([this.nodeRows, this.defaultOverrides]).pipe(
             map(([nodeRows, defaultOverrides]) => {
                 const defaultOverride = defaultOverrides.find(defaultOverride => {
-                    const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
+                    const [overrideSocketType, overrideDirection] = NodeRowAsTypeAndDirection(defaultOverride);
 
                     return areSocketTypesEqual(socketType, overrideSocketType) &&
-                           direction === overrideDirection;
+                        direction === overrideDirection;
                 });
 
-                if (defaultOverride) return (defaultOverride.content as any)[1];
+                if (defaultOverride) return (defaultOverride.data)[1];
 
                 const defaultNodeRow = nodeRows.find(nodeRow => {
-                    const [nodeRowSocketType, nodeRowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+                    const [nodeRowSocketType, nodeRowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
                     return areSocketTypesEqual(socketType, nodeRowSocketType) &&
-                           direction === nodeRowDirection;
+                        direction === nodeRowDirection;
                 });
-                
-                if (defaultNodeRow) return (defaultNodeRow.content as any)[1];
+
+                if (defaultNodeRow) return (defaultNodeRow.data)[1];
             })
         );
     }
 
-    getSocketXY(socketType: EnumInstance /* SocketType */, direction: SocketDirection): Observable<[number, number] | undefined> {
+    getSocketXY(socketType: MemberType<typeof SocketType>, direction: SocketDirection): Observable < [number, number] | undefined > {
         return this.nodeRows.pipe(
             mergeMap(nodeRows => {
                 const rowIndex = nodeRows.findIndex(nodeRow => {
-                    const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+                    const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
-                    return socketType.getType() === rowSocketType.getType() &&
-                           (socketType.content as any)[0].getType() === rowSocketType.content[0].getType() &&
-                           direction === rowDirection;
+                    return areSocketTypesEqual(socketType, rowSocketType);
                 });
 
                 if (rowIndex === -1) return new BehaviorSubject(undefined);
@@ -243,21 +259,19 @@ export class NodeWrapper {
                 const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
                 const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
 
-                return this.uiData.pipe<[number, number]>(
+                return this.uiData.pipe < [number, number] > (
                     map(uiData => [uiData.x + relativeX, uiData.y + relativeY])
                 );
             })
         );
     }
 
-    getSocketXYCurrent(socketType: EnumInstance /* SocketType */, direction: SocketDirection): [number, number] | undefined {
+    getSocketXYCurrent(socketType: MemberType<typeof SocketType>, direction: SocketDirection): [number, number] | undefined {
         const nodeRows = this.nodeRows.getValue();
         const rowIndex = nodeRows.findIndex(nodeRow => {
-            const [rowSocketType, rowDirection] = NodeRow.asTypeAndDirection(nodeRow);
+            const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
-            return socketType.getType() === rowSocketType.getType() &&
-                    (socketType.content as any)[0].getType() === rowSocketType.content[0].getType() &&
-                    direction === rowDirection;
+            return areSocketTypesEqual(socketType, rowSocketType);;
         });
 
         if (rowIndex === -1) return undefined;
@@ -320,5 +334,5 @@ export class NodeIndex {
 
 export interface GenerationalNode {
     node: NodeWrapper,
-    generation: number
+        generation: number
 }
