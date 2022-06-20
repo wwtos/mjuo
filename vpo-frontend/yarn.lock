@@ -3740,6 +3740,11 @@
   "resolved" "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz"
   "version" "2.1.2"
 
+"safety-match@^0.4.4":
+  "integrity" "sha512-f6+n7M03SGjmL2d3/nf/tsXyjw1ATQ3n6JPGqk5NRxvqmWHIG03deeVLrjy72mzLyVTp2k7WF3NrbmdrG/IKdw=="
+  "resolved" "https://registry.npmjs.org/safety-match/-/safety-match-0.4.4.tgz"
+  "version" "0.4.4"
+
 "sander@^0.5.0":
   "integrity" "sha1-dB4kXiMfB8r7b98PEzrfohalAq0="
   "resolved" "https://registry.npmjs.org/sander/-/sander-0.5.1.tgz"
