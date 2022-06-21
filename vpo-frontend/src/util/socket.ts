@@ -1,5 +1,5 @@
-import {Connection} from "../node-engine/connection";
-import { NodeWrapper, UiData } from "../node-engine/node";
+import type { Connection } from "../node-engine/connection";
+import type { NodeWrapper, UiData } from "../node-engine/node";
 
 export class IPCSocket {
     ipcRenderer: any;

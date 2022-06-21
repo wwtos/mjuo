@@ -1,5 +1,5 @@
-import { Graph } from "./graph";
+import type { Graph } from "./graph";
 
-class GraphManager {
+export class GraphManager {
     graphs: Graph[];
 }

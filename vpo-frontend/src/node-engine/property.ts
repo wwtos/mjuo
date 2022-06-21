@@ -1,14 +1,14 @@
-import { createEnumDefinition, EnumInstance } from "../util/enum";
+import { makeTaggedUnion, MemberType, none } from "safety-match";
 
-export const PropertyType = createEnumDefinition({
-    "String": null,
-    "Integer": null,
-    "Float": null,
-    "Bool": null,
-    "MultipleChoice": "array"
+export const PropertyType = makeTaggedUnion({
+    "String": none,
+    "Integer": none,
+    "Float": none,
+    "Bool": none,
+    "MultipleChoice": (stringArr: string[]) => stringArr
 });
 
-PropertyType.deserialize = function (json) {
+export function deserializePropertyType(json: any): MemberType<typeof PropertyType> {
     switch (json.type) {
         case "String":
             return PropertyType.String;
@@ -21,17 +21,19 @@ PropertyType.deserialize = function (json) {
         case "MultipleChoice":
             return PropertyType.MultipleChoice(json.content);
     }
+
+    throw "Failed to parse json";    
 };
 
-export const Property = createEnumDefinition({
-    "String": "string",
-    "Integer": "number",
-    "Float": "number",
-    "Bool": "boolean",
-    "MultipleChoice": "string"
+export const Property = makeTaggedUnion({
+    "String": (string: string) => string,
+    "Integer": (integer: number) => integer,
+    "Float": (float: number) => float,
+    "Bool": (boolean: boolean) => boolean,
+    "MultipleChoice": (choice: string) => choice
 });
 
-Property.deserialize = function (json) {
+export function deserializeProperty(json: any): MemberType<typeof Property> {
     switch (json.type) {
         case "String":
             return Property.String(json.content);
@@ -44,8 +46,10 @@ Property.deserialize = function (json) {
         case "MultipleChoice":
             return Property.MultipleChoice(json.content);
     }
+
+    throw "Failed to parse json";   
 };
 
-export function jsonToProperty (json: object): EnumInstance {
+export function jsonToProperty (json: object): MemberType<typeof Property> {
     return Property[json["type"]](json["content"]);
 }
