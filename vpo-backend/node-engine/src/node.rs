@@ -18,7 +18,7 @@ use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum NodeRow {
     StreamInput(StreamSocketType, f32),
     MidiInput(MidiSocketType, Vec<MidiData>),

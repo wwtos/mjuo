@@ -12,7 +12,7 @@ use super::{
 };
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum NodeVariant {
     GainGraphNode(GainGraphNode),
     OutputNode(OutputNode),
