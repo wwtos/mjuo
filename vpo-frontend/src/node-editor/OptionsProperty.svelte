@@ -1,6 +1,6 @@
 <script lang="ts">
 export let onchange: Function = function() {};
-export let value;
+export let value: string;
 export let states: string[]; // {"id": "value"}
 
 let firstTime = true;

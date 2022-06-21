@@ -4,14 +4,14 @@
     import { onMount } from 'svelte';
     import { Graph, PossibleNode } from '../node-engine/graph';
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
-    import { MidiSocketType, SocketDirection, socketToKey, Connection as ConnectionObj } from "../node-engine/connection";
-    import { EnumInstance } from "../util/enum";
+    import { MidiSocketType, SocketDirection, socketToKey, Connection as ConnectionObj, SocketType } from "../node-engine/connection";
     import { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
     import { transformMouse, transformMouseRelativeToEditor } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
     import { i18nStore } from '../i18n.js';
     import { get } from "svelte/store";
+import { MemberType } from "safety-match";
     
     export let width = 400;
     export let height = 400;
@@ -53,7 +53,7 @@
     let connectionBeingCreatedFrom: {
         index: NodeIndex,
         direction: SocketDirection,
-        socket: EnumInstance
+        socket: MemberType<typeof SocketType>
     };
 
     let selectedNodes: NodeIndex[] = [];
@@ -159,7 +159,7 @@
         }
     }
 
-    function handleSocketMousedown(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {
+    function handleSocketMousedown(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection, index: NodeIndex) {
         let boundingRect = editor.getBoundingClientRect();
 
         let relativeX = event.clientX - boundingRect.x;
@@ -220,7 +220,7 @@
         };
     }
 
-    function handleSocketMouseup(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {
+    function handleSocketMouseup(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection, index: NodeIndex) {
         // can't connect one node to the same node
         if (index.index === connectionBeingCreatedFrom.index.index) return;
 

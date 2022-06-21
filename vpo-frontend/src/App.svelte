@@ -1,16 +1,12 @@
 <script lang="ts">
-	import PropertyEditor from './node-editor/PropertyEditor.svelte';
 	import Editor from './node-editor/Editor.svelte';
 	import SideNavbar from './node-editor/SideNavbar.svelte';
 	import SplitView from './layout/SplitView.svelte';
 	import {SplitDirection} from './layout/enums';
 	import {windowDimensions} from './util/window-size';
-	import {createEnumDefinition} from './util/enum';
 	import {IPCSocket} from './util/socket';
-	import { Graph } from './node-engine/graph';
+	import {Graph} from './node-engine/graph';
 	import Toasts from './ui/Toasts.svelte';
-
-	import { i18nStore } from './i18n.js';
 	
 	const ipc = (window as any).ipcRenderer;
 	let ipcSocket: any = new IPCSocket(ipc);

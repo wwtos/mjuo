@@ -1,11 +1,12 @@
 <script lang="ts">
+    import { MemberType } from "safety-match";
+
     import { SocketType, SocketDirection, Primitive } from "../node-engine/connection";
-    import { EnumInstance } from "../util/enum";
 
     export let direction: SocketDirection;
-    export let type: EnumInstance/*SocketType*/;
-    export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
-    export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
+    export let type: MemberType<typeof SocketType>;
+    export let socketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
+    export let socketMouseup = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
 
     function socketMousedownRaw(event: MouseEvent) {
         event.preventDefault();
@@ -20,11 +21,11 @@
 </script>
 
 <div class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input} class="socket-container">
-    {#if type.getType() === SocketType.ids.Stream}
+    {#if type.variant === "Stream"}
         <div class="socket stream" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
-    {:else if type.getType() === SocketType.ids.Midi}
+    {:else if type.variant === "Midi"}
         <div class="socket midi" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
-    {:else if type.getType() === SocketType.ids.Value}
+    {:else if type.variant === "Value"}
         <div class="socket value" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}>
             <svg viewBox="0 0 26 26">
                 <polygon points="13,1 25,25 1,25" />
