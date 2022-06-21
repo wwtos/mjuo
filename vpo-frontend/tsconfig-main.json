@@ -10,6 +10,8 @@
       },
       "esModuleInterop": true
     },
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
     "include": [
         "src/index.ts",
         "src/main/**/*.ts"
