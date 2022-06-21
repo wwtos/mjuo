@@ -2,6 +2,8 @@
   "extends": "@tsconfig/svelte/tsconfig.json",
   "include": ["src/**/*"],
   "exclude": ["node_modules/*", "__sapper__/*", "public/*", "src/index.js", "src/main/*", "src/App.svelte"],
+  "esModuleInterop": true,
+  "resolveJsonModule": true,
   "compilerOptions": {
     "rootDir": "src"
   }
