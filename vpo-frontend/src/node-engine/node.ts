@@ -24,7 +24,7 @@ export const NodeRow = makeTaggedUnion({
     "Property": (name: string, type: MemberType<typeof PropertyType>, defaultVal: MemberType<typeof Property>): [string, MemberType<typeof PropertyType>, MemberType<typeof Property>] => [name, type, defaultVal]
 });
 
-const NodeRowAsTypeAndDirection = function (nodeRow: MemberType<typeof NodeRow > ): /* [MemberType<typeof SocketType>, SocketDirection]*/ any {
+export function NodeRowAsTypeAndDirection (nodeRow: MemberType<typeof NodeRow > ): /* [MemberType<typeof SocketType>, SocketDirection]*/ any {
     return nodeRow.match({
         StreamInput: ([type, _]) => [SocketType.Stream(type), SocketDirection.Input],
         MidiInput: ([type, _]) => [SocketType.Midi(type), SocketDirection.Input],
@@ -34,18 +34,18 @@ const NodeRowAsTypeAndDirection = function (nodeRow: MemberType<typeof NodeRow >
         MidiOutput: ([type, _]) => [SocketType.Midi(type), SocketDirection.Output],
         ValueOutput: ([type, _]) => [SocketType.Value(type), SocketDirection.Output],
         NodeRefOutput: (type) => [SocketType.NodeRef(type), SocketDirection.Output],
-        Property: ([name, type, defaultVal]) => [SocketType.Stream(StreamSocketType.Audio), SocketDirection.Input]
+        Property: (_) => [SocketType.Stream(StreamSocketType.Audio), SocketDirection.Input]
     });
 };
 
-const NodeRowFromTypeAndDirection = function (type: MemberType<typeof SocketType>, direction: SocketDirection, defaultValue: any): MemberType<typeof NodeRow> {
+export function NodeRowFromTypeAndDirection (type: MemberType<typeof SocketType>, direction: SocketDirection, defaultValue: any): MemberType<typeof NodeRow> {
     if (direction === SocketDirection.Input) {
         return type.match({
             Stream: (streamSocketType) => NodeRow.StreamInput(streamSocketType, defaultValue),
             Midi: (midiSocketType) => NodeRow.MidiInput(midiSocketType, defaultValue),
             Value: (valueSocketType) => NodeRow.ValueInput(valueSocketType, defaultValue),
             NodeRef: (nodeRefSocketType) => NodeRow.NodeRefInput(nodeRefSocketType),
-            MethodCall: (params) => {
+            MethodCall: (_params) => {
                 throw "why do I still have this"
             }
         });
@@ -55,14 +55,14 @@ const NodeRowFromTypeAndDirection = function (type: MemberType<typeof SocketType
             Midi: (midiSocketType) => NodeRow.MidiOutput(midiSocketType, defaultValue),
             Value: (valueSocketType) => NodeRow.ValueOutput(valueSocketType, defaultValue),
             NodeRef: (nodeRefSocketType) => NodeRow.NodeRefOutput(nodeRefSocketType),
-            MethodCall: (params) => {
+            MethodCall: (_params) => {
                 throw "why do I still have this"
             }
         });
     }
 };
 
-const deserializeNodeRow = function (json) {
+export function deserializeNodeRow (json: any) {
     switch (json.type) {
         case "StreamInput":
             return NodeRow.StreamInput(deserializeStreamSocketType(json.content[0]), json.content[1]);
@@ -203,7 +203,7 @@ export class NodeWrapper {
                     // else find property in defaults
                     const row = nodeRows.find(nodeRow => {
                         return nodeRow.match({
-                            Property: ([rowName, rowType, rowDefault]) => {
+                            Property: ([rowName, _rowType, _rowDefault]) => {
                                 return rowName === propertyName;
                             },
                             _: () => { return false; }
@@ -249,7 +249,7 @@ export class NodeWrapper {
         return this.nodeRows.pipe(
             mergeMap(nodeRows => {
                 const rowIndex = nodeRows.findIndex(nodeRow => {
-                    const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
+                    const [rowSocketType, _rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
                     return areSocketTypesEqual(socketType, rowSocketType);
                 });
@@ -269,7 +269,7 @@ export class NodeWrapper {
     getSocketXYCurrent(socketType: MemberType<typeof SocketType>, direction: SocketDirection): [number, number] | undefined {
         const nodeRows = this.nodeRows.getValue();
         const rowIndex = nodeRows.findIndex(nodeRow => {
-            const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
+            const [rowSocketType, _rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
             return areSocketTypesEqual(socketType, rowSocketType);;
         });

@@ -1,4 +1,4 @@
-import { NodeIndex } from "./node";
+import type { NodeIndex } from "./node";
 import { i18n } from '../i18n';
 import { deepEqual } from "fast-equals";
 import {makeTaggedUnion, MemberType, none} from "safety-match";
@@ -8,7 +8,7 @@ export const MidiSocketType = makeTaggedUnion({
     Dynamic: (uid) => uid,
 });
 
-export function deserializeMidiSocketType(json): MemberType<typeof MidiSocketType> {
+export function deserializeMidiSocketType(json: any): MemberType<typeof MidiSocketType> {
     switch (json.type) {
         case "Default":
             return MidiSocketType.Default;
@@ -27,7 +27,7 @@ export const StreamSocketType = makeTaggedUnion({
     Dynamic: (uid: number) => uid,
 });
 
-export function deserializeStreamSocketType(json): MemberType<typeof StreamSocketType> {
+export function deserializeStreamSocketType(json: any): MemberType<typeof StreamSocketType> {
     switch (json.type) {
         case "Audio":
             return StreamSocketType.Audio;
@@ -55,9 +55,7 @@ export const ValueSocketType = makeTaggedUnion({
     Dynamic: (uid: number) => uid,
 });
 
-const foo = ValueSocketType.Dynamic(25);
-
-export function deserializeValueSocketType(json): MemberType<typeof ValueSocketType> {
+export function deserializeValueSocketType(json: any): MemberType<typeof ValueSocketType> {
     switch (json.type) {
         case "Gain":
             return ValueSocketType.Gain;
@@ -85,7 +83,7 @@ export const NodeRefSocketType = makeTaggedUnion({
     Dynamic: (uid) => uid,
 });
 
-export function deserializeNodeRefSocketType(json): MemberType<typeof NodeRefSocketType> {
+export function deserializeNodeRefSocketType(json: any): MemberType<typeof NodeRefSocketType> {
     switch (json.type) {
         case "Button":
             return NodeRefSocketType.Button;
@@ -124,20 +122,18 @@ export function jsonToSocketType (json: object) {
     switch (json["type"]) {
         case "Stream":
             return SocketType.Stream(StreamSocketType[json["content"]["type"]]);
-        break;
         case "Midi":
             return SocketType.Midi(MidiSocketType[json["content"]["type"]]);
-        break;
         case "Value":
             return SocketType.Value(ValueSocketType[json["content"]["type"]]);
-        break;
         case "MethodCall":
             return SocketType.MethodCall(json["content"]);
-        break;
     }
+
+    throw "Failed to parse json";
 }
 
-export function socketTypeToKey(socketType: MemberType<typeof SocketType>, recursiveKey?: string) {
+export function socketTypeToKey(socketType: MemberType<typeof SocketType>) {
     return socketType.variant + ", " + socketType.match({
         Stream: stream => stream.variant,
         Midi: midi => midi.variant,

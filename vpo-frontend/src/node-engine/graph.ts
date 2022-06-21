@@ -1,8 +1,8 @@
-import { GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper, UiData, deserializeNodeRow } from "./node";
+import { GenerationalNode, Node, NodeIndex, NodeWrapper, UiData, deserializeNodeRow } from "./node";
 import { InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
-import { deserializeProperty, Property, PropertyType } from "./property";
-import { readable, Readable, writable, Writable, get } from 'svelte/store';
-import { IPCSocket } from "../util/socket";
+import { deserializeProperty } from "./property";
+import { Readable, writable, Writable } from 'svelte/store';
+import type { IPCSocket } from "../util/socket";
 import { makeTaggedUnion } from "safety-match";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
@@ -58,7 +58,7 @@ export class Graph {
 
     applyJson(json: any) {
         for (let i = 0; i < json.nodes.length; i++) {
-            let node = json.nodes[i];
+            let node: any = json.nodes[i];
             var index = new NodeIndex(node.index.index, node.index.generation);
 
             // does this node already exist?
@@ -96,7 +96,7 @@ export class Graph {
             });
 
             // apply new input and output connections
-            this.nodes[i]?.connectedInputs.next(node.connected_inputs.map(inputConnection => {
+            this.nodes[i]?.connectedInputs.next(node.connected_inputs.map((inputConnection): InputSideConnection => {
                 return new InputSideConnection(
                     jsonToSocketType(inputConnection.from_socket_type),
                     new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
@@ -104,7 +104,7 @@ export class Graph {
                 );
             }));
 
-            this.nodes[i]?.connectedOutputs.next(node.connected_outputs.map(outputConnection => {
+            this.nodes[i]?.connectedOutputs.next(node.connected_outputs.map((outputConnection): OutputSideConnection => {
                 return new OutputSideConnection(
                     jsonToSocketType(outputConnection.from_socket_type),
                     new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
