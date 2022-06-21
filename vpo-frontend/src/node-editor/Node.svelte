@@ -2,10 +2,10 @@
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
     import { Graph } from "../node-engine/graph";
-    import { EnumInstance } from "../util/enum";
     import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
     import { map } from "rxjs/operators";
     import NodePropertyRow from "./NodePropertyRow.svelte";
+    import { MemberType } from "safety-match";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -13,40 +13,25 @@
     export let width = 200;
 
     export let nodes: Graph;
-    export let wrapper: NodeWrapper/* = {
-        node: {
-            inputSockets: [SocketType.Midi(MidiSocketType.Default)],
-            outputSockets: [SocketType.Stream(StreamSocketType.Audio)],
-            listProperties: function(): EnumInstance[] {
-                return [];
-            },
-            serializeToJson: function(): object {
-                return {}
-            },
-            applyJson: function(json) {}
-        },
-        index: new NodeIndex(0, 0),
-        connectedInputs: [],
-        connectedOutputs: []
-    }*/;
+    export let wrapper: NodeWrapper;
 
     let sockets = wrapper.nodeRows.pipe(
         map(nodeRows => {
             return nodeRows.map(nodeRow => {
-                return nodeRow.match<any>([
-                    [NodeRow.ids.StreamInput, ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def]],
-                    [NodeRow.ids.MidiInput, ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def]],
-                    [NodeRow.ids.ValueInput, ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def]],
-                    [NodeRow.ids.NodeRefInput, ([nodeRefInput, def]) => [SocketType.NodeRef(nodeRefInput), SocketDirection.Input, def]],
-                    [NodeRow.ids.StreamOutput, ([streamOutput, def]) => [SocketType.Stream(streamOutput), SocketDirection.Output, def]],
-                    [NodeRow.ids.MidiOutput, ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def]],
-                    [NodeRow.ids.ValueOutput, ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def]],
-                    [NodeRow.ids.NodeRefOutput, ([nodeRefOutput, def]) => [SocketType.NodeRef(nodeRefOutput), SocketDirection.Output, def]],
-                    [NodeRow.ids.Property, ([propName, propType, propDefault]) => {
+                return nodeRow.match({
+                    StreamInput: ([streamInput, def]) => [SocketType.Stream(streamInput), SocketDirection.Input, def],
+                    MidiInput: ([midiInput, def]) => [SocketType.Midi(midiInput), SocketDirection.Input, def],
+                    ValueInput: ([valueInput, def]) => [SocketType.Value(valueInput), SocketDirection.Input, def],
+                    NodeRefInput: (nodeRefInput) => [SocketType.NodeRef(nodeRefInput), SocketDirection.Input, undefined],
+                    StreamOutput: ([streamOutput, def]) => [SocketType.Stream(streamOutput), SocketDirection.Output, def],
+                    MidiOutput: ([midiOutput, def]) => [SocketType.Midi(midiOutput), SocketDirection.Output, def],
+                    ValueOutput: ([valueOutput, def]) => [SocketType.Value(valueOutput), SocketDirection.Output, def],
+                    NodeRefOutput: (nodeRefOutput) => [SocketType.NodeRef(nodeRefOutput), SocketDirection.Output, undefined],
+                    Property: ([propName, propType, propDefault]) => {
                         return ["property", propName, propType, propDefault];
-                    }],
-                    [NodeRow.ids._, () => {}]
-                ]);
+                    },
+                    _: () => {}
+                });
             }).filter(maybeSomething => !!maybeSomething);
         })
     );
@@ -54,18 +39,18 @@
     let node: HTMLDivElement;
     
     export let onMousedown = function(index: NodeIndex, e: MouseEvent) {};
-    export let onSocketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
-    export let onSocketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection, index: NodeIndex) {};
+    export let onSocketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection, index: NodeIndex) {};
+    export let onSocketMouseup = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection, index: NodeIndex) {};
 
     function onMousedownRaw (e: MouseEvent) {
         onMousedown(new NodeIndex(wrapper.index.index, wrapper.index.generation), e);
     }
 
-    function onSocketMousedownRaw (event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+    function onSocketMousedownRaw (event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {
         onSocketMousedown(event, socket, direction, wrapper.index);
     }
 
-    function onSocketMouseupRaw (event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {
+    function onSocketMouseupRaw (event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {
         onSocketMouseup(event, socket, direction, wrapper.index);
     }
 

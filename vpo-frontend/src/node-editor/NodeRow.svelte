@@ -2,22 +2,22 @@
     import { onMount } from "svelte";
 
     import { SocketType, SocketDirection, Primitive, ValueSocketType, areSocketTypesEqual } from "../node-engine/connection";
-    import { NodeRow, NodeWrapper } from "../node-engine/node";
+    import { NodeRow, NodeWrapper, NodeRowAsTypeAndDirection, NodeRowFromTypeAndDirection } from "../node-engine/node";
     import { Graph } from "../node-engine/graph";
-    import { EnumInstance } from "../util/enum";
     import { fixDigits } from "../util/fix-digits";
     import { BehaviorSubject } from "rxjs";
 
     import Socket from "./Socket.svelte";
+    import { MemberType } from "safety-match";
 
     const RADIUS = 12;
 
-    export let type: EnumInstance/*SocketType*/;
+    export let type: MemberType<typeof SocketType>;
     export let label: string;
     export let direction: SocketDirection;
     export let nodeWrapper: NodeWrapper;
-    export let socketMousedown = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
-    export let socketMouseup = function(event: MouseEvent, socket: EnumInstance/*SocketType*/, direction: SocketDirection) {};
+    export let socketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
+    export let socketMouseup = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
     export let defaultValue;
     export let nodes: Graph;
     
@@ -31,43 +31,44 @@
     function updateOverrides(event) {
         const newValue = event.target.value;
         
-        const newValueParsed = type.match([
-            [SocketType.ids.Stream, () => {
+        const newValueParsed = type.match({
+            Stream: () => {
                 const num = parseFloat(newValue);
                 event.target.value = num;
 
                 return isNaN(num) ? 0.0 : num;
-            }],
-            [SocketType.ids.Value, valueType => {
-                return socketDefault.getValue().match([
-                    [Primitive.ids.Float, _ => {
+            },
+            Value: valueType => {
+                return socketDefault.getValue().match({
+                    Float: _ => {
                         const num = parseFloat(newValue);
                         event.target.value = num;
 
                         return Primitive.Float(isNaN(num) ? 0.0 : num);
-                    }],
+                    },
                     // booleans are special
-                    [Primitive.ids.Boolean, _ => {
+                    Boolean: _ => {
                         return Primitive.Boolean(event.target.checked);
-                    }]
-                ]);
-            }]
-        ]);
+                    }
+                });
+            },
+            _: () => { throw "unimplemented" }
+        });
         
         // check if this override is already in there, in which case the value needs to be updated
         let override = nodeWrapper.defaultOverrides.getValue().find(defaultOverride => {
-            const [overrideSocketType, overrideDirection] = NodeRow.asTypeAndDirection(defaultOverride);
+            const [overrideSocketType, overrideDirection] = NodeRowAsTypeAndDirection(defaultOverride);
 
             return areSocketTypesEqual(type, overrideSocketType) &&
                    direction === overrideDirection;
         });
 
         if (override) {
-            override.content[1] = newValueParsed;
+            override.data[1] = newValueParsed;
         } else {
             nodeWrapper.defaultOverrides.next([
                 ...nodeWrapper.defaultOverrides.getValue(),
-                NodeRow.fromTypeAndDirection(type, direction, newValueParsed)
+                NodeRowFromTypeAndDirection(type, direction, newValueParsed)
             ]);
         }
 
@@ -81,19 +82,19 @@
     {/if}
 
     {#if direction === SocketDirection.Input && !$isConnected}
-        {#if type.getType() === SocketType.ids.Value}
-            {#if defaultValue.getType() === Primitive.ids.Float}
+        {#if type.variant === "Value"}
+            {#if defaultValue.variant === "Float"}
                 <div class="flex">
                     <label>
                         <input value={fixDigits(($socketDefault).content, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
                         <span class="input-hover-text">{ label }</span>
                     </label>
                 </div>
-            {:else if defaultValue.getType() === Primitive.ids.Boolean}
+            {:else if defaultValue.variant === "Boolean"}
                 <input type="checkbox" on:change={updateOverrides} checked={($socketDefault).content} />
                 <div class="text">{ label }</div>
             {/if}
-        {:else if type.getType() === SocketType.ids.Stream}
+        {:else if type.variant === "Stream"}
             <div class="flex">
                 <label>
                     <input value={fixDigits($socketDefault, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
