@@ -1,12 +1,12 @@
 // @ts-ignore
 import Net from 'net';
-import {createEnumDefinition, EnumInstance} from "../util/enum";
+import { makeTaggedUnion, MemberType, none } from 'safety-match';
 
-var RawMessage = createEnumDefinition({
-    "Ping": null,
-    "Pong": null,
-    "Data": ["array"],
-    "Json": ["object"]
+var RawMessage = makeTaggedUnion({
+    "Ping": none,
+    "Pong": none,
+    "Data": (data: number[]) => data,
+    "Json": (json: object) => json
 });
 
 const port = 26642;
@@ -44,7 +44,7 @@ client.on("error", () => {
 
 class Client {
     data: number[];
-    messages: EnumInstance[];
+    messages: MemberType<typeof RawMessage>[];
     listeners: {
         [key: string]: Function[]
     };
@@ -78,8 +78,8 @@ class Client {
                     if (this.data.length === this.dataToRead) {
                         switch (this.dataReadingType) {
                             case MessageType.DATA_BINARY:
-                                this.messages.push(RawMessage.Data([this.data]));
-                                this.trigger("message", RawMessage.Data([this.data]));
+                                this.messages.push(RawMessage.Data(this.data.slice()));
+                                this.trigger("message", RawMessage.Data(this.data.slice()));
                             break;
                             case MessageType.DATA_JSON:
                                 this.messages.push(RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))]));
