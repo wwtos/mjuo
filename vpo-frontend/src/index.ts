@@ -1,11 +1,10 @@
 import { app, BrowserWindow, IpcMainEvent, WebContents } from 'electron';
 import path from 'path';
 
-import { EnumInstance } from "./util/enum";
-
 import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
+import { MemberType } from 'safety-match';
 
 interface Reply {
     value: object,
@@ -74,12 +73,13 @@ app.on('activate', () => {
     }
 });
 
-client.on("message", (event: EnumInstance) => {
-    event.match([
-        [RawMessage.ids.Json, ([json]) => {
+client.on("message", (event: MemberType<typeof RawMessage>) => {
+    event.match({
+        Json: (json) => {
             sendToRenderer("receive", json);
-        }]
-    ]);
+        },
+        _: () => { throw "unimplemented" }
+    });
 });
 
 require('electron-reload')(path.join(__dirname, "../public"), {
