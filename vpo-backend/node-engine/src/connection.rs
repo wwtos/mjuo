@@ -27,7 +27,7 @@ pub struct OutputSideConnection {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, EnumDiscriminants)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
@@ -37,21 +37,21 @@ pub enum SocketType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum SocketDirection {
     Input,
     Output,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum MidiSocketType {
     Default,
     Dynamic(u64),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum StreamSocketType {
     Audio,
     Gate,
@@ -61,7 +61,7 @@ pub enum StreamSocketType {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum ValueSocketType {
     Gain,
     Frequency,
@@ -74,14 +74,14 @@ pub enum ValueSocketType {
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum NodeRefSocketType {
     Button,
     Dynamic(u64),
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "content")]
+#[serde(tag = "variant", content = "data")]
 pub enum Primitive {
     Float(f32),
     Int(i32),
