@@ -33,7 +33,7 @@ import { MemberType } from "safety-match";
         "action": "graph/get"
     });
 
-    ipcSocket.onMessage(message => {
+    ipcSocket.onMessage(([message]) => {
         console.log("received", message);
 
         if (message.action === "graph/updateGraph") {
@@ -120,7 +120,7 @@ import { MemberType } from "safety-match";
     });
 
     function deselectAll () {
-        const currentNodes = get(nodes.nodeStore);
+        const currentNodes = nodes.nodeStore.getValue();
 
         for (var i = 0; i < currentNodes.length; i++) {
             if (currentNodes[i] && currentNodes[i].uiData.getValue().selected) {
