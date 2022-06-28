@@ -9,11 +9,11 @@ export const MidiSocketType = makeTaggedUnion({
 });
 
 export function deserializeMidiSocketType(json: any): MemberType<typeof MidiSocketType> {
-    switch (json.type) {
+    switch (json.variant) {
         case "Default":
             return MidiSocketType.Default;
         case "Dynamic":
-            return MidiSocketType.Dynamic(json.content);
+            return MidiSocketType.Dynamic(json.data);
     }
 
     throw "Failed to parse json";
@@ -28,7 +28,7 @@ export const StreamSocketType = makeTaggedUnion({
 });
 
 export function deserializeStreamSocketType(json: any): MemberType<typeof StreamSocketType> {
-    switch (json.type) {
+    switch (json.variant) {
         case "Audio":
             return StreamSocketType.Audio;
         case "Gate":
@@ -38,7 +38,7 @@ export function deserializeStreamSocketType(json: any): MemberType<typeof Stream
         case "Detune":
             return StreamSocketType.Detune;
         case "Dynamic":
-            return StreamSocketType.Dynamic(json.content);
+            return StreamSocketType.Dynamic(json.data);
     }
 
     throw "Failed to parse json";
@@ -56,7 +56,7 @@ export const ValueSocketType = makeTaggedUnion({
 });
 
 export function deserializeValueSocketType(json: any): MemberType<typeof ValueSocketType> {
-    switch (json.type) {
+    switch (json.variant) {
         case "Gain":
             return ValueSocketType.Gain;
         case "Frequency":
@@ -72,7 +72,7 @@ export function deserializeValueSocketType(json: any): MemberType<typeof ValueSo
         case "Release":
             return ValueSocketType.Release;
         case "Dynamic":
-            return ValueSocketType.Dynamic(json.content);
+            return ValueSocketType.Dynamic(json.data);
     }
 
     throw "Failed to parse json";
@@ -84,11 +84,11 @@ export const NodeRefSocketType = makeTaggedUnion({
 });
 
 export function deserializeNodeRefSocketType(json: any): MemberType<typeof NodeRefSocketType> {
-    switch (json.type) {
+    switch (json.variant) {
         case "Button":
             return NodeRefSocketType.Button;
         case "Dynamic":
-            return NodeRefSocketType.Dynamic(json.content);
+            return NodeRefSocketType.Dynamic(json.data);
     }
 
     throw "Failed to parse json";
@@ -102,7 +102,7 @@ export const Primitive = makeTaggedUnion({
 });
 
 export function deserializePrimitive(json): MemberType<typeof Primitive> {
-    return Primitive[json.type](json.content);
+    return Primitive[json.variant](json.data);
 };
 
 export const SocketType = makeTaggedUnion({
@@ -118,16 +118,16 @@ export function areSocketTypesEqual(socketType1: MemberType<typeof SocketType>, 
     return deepEqual(socketType1, socketType2);
 }
 
-export function jsonToSocketType (json: object) {
-    switch (json["type"]) {
+export function jsonToSocketType (json: any) {
+    switch (json["variant"]) {
         case "Stream":
-            return SocketType.Stream(StreamSocketType[json["content"]["type"]]);
+            return SocketType.Stream(StreamSocketType[json.data.variant]);
         case "Midi":
-            return SocketType.Midi(MidiSocketType[json["content"]["type"]]);
+            return SocketType.Midi(MidiSocketType[json.data.variant]);
         case "Value":
-            return SocketType.Value(ValueSocketType[json["content"]["type"]]);
+            return SocketType.Value(ValueSocketType[json.data.variant]);
         case "MethodCall":
-            return SocketType.MethodCall(json["content"]);
+            return SocketType.MethodCall(json.data.variant);
     }
 
     throw "Failed to parse json";

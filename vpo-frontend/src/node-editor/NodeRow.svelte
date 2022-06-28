@@ -86,12 +86,12 @@
             {#if defaultValue.variant === "Float"}
                 <div class="flex">
                     <label>
-                        <input value={fixDigits(($socketDefault).content, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
+                        <input value={fixDigits(($socketDefault).data, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
                         <span class="input-hover-text">{ label }</span>
                     </label>
                 </div>
             {:else if defaultValue.variant === "Boolean"}
-                <input type="checkbox" on:change={updateOverrides} checked={($socketDefault).content} />
+                <input type="checkbox" on:change={updateOverrides} checked={($socketDefault).data} />
                 <div class="text">{ label }</div>
             {/if}
         {:else if type.variant === "Stream"}

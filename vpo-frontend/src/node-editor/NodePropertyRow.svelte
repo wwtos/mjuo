@@ -38,7 +38,7 @@
 
 <div class="container">
     {#if propType.variant === "MultipleChoice"}
-        <select value={$value.content} on:input={updateProperties}>
+        <select value={$value.data} on:input={updateProperties}>
             {#each choices as choice (choice)}
                 <option value={ choice }>{ choice }</option>
             {/each}
