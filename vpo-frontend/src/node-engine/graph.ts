@@ -4,6 +4,7 @@ import { deserializeProperty } from "./property";
 import { Readable, writable, Writable } from 'svelte/store';
 import type { IPCSocket } from "../util/socket";
 import { makeTaggedUnion } from "safety-match";
+import { BehaviorSubject } from "rxjs";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -14,9 +15,9 @@ export const PossibleNode = makeTaggedUnion({
 
 export class Graph {
     private nodes: (NodeWrapper | undefined)[];
-    keyedNodeStore: Writable<([string, NodeWrapper])[]>;
-    keyedConnectionStore: Writable<([string, Connection])[]>;
-    nodeStore: Writable<(NodeWrapper | undefined)[]>;
+    keyedNodeStore: BehaviorSubject<([string, NodeWrapper])[]>;
+    keyedConnectionStore: BehaviorSubject<([string, Connection])[]>;
+    nodeStore: BehaviorSubject<(NodeWrapper | undefined)[]>;
     changedNodes: NodeIndex[];
     ipcSocket: IPCSocket;
     selectedNodes: [];
@@ -26,9 +27,10 @@ export class Graph {
 
         this.nodes = [];
 
-        this.nodeStore = writable(this.nodes);
-        this.keyedNodeStore = writable(this.getKeyedNodes());
-        this.keyedConnectionStore = writable(this.getKeyedConnections());
+        this.nodeStore = new BehaviorSubject(this.nodes);
+        this.keyedNodeStore = new BehaviorSubject(this.getKeyedNodes());
+        this.keyedConnectionStore = new BehaviorSubject(this.getKeyedConnections());
+
         this.changedNodes = [];
     }
 
@@ -46,20 +48,20 @@ export class Graph {
         return undefined;
     }
 
-    getNodes(): Readable<(NodeWrapper | undefined)[]> {
+    getNodes(): BehaviorSubject<(NodeWrapper | undefined)[]> {
         return this.nodeStore;
     }
 
     update() {
-        this.keyedNodeStore.set(this.getKeyedNodes());
-        this.keyedConnectionStore.set(this.getKeyedConnections());
-        this.nodeStore.set(this.nodes);
+        this.keyedNodeStore.next(this.getKeyedNodes());
+        this.keyedConnectionStore.next(this.getKeyedConnections());
+        this.nodeStore.next(this.nodes);
     }
 
     applyJson(json: any) {
         for (let i = 0; i < json.nodes.length; i++) {
             let node: any = json.nodes[i];
-            var index = new NodeIndex(node.index.index, node.index.generation);
+            const index = new NodeIndex(node.index.index, node.index.generation);
 
             // does this node already exist?
             if (this.nodes[i] != undefined) {
@@ -76,7 +78,7 @@ export class Graph {
                 this.nodes[i] = new NodeWrapper(
                     new Node([], [], {}),
                     index,
-                    [], [], [], [], {}, new UiData({})
+                    [], [], [], [], {}, {x: 0, y: 0}
                 );
             }
 
@@ -122,11 +124,11 @@ export class Graph {
         this.update();
     }
 
-    subscribeToKeyedNodes (): Writable<([string, NodeWrapper])[]> {
+    subscribeToKeyedNodes (): BehaviorSubject<([string, NodeWrapper])[]> {
         return this.keyedNodeStore;
     }
 
-    subscribeToKeyedConnections (): Writable<([string, Connection][])> {
+    subscribeToKeyedConnections (): BehaviorSubject<([string, Connection][])> {
         return this.keyedConnectionStore;
     }
 
@@ -168,6 +170,9 @@ export class Graph {
     }
 
     markNodeAsUpdated(index: NodeIndex) {
+        // don't mark it for updating if it's already been marked
+        if (this.changedNodes.find(nodeIndex => nodeIndex.index === index.index && nodeIndex.generation === index.generation)) return;
+
         this.changedNodes.push(index);
     }
 

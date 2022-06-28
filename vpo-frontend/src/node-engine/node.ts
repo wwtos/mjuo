@@ -63,25 +63,25 @@ export function NodeRowFromTypeAndDirection (type: MemberType<typeof SocketType>
 };
 
 export function deserializeNodeRow (json: any) {
-    switch (json.type) {
+    switch (json.variant) {
         case "StreamInput":
-            return NodeRow.StreamInput(deserializeStreamSocketType(json.content[0]), json.content[1]);
+            return NodeRow.StreamInput(deserializeStreamSocketType(json.data[0]), json.data[1]);
         case "MidiInput":
-            return NodeRow.MidiInput(deserializeMidiSocketType(json.content[0]), json.content[1]);
+            return NodeRow.MidiInput(deserializeMidiSocketType(json.data[0]), json.data[1]);
         case "ValueInput":
-            return NodeRow.ValueInput(deserializeValueSocketType(json.content[0]), deserializePrimitive(json.content[1]));
+            return NodeRow.ValueInput(deserializeValueSocketType(json.data[0]), deserializePrimitive(json.data[1]));
         case "NodeRefInput":
-            return NodeRow.NodeRefInput(deserializeNodeRefSocketType(json.content[0]));
+            return NodeRow.NodeRefInput(deserializeNodeRefSocketType(json.data[0]));
         case "StreamOutput":
-            return NodeRow.StreamOutput(deserializeStreamSocketType(json.content[0]), json.content[1]);
+            return NodeRow.StreamOutput(deserializeStreamSocketType(json.data[0]), json.data[1]);
         case "MidiOutput":
-            return NodeRow.MidiOutput(deserializeMidiSocketType(json.content[0]), json.content[1]);
+            return NodeRow.MidiOutput(deserializeMidiSocketType(json.data[0]), json.data[1]);
         case "ValueOutput":
-            return NodeRow.ValueOutput(deserializeValueSocketType(json.content[0]), deserializePrimitive(json.content[1]));
+            return NodeRow.ValueOutput(deserializeValueSocketType(json.data[0]), deserializePrimitive(json.data[1]));
         case "NodeRefOutput":
-            return NodeRow.NodeRefOutput(deserializeNodeRefSocketType(json.content[0]));
+            return NodeRow.NodeRefOutput(deserializeNodeRefSocketType(json.data[0]));
         case "Property":
-            return NodeRow.Property(json.content[0], deserializePropertyType(json.content[1]), deserializeProperty(json.content[2]));
+            return NodeRow.Property(json.data[0], deserializePropertyType(json.data[1]), deserializeProperty(json.data[2]));
     }
 };
 
@@ -102,17 +102,11 @@ export class InitResult {
     }
 }
 
-export class UiData {
-    x: number = 0;
-    y: number = 0;
-    selected ? : boolean = false;
-    title ? : string = "Node";
-
-    constructor(props: object) {
-        for (var prop in props) {
-            this[prop] = props[prop];
-        }
-    }
+export interface UiData {
+    x: number;
+    y: number;
+    selected?: boolean;
+    title?: string;
 }
 
 export class Node {
@@ -245,13 +239,13 @@ export class NodeWrapper {
         );
     }
 
-    getSocketXY(socketType: MemberType<typeof SocketType>, direction: SocketDirection): Observable < [number, number] | undefined > {
+    getSocketXY(socketType: MemberType<typeof SocketType>, direction: SocketDirection): Observable <[number, number] | undefined> {
         return this.nodeRows.pipe(
             mergeMap(nodeRows => {
                 const rowIndex = nodeRows.findIndex(nodeRow => {
-                    const [rowSocketType, _rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
+                    const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
-                    return areSocketTypesEqual(socketType, rowSocketType);
+                    return areSocketTypesEqual(socketType, rowSocketType) && rowDirection === direction;
                 });
 
                 if (rowIndex === -1) return new BehaviorSubject(undefined);
@@ -259,7 +253,7 @@ export class NodeWrapper {
                 const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
                 const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
 
-                return this.uiData.pipe < [number, number] > (
+                return this.uiData.pipe <[number, number]> (
                     map(uiData => [uiData.x + relativeX, uiData.y + relativeY])
                 );
             })
@@ -269,9 +263,9 @@ export class NodeWrapper {
     getSocketXYCurrent(socketType: MemberType<typeof SocketType>, direction: SocketDirection): [number, number] | undefined {
         const nodeRows = this.nodeRows.getValue();
         const rowIndex = nodeRows.findIndex(nodeRow => {
-            const [rowSocketType, _rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
+            const [rowSocketType, rowDirection] = NodeRowAsTypeAndDirection(nodeRow);
 
-            return areSocketTypesEqual(socketType, rowSocketType);;
+            return areSocketTypesEqual(socketType, rowSocketType) && rowDirection === direction;
         });
 
         if (rowIndex === -1) return undefined;
