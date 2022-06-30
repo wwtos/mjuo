@@ -9,6 +9,8 @@ lazy_static! {
     pub static ref SINE_VALUES: Vec<[f32; WAVETABLE_SIZE]> = {
         let mut wavetables = vec![[0_f32; WAVETABLE_SIZE]; FREQUENCY_STEPS];
 
+        // allow for brevity, iterators make it unnecessarily confusing
+        #[allow(clippy::needless_range_loop)]
         for i in 0..FREQUENCY_STEPS {
             for j in 0..WAVETABLE_SIZE {
                 wavetables[i][j] = ((j as f32 / WAVETABLE_SIZE as f32) * TWO_PI).sin()
@@ -21,6 +23,8 @@ lazy_static! {
     pub static ref SAWTOOTH_VALUES: Vec<[f32; WAVETABLE_SIZE]> = {
         let mut wavetables = vec![[0_f32; WAVETABLE_SIZE]; FREQUENCY_STEPS];
 
+        // allow for brevity, iterators make it unnecessarily confusing
+        #[allow(clippy::needless_range_loop)]
         for i in 0..FREQUENCY_STEPS {
             let freq = BASE_FREQUENCY * (i + 1) as f32;
             let num_harmonics = ((SAMPLE_RATE / 2) as f32 / freq) as i32; // rounded down
@@ -45,6 +49,8 @@ lazy_static! {
     pub static ref SQUARE_VALUES: Vec<[f32; WAVETABLE_SIZE]> = {
         let mut wavetables = vec![[0_f32; WAVETABLE_SIZE]; FREQUENCY_STEPS];
 
+        // allow for brevity, iterators make it unnecessarily confusing
+        #[allow(clippy::needless_range_loop)]
         for i in 0..FREQUENCY_STEPS {
             let freq = BASE_FREQUENCY * (i + 1) as f32;
             let num_harmonics = ((SAMPLE_RATE / 2) as f32 / freq) as i32; // rounded down
@@ -71,6 +77,8 @@ lazy_static! {
     pub static ref TRIANGLE_VALUES: Vec<[f32; WAVETABLE_SIZE]> = {
         let mut wavetables = vec![[0_f32; WAVETABLE_SIZE]; FREQUENCY_STEPS];
 
+        // allow for brevity, iterators make it unnecessarily confusing
+        #[allow(clippy::needless_range_loop)]
         for i in 0..FREQUENCY_STEPS {
             let freq = BASE_FREQUENCY * (i + 1) as f32;
             let num_harmonics = ((SAMPLE_RATE / 2) as f32 / freq) as i32; // rounded down

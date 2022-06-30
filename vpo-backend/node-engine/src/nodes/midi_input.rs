@@ -21,7 +21,7 @@ impl Node for MidiInNode {
         self.midi_in.clone()
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
         InitResult {
             did_rows_change: false,
             node_rows: vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])],

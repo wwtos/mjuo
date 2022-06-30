@@ -1,16 +1,13 @@
-use std::collections::HashMap;
 use std::error::Error;
 use std::io::Write;
-use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use async_std::channel::{unbounded, Receiver, Sender};
 
-use async_std::sync::Mutex;
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{Connection, MidiSocketType, SocketDirection, StreamSocketType};
+use node_engine::connection::{MidiSocketType, SocketDirection, StreamSocketType};
 use node_engine::errors::NodeError;
 use node_engine::graph::Graph;
 
@@ -19,9 +16,8 @@ use node_engine::graph_traverse::calculate_graph_traverse_order;
 use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
-use node_engine::nodes::variants::{new_variant, NodeVariant};
+use node_engine::nodes::variants::NodeVariant;
 use serde_json::json;
-use serde_json::Value;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
 use sound_engine::backend::{pulse::PulseClientBackend, AudioClientBackend};
@@ -46,7 +42,7 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
+fn _update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
     let json = graph.serialize().unwrap();
 
     block_on(async {

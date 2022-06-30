@@ -18,7 +18,7 @@ impl Default for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0)])
     }
 

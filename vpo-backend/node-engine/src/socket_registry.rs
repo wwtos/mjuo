@@ -55,7 +55,7 @@ impl SocketRegistry {
             self.name_to_socket_type.insert(
                 name,
                 RegistryValue {
-                    template: template,
+                    template,
                     socket_type: new_socket_type.clone(),
                     associated_data: match associated_data {
                         Some(value) => value,
@@ -66,5 +66,11 @@ impl SocketRegistry {
 
             Ok(new_socket_type)
         }
+    }
+}
+
+impl Default for SocketRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }
