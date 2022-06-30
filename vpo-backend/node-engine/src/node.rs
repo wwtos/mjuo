@@ -73,7 +73,7 @@ impl InitResult {
     pub fn simple(node_rows: Vec<NodeRow>) -> InitResult {
         InitResult {
             did_rows_change: false,
-            node_rows: node_rows,
+            node_rows,
             changed_properties: None,
         }
     }
@@ -439,7 +439,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn remove_output_socket_connections_unsafe(
+    pub(in crate) fn _remove_output_socket_connections_unsafe(
         &mut self,
         from_type: &SocketType,
     ) -> Result<(), NodeError> {

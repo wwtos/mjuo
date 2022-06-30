@@ -242,8 +242,8 @@ impl Graph {
             let mut node_wrapper = (*node_ref.node).borrow_mut();
 
             let props = node_wrapper.get_properties().clone();
-            let old_input_sockets = node_wrapper.list_connected_input_sockets();
-            let old_output_sockets = node_wrapper.list_connected_output_sockets();
+            let _old_input_sockets = node_wrapper.list_connected_input_sockets();
+            let _old_output_sockets = node_wrapper.list_connected_output_sockets();
 
             let node = node_wrapper.node.as_mut();
 

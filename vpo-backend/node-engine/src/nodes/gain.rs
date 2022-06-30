@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::connection::StreamSocketType;
 use crate::node::{InitResult, Node, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::property::Property;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GainGraphNode {
@@ -35,10 +35,8 @@ impl Node for GainGraphNode {
     }
 
     fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
-        if let Some(gain_prop) = properties.get("default_gain") {
-            if let Property::Float(gain) = gain_prop {
-                self.gain = gain.clamp(0.0, 1.0);
-            }
+        if let Some(Property::Float(gain)) = properties.get("default_gain") {
+            self.gain = gain.clamp(0.0, 1.0);
         }
 
         InitResult {

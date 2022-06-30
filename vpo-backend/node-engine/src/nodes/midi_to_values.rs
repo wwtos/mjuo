@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiSocketType, Primitive, SocketType, ValueSocketType};
+use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
@@ -75,7 +75,7 @@ impl Node for MidiToValuesNode {
         };
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),

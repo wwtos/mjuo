@@ -27,7 +27,7 @@ pub fn route(
     config: &SoundConfig,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let index = if let Value::String(node_type) = &message["payload"]["type"] {
-        let new_node = new_variant(&node_type, config).unwrap();
+        let new_node = new_variant(node_type, config).unwrap();
 
         graph.add_node(new_node)
     } else {

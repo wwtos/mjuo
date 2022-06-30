@@ -7,7 +7,7 @@ use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
 use crate::node::{InitResult, Node, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::property::Property;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EnvelopeNode {
