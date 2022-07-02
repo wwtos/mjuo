@@ -20,5 +20,9 @@ export const variants = [
     {
         name: i18n.t("nodes.biquadFilterNode"),
         internal: "BiquadFilterNode"
+    },
+    {
+        name: i18n.t("nodes.mixerNode"),
+        internal: "MixerNode"
     }
 ];
