@@ -37,7 +37,7 @@ impl Default for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: Vec<MidiData>) {
+    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
         self.midi_in = value;
         self.state = ChangedState::NewInfo;
     }
@@ -86,7 +86,7 @@ impl Node for MidiToValuesNode {
         ])
     }
 
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
         if self.state == ChangedState::NoInfo {
             return None;
         }
