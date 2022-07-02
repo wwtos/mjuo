@@ -23,6 +23,12 @@
 
                 return Property.MultipleChoice(newValue);
             },
+            Integer: () => {
+                const newValueParsed = parseInt(newValue);
+                event.target.value = newValueParsed;
+
+                return Property.Integer(newValueParsed);
+            },
             _: () => { throw "unimplemened" }
         });
 
@@ -43,10 +49,45 @@
                 <option value={ choice }>{ choice }</option>
             {/each}
         </select>
+    {:else if propType.variant == "Integer"}
+        <div class="flex">
+            <label>
+                <input type="number" value={$value.data} on:change={updateProperties} on:keydown={event => event.stopPropagation()} />
+                <span class="input-hover-text">{ propName }</span>
+            </label>
+        </div>
     {/if}
 </div>
 
 <style>
+label {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    cursor: text;
+}
+label>span,
+label>input {
+    position: absolute;
+    margin: 0;
+}
+
+label>span {
+    color: #777;
+    margin-right: -80px;
+    margin-top: 5px;
+}
+
+.flex {
+    display: flex;
+    flex-flow: column;
+    height: 26px;
+}
+
+input {
+    border-radius: 5px;
+}
+
 .container {
     margin: 10px 0;
     height: 26px;

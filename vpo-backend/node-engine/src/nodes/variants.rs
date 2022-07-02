@@ -9,7 +9,7 @@ use crate::graph_tests::TestNode;
 use super::{
     biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, gain::GainGraphNode,
     midi_input::MidiInNode, midi_to_values::MidiToValuesNode, oscillator::OscillatorNode,
-    output::OutputNode,
+    output::OutputNode, mixer::MixerNode,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,6 +22,7 @@ pub enum NodeVariant {
     MidiToValuesNode(MidiToValuesNode),
     EnvelopeNode(EnvelopeNode),
     BiquadFilterNode(BiquadFilterNode),
+    MixerNode(MixerNode),
     #[cfg(test)]
     TestNode(TestNode),
 }
@@ -33,6 +34,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MidiToValuesNode" => Ok(NodeVariant::MidiToValuesNode(MidiToValuesNode::default())),
         "EnvelopeNode" => Ok(NodeVariant::EnvelopeNode(EnvelopeNode::new(config))),
         "BiquadFilterNode" => Ok(NodeVariant::BiquadFilterNode(BiquadFilterNode::new(config))),
+        "MixerNode" => Ok(NodeVariant::MixerNode(MixerNode::default())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -48,6 +50,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::MidiToValuesNode(_) => "midiToValuesNode".to_string(),
         NodeVariant::EnvelopeNode(_) => "envelopeNode".to_string(),
         NodeVariant::BiquadFilterNode(_) => "biquadFilterNode".to_string(),
+        NodeVariant::MixerNode(_) => "mixerNode".to_string(),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "testNode".to_string(),
     }
@@ -63,6 +66,7 @@ impl<'a> AsRef<dyn Node + 'a> for NodeVariant {
             Self::MidiToValuesNode(node) => node as &dyn Node,
             Self::EnvelopeNode(node) => node as &dyn Node,
             Self::BiquadFilterNode(node) => node as &dyn Node,
+            Self::MixerNode(node) => node as &dyn Node,
             #[cfg(test)]
             Self::TestNode(node) => node as &dyn Node,
         }
@@ -79,6 +83,7 @@ impl<'a> AsMut<dyn Node + 'a> for NodeVariant {
             Self::MidiToValuesNode(node) => node as &mut dyn Node,
             Self::EnvelopeNode(node) => node as &mut dyn Node,
             Self::BiquadFilterNode(node) => node as &mut dyn Node,
+            Self::MixerNode(node) => node as &mut dyn Node,
             #[cfg(test)]
             Self::TestNode(node) => node as &mut dyn Node,
         }

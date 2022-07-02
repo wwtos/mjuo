@@ -31,7 +31,8 @@
             "midiInNode": "Midi In Node",
             "midiToValuesNode": "Midi To Values Node",
             "envelopeNode": "Envelope Node",
-            "biquadFilterNode": "Biquad Filter Node"
+            "biquadFilterNode": "Biquad Filter Node",
+            "mixerNode": "Mixer Node"
         },
         "editor": {
             "create": "Create!",
