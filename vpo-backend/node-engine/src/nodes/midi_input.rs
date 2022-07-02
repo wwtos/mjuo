@@ -13,11 +13,11 @@ pub struct MidiInNode {
 }
 
 impl Node for MidiInNode {
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: Vec<MidiData>) {
+    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
         self.midi_in = value;
     }
 
-    fn get_midi_output(&self, _socket_type: MidiSocketType) -> Vec<MidiData> {
+    fn get_midi_output(&self, _socket_type: &MidiSocketType) -> Vec<MidiData> {
         self.midi_in.clone()
     }
 

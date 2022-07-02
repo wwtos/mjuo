@@ -13,7 +13,7 @@ use crate::connection::{
     SocketDirection, SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{NodeError, ErrorsAndWarnings};
+use crate::errors::{ErrorsAndWarnings, NodeError};
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
@@ -94,29 +94,31 @@ pub trait Node: Debug {
     fn init(&mut self, props: &HashMap<String, Property>) -> InitResult;
 
     /// Process received data.
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> { Ok(()) }
+    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+        Ok(())
+    }
 
     /// Accept incoming stream data of type `socket_type`
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {}
 
     /// Return outgoing stream data of type `socket_type`
-    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
         0_f32
     }
 
     /// Accept incoming midi data of type `socket_type`
-    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: Vec<MidiData>) {}
+    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {}
 
     /// Return outgoing midi data of type `socket_type`
-    fn get_midi_output(&self, socket_type: MidiSocketType) -> Vec<MidiData> {
+    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
         vec![]
     }
 
     /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
+    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {}
 
     /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
         None
     }
 }
@@ -366,27 +368,27 @@ impl NodeWrapper {
         Ok(())
     }
 
-    pub fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
+    pub fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
         self.node.as_mut().accept_stream_input(socket_type, value);
     }
 
-    pub fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
+    pub fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
         self.node.as_ref().get_stream_output(socket_type)
     }
 
-    pub fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: Vec<MidiData>) {
+    pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {
         self.node.as_mut().accept_midi_input(socket_type, value);
     }
 
-    pub fn get_midi_output(&self, socket_type: MidiSocketType) -> Vec<MidiData> {
+    pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
         self.node.as_ref().get_midi_output(socket_type)
     }
 
-    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
+    pub fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
         self.node.as_mut().accept_value_input(socket_type, value);
     }
 
-    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
+    pub fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
         self.node.as_ref().get_value_output(socket_type)
     }
 
@@ -400,6 +402,14 @@ impl NodeWrapper {
 
     pub(in crate) fn get_node_variant(&self) -> &NodeVariant {
         &self.node
+    }
+
+    pub(in crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
+        &self.node_rows
+    }
+
+    pub(in crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
+        &self.connected_outputs
     }
 
     pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {

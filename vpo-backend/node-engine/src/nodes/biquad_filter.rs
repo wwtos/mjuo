@@ -1,29 +1,29 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use sound_engine::SoundConfig;
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
+use sound_engine::SoundConfig;
 
-use crate::connection::{StreamSocketType, ValueSocketType, Primitive};
+use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BiquadFilterNode {
-    filter: BiquadFilter
+    filter: BiquadFilter,
 }
 
 impl BiquadFilterNode {
     pub fn new(config: &SoundConfig) -> BiquadFilterNode {
         BiquadFilterNode {
-            filter: BiquadFilter::new(config, BiquadFilterType::Lowpass, 20_000.0, 0.707)
+            filter: BiquadFilter::new(config, BiquadFilterType::Lowpass, 20_000.0, 0.707),
         }
     }
 }
 
 impl Node for BiquadFilterNode {
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
         match socket_type {
             ValueSocketType::Frequency => {
                 if let Some(frequency) = value.as_float() {
@@ -39,7 +39,7 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
         match socket_type {
             StreamSocketType::Audio => {
                 self.filter.set_audio_in(value);
@@ -54,7 +54,7 @@ impl Node for BiquadFilterNode {
         Ok(())
     }
 
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
         self.filter.get_output_out()
     }
 
@@ -66,7 +66,7 @@ impl Node for BiquadFilterNode {
                 "bandpass" => BiquadFilterType::Bandpass,
                 "notch" => BiquadFilterType::Notch,
                 "allpass" => BiquadFilterType::Allpass,
-                _ => unreachable!("Type passed in was not a multiple choice option!")
+                _ => unimplemented!("Type passed in was not a multiple choice option!"),
             });
         }
 
