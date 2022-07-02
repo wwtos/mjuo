@@ -7,17 +7,16 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{MidiSocketType, SocketDirection, StreamSocketType, SocketType};
-use node_engine::errors::NodeError;
-use node_engine::graph::Graph;
+use node_engine::connection::{MidiSocketType, StreamSocketType, SocketType};
+use node_engine::graph::{Graph, PossibleNode};
 
 use node_engine::graph_manager::GraphManager;
-use node_engine::graph_traverse::calculate_graph_traverse_order;
 use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
+use node_engine::traversal::traverser::{Traverser};
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
@@ -47,25 +46,31 @@ fn handle_msg(
     msg: IPCMessage,
     graph: &mut Graph,
     to_server: &Sender<IPCMessage>,
-    traverse_order: &mut Vec<NodeIndex>,
+    traverser: &mut Traverser,
     sound_config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
 ) {
     let result = route(msg, graph, to_server, sound_config, socket_registry);
-    println!("\n\n{:?}\n\n", traverse_order);
 
     match result {
         Ok(route_result) => {
-            let should_reindex_graph;
-
-            if let Some(route_result) = route_result {
-                should_reindex_graph = route_result.should_reindex_graph;
-            } else {
-                should_reindex_graph = false;
-            }
+            let should_reindex_graph = match route_result {
+                Some(route_result) => route_result.should_reindex_graph,
+                None => false
+            };
 
             if should_reindex_graph {
-                *traverse_order = calculate_graph_traverse_order(graph);
+                *traverser = Traverser::get_traverser(graph);
+            }
+
+            // TODO: this is naive, keep track of what nodes need their defaults updated
+            for (i, node) in graph.get_nodes().iter().enumerate() {
+                if let PossibleNode::Some(node) = node {
+                    traverser.update_node_defaults(graph, &NodeIndex {
+                        index: i,
+                        generation: node.generation
+                    });
+                }
             }
         }
         Err(err) => {
@@ -82,88 +87,6 @@ fn handle_msg(
             .unwrap();
         }
     }
-}
-
-fn traverse_graph(
-    graph: &mut Graph,
-    traverse_order: &[NodeIndex],
-    send_defaults: bool,
-) -> Result<(), NodeError> {
-    for node_index in traverse_order {
-        let node_wrapper = graph.get_node(node_index).unwrap().node;
-        let mut node_wrapper = (*node_wrapper).borrow_mut();
-
-        let referenced_nodes = node_wrapper.list_connected_input_sockets();
-
-        // TODO: This is super unoptimized
-        for input_socket in node_wrapper.list_input_sockets() {
-            let possible_connection = referenced_nodes
-                .iter()
-                .find(|connection| connection.to_socket_type == input_socket);
-
-            if let Some(connection) = possible_connection {
-                let other_node_wrapper = graph.get_node(&connection.from_node).unwrap().node;
-                let other_node_wrapper = (*other_node_wrapper).borrow();
-
-                match &connection.from_socket_type {
-                    node_engine::connection::SocketType::Stream(stream_type) => {
-                        let sample = other_node_wrapper.get_stream_output(stream_type.clone());
-                        node_wrapper.accept_stream_input(
-                            connection.to_socket_type.clone().as_stream().unwrap(),
-                            sample,
-                        );
-                    }
-                    node_engine::connection::SocketType::Midi(midi_type) => {
-                        let midi = other_node_wrapper.get_midi_output(midi_type.clone());
-
-                        if !midi.is_empty() {
-                            node_wrapper.accept_midi_input(
-                                connection.to_socket_type.clone().as_midi().unwrap(),
-                                midi,
-                            );
-                        }
-                    }
-                    node_engine::connection::SocketType::Value(value_type) => {
-                        let value = other_node_wrapper.get_value_output(value_type.clone());
-
-                        if let Some(value) = value {
-                            node_wrapper.accept_value_input(
-                                connection.to_socket_type.clone().as_value().unwrap(),
-                                value,
-                            );
-                        }
-                    }
-                    node_engine::connection::SocketType::NodeRef(_) => {}
-                    node_engine::connection::SocketType::MethodCall(_) => todo!(),
-                }
-            } else {
-                // find the default value for this one
-                let default = node_wrapper.get_default(&input_socket, &SocketDirection::Input);
-
-                match default {
-                    node_engine::node::NodeRow::StreamInput(socket_type, default) => {
-                        node_wrapper.accept_stream_input(socket_type, default);
-                    }
-                    node_engine::node::NodeRow::MidiInput(socket_type, default) => {
-                        if send_defaults {
-                            node_wrapper.accept_midi_input(socket_type, default);
-                        }
-                    }
-                    node_engine::node::NodeRow::ValueInput(socket_type, default) => {
-                        if send_defaults {
-                            node_wrapper.accept_value_input(socket_type, default);
-                        }
-                    }
-                    node_engine::node::NodeRow::NodeRefInput(_) => {}
-                    _ => unreachable!(),
-                }
-            }
-        }
-
-        node_wrapper.process();
-    }
-
-    Ok(())
 }
 
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
@@ -211,7 +134,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let graph = graph_manager.get_graph_mut(&graph_index).unwrap();
     let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()));
     let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()));
-    let mut traverse_order = calculate_graph_traverse_order(graph);
+    let mut traverser = Traverser::get_traverser(&graph);
 
     let backend = connect_backend()?;
 
@@ -231,7 +154,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, graph, &to_server, &mut traverse_order, &sound_config, &mut socket_registry);
+            handle_msg(msg, graph, &to_server, &mut traverser, &sound_config, &mut socket_registry);
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
@@ -242,25 +165,27 @@ fn main() -> Result<(), Box<dyn Error>> {
             let midi_node = graph.get_node(&midi_in_node).unwrap().node;
             let mut midi_node = (*midi_node).borrow_mut();
 
-            midi_node.accept_midi_input(MidiSocketType::Default, midi.clone());
+            midi_node.accept_midi_input(&MidiSocketType::Default, midi.clone());
         } else {
             let midi_node = graph.get_node(&midi_in_node).unwrap().node;
             let mut midi_node = (*midi_node).borrow_mut();
 
-            midi_node.accept_midi_input(MidiSocketType::Default, Vec::new());
+            midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
         }
 
         let mut buffer = [0_f32; BUFFER_SIZE];
 
         for sample in buffer.iter_mut() {
-            traverse_graph(graph, &traverse_order, is_first_time).unwrap();
+            traverser.traverse(graph, is_first_time).unwrap();
 
             let output_node = graph.get_node(&output_node).unwrap().node;
             let output_node = (*output_node).borrow();
 
-            let audio = output_node.get_stream_output(StreamSocketType::Audio);
+            let audio = output_node.get_stream_output(&StreamSocketType::Audio);
 
             *sample = audio;
+
+            is_first_time = false;
         }
 
         backend.write(&buffer)?;
@@ -276,7 +201,5 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         buffer_index += 1;
-
-        is_first_time = false;
     }
 }

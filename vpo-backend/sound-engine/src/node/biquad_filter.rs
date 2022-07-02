@@ -2,8 +2,6 @@ use std::f32::consts::PI;
 
 use serde::{Serialize, Deserialize};
 
-use crate::error::NodeError;
-use crate::node::{AudioNode, InputType, OutputType};
 use crate::SoundConfig;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]

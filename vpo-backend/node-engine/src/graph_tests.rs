@@ -9,7 +9,7 @@ use crate::nodes::variants::NodeVariant;
 use crate::property::Property;
 use crate::{graph::Graph, node::Node};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TestNode {}
 
 impl Default for TestNode {

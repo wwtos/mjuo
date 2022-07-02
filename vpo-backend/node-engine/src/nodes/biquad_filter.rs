@@ -59,6 +59,8 @@ impl Node for BiquadFilterNode {
     }
 
     fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+        println!("initialized with {:?}", properties);
+
         if let Some(Property::MultipleChoice(filter_type)) = properties.get("filter_type") {
             self.filter.set_filter_type(match filter_type.as_str() {
                 "lowpass" => BiquadFilterType::Lowpass,
@@ -68,6 +70,8 @@ impl Node for BiquadFilterNode {
                 "allpass" => BiquadFilterType::Allpass,
                 _ => unimplemented!("Type passed in was not a multiple choice option!"),
             });
+        } else {
+            self.filter.set_filter_type(BiquadFilterType::Lowpass);
         }
 
         InitResult::simple(vec![
