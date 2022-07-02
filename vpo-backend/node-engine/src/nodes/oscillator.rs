@@ -5,6 +5,7 @@ use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
+use crate::errors::ErrorsAndWarnings;
 use crate::node::InitResult;
 use crate::node::Node;
 use crate::node::NodeRow;
@@ -53,8 +54,10 @@ impl Node for OscillatorNode {
         ])
     }
 
-    fn process(&mut self) {
+    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
         self.audio_out = self.oscillator.process_fast();
+
+        Ok(())
     }
 
     fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
