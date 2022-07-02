@@ -307,11 +307,11 @@ impl NodeWrapper {
         outputs_filtered
     }
 
-    pub fn get_default(&self, socket_type: &SocketType, direction: &SocketDirection) -> NodeRow {
+    pub fn get_default(&self, socket_type: &SocketType) -> NodeRow {
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let (override_type, override_direction) =
                 (*override_row).clone().to_type_and_direction().unwrap();
-            socket_type == &override_type && direction == &override_direction
+            socket_type == &override_type && SocketDirection::Input == override_direction
         });
 
         if let Some(row_override) = possible_override {
@@ -324,7 +324,7 @@ impl NodeWrapper {
                 let type_and_direction = (*node_row).clone().to_type_and_direction();
 
                 if let Some((override_type, override_direction)) = type_and_direction {
-                    socket_type == &override_type && direction == &override_direction
+                    socket_type == &override_type && SocketDirection::Input == override_direction
                 } else {
                     false
                 }
@@ -396,6 +396,10 @@ impl NodeWrapper {
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
         self.index = index;
+    }
+
+    pub(in crate) fn get_node_variant(&self) -> &NodeVariant {
+        &self.node
     }
 
     pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {
