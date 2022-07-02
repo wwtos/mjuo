@@ -321,9 +321,13 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .find(|node_row| {
-                let (override_type, override_direction) =
-                    (*node_row).clone().to_type_and_direction().unwrap();
-                socket_type == &override_type && direction == &override_direction
+                let type_and_direction = (*node_row).clone().to_type_and_direction();
+
+                if let Some((override_type, override_direction)) = type_and_direction {
+                    socket_type == &override_type && direction == &override_direction
+                } else {
+                    false
+                }
             })
             .unwrap()
             .clone()
