@@ -3,7 +3,7 @@ use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
-use crate::{node::NodeIndex, socket_registry::SocketRegistry, errors::NodeError};
+use crate::{node::NodeIndex, socket_registry::SocketRegistry};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     pub from_socket_type: SocketType,
@@ -173,7 +173,7 @@ impl SocketType {
 
     /// This function populates a socket registry with all of the existing default socket types
     #[inline]
-    pub fn register_defaults(registry: &mut SocketRegistry) -> Result<(), NodeError> {
+    pub fn register_defaults(registry: &mut SocketRegistry) {
         let socket_list = [
             ("stream.audio", SocketType::Stream(StreamSocketType::Audio)),
             ("stream.gate", SocketType::Stream(StreamSocketType::Gate)),
@@ -191,9 +191,7 @@ impl SocketType {
         ];
 
         for socket in socket_list {
-            registry.register_socket(socket.0.to_string(), socket.1, socket.0.to_string(), None)?;
+            registry.register_socket(socket.0.to_string(), socket.1, socket.0.to_string(), None).unwrap();
         }
-
-        Ok(())
     }
 }

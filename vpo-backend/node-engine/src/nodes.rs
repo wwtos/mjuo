@@ -1,3 +1,4 @@
+pub mod biquad_filter;
 pub mod envelope;
 pub mod gain;
 pub mod midi_input;

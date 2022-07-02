@@ -34,11 +34,10 @@ pub enum NodeError {
 }
 
 #[derive(Error, Debug)]
-pub enum NodeWarning {
+pub enum NodeWarning {}
 
-}
-
+#[derive(Debug)]
 pub struct ErrorsAndWarnings {
     pub errors: Vec<NodeError>,
-    pub warnings: Vec<NodeWarning>
+    pub warnings: Vec<NodeWarning>,
 }

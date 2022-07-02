@@ -351,7 +351,7 @@ impl Graph {
         Ok(())
     }
 
-    pub(crate) fn get_nodes(&self) -> &Vec<PossibleNode> {
+    pub fn get_nodes(&self) -> &Vec<PossibleNode> {
         &self.nodes
     }
 

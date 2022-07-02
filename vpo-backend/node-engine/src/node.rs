@@ -309,15 +309,19 @@ impl NodeWrapper {
         outputs_filtered
     }
 
-    pub fn get_default(&self, socket_type: &SocketType) -> NodeRow {
+    pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
-            let (override_type, override_direction) =
-                (*override_row).clone().to_type_and_direction().unwrap();
-            socket_type == &override_type && SocketDirection::Input == override_direction
+            let type_and_direction = (*override_row).clone().to_type_and_direction();
+
+            if let Some((override_type, override_direction)) = type_and_direction {
+                socket_type == &override_type && SocketDirection::Input == override_direction
+            } else {
+                false
+            }            
         });
 
         if let Some(row_override) = possible_override {
-            return row_override.clone();
+            return Some(row_override.clone());
         }
 
         self.node_rows
@@ -330,9 +334,7 @@ impl NodeWrapper {
                 } else {
                     false
                 }
-            })
-            .unwrap()
-            .clone()
+            }).map(|row| row.clone())
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {

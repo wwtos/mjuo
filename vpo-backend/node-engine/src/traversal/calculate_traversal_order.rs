@@ -9,7 +9,7 @@ use petgraph::prelude::*;
 pub fn calculate_graph_traverse_order(
     original_graph: &crate::graph::Graph,
 ) -> Vec<crate::node::NodeIndex> {
-    // traverse backward and build a list of traverse order
+    // traverse backward and build a traversal order
 
     let mut graph = StableGraph::<usize, Connection>::new();
     let mut graph_lookup: HashMap<usize, NodeIndex> = HashMap::new();
