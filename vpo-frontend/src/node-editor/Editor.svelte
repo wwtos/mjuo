@@ -102,7 +102,6 @@ import { MemberType } from "safety-match";
 
     function createNode () {
         ipcSocket.createNode(nodeTypeToCreate, {
-            title: variants.find(variant => variant.internal === nodeTypeToCreate).name,
             x: 0,
             y: 0
         });

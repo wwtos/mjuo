@@ -25,7 +25,9 @@
         },
         "nodes": {
             "gainGraphNode": "Gain Node",
+            "outputNode": "Output Node",
             "oscillatorNode": "Oscillator Node",
+            "midiInNode": "Midi In Node",
             "midiToValuesNode": "Midi To Values Node",
             "envelopeNode": "Envelope Node"
         },
