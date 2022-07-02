@@ -38,14 +38,14 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
 
 pub fn variant_to_name(variant: &NodeVariant) -> String {
     match variant {
-        NodeVariant::GainGraphNode(_) => "Gain graph node".to_string(),
-        NodeVariant::OutputNode(_) => "Output node".to_string(),
-        NodeVariant::OscillatorNode(_) => "Oscillator node".to_string(),
-        NodeVariant::MidiInNode(_) => "Midi in node".to_string(),
-        NodeVariant::MidiToValuesNode(_) => "Midi to values node".to_string(),
-        NodeVariant::EnvelopeNode(_) => "Envelope node".to_string(),
+        NodeVariant::GainGraphNode(_) => "gainGraphNode".to_string(),
+        NodeVariant::OutputNode(_) => "outputNode".to_string(),
+        NodeVariant::OscillatorNode(_) => "oscillatorNode".to_string(),
+        NodeVariant::MidiInNode(_) => "midiInNode".to_string(),
+        NodeVariant::MidiToValuesNode(_) => "midiToValuesNode".to_string(),
+        NodeVariant::EnvelopeNode(_) => "envelopeNode".to_string(),
         #[cfg(test)]
-        NodeVariant::TestNode(_) => "Test node".to_string(),
+        NodeVariant::TestNode(_) => "testNode".to_string(),
     }
 }
 

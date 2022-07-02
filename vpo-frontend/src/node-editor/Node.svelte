@@ -6,6 +6,7 @@
     import { map } from "rxjs/operators";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { MemberType } from "safety-match";
+    import { i18n } from '../i18n.js';
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -62,7 +63,7 @@
 </script>
 
 <div class="background" style="transform: translate({$uiData.x}px, {$uiData.y}px); width: {width}px" on:mousedown={onMousedownRaw} class:selected={$uiData.selected} bind:this={node}>
-    <div class="node-title">{$uiData.title && $uiData.title.length > 0 ? $uiData.title : " "}</div>
+    <div class="node-title">{$uiData.title && $uiData.title.length > 0 ? i18n.t("nodes." + $uiData.title) : " "}</div>
 
     {#each $sockets as row (rowToKey(row))}
         {#if row[0] !== "property"}
