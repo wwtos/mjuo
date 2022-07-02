@@ -7,7 +7,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{MidiSocketType, SocketDirection, StreamSocketType};
+use node_engine::connection::{MidiSocketType, SocketDirection, StreamSocketType, SocketType};
 use node_engine::errors::NodeError;
 use node_engine::graph::Graph;
 
@@ -17,6 +17,7 @@ use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
+use node_engine::socket_registry::SocketRegistry;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
@@ -42,28 +43,15 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn _update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
-    let json = graph.serialize().unwrap();
-
-    block_on(async {
-        to_server
-            .send(IPCMessage::Json(json! {{
-                "action": "graph/updateGraph",
-                "payload": json
-            }}))
-            .await
-    })
-    .unwrap();
-}
-
 fn handle_msg(
     msg: IPCMessage,
     graph: &mut Graph,
     to_server: &Sender<IPCMessage>,
     traverse_order: &mut Vec<NodeIndex>,
     sound_config: &SoundConfig,
+    socket_registry: &mut SocketRegistry,
 ) {
-    let result = route(msg, graph, to_server, sound_config);
+    let result = route(msg, graph, to_server, sound_config, socket_registry);
     println!("\n\n{:?}\n\n", traverse_order);
 
     match result {
@@ -99,7 +87,7 @@ fn handle_msg(
 fn traverse_graph(
     graph: &mut Graph,
     traverse_order: &[NodeIndex],
-    is_first_time: bool,
+    send_defaults: bool,
 ) -> Result<(), NodeError> {
     for node_index in traverse_order {
         let node_wrapper = graph.get_node(node_index).unwrap().node;
@@ -157,12 +145,12 @@ fn traverse_graph(
                         node_wrapper.accept_stream_input(socket_type, default);
                     }
                     node_engine::node::NodeRow::MidiInput(socket_type, default) => {
-                        if is_first_time {
+                        if send_defaults {
                             node_wrapper.accept_midi_input(socket_type, default);
                         }
                     }
                     node_engine::node::NodeRow::ValueInput(socket_type, default) => {
-                        if is_first_time {
+                        if send_defaults {
                             node_wrapper.accept_value_input(socket_type, default);
                         }
                     }
@@ -214,6 +202,9 @@ fn get_midi(
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
 
+    let mut socket_registry = SocketRegistry::new();
+    SocketType::register_defaults(&mut socket_registry);
+
     let mut graph_manager = GraphManager::new();
     let graph_index = graph_manager.new_graph();
 
@@ -240,7 +231,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, graph, &to_server, &mut traverse_order, &sound_config);
+            handle_msg(msg, graph, &to_server, &mut traverse_order, &sound_config, &mut socket_registry);
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
