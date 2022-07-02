@@ -13,7 +13,7 @@ use crate::connection::{
     SocketDirection, SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::NodeError;
+use crate::errors::{NodeError, ErrorsAndWarnings};
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
@@ -94,7 +94,7 @@ pub trait Node: Debug {
     fn init(&mut self, props: &HashMap<String, Property>) -> InitResult;
 
     /// Process received data.
-    fn process(&mut self) {}
+    fn process(&mut self) -> Result<(), ErrorsAndWarnings> { Ok(()) }
 
     /// Accept incoming stream data of type `socket_type`
     fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}

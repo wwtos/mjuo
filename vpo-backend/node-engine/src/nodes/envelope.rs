@@ -6,6 +6,7 @@ use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
+use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
@@ -75,7 +76,9 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn process(&mut self) {
+    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
         self.envelope.process();
+
+        Ok(())
     }
 }

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
+use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
@@ -41,7 +42,7 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(&mut self) {
+    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {
@@ -73,6 +74,8 @@ impl Node for MidiToValuesNode {
             ChangedState::InfoProcessed => ChangedState::NoInfo,
             ChangedState::NoInfo => ChangedState::NoInfo,
         };
+
+        Ok(())
     }
 
     fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
