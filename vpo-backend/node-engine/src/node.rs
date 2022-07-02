@@ -386,8 +386,8 @@ impl NodeWrapper {
         self.node.as_ref().get_value_output(socket_type)
     }
 
-    pub fn process(&mut self) {
-        self.node.as_mut().process();
+    pub fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+        self.node.as_mut().process()
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
