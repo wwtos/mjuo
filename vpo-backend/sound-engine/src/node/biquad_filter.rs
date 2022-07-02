@@ -62,7 +62,7 @@ impl BiquadFilter {
         new_filter
     }
 
-    pub fn filter_audio(&mut self, input_in: f32, filter_offset_in: f32) -> f32 {
+    pub fn filter_audio(&mut self, input_in: f32) -> f32 {
         let output =
             (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
                 - (self.a1 * self.prev_output_1)
@@ -73,8 +73,6 @@ impl BiquadFilter {
 
         self.prev_output_2 = self.prev_output_1;
         self.prev_output_1 = output;
-
-        self.prev_offset = filter_offset_in;
 
         output
     }
@@ -187,18 +185,13 @@ impl BiquadFilter {
 
 impl AudioNode for BiquadFilter {
     fn process(&mut self) {
-        self.output_out = self.filter_audio(self.input_in, self.filter_offset_in);
+        self.output_out = self.filter_audio(self.input_in);
     }
 
     fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
         match input_type {
             InputType::In => {
                 self.input_in = input;
-
-                Ok(())
-            }
-            InputType::Detune => {
-                self.filter_offset_in = input;
 
                 Ok(())
             }
