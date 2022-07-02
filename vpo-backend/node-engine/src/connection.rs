@@ -65,6 +65,7 @@ pub enum StreamSocketType {
 pub enum ValueSocketType {
     Gain,
     Frequency,
+    Resonance,
     Gate,
     Attack,
     Decay,
@@ -181,6 +182,7 @@ impl SocketType {
             ("midi.default", SocketType::Midi(MidiSocketType::Default)),
             ("value.gain", SocketType::Value(ValueSocketType::Gain)),
             ("value.frequency", SocketType::Value(ValueSocketType::Frequency)),
+            ("value.resonance", SocketType::Value(ValueSocketType::Resonance)),
             ("value.gate", SocketType::Value(ValueSocketType::Gate)),
             ("value.attack", SocketType::Value(ValueSocketType::Attack)),
             ("value.decay", SocketType::Value(ValueSocketType::Decay)),

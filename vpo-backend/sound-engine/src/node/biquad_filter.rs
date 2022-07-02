@@ -1,10 +1,12 @@
 use std::f32::consts::PI;
 
+use serde::{Serialize, Deserialize};
+
 use crate::error::NodeError;
 use crate::node::{AudioNode, InputType, OutputType};
 use crate::SoundConfig;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum BiquadFilterType {
     Lowpass,
     Highpass,
@@ -13,19 +15,18 @@ pub enum BiquadFilterType {
     Allpass,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BiquadFilter {
     filter_type: BiquadFilterType,
     sample_rate: u32,
     frequency: f32,
     q: f32,
-    gain_factor: f32,
     dirty: bool,
     a1: f32,
     a2: f32,
     b0: f32,
     b1: f32,
     b2: f32,
-    prev_offset: f32,
     prev_input_1: f32,
     prev_input_2: f32,
     prev_output_1: f32,
@@ -35,19 +36,17 @@ pub struct BiquadFilter {
 }
 
 impl BiquadFilter {
-    pub fn new(config: SoundConfig, filter_type: BiquadFilterType, frequency: f32, q: f32, gain_factor: f32) -> BiquadFilter {
+    pub fn new(config: &SoundConfig, filter_type: BiquadFilterType, frequency: f32, q: f32) -> BiquadFilter {
         let mut new_filter = BiquadFilter {
             filter_type,
             sample_rate: config.sample_rate,
             frequency,
             q,
-            gain_factor,
             a1: 0.0,
             a2: 0.0,
             b0: 1.0,
             b1: 0.0,
             b2: 0.0,
-            prev_offset: 0.0,
             prev_input_1: 0.0,
             prev_input_2: 0.0,
             prev_output_1: 0.0,
@@ -63,6 +62,10 @@ impl BiquadFilter {
     }
 
     pub fn filter_audio(&mut self, input_in: f32) -> f32 {
+        if self.dirty {
+            self.recompute();
+        }
+
         let output =
             (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
                 - (self.a1 * self.prev_output_1)
@@ -77,10 +80,14 @@ impl BiquadFilter {
         output
     }
 
-    pub fn set_params(&mut self, frequency: f32, q: f32, gain_factor: f32) {
+    pub fn process(&mut self) {
+        self.output_out = self.filter_audio(self.input_in);
+    }
+
+    pub fn set_params(&mut self, frequency: f32, q: f32) {
         self.frequency = frequency.clamp(0.01, self.sample_rate as f32 * 0.5);
         self.q = q;
-        self.gain_factor = gain_factor;
+        self.dirty = true;
     }
 
     pub fn recompute(&mut self) {
@@ -161,6 +168,7 @@ impl BiquadFilter {
     pub fn get_filter_type(&self) -> BiquadFilterType {
         self.filter_type
     }
+    
     pub fn set_filter_type(&mut self, filter_type: BiquadFilterType) {
         self.dirty = true;
         self.filter_type = filter_type;
@@ -169,6 +177,7 @@ impl BiquadFilter {
     pub fn get_frequency(&self) -> f32 {
         self.frequency
     }
+    
     pub fn set_frequency(&mut self, frequency: f32) {
         self.dirty = true;
         self.frequency = frequency;
@@ -177,44 +186,18 @@ impl BiquadFilter {
     pub fn get_q(&self) -> f32 {
         self.q
     }
+    
     pub fn set_q(&mut self, q: f32) {
         self.dirty = true;
         self.q = q;
     }
-}
 
-impl AudioNode for BiquadFilter {
-    fn process(&mut self) {
-        self.output_out = self.filter_audio(self.input_in);
+    pub fn set_audio_in(&mut self, audio: f32) {
+        self.input_in = audio;
     }
 
-    fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
-        match input_type {
-            InputType::In => {
-                self.input_in = input;
-
-                Ok(())
-            }
-            _ => Err(NodeError::UnsupportedInput {
-                unsupported_input_type: input_type,
-            }),
-        }
-    }
-
-    fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
-        match output_type {
-            OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::UnsupportedOutput {
-                unsupported_output_type: output_type,
-            }),
-        }
-    }
-
-    fn list_inputs(&self) -> Vec<InputType> {
-        vec![InputType::In, InputType::Detune]
-    }
-
-    fn list_outputs(&self) -> Vec<OutputType> {
-        vec![OutputType::Out]
+    pub fn get_output_out(&self) -> f32 {
+        self.output_out
     }
 }
+
