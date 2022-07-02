@@ -365,7 +365,7 @@ impl Graph {
 }
 
 impl Graph {
-    pub fn serialize(&self) -> Result<serde_json::Value, NodeError> {
+    pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         // serialize all of the graph nodes, as it currently stands
         let nodes = serde_json::Value::Array(
             self.nodes
