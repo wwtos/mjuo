@@ -47,6 +47,7 @@ export function deserializeStreamSocketType(json: any): MemberType<typeof Stream
 export const ValueSocketType = makeTaggedUnion({
     Gain: none,
     Frequency: none,
+    Resonance: none,
     Gate: none,
     Attack: none,
     Decay: none,
@@ -61,6 +62,8 @@ export function deserializeValueSocketType(json: any): MemberType<typeof ValueSo
             return ValueSocketType.Gain;
         case "Frequency":
             return ValueSocketType.Frequency;
+        case "Resonance":
+            return ValueSocketType.Resonance;
         case "Gate":
             return ValueSocketType.Gate;
         case "Attack":
@@ -222,6 +225,7 @@ export function socketTypeToString(socketType: MemberType<typeof SocketType>): s
         Value: (value) => value.match({
             Gain: () => i18n.t("socketType.value.gain"),
             Frequency: () => i18n.t("socketType.value.frequency"),
+            Resonance: () => i18n.t("socketType.value.resonance"),
             Gate: () => i18n.t("socketType.value.gate"),
             Attack: () => i18n.t("socketType.value.attack"),
             Decay: () => i18n.t("socketType.value.decay"),

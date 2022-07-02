@@ -15,6 +15,7 @@
             "value": {
                 "gain": "Gain",
                 "frequency": "Frequency",
+                "resonance": "Resonance",
                 "gate": "Gate",
                 "attack": "Attack",
                 "decay": "Decay",
@@ -29,7 +30,8 @@
             "oscillatorNode": "Oscillator Node",
             "midiInNode": "Midi In Node",
             "midiToValuesNode": "Midi To Values Node",
-            "envelopeNode": "Envelope Node"
+            "envelopeNode": "Envelope Node",
+            "biquadFilterNode": "Biquad Filter Node"
         },
         "editor": {
             "create": "Create!",
