@@ -84,7 +84,7 @@ fn graph_node_crud() {
     graph.add_node(NodeVariant::TestNode(TestNode {}));
     assert_eq!(graph.len(), 2);
 
-    println!("{:?}", graph.serialize());
+    println!("{:?}", graph.serialize_to_json());
 }
 
 #[test]
