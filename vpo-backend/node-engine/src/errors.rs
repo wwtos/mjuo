@@ -38,3 +38,7 @@ pub enum NodeWarning {
 
 }
 
+pub struct ErrorsAndWarnings {
+    pub errors: Vec<NodeError>,
+    pub warnings: Vec<NodeWarning>
+}
