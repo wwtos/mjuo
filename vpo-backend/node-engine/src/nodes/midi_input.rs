@@ -7,7 +7,7 @@ use crate::connection::MidiSocketType;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct MidiInNode {
     midi_in: Vec<MidiData>,
 }

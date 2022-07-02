@@ -9,7 +9,7 @@ use crate::wave::interpolate::interpolate;
 use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Waveform {
     Sine,
     Triangle,
@@ -45,7 +45,7 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
 ///
 /// # Outputs
 /// `out` - Mono waveform out.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Oscillator {
     phase: f32,
     frequency: f32,

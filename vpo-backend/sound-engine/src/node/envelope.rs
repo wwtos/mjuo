@@ -5,7 +5,7 @@ use crate::{error::NodeError, SoundConfig};
 
 const GATE_THRESHOLD: f32 = 0.001;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EnvelopeState {
     Attacking,
     Decaying,
@@ -13,7 +13,7 @@ pub enum EnvelopeState {
     Releasing,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Envelope {
     sample_rate: u32,
     pub attack: f32,

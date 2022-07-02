@@ -12,7 +12,7 @@ use crate::node::NodeRow;
 use crate::property::Property;
 use crate::property::PropertyType;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OscillatorNode {
     oscillator: Oscillator,
     audio_out: f32,

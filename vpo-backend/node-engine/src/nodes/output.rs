@@ -6,7 +6,7 @@ use crate::connection::StreamSocketType;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OutputNode {
     current_value: f32,
 }
