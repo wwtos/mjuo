@@ -9,7 +9,7 @@ use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BiquadFilterNode {
     filter: BiquadFilter
 }

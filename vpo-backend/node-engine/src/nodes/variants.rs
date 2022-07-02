@@ -11,7 +11,7 @@ use super::{
     midi_to_values::MidiToValuesNode, oscillator::OscillatorNode, output::OutputNode, biquad_filter::BiquadFilterNode,
 };
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeVariant {
     GainGraphNode(GainGraphNode),

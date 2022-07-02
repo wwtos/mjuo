@@ -10,7 +10,7 @@ use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvelopeNode {
     envelope: Envelope,
     last_val: f32,

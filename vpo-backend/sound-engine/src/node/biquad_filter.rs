@@ -15,7 +15,7 @@ pub enum BiquadFilterType {
     Allpass,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BiquadFilter {
     filter_type: BiquadFilterType,
     sample_rate: u32,

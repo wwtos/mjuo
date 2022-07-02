@@ -8,14 +8,14 @@ use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 enum ChangedState {
     NewInfo,
     InfoProcessed,
     NoInfo,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MidiToValuesNode {
     midi_in: Vec<MidiData>,
     frequency: f32,
