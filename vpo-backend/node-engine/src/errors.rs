@@ -32,3 +32,9 @@ pub enum NodeError {
     #[error("Socket by the name of `{0}` registered under different type")]
     RegistryCollision(String),
 }
+
+#[derive(Error, Debug)]
+pub enum NodeWarning {
+
+}
+
