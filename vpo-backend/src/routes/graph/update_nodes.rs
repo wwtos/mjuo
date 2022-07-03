@@ -4,16 +4,18 @@ use node_engine::{errors::NodeError, graph::Graph, node::NodeIndex, socket_regis
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 
-use crate::RouteReturn;
+use crate::{RouteReturn, util::{update_graph, update_registry}};
 
 pub fn route(
     message: Map<String, Value>,
     graph: &mut Graph,
-    _to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IPCMessage>,
     _config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let nodes_raw = message.get("payload").unwrap();
+
+    let mut did_any_node_change = false;
 
     if let Value::Array(nodes_to_update) = nodes_raw {
         for node_json in nodes_to_update {
@@ -30,9 +32,16 @@ pub fn route(
             };
 
             if did_apply_json {
-                graph.init_node(&index, socket_registry)?;
+                if graph.init_node(&index, socket_registry)? {
+                    did_any_node_change = true;
+                }
             }
         }
+    }
+
+    if did_any_node_change {
+        update_graph(graph, to_server);
+        update_registry(socket_registry, to_server).unwrap();
     }
 
     Ok(None)

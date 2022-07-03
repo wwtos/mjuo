@@ -241,7 +241,11 @@ impl Graph {
     }
 
     /// Initializes a node
-    pub fn init_node(&mut self, index: &NodeIndex, socket_registry: &mut SocketRegistry) -> Result<(), NodeError> {
+    /// 
+    /// Returns whether the node has changed itself
+    pub fn init_node(&mut self, index: &NodeIndex, socket_registry: &mut SocketRegistry) -> Result<bool, NodeError> {
+        let mut has_changed_self = false;
+
         if let Some(node_ref) = self.get_node(index) {
             let mut node_wrapper = (*node_ref.node).borrow_mut();
 
@@ -331,6 +335,7 @@ impl Graph {
 
                 // at which point we can _finally_ update the node's row list
                 node_wrapper.set_node_rows(init_result.node_rows);
+                has_changed_self = true;
             }
 
             // if the node returned any properties it wanted to change, apply them here
@@ -341,7 +346,7 @@ impl Graph {
             }
         }
 
-        Ok(())
+        Ok(has_changed_self)
     }
 
     pub fn get_node(&self, index: &NodeIndex) -> Option<GenerationalNode> {
