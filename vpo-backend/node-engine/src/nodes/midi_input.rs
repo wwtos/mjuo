@@ -6,6 +6,7 @@ use sound_engine::midi::messages::MidiData;
 use crate::connection::MidiSocketType;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct MidiInNode {
@@ -21,7 +22,7 @@ impl Node for MidiInNode {
         self.midi_in.clone()
     }
 
-    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         InitResult {
             did_rows_change: false,
             node_rows: vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])],

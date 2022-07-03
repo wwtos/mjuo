@@ -16,6 +16,7 @@ use crate::connection::{
 use crate::errors::{ErrorsAndWarnings, NodeError};
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -91,7 +92,7 @@ impl InitResult {
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 pub trait Node: Debug {
-    fn init(&mut self, props: &HashMap<String, Property>) -> InitResult;
+    fn init(&mut self, props: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult;
 
     /// Process received data.
     fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
@@ -136,10 +137,10 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(mut node: NodeVariant, index: NodeIndex) -> NodeWrapper {
+    pub fn new(mut node: NodeVariant, index: NodeIndex, registry: &mut SocketRegistry) -> NodeWrapper {
         let name = variant_to_name(&node);
 
-        let init_result = node.as_mut().init(&HashMap::new());
+        let init_result = node.as_mut().init(&HashMap::new(), registry);
 
         // TODO: check validity of node_rows here (no socket duplicates)
 

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::connection::StreamSocketType;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OutputNode {
@@ -18,7 +19,7 @@ impl Default for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0)])
     }
 

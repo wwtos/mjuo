@@ -32,7 +32,7 @@ pub fn route(
                     routes::graph::new_node::route(message, graph, to_server, config)
                 }
                 "graph/updateNodes" => {
-                    routes::graph::update_nodes::route(message, graph, to_server, config)
+                    routes::graph::update_nodes::route(message, graph, to_server, config, socket_registry)
                 }
                 "graph/connectNode" => {
                     routes::graph::connect_node::route(message, graph, to_server, config)

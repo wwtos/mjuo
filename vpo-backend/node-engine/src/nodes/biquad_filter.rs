@@ -8,6 +8,7 @@ use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BiquadFilterNode {
@@ -58,7 +59,7 @@ impl Node for BiquadFilterNode {
         self.filter.get_output_out()
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         println!("initialized with {:?}", properties);
 
         if let Some(Property::MultipleChoice(filter_type)) = properties.get("filter_type") {

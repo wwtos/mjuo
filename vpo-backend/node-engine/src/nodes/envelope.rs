@@ -9,6 +9,7 @@ use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvelopeNode {
@@ -61,7 +62,7 @@ impl Node for EnvelopeNode {
         self.envelope.get_gain()
     }
 
-    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         InitResult {
             did_rows_change: false,
             node_rows: vec![
