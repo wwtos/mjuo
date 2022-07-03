@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
-use crate::connection::StreamSocketType;
+use crate::connection::{StreamSocketType, SocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
@@ -28,7 +29,7 @@ impl Default for MixerNode {
 }
 
 impl Node for MixerNode {
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, _socket_type: &StreamSocketType, value: f32) {
         self.input_sum += value;
     }
 
@@ -43,17 +44,27 @@ impl Node for MixerNode {
         self.output_audio
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(&mut self, properties: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult {
         if let Some(Property::Integer(input_count)) = properties.get("input_count") {
             self.input_count = *input_count;
         }
 
-        let node_rows = vec![NodeRow::Property(
-            "input_count".to_string(),
-            PropertyType::Integer,
-            Property::Integer(2),
+        let mut node_rows = vec![
+            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2),
         )];
         let did_rows_change = self.input_count != self.last_input_count;
+
+        for i in 0..self.input_count {
+            node_rows.push(NodeRow::StreamInput(
+                registry.register_socket(
+                    format!("stream.mixer.{}", i),
+                    SocketType::Stream(StreamSocketType::Audio),
+                    "stream.mixer".to_string(),
+                    Some(json! { i })
+                ).unwrap().as_stream().unwrap(), 
+                0.0)
+            );
+        }
 
         InitResult {
             did_rows_change,
