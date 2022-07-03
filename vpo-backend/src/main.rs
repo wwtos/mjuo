@@ -132,8 +132,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let graph_index = graph_manager.new_graph();
 
     let graph = graph_manager.get_graph_mut(&graph_index).unwrap();
-    let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()));
-    let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()));
+    let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()), &mut socket_registry);
+    let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()), &mut socket_registry);
     let mut traverser = Traverser::get_traverser(&graph);
 
     let backend = connect_backend()?;

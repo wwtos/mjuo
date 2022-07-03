@@ -1,6 +1,6 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph::Graph, nodes::variants::new_variant};
+use node_engine::{errors::NodeError, graph::Graph, nodes::variants::new_variant, socket_registry::SocketRegistry};
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 
@@ -25,11 +25,12 @@ pub fn route(
     graph: &mut Graph,
     to_server: &Sender<IPCMessage>,
     config: &SoundConfig,
+    registry: &mut SocketRegistry,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let index = if let Value::String(node_type) = &message["payload"]["type"] {
         let new_node = new_variant(node_type, config).unwrap();
 
-        graph.add_node(new_node)
+        graph.add_node(new_node, registry)
     } else {
         return Ok(None);
     };
