@@ -1,4 +1,5 @@
 import type { NodeIndex } from "./node";
+import { socketRegistry } from "../node-editor/state";
 import { i18n } from '../i18n';
 import { deepEqual } from "fast-equals";
 import {makeTaggedUnion, MemberType, none} from "safety-match";
@@ -124,12 +125,28 @@ export function areSocketTypesEqual(socketType1: MemberType<typeof SocketType>, 
 export function jsonToSocketType (json: any) {
     switch (json["variant"]) {
         case "Stream":
+            if (json.data.variant === "Dynamic") {
+                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+            }
+
             return SocketType.Stream(StreamSocketType[json.data.variant]);
         case "Midi":
+            if (json.data.variant === "Dynamic") {
+                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+            }
+
             return SocketType.Midi(MidiSocketType[json.data.variant]);
         case "Value":
+            if (json.data.variant === "Dynamic") {
+                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+            }
+
             return SocketType.Value(ValueSocketType[json.data.variant]);
         case "MethodCall":
+            if (json.data.variant === "Dynamic") {
+                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+            }
+
             return SocketType.MethodCall(json.data.variant);
     }
 
@@ -152,15 +169,15 @@ export function socketToKey(socket: MemberType<typeof SocketType>, direction: So
             Dynamic: (uid) => ":" + uid,
             _: () => "_"
         }),
-        Midi: (stream) => stream.match({
+        Midi: (midi) => midi.match({
             Dynamic: (uid) => ":" + uid,
             _: () => "_"
         }),
-        Value: (stream) => stream.match({
+        Value: (value) => value.match({
             Dynamic: (uid) => ":" + uid,
             _: () => "_"
         }),
-        NodeRef: (stream) => stream.match({
+        NodeRef: (nodeRef) => nodeRef.match({
             Dynamic: (uid) => ":" + uid,
             _: () => "_"
         }),
@@ -225,38 +242,4 @@ export class OutputSideConnection {
         this.toNode = toNode;
         this.toSocketType = toSocketType;
     }
-}
-
-export function socketTypeToString(socketType: MemberType<typeof SocketType>): string {
-    let response = socketType.match({
-        Stream: (stream) => stream.match({
-            Audio: () => i18n.t("socketType.stream.audio"),
-            Gate: () => i18n.t("socketType.stream.gate"),
-            Gain: () => i18n.t("socketType.stream.gain"),
-            Detune: () => i18n.t("socketType.stream.detune"),
-            Dynamic: (uid) => i18n.t("socketType.midi.stream", { uid })
-        }),
-        Midi: (midi) => midi.match({
-            Default: () => i18n.t("socketType.midi.default"),
-            Dynamic: (uid) => i18n.t("socketType.midi.dynamic", { uid })
-        }),
-        Value: (value) => value.match({
-            Gain: () => i18n.t("socketType.value.gain"),
-            Frequency: () => i18n.t("socketType.value.frequency"),
-            Resonance: () => i18n.t("socketType.value.resonance"),
-            Gate: () => i18n.t("socketType.value.gate"),
-            Attack: () => i18n.t("socketType.value.attack"),
-            Decay: () => i18n.t("socketType.value.decay"),
-            Sustain: () => i18n.t("socketType.value.sustain"),
-            Release: () => i18n.t("socketType.value.release"),
-            Dynamic: (uid) => i18n.t("socketType.value.dynamic", { uid })
-        }),
-        NodeRef: (nodeRef) => nodeRef.match({
-            Button: () => i18n.t("socketType.noderef.button"),
-            Dynamic: (uid) => i18n.t("socketType.noderef.dynamic", { uid })
-        }),
-        MethodCall: () => "Method call",
-    });
-
-    return response;
 }
