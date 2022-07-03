@@ -24,6 +24,11 @@
                 "dynamic": "Dynamic({{uid}})"
             }
         },
+        "customSockets": {
+            "stream": {
+                "mixer": "Input {{input_number}}"
+            }
+        },
         "nodes": {
             "gainGraphNode": "Gain Node",
             "outputNode": "Output Node",
