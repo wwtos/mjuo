@@ -8,8 +8,8 @@ use crate::graph_tests::TestNode;
 
 use super::{
     biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, gain::GainGraphNode,
-    midi_input::MidiInNode, midi_to_values::MidiToValuesNode, oscillator::OscillatorNode,
-    output::OutputNode, mixer::MixerNode,
+    midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
+    oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

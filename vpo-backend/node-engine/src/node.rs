@@ -17,7 +17,7 @@ use crate::errors::{ErrorsAndWarnings, NodeError};
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRow {
     StreamInput(StreamSocketType, f32),
@@ -317,7 +317,7 @@ impl NodeWrapper {
                 socket_type == &override_type && SocketDirection::Input == override_direction
             } else {
                 false
-            }            
+            }
         });
 
         if let Some(row_override) = possible_override {
@@ -334,7 +334,8 @@ impl NodeWrapper {
                 } else {
                     false
                 }
-            }).map(|row| row.clone())
+            })
+            .map(|row| row.clone())
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
@@ -402,8 +403,8 @@ impl NodeWrapper {
         self.index = index;
     }
 
-    pub(in crate) fn get_node_variant(&self) -> &NodeVariant {
-        &self.node
+    pub(in crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
+        self.node_rows = rows;
     }
 
     pub(in crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
