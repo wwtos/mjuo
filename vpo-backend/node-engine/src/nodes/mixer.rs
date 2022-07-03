@@ -50,8 +50,9 @@ impl Node for MixerNode {
         }
 
         let mut node_rows = vec![
-            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2),
-        )];
+            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0)
+        ];
         let did_rows_change = self.input_count != self.last_input_count;
 
         for i in 0..self.input_count {
