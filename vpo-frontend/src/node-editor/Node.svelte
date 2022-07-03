@@ -2,7 +2,8 @@
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
     import { Graph } from "../node-engine/graph";
-    import { SocketType, SocketDirection, socketTypeToString, socketToKey } from "../node-engine/connection";
+    import { SocketType, SocketDirection, socketToKey } from "../node-engine/connection";
+    import { socketTypeToString } from "./interpolation";
     import { map } from "rxjs/operators";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { MemberType } from "safety-match";

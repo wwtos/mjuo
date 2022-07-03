@@ -5,7 +5,7 @@
     import { NodeRow, NodeWrapper, NodeRowAsTypeAndDirection, NodeRowFromTypeAndDirection } from "../node-engine/node";
     import { Graph } from "../node-engine/graph";
     import { fixDigits } from "../util/fix-digits";
-    import { BehaviorSubject } from "rxjs";
+    import { BehaviorSubject, Observable } from "rxjs";
 
     import Socket from "./Socket.svelte";
     import { MemberType } from "safety-match";
@@ -13,7 +13,7 @@
     const RADIUS = 12;
 
     export let type: MemberType<typeof SocketType>;
-    export let label: string;
+    export let label: BehaviorSubject<string>;
     export let direction: SocketDirection;
     export let nodeWrapper: NodeWrapper;
     export let socketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
@@ -87,25 +87,25 @@
                 <div class="flex">
                     <label>
                         <input value={fixDigits(($socketDefault).data, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
-                        <span class="input-hover-text">{ label }</span>
+                        <span class="input-hover-text">{ $label }</span>
                     </label>
                 </div>
             {:else if defaultValue.variant === "Boolean"}
                 <input type="checkbox" on:change={updateOverrides} checked={($socketDefault).data} />
-                <div class="text">{ label }</div>
+                <div class="text">{ $label }</div>
             {/if}
         {:else if type.variant === "Stream"}
             <div class="flex">
                 <label>
                     <input value={fixDigits($socketDefault, 3)} on:change={updateOverrides} on:keydown={event => event.stopPropagation()} />
-                    <span class="input-hover-text">{ label }</span>
+                    <span class="input-hover-text">{ $label }</span>
                 </label>
             </div>
         {:else}
-        <div class="text">{ label }</div>
+        <div class="text">{ $label }</div>
         {/if}
     {:else}
-        <div class="text">{ label }</div>
+        <div class="text">{ $label }</div>
     {/if}
 
     {#if direction === SocketDirection.Output}

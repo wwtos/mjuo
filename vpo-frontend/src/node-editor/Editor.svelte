@@ -1,6 +1,7 @@
 <script lang="ts">
     import Node from "./Node.svelte";
     import Connection from "./Connection.svelte";
+    import { socketRegistry } from "./state"
     import { onMount } from 'svelte';
     import { Graph, PossibleNode } from '../node-engine/graph';
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
@@ -11,7 +12,7 @@
     import { variants } from "../node-engine/variants";
     import { i18nStore } from '../i18n.js';
     import { get } from "svelte/store";
-import { MemberType } from "safety-match";
+    import { MemberType } from "safety-match";
     
     export let width = 400;
     export let height = 400;
@@ -38,6 +39,10 @@ import { MemberType } from "safety-match";
 
         if (message.action === "graph/updateGraph") {
             nodes.applyJson(message.payload);
+        } else if (message.action === "registry/updateRegistry") {
+            $socketRegistry.applyJson(message.payload);
+
+            console.log($socketRegistry);
         }
     });
 

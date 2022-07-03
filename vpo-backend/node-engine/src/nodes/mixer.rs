@@ -54,6 +54,7 @@ impl Node for MixerNode {
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0)
         ];
         let did_rows_change = self.input_count != self.last_input_count;
+        self.last_input_count = self.input_count;
 
         for i in 0..self.input_count {
             node_rows.push(NodeRow::StreamInput(
@@ -61,7 +62,7 @@ impl Node for MixerNode {
                     format!("stream.mixer.{}", i),
                     SocketType::Stream(StreamSocketType::Audio),
                     "stream.mixer".to_string(),
-                    Some(json! { i })
+                    Some(json! {{ "input_number": i + 1 }})
                 ).unwrap().as_stream().unwrap(), 
                 0.0)
             );
