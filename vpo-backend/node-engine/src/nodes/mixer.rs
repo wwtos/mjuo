@@ -6,6 +6,7 @@ use crate::connection::StreamSocketType;
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MixerNode {
@@ -42,7 +43,7 @@ impl Node for MixerNode {
         self.output_audio
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         if let Some(Property::Integer(input_count)) = properties.get("input_count") {
             self.input_count = *input_count;
         }

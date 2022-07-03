@@ -7,6 +7,7 @@ use crate::errors::NodeError;
 use crate::node::{InitResult, NodeIndex, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
 use crate::{graph::Graph, node::Node};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -19,7 +20,7 @@ impl Default for TestNode {
 }
 
 impl Node for TestNode {
-    fn init(&mut self, _props: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _props: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
@@ -33,9 +34,10 @@ impl Node for TestNode {
 #[test]
 fn graph_node_crud() {
     let mut graph = Graph::new();
+    let mut registry = SocketRegistry::new();
 
     // add a new node
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
 
     // check that the node exists
     assert!(graph.get_node(&first_node_index).is_some());
@@ -59,7 +61,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(&first_node_index).is_none());
 
     // now add a second node
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
 
     // it should have taken the place of the first node
     assert_eq!(first_node_index.index, second_node_index.index);
@@ -81,7 +83,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(&second_node_index).is_some());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node(NodeVariant::TestNode(TestNode {}));
+    graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph.serialize_to_json());
@@ -90,11 +92,12 @@ fn graph_node_crud() {
 #[test]
 fn graph_connecting() {
     let mut graph = Graph::new();
+    let mut registry = SocketRegistry::new();
 
     // add two new nodes
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
-    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -252,10 +255,11 @@ fn graph_connecting() {
 #[test]
 fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = Graph::new();
+    let mut registry = SocketRegistry::new();
 
     // set up a simple network
-    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}));
-    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}));
+    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
 
     graph.connect(
         first_node,

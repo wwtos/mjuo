@@ -7,6 +7,7 @@ use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 enum ChangedState {
@@ -78,7 +79,7 @@ impl Node for MidiToValuesNode {
         Ok(())
     }
 
-    fn init(&mut self, _properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),

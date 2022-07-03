@@ -11,6 +11,7 @@ use crate::node::Node;
 use crate::node::NodeRow;
 use crate::property::Property;
 use crate::property::PropertyType;
+use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OscillatorNode {
@@ -28,7 +29,7 @@ impl Default for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
-    fn init(&mut self, properties: &HashMap<String, Property>) -> InitResult {
+    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
         if let Some(waveform) = properties.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
