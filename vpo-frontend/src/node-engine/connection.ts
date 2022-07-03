@@ -147,7 +147,25 @@ export function socketTypeToKey(socketType: MemberType<typeof SocketType>) {
 };
 
 export function socketToKey(socket: MemberType<typeof SocketType>, direction: SocketDirection) {
-    return socketTypeToKey(socket) + ":" + direction;
+    return socketTypeToKey(socket) + ":" + direction + socket.match({
+        Stream: (stream) => stream.match({
+            Dynamic: (uid) => ":" + uid,
+            _: () => "_"
+        }),
+        Midi: (stream) => stream.match({
+            Dynamic: (uid) => ":" + uid,
+            _: () => "_"
+        }),
+        Value: (stream) => stream.match({
+            Dynamic: (uid) => ":" + uid,
+            _: () => "_"
+        }),
+        NodeRef: (stream) => stream.match({
+            Dynamic: (uid) => ":" + uid,
+            _: () => "_"
+        }),
+        _: () => ""
+    });
 }
 
 export enum SocketDirection {
