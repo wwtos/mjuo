@@ -12,7 +12,7 @@ pub struct MixerNode {
     input_count: i32,
     last_input_count: i32,
     input_sum: f32,
-    output_audio: f32
+    output_audio: f32,
 }
 
 impl Default for MixerNode {
@@ -21,7 +21,7 @@ impl Default for MixerNode {
             input_count: 2,
             last_input_count: 2,
             input_sum: 0.0,
-            output_audio: 0.0
+            output_audio: 0.0,
         }
     }
 }
@@ -47,9 +47,11 @@ impl Node for MixerNode {
             self.input_count = *input_count;
         }
 
-        let node_rows = vec![
-            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-        ];
+        let node_rows = vec![NodeRow::Property(
+            "input_count".to_string(),
+            PropertyType::Integer,
+            Property::Integer(2),
+        )];
         let did_rows_change = self.input_count != self.last_input_count;
 
         InitResult {
