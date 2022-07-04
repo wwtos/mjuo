@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::connection::{StreamSocketType, SocketType};
@@ -9,7 +8,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
 pub struct MixerNode {
     input_count: i32,
     last_input_count: i32,

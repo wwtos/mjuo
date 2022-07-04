@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
@@ -13,7 +12,7 @@ use crate::property::Property;
 use crate::property::PropertyType;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
 pub struct OscillatorNode {
     oscillator: Oscillator,
     audio_out: f32,
