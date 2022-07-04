@@ -306,7 +306,7 @@
 
     <div class="new-node" style="width: {width - 9}px">
         {$i18nStore.t('editor.newNodeType')}
-        <select bind:value={nodeTypeToCreate}>
+        <select bind:value={nodeTypeToCreate} on:mousedown={e => e.stopPropagation()}>
             {#each variants as {name, internal} }
                 <option value="{internal}">{name}</option>
             {/each}

@@ -44,7 +44,7 @@
 
 <div class="container">
     {#if propType.variant === "MultipleChoice"}
-        <select value={$value.data} on:input={updateProperties}>
+        <select value={$value.data} on:mousedown={e => e.stopPropagation()} on:input={updateProperties}>
             {#each choices as choice (choice)}
                 <option value={ choice }>{ choice }</option>
             {/each}
@@ -52,7 +52,7 @@
     {:else if propType.variant == "Integer"}
         <div class="flex">
             <label>
-                <input type="number" value={$value.data} on:change={updateProperties} on:keydown={event => event.stopPropagation()} />
+                <input type="number" value={$value.data} on:mousedown={e => e.stopPropagation()} on:change={updateProperties} on:keydown={event => event.stopPropagation()} />
                 <span class="input-hover-text">{ propName }</span>
             </label>
         </div>
