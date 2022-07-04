@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use sound_engine::node::envelope::Envelope;
 use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
@@ -11,7 +10,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
 pub struct EnvelopeNode {
     envelope: Envelope,
     last_val: f32,

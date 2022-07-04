@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
@@ -9,14 +8,14 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, PartialEq)]
 enum ChangedState {
     NewInfo,
     InfoProcessed,
     NoInfo,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
 pub struct MidiToValuesNode {
     midi_in: Vec<MidiData>,
     frequency: f32,

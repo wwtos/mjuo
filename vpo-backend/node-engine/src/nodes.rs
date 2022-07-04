@@ -7,3 +7,4 @@ pub mod mixer;
 pub mod oscillator;
 pub mod output;
 pub mod variants;
+pub mod expression;

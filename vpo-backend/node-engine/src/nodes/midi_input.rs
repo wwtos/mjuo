@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::MidiSocketType;
@@ -8,7 +7,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct MidiInNode {
     midi_in: Vec<MidiData>,
 }

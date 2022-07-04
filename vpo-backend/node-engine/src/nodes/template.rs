@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
-
 use crate::connection::{SocketType, StreamSocketType};
 use crate::node::Node;
 use crate::property::{Property, PropertyType};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct TemplateNode {
     some_stream: f32,
     some_prop: f32

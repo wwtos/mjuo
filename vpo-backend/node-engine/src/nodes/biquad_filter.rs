@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Serialize};
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
 use sound_engine::SoundConfig;
 
@@ -10,7 +9,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug)]
 pub struct BiquadFilterNode {
     filter: BiquadFilter,
 }
