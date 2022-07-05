@@ -17,6 +17,12 @@ hyper = "0.14.18"
 strum = "0.24.0"
 strum_macros = "0.24"
 
+[profile.debug-release]
+inherits = "dev"
+opt-level = 3
+debug = 2
+
+
 [workspace]
 
 members = [

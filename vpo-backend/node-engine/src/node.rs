@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
 
+use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
@@ -93,6 +94,7 @@ impl InitResult {
 ///  It needs to implement methods listing
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
+#[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
     fn init(&mut self, props: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult;
 
@@ -142,7 +144,7 @@ impl NodeWrapper {
     pub fn new(mut node: NodeVariant, index: NodeIndex, registry: &mut SocketRegistry) -> NodeWrapper {
         let name = variant_to_name(&node);
 
-        let init_result = node.as_mut().init(&HashMap::new(), registry);
+        let init_result = node.init(&HashMap::new(), registry);
 
         // TODO: check validity of node_rows here (no socket duplicates)
 
@@ -375,31 +377,31 @@ impl NodeWrapper {
     }
 
     pub fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
-        self.node.as_mut().accept_stream_input(socket_type, value);
+        self.node.accept_stream_input(socket_type, value);
     }
 
     pub fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
-        self.node.as_ref().get_stream_output(socket_type)
+        self.node.get_stream_output(socket_type)
     }
 
     pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {
-        self.node.as_mut().accept_midi_input(socket_type, value);
+        self.node.accept_midi_input(socket_type, value);
     }
 
     pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
-        self.node.as_ref().get_midi_output(socket_type)
+        self.node.get_midi_output(socket_type)
     }
 
     pub fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
-        self.node.as_mut().accept_value_input(socket_type, value);
+        self.node.accept_value_input(socket_type, value);
     }
 
     pub fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
-        self.node.as_ref().get_value_output(socket_type)
+        self.node.get_value_output(socket_type)
     }
 
     pub fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
-        self.node.as_mut().process()
+        self.node.process()
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
