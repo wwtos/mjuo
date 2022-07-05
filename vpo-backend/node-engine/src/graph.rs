@@ -9,7 +9,7 @@ use crate::{
         Connection, InputSideConnection, OutputSideConnection, SocketDirection, SocketType,
     },
     errors::NodeError,
-    node::{GenerationalNode, NodeIndex, NodeRow, NodeWrapper},
+    node::{GenerationalNode, NodeIndex, NodeRow, NodeWrapper, Node},
     nodes::variants::NodeVariant, socket_registry::SocketRegistry,
 };
 
@@ -251,7 +251,7 @@ impl Graph {
 
             let props = node_wrapper.get_properties().clone();
 
-            let node = node_wrapper.node.as_mut();
+            let node = &mut node_wrapper.node;
             let init_result = node.init(&props, socket_registry);
 
             if init_result.did_rows_change {
