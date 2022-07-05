@@ -1,4 +1,4 @@
-use rhai::{ParseError, EvalAltResult};
+use rhai::{EvalAltResult, ParseError};
 use thiserror::Error;
 
 use serde_json;
@@ -35,13 +35,13 @@ pub enum NodeError {
     #[error("Rhai parser error: {0}")]
     RhaiParserError(ParseError),
     #[error("Rhai evaluation error: {0}")]
-    RhaiEvalError(EvalAltResult)
+    RhaiEvalError(EvalAltResult),
 }
 
 #[derive(Error, Debug)]
 pub enum NodeWarning {
     #[error("Value of type `{0}` was returned, ignoring")]
-    RhaiInvalidReturnType(String)
+    RhaiInvalidReturnType(String),
 }
 
 #[derive(Debug)]
