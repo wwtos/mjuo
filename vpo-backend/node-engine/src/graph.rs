@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 
+use rhai::Engine;
 use serde_json::json;
 
 use crate::{
@@ -9,8 +10,9 @@ use crate::{
         Connection, InputSideConnection, OutputSideConnection, SocketDirection, SocketType,
     },
     errors::NodeError,
-    node::{GenerationalNode, NodeIndex, NodeRow, NodeWrapper, Node},
-    nodes::variants::NodeVariant, socket_registry::SocketRegistry,
+    node::{GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper},
+    nodes::variants::NodeVariant,
+    socket_registry::SocketRegistry,
 };
 
 #[derive(Debug)]
@@ -24,7 +26,12 @@ pub enum PossibleNode {
     None(u32), // last generation that was here
 }
 
-fn create_new_node(node: NodeVariant, generation: u32, registry: &mut SocketRegistry) -> PossibleNode {
+fn create_new_node(
+    node: NodeVariant,
+    generation: u32,
+    registry: &mut SocketRegistry,
+    scripting_engine: &Engine,
+) -> PossibleNode {
     PossibleNode::Some(GenerationalNode {
         node: Rc::new(RefCell::new(NodeWrapper::new(
             node,
@@ -32,7 +39,8 @@ fn create_new_node(node: NodeVariant, generation: u32, registry: &mut SocketRegi
                 index: 0,
                 generation: 0,
             },
-            registry
+            registry,
+            scripting_engine,
         ))),
         generation,
     })
@@ -43,12 +51,18 @@ impl Graph {
         Graph { nodes: Vec::new() }
     }
 
-    pub fn add_node(&mut self, node: NodeVariant, registry: &mut SocketRegistry) -> NodeIndex {
+    pub fn add_node(
+        &mut self,
+        node: NodeVariant,
+        registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) -> NodeIndex {
         let index;
         let new_generation;
 
         if self.nodes.is_empty() {
-            self.nodes.push(create_new_node(node, 0, registry));
+            self.nodes
+                .push(create_new_node(node, 0, registry, scripting_engine));
 
             index = self.nodes.len() - 1;
             new_generation = 0;
@@ -72,9 +86,11 @@ impl Graph {
                     );
                 };
 
-                self.nodes[index] = create_new_node(node, new_generation, registry);
+                self.nodes[index] =
+                    create_new_node(node, new_generation, registry, scripting_engine);
             } else {
-                self.nodes.push(create_new_node(node, 0, registry));
+                self.nodes
+                    .push(create_new_node(node, 0, registry, scripting_engine));
 
                 index = self.nodes.len() - 1;
                 new_generation = 0;
@@ -241,9 +257,14 @@ impl Graph {
     }
 
     /// Initializes a node
-    /// 
+    ///
     /// Returns whether the node has changed itself
-    pub fn init_node(&mut self, index: &NodeIndex, socket_registry: &mut SocketRegistry) -> Result<bool, NodeError> {
+    pub fn init_node(
+        &mut self,
+        index: &NodeIndex,
+        socket_registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) -> Result<bool, NodeError> {
         let mut has_changed_self = false;
 
         if let Some(node_ref) = self.get_node(index) {
@@ -252,7 +273,7 @@ impl Graph {
             let props = node_wrapper.get_properties().clone();
 
             let node = &mut node_wrapper.node;
-            let init_result = node.init(&props, socket_registry);
+            let init_result = node.init(&props, socket_registry, scripting_engine);
 
             if init_result.did_rows_change {
                 let old_rows = node_wrapper.get_node_rows().clone();
@@ -282,7 +303,8 @@ impl Graph {
 
                         match direction {
                             SocketDirection::Input => {
-                                let input_connection = node_wrapper.get_input_connection_by_type(&socket_type);
+                                let input_connection =
+                                    node_wrapper.get_input_connection_by_type(&socket_type);
 
                                 if let Some(input_connection) = input_connection {
                                     let from_ref = self.get_node(&input_connection.from_node);
@@ -293,19 +315,27 @@ impl Graph {
                                         from_wrapper
                                             .remove_output_socket_connection_unsafe(
                                                 &OutputSideConnection {
-                                                    from_socket_type: input_connection.from_socket_type,
+                                                    from_socket_type: input_connection
+                                                        .from_socket_type,
                                                     to_node: *index,
-                                                    to_socket_type: input_connection.to_socket_type.clone(),
+                                                    to_socket_type: input_connection
+                                                        .to_socket_type
+                                                        .clone(),
                                                 },
                                             )
                                             .unwrap();
                                     }
 
-                                    node_wrapper.remove_input_socket_connection_unsafe(&input_connection.to_socket_type).unwrap();
+                                    node_wrapper
+                                        .remove_input_socket_connection_unsafe(
+                                            &input_connection.to_socket_type,
+                                        )
+                                        .unwrap();
                                 }
                             }
                             SocketDirection::Output => {
-                                let output_connections = node_wrapper.get_output_connections_by_type(&socket_type);
+                                let output_connections =
+                                    node_wrapper.get_output_connections_by_type(&socket_type);
 
                                 for output_connection in output_connections {
                                     let to_ref = self.get_node(&output_connection.to_node);
@@ -315,18 +345,23 @@ impl Graph {
 
                                         // remove the other connection to this one
                                         to_wrapper
-                                            .remove_input_socket_connection_unsafe(&output_connection.to_socket_type)
+                                            .remove_input_socket_connection_unsafe(
+                                                &output_connection.to_socket_type,
+                                            )
                                             .unwrap();
                                     }
 
                                     // remove this connection to the other one
-                                    node_wrapper.remove_output_socket_connection_unsafe(
-                                        &OutputSideConnection {
-                                            from_socket_type: output_connection.from_socket_type,
-                                            to_node: output_connection.to_node,
-                                            to_socket_type: output_connection.to_socket_type
-                                        }
-                                    ).unwrap();
+                                    node_wrapper
+                                        .remove_output_socket_connection_unsafe(
+                                            &OutputSideConnection {
+                                                from_socket_type: output_connection
+                                                    .from_socket_type,
+                                                to_node: output_connection.to_node,
+                                                to_socket_type: output_connection.to_socket_type,
+                                            },
+                                        )
+                                        .unwrap();
                                 }
                             }
                         }

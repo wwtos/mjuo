@@ -1,6 +1,7 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, graph::Graph, socket_registry::SocketRegistry};
+use rhai::Engine;
 use serde_json::Value;
 use sound_engine::SoundConfig;
 
@@ -17,6 +18,7 @@ pub fn route(
     to_server: &Sender<IPCMessage>,
     config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
+    scripting_engine: &Engine,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 
@@ -29,10 +31,10 @@ pub fn route(
                     routes::graph::get::route(message, graph, to_server, config, socket_registry)
                 }
                 "graph/newNode" => {
-                    routes::graph::new_node::route(message, graph, to_server, config, socket_registry)
+                    routes::graph::new_node::route(message, graph, to_server, config, socket_registry, scripting_engine)
                 }
                 "graph/updateNodes" => {
-                    routes::graph::update_nodes::route(message, graph, to_server, config, socket_registry)
+                    routes::graph::update_nodes::route(message, graph, to_server, config, socket_registry, scripting_engine)
                 }
                 "graph/connectNode" => {
                     routes::graph::connect_node::route(message, graph, to_server, config)

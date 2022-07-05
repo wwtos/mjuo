@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use rhai::{Engine, AST, Dynamic, Scope};
+use rhai::{Dynamic, Engine, Scope, AST};
 use serde_json::json;
 
-use crate::connection::{Primitive, ValueSocketType, SocketType};
+use crate::connection::{Primitive, SocketType, ValueSocketType};
 use crate::errors::{ErrorsAndWarnings, NodeError, NodeWarning};
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
@@ -11,25 +11,23 @@ use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug)]
 pub struct ExpressionNode {
-    engine: Engine,
     ast: Option<AST>,
     scope: Scope<'static>,
     values_in: Vec<Primitive>,
     values_in_mapping: Vec<(u64, usize)>,
     value_out: Option<Primitive>,
-    have_values_changed: bool
+    have_values_changed: bool,
 }
 
 impl ExpressionNode {
     pub fn new() -> ExpressionNode {
         ExpressionNode {
-            engine: Engine::new(),
             scope: Scope::new(),
             ast: None,
             values_in: vec![],
             values_in_mapping: vec![],
             value_out: None,
-            have_values_changed: true
+            have_values_changed: true,
         }
     }
 }
@@ -38,7 +36,10 @@ impl Node for ExpressionNode {
     fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
         match socket_type {
             &ValueSocketType::Dynamic(uid) => {
-                let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
+                let local_index = self
+                    .values_in_mapping
+                    .iter()
+                    .find(|mapping| mapping.0 == uid);
 
                 if let Some(local_index) = local_index {
                     self.values_in[local_index.1] = value;
@@ -48,22 +49,29 @@ impl Node for ExpressionNode {
             }
             _ => {}
         }
-        
     }
 
     fn get_value_output(&self, _socket_type: &ValueSocketType) -> Option<Primitive> {
         self.value_out.clone()
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         if let Some(ast) = &self.ast {
             if self.have_values_changed {
+                // add inputs to scope
                 for (i, val) in self.values_in.iter().enumerate() {
-                    self.scope.push(format!("x{}", i + 1), val.clone().as_dynamic());
+                    self.scope
+                        .push(format!("x{}", i + 1), val.clone().as_dynamic());
                 }
 
-                let result = self.engine.eval_ast_with_scope::<Dynamic>(&mut self.scope, &ast);
+                // now we run the expression!
+                let result = scripting_engine.eval_ast_with_scope::<Dynamic>(&mut self.scope, &ast);
 
+                // convert the output to a usuable form
                 match result {
                     Ok(output) => {
                         self.value_out = match output.type_name() {
@@ -78,7 +86,9 @@ impl Node for ExpressionNode {
 
                                 return Err(ErrorsAndWarnings {
                                     errors: vec![],
-                                    warnings: vec![NodeWarning::RhaiInvalidReturnType(output.type_name().to_string())]
+                                    warnings: vec![NodeWarning::RhaiInvalidReturnType(
+                                        output.type_name().to_string(),
+                                    )],
                                 });
                             }
                         }
@@ -90,8 +100,8 @@ impl Node for ExpressionNode {
 
                         return Err(ErrorsAndWarnings {
                             errors: vec![NodeError::RhaiEvalError(*err)],
-                            warnings: vec![]
-                        })
+                            warnings: vec![],
+                        });
                     }
                 }
 
@@ -103,9 +113,15 @@ impl Node for ExpressionNode {
         Ok(())
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        properties: &HashMap<String, Property>,
+        registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) -> InitResult {
         let mut did_rows_change = false;
 
+        // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(
                 "expression".to_string(),
@@ -133,13 +149,16 @@ impl Node for ExpressionNode {
                 // if bigger, add some accordingly
                 for i in self.values_in.len()..values_in_count_usize {
                     // get ID for socket
-                    let new_socket_uid = registry.register_socket(
-                        format!("value.expression.{}", i),
-                        SocketType::Value(ValueSocketType::Default),
-                        "value.expression".to_string(),
-                        Some(json! {{ "input_number": i + 1 }})
-                    ).unwrap().1;
-                    
+                    let new_socket_uid = registry
+                        .register_socket(
+                            format!("value.expression.{}", i),
+                            SocketType::Value(ValueSocketType::Default),
+                            "value.expression".to_string(),
+                            Some(json! {{ "input_number": i + 1 }}),
+                        )
+                        .unwrap()
+                        .1;
+
                     // add a socket -> local index mapping
                     self.values_in_mapping.push((new_socket_uid, i));
                     self.values_in.push(Primitive::Float(0.0));
@@ -164,18 +183,23 @@ impl Node for ExpressionNode {
         }
 
         for i in 0..self.values_in.len() {
-            let new_socket_type = registry.register_socket(
-                format!("value.expression.{}", i),
-                SocketType::Value(ValueSocketType::Default),
-                "value.expression".to_string(),
-                Some(json! {{ "input_number": i + 1 }})
-            ).unwrap().0.as_value().unwrap();
+            let new_socket_type = registry
+                .register_socket(
+                    format!("value.expression.{}", i),
+                    SocketType::Value(ValueSocketType::Default),
+                    "value.expression".to_string(),
+                    Some(json! {{ "input_number": i + 1 }}),
+                )
+                .unwrap()
+                .0
+                .as_value()
+                .unwrap();
 
             node_rows.push(NodeRow::ValueInput(new_socket_type, Primitive::Float(0.0)));
         }
-        
+
         // compile the expression and collect any errors
-        let possible_ast = self.engine.compile(&expression);
+        let possible_ast = scripting_engine.compile(&expression);
         let mut possible_error = None;
 
         match possible_ast {
@@ -185,7 +209,7 @@ impl Node for ExpressionNode {
             Err(err) => {
                 possible_error = Some(ErrorsAndWarnings {
                     errors: vec![NodeError::RhaiParserError(err)],
-                    warnings: vec![]
+                    warnings: vec![],
                 });
             }
         }
@@ -196,7 +220,7 @@ impl Node for ExpressionNode {
             did_rows_change,
             node_rows,
             changed_properties: None,
-            errors_and_warnings: possible_error
+            errors_and_warnings: possible_error,
         }
     }
 }

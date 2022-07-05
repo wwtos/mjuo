@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use sound_engine::node::envelope::Envelope;
 use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
@@ -13,14 +14,12 @@ use crate::socket_registry::SocketRegistry;
 #[derive(Debug)]
 pub struct EnvelopeNode {
     envelope: Envelope,
-    last_val: f32,
 }
 
 impl EnvelopeNode {
     pub fn new(config: &SoundConfig) -> Self {
         EnvelopeNode {
             envelope: Envelope::new(config, 0.02, 0.2, 0.8, 0.5),
-            last_val: 0.0,
         }
     }
 }
@@ -61,7 +60,12 @@ impl Node for EnvelopeNode {
         self.envelope.get_gain()
     }
 
-    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        _properties: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         InitResult::simple(vec![
             NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
             NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
@@ -72,7 +76,11 @@ impl Node for EnvelopeNode {
         ])
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.envelope.process();
 
         Ok(())

@@ -3,6 +3,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, graph::Graph, nodes::variants::new_variant, socket_registry::SocketRegistry};
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
+use rhai::Engine;
 
 use crate::{util::update_graph, RouteReturn};
 
@@ -26,11 +27,12 @@ pub fn route(
     to_server: &Sender<IPCMessage>,
     config: &SoundConfig,
     registry: &mut SocketRegistry,
+    scripting_engine: &Engine
 ) -> Result<Option<RouteReturn>, NodeError> {
     let index = if let Value::String(node_type) = &message["payload"]["type"] {
         let new_node = new_variant(node_type, config).unwrap();
 
-        graph.add_node(new_node, registry)
+        graph.add_node(new_node, registry, scripting_engine)
     } else {
         return Ok(None);
     };

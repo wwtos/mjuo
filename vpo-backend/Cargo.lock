@@ -1102,6 +1102,7 @@ dependencies = [
  "hyper",
  "ipc",
  "node-engine",
+ "rhai",
  "routerify",
  "serde",
  "serde_json",

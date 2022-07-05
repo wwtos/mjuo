@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
@@ -20,7 +21,12 @@ impl Default for TestNode {
 }
 
 impl Node for TestNode {
-    fn init(&mut self, _props: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        _props: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
@@ -35,9 +41,14 @@ impl Node for TestNode {
 fn graph_node_crud() {
     let mut graph = Graph::new();
     let mut registry = SocketRegistry::new();
+    let mut scripting_engine = Engine::new();
 
     // add a new node
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let first_node_index = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
 
     // check that the node exists
     assert!(graph.get_node(&first_node_index).is_some());
@@ -61,7 +72,11 @@ fn graph_node_crud() {
     assert!(graph.get_node(&first_node_index).is_none());
 
     // now add a second node
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let second_node_index = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
 
     // it should have taken the place of the first node
     assert_eq!(first_node_index.index, second_node_index.index);
@@ -83,7 +98,11 @@ fn graph_node_crud() {
     assert!(graph.get_node(&second_node_index).is_some());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph.serialize_to_json());
@@ -93,11 +112,24 @@ fn graph_node_crud() {
 fn graph_connecting() {
     let mut graph = Graph::new();
     let mut registry = SocketRegistry::new();
+    let mut scripting_engine = Engine::new();
 
     // add two new nodes
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
-    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let first_node_index = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
+    let second_node_index = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
+    let third_node_index = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -256,10 +288,19 @@ fn graph_connecting() {
 fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = Graph::new();
     let mut registry = SocketRegistry::new();
+    let mut scripting_engine = Engine::new();
 
     // set up a simple network
-    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
-    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry);
+    let first_node = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
+    let second_node = graph.add_node(
+        NodeVariant::TestNode(TestNode {}),
+        &mut registry,
+        &scripting_engine,
+    );
 
     graph.connect(
         first_node,

@@ -1,6 +1,7 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, graph::Graph, node::NodeIndex, socket_registry::SocketRegistry};
+use rhai::Engine;
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 
@@ -12,6 +13,7 @@ pub fn route(
     to_server: &Sender<IPCMessage>,
     _config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
+    scripting_engine: &Engine,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let nodes_raw = message.get("payload").unwrap();
 
@@ -32,7 +34,7 @@ pub fn route(
             };
 
             if did_apply_json {
-                if graph.init_node(&index, socket_registry)? {
+                if graph.init_node(&index, socket_registry, &scripting_engine)? {
                     did_any_node_change = true;
                 }
             }

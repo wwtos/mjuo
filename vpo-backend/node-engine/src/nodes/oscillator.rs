@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
@@ -28,7 +29,12 @@ impl Default for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
-    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        properties: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         if let Some(waveform) = properties.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
@@ -54,7 +60,11 @@ impl Node for OscillatorNode {
         ])
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.audio_out = self.oscillator.process_fast();
 
         Ok(())
