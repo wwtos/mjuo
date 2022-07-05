@@ -46,6 +46,7 @@ export function deserializeStreamSocketType(json: any): MemberType<typeof Stream
 };
 
 export const ValueSocketType = makeTaggedUnion({
+    Default: none,
     Gain: none,
     Frequency: none,
     Resonance: none,
@@ -59,6 +60,8 @@ export const ValueSocketType = makeTaggedUnion({
 
 export function deserializeValueSocketType(json: any): MemberType<typeof ValueSocketType> {
     switch (json.variant) {
+        case "Default":
+            return ValueSocketType.Default;
         case "Gain":
             return ValueSocketType.Gain;
         case "Frequency":
@@ -122,7 +125,7 @@ export function areSocketTypesEqual(socketType1: MemberType<typeof SocketType>, 
     return deepEqual(socketType1, socketType2);
 }
 
-export function jsonToSocketType (json: any) {
+export function deserializeSocketType (json: any) {
     switch (json["variant"]) {
         case "Stream":
             if (json.data.variant === "Dynamic") {
@@ -132,21 +135,23 @@ export function jsonToSocketType (json: any) {
             return SocketType.Stream(StreamSocketType[json.data.variant]);
         case "Midi":
             if (json.data.variant === "Dynamic") {
-                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+                return SocketType.Midi(MidiSocketType.Dynamic(json.data.data));
             }
 
             return SocketType.Midi(MidiSocketType[json.data.variant]);
         case "Value":
             if (json.data.variant === "Dynamic") {
-                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+                return SocketType.Value(ValueSocketType.Dynamic(json.data.data));
             }
 
             return SocketType.Value(ValueSocketType[json.data.variant]);
-        case "MethodCall":
+        case "NodeRef":
             if (json.data.variant === "Dynamic") {
-                return SocketType.Stream(StreamSocketType.Dynamic(json.data.data));
+                return SocketType.NodeRef(NodeRefSocketType.Dynamic(json.data.data));
             }
 
+            return SocketType.NodeRef(NodeRefSocketType[json.data.variant]);
+        case "MethodCall":
             return SocketType.MethodCall(json.data.variant);
     }
 
@@ -154,11 +159,23 @@ export function jsonToSocketType (json: any) {
 }
 
 export function socketTypeToKey(socketType: MemberType<typeof SocketType>) {
-    return socketType.variant + ", " + socketType.match({
-        Stream: stream => stream.variant,
-        Midi: midi => midi.variant,
-        Value: value => value.variant,
-        NodeRef: nodeRef => nodeRef.variant,
+    return socketType.variant + "," + socketType.match({
+        Stream: stream => stream.match({
+            Dynamic: uid => stream.variant + uid,
+            _: () => stream.variant,
+        }),
+        Midi: midi => midi.match({
+            Dynamic: uid => midi.variant + uid,
+            _: () => midi.variant,
+        }),
+        Value: value => value.match({
+            Dynamic: uid => value.variant + uid,
+            _: () => value.variant,
+        }),
+        NodeRef: nodeRef => nodeRef.match({
+            Dynamic: uid => nodeRef.variant + uid,
+            _: () => nodeRef.variant,
+        }),
         MethodCall: args => args.toString()
     });
 };
@@ -214,7 +231,7 @@ export class Connection {
 
     getKey(): string {
         return socketTypeToKey(this.fromSocketType) + ":" +
-               this.fromNode.toKey() + ":" +
+               this.fromNode.toKey() + "->" +
                socketTypeToKey(this.toSocketType) + ":" +
                this.toNode.toKey();
     }

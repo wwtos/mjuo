@@ -276,10 +276,6 @@
             y2: toXY[1]
         };
     }
-
-    setTimeout(() => {
-        keyedConnections = keyedConnections;
-    }, 500);
 </script>
 
 <div class="editor" style="width: {width}px; height: {height}px" bind:this={editor}>

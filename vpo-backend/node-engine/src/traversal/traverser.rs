@@ -1,6 +1,6 @@
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
-    errors::ErrorsAndWarnings,
+    errors::{ErrorsAndWarnings, NodeWarning, NodeError},
     graph::Graph,
     node::{NodeIndex, NodeRow},
 };
@@ -93,6 +93,9 @@ impl Traverser {
         graph: &mut Graph,
         input_defaults: bool,
     ) -> Result<(), ErrorsAndWarnings> {
+        let mut errors: Vec<NodeError> = vec![];
+        let mut warnings: Vec<NodeWarning> = vec![];
+
         for (node_index, data) in &self.nodes {
             let node_wrapper_ref = graph.get_node(node_index).unwrap().node;
             let mut node_wrapper = (*node_wrapper_ref).borrow_mut();
@@ -117,7 +120,13 @@ impl Traverser {
             }
 
             // make de magic happenz
-            node_wrapper.process()?;
+            let process_result = node_wrapper.process();
+
+            // record any errors
+            if let Err(mut errors_and_warnings) = process_result {
+                errors.append(&mut errors_and_warnings.errors);
+                warnings.append(&mut errors_and_warnings.warnings);
+            }
 
             for output_connection in &data.outputs_to {
                 let other_node_wrapper_ref =
@@ -162,6 +171,13 @@ impl Traverser {
             }
         }
 
-        Ok(())
+        if !errors.is_empty() || !warnings.is_empty() {
+            Err(ErrorsAndWarnings {
+                errors,
+                warnings
+            })
+        } else {
+            Ok(())
+        }        
     }
 }

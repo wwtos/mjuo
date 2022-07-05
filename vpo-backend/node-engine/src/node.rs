@@ -68,6 +68,7 @@ pub struct InitResult {
     pub did_rows_change: bool,
     pub node_rows: Vec<NodeRow>,
     pub changed_properties: Option<HashMap<String, Property>>,
+    pub errors_and_warnings: Option<ErrorsAndWarnings>,
 }
 
 impl InitResult {
@@ -76,6 +77,7 @@ impl InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
+            errors_and_warnings: None
         }
     }
 }

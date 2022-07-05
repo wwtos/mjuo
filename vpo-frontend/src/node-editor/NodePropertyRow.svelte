@@ -29,6 +29,9 @@
 
                 return Property.Integer(newValueParsed);
             },
+            String: () => {
+                return Property.String(newValue);
+            },
             _: () => { throw "unimplemened" }
         });
 
@@ -53,6 +56,13 @@
         <div class="flex">
             <label>
                 <input type="number" value={$value.data} on:mousedown={e => e.stopPropagation()} on:change={updateProperties} on:keydown={event => event.stopPropagation()} />
+                <span class="input-hover-text">{ propName }</span>
+            </label>
+        </div>
+    {:else if propType.variant == "String"}
+        <div class="flex">
+            <label>
+                <input type="text" value={$value.data} on:mousedown={e => e.stopPropagation()} on:change={updateProperties} on:keydown={event => event.stopPropagation()} />
                 <span class="input-hover-text">{ propName }</span>
             </label>
         </div>

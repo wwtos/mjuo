@@ -1,3 +1,4 @@
+use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumDiscriminants;
 
@@ -63,6 +64,7 @@ pub enum StreamSocketType {
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum ValueSocketType {
+    Default,
     Gain,
     Frequency,
     Resonance,
@@ -127,6 +129,16 @@ impl Primitive {
             Primitive::Boolean(boolean) => Some(boolean.to_string()),
         }
     }
+
+    #[inline]
+    pub fn as_dynamic(self) -> Dynamic {
+        match self {
+            Primitive::String(string) => Dynamic::from(string),
+            Primitive::Float(float) => Dynamic::from(float),
+            Primitive::Int(int) => Dynamic::from(int),
+            Primitive::Boolean(boolean) => Dynamic::from(boolean),
+        }
+    }
 }
 
 impl Display for SocketType {
@@ -180,6 +192,7 @@ impl SocketType {
             ("stream.gain", SocketType::Stream(StreamSocketType::Gain)),
             ("stream.detune", SocketType::Stream(StreamSocketType::Detune)),
             ("midi.default", SocketType::Midi(MidiSocketType::Default)),
+            ("value.default", SocketType::Value(ValueSocketType::Default)),
             ("value.gain", SocketType::Value(ValueSocketType::Gain)),
             ("value.frequency", SocketType::Value(ValueSocketType::Frequency)),
             ("value.resonance", SocketType::Value(ValueSocketType::Resonance)),

@@ -16,6 +16,7 @@ use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
+use node_engine::traversal;
 use node_engine::traversal::traverser::{Traverser};
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
@@ -176,7 +177,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut buffer = [0_f32; BUFFER_SIZE];
 
         for sample in buffer.iter_mut() {
-            traverser.traverse(graph, is_first_time).unwrap();
+            let traversal_errors = traverser.traverse(graph, is_first_time);
+
+            if let Err(errors) = traversal_errors {
+                println!("{:?}", errors);
+            }
 
             let output_node = graph.get_node(&output_node).unwrap().node;
             let output_node = (*output_node).borrow();

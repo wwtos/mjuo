@@ -15,9 +15,10 @@ export function socketTypeToString(socketType: MemberType<typeof SocketType>): B
         }),
         Midi: (midi) => midi.match({
             Default: () => i18n.t("socketType.midi.default"),
-            Dynamic: (uid) => i18n.t("socketType.midi.dynamic", { uid })
+            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         Value: (value) => value.match({
+            Default: () => i18n.t("socketType.value.default"),
             Gain: () => i18n.t("socketType.value.gain"),
             Frequency: () => i18n.t("socketType.value.frequency"),
             Resonance: () => i18n.t("socketType.value.resonance"),
@@ -26,11 +27,11 @@ export function socketTypeToString(socketType: MemberType<typeof SocketType>): B
             Decay: () => i18n.t("socketType.value.decay"),
             Sustain: () => i18n.t("socketType.value.sustain"),
             Release: () => i18n.t("socketType.value.release"),
-            Dynamic: (uid) => i18n.t("socketType.value.dynamic", { uid })
+            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         NodeRef: (nodeRef) => nodeRef.match({
             Button: () => i18n.t("socketType.noderef.button"),
-            Dynamic: (uid) => i18n.t("socketType.noderef.dynamic", { uid })
+            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         MethodCall: () => "Method call",
     });

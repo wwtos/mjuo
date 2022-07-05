@@ -62,18 +62,14 @@ impl Node for EnvelopeNode {
     }
 
     fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
-        InitResult {
-            did_rows_change: false,
-            node_rows: vec![
-                NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
-                NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
-                NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01)),
-                NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3)),
-                NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8)),
-                NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5)),
-            ],
-            changed_properties: None,
-        }
+        InitResult::simple(vec![
+            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
+            NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
+            NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01)),
+            NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3)),
+            NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8)),
+            NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5)),
+        ])
     }
 
     fn process(&mut self) -> Result<(), ErrorsAndWarnings> {

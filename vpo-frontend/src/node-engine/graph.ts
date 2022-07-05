@@ -1,5 +1,5 @@
 import { GenerationalNode, Node, NodeIndex, NodeWrapper, UiData, deserializeNodeRow } from "./node";
-import { InputSideConnection, OutputSideConnection, Connection, jsonToSocketType } from "./connection";
+import { InputSideConnection, OutputSideConnection, Connection, deserializeSocketType } from "./connection";
 import { deserializeProperty } from "./property";
 import { Readable, writable, Writable } from 'svelte/store';
 import type { IPCSocket } from "../util/socket";
@@ -97,20 +97,21 @@ export class Graph {
                 ...node.ui_data
             });
 
+            console.log(node.connected_inputs);
             // apply new input and output connections
             this.nodes[i]?.connectedInputs.next(node.connected_inputs.map((inputConnection): InputSideConnection => {
                 return new InputSideConnection(
-                    jsonToSocketType(inputConnection.from_socket_type),
+                    deserializeSocketType(inputConnection.from_socket_type),
                     new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
-                    jsonToSocketType(inputConnection.to_socket_type),
+                    deserializeSocketType(inputConnection.to_socket_type),
                 );
             }));
 
             this.nodes[i]?.connectedOutputs.next(node.connected_outputs.map((outputConnection): OutputSideConnection => {
                 return new OutputSideConnection(
-                    jsonToSocketType(outputConnection.from_socket_type),
+                    deserializeSocketType(outputConnection.from_socket_type),
                     new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
-                    jsonToSocketType(outputConnection.to_socket_type),
+                    deserializeSocketType(outputConnection.to_socket_type),
                 );
             }));
 
