@@ -3,6 +3,7 @@ use crate::util::lerp;
 
 use super::tables::{BASE_FREQUENCY, WAVETABLE_SIZE};
 
+#[inline]
 pub fn interpolate(wavetable: &[[f32; WAVETABLE_SIZE]], frequency: f32, phase: f32) -> f32 {
     let phase = (phase / TWO_PI) % 1.0; // make phase bound
 
