@@ -1,13 +1,14 @@
-use std::collections::HashMap;
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
-use crate::node::InitResult;
-use crate::errors::ErrorsAndWarnings;
 use crate::connection::MidiSocketType;
-use crate::connection::ValueSocketType;
 use crate::connection::Primitive;
 use crate::connection::StreamSocketType;
+use crate::connection::ValueSocketType;
+use crate::errors::ErrorsAndWarnings;
+use crate::node::InitResult;
+use crate::property::Property;
+use crate::socket_registry::SocketRegistry;
+use rhai::Engine;
 use sound_engine::midi::messages::MidiData;
+use std::collections::HashMap;
 
 use enum_dispatch::enum_dispatch;
 use sound_engine::SoundConfig;
@@ -18,9 +19,9 @@ use crate::{errors::NodeError, node::Node};
 use crate::graph_tests::TestNode;
 
 use super::{
-    biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, gain::GainGraphNode,
-    midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
-    oscillator::OscillatorNode, output::OutputNode, expression::ExpressionNode,
+    biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, expression::ExpressionNode,
+    gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
+    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[enum_dispatch]

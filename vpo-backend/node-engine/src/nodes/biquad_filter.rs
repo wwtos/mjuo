@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
 use sound_engine::SoundConfig;
 
@@ -48,7 +49,11 @@ impl Node for BiquadFilterNode {
         };
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.filter.process();
 
         Ok(())
@@ -58,7 +63,12 @@ impl Node for BiquadFilterNode {
         self.filter.get_output_out()
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        properties: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         println!("initialized with {:?}", properties);
 
         if let Some(Property::MultipleChoice(filter_type)) = properties.get("filter_type") {

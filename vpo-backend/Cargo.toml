@@ -16,6 +16,7 @@ routerify = "3.0.0"
 hyper = "0.14.18"
 strum = "0.24.0"
 strum_macros = "0.24"
+rhai = { version = "1.7.0", features = ["f32_float", "only_i32"] }
 
 [profile.debug-release]
 inherits = "dev"

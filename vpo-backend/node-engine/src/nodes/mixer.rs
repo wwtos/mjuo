@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use serde_json::json;
 
-use crate::connection::{StreamSocketType, SocketType};
+use crate::connection::{SocketType, StreamSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
 use crate::property::{Property, PropertyType};
@@ -32,7 +33,11 @@ impl Node for MixerNode {
         self.input_sum += value;
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.output_audio = self.input_sum / self.input_count as f32;
         self.input_sum = 0.0;
 
@@ -43,35 +48,49 @@ impl Node for MixerNode {
         self.output_audio
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        properties: &HashMap<String, Property>,
+        registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         if let Some(Property::Integer(input_count)) = properties.get("input_count") {
             self.input_count = *input_count;
         }
 
         let mut node_rows = vec![
-            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0)
+            NodeRow::Property(
+                "input_count".to_string(),
+                PropertyType::Integer,
+                Property::Integer(2),
+            ),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
         ];
         let did_rows_change = self.input_count != self.last_input_count;
         self.last_input_count = self.input_count;
 
         for i in 0..self.input_count {
             node_rows.push(NodeRow::StreamInput(
-                registry.register_socket(
-                    format!("stream.mixer.{}", i),
-                    SocketType::Stream(StreamSocketType::Audio),
-                    "stream.mixer".to_string(),
-                    Some(json! {{ "input_number": i + 1 }})
-                ).unwrap().0.as_stream().unwrap(), 
-                0.0)
-            );
+                registry
+                    .register_socket(
+                        format!("stream.mixer.{}", i),
+                        SocketType::Stream(StreamSocketType::Audio),
+                        "stream.mixer".to_string(),
+                        Some(json! {{ "input_number": i + 1 }}),
+                    )
+                    .unwrap()
+                    .0
+                    .as_stream()
+                    .unwrap(),
+                0.0,
+            ));
         }
 
         InitResult {
             did_rows_change,
             node_rows: node_rows,
             changed_properties: None,
-            errors_and_warnings: None
+            errors_and_warnings: None,
         }
     }
 }

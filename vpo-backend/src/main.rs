@@ -18,6 +18,7 @@ use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
 use node_engine::traversal;
 use node_engine::traversal::traverser::{Traverser};
+use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::MidiClientBackend;
@@ -50,8 +51,9 @@ fn handle_msg(
     traverser: &mut Traverser,
     sound_config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
+    scripting_engine: &Engine,
 ) {
-    let result = route(msg, graph, to_server, sound_config, socket_registry);
+    let result = route(msg, graph, to_server, sound_config, socket_registry, scripting_engine);
 
     match result {
         Ok(route_result) => {
@@ -129,12 +131,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut socket_registry = SocketRegistry::new();
     SocketType::register_defaults(&mut socket_registry);
 
+    let mut scripting_engine = Engine::new_raw();
+
     let mut graph_manager = GraphManager::new();
     let graph_index = graph_manager.new_graph();
 
     let graph = graph_manager.get_graph_mut(&graph_index).unwrap();
-    let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()), &mut socket_registry);
-    let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()), &mut socket_registry);
+    let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()), &mut socket_registry, &scripting_engine);
+    let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()), &mut socket_registry, &scripting_engine);
     let mut traverser = Traverser::get_traverser(&graph);
 
     let backend = connect_backend()?;
@@ -155,7 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, graph, &to_server, &mut traverser, &sound_config, &mut socket_registry);
+            handle_msg(msg, graph, &to_server, &mut traverser, &sound_config, &mut socket_registry, &scripting_engine);
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
@@ -176,8 +180,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let mut buffer = [0_f32; BUFFER_SIZE];
 
-        for sample in buffer.iter_mut() {
-            let traversal_errors = traverser.traverse(graph, is_first_time);
+        for (i, sample) in buffer.iter_mut().enumerate() {
+            let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
+            let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &scripting_engine);
 
             if let Err(errors) = traversal_errors {
                 println!("{:?}", errors);

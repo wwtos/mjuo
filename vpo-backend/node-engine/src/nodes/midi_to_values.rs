@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use rhai::Engine;
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
@@ -42,7 +43,11 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {
@@ -78,7 +83,12 @@ impl Node for MidiToValuesNode {
         Ok(())
     }
 
-    fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
+    fn init(
+        &mut self,
+        _properties: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
+    ) -> InitResult {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),

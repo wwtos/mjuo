@@ -5,6 +5,7 @@ use std::fmt::{Debug, Display};
 use std::{cell::RefCell, rc::Rc};
 
 use enum_dispatch::enum_dispatch;
+use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
@@ -78,7 +79,7 @@ impl InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
-            errors_and_warnings: None
+            errors_and_warnings: None,
         }
     }
 }
@@ -96,10 +97,19 @@ impl InitResult {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(&mut self, props: &HashMap<String, Property>, registry: &mut SocketRegistry) -> InitResult;
+    fn init(
+        &mut self,
+        props: &HashMap<String, Property>,
+        registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) -> InitResult;
 
     /// Process received data.
-    fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        current_time: i64,
+        scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
         Ok(())
     }
 
@@ -141,10 +151,15 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(mut node: NodeVariant, index: NodeIndex, registry: &mut SocketRegistry) -> NodeWrapper {
+    pub fn new(
+        mut node: NodeVariant,
+        index: NodeIndex,
+        registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) -> NodeWrapper {
         let name = variant_to_name(&node);
 
-        let init_result = node.init(&HashMap::new(), registry);
+        let init_result = node.init(&HashMap::new(), registry, scripting_engine);
 
         // TODO: check validity of node_rows here (no socket duplicates)
 
@@ -400,8 +415,12 @@ impl NodeWrapper {
         self.node.get_value_output(socket_type)
     }
 
-    pub fn process(&mut self) -> Result<(), ErrorsAndWarnings> {
-        self.node.process()
+    pub fn process(
+        &mut self,
+        current_time: i64,
+        scripting_engine: &Engine,
+    ) -> Result<(), ErrorsAndWarnings> {
+        self.node.process(current_time, scripting_engine)
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
