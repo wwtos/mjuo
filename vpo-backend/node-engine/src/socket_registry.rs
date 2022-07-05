@@ -12,6 +12,7 @@ pub struct RegistryValue {
     pub template: String,
     pub socket_type: SocketType,
     pub associated_data: Value,
+    pub uid: u64
 }
 
 #[derive(Serialize, Deserialize)]
@@ -35,13 +36,13 @@ impl SocketRegistry {
         socket_type: SocketType,
         template: String,
         associated_data: Option<Value>,
-    ) -> Result<SocketType, NodeError> {
+    ) -> Result<(SocketType, u64), NodeError> {
         if let Some(registry_value) = self.name_to_socket_type.get(&name) {
             if mem::discriminant(&socket_type) != mem::discriminant(&registry_value.socket_type) {
                 return Err(NodeError::RegistryCollision(name));
             }
 
-            Ok(registry_value.socket_type.clone())
+            Ok((registry_value.socket_type.clone(), registry_value.uid))
         } else {
             let uid = self.uid_counter;
             self.uid_counter += 1;
@@ -63,10 +64,11 @@ impl SocketRegistry {
                         Some(value) => value,
                         None => Value::Null,
                     },
+                    uid
                 },
             );
 
-            Ok(new_socket_type)
+            Ok((new_socket_type, uid))
         }
     }
 }
