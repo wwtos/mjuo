@@ -1,5 +1,6 @@
 pub mod biquad_filter;
 pub mod envelope;
+pub mod expression;
 pub mod gain;
 pub mod midi_input;
 pub mod midi_to_values;
@@ -7,4 +8,3 @@ pub mod mixer;
 pub mod oscillator;
 pub mod output;
 pub mod variants;
-pub mod expression;

@@ -12,7 +12,7 @@ pub struct RegistryValue {
     pub template: String,
     pub socket_type: SocketType,
     pub associated_data: Value,
-    pub uid: u64
+    pub uid: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -64,7 +64,7 @@ impl SocketRegistry {
                         Some(value) => value,
                         None => Value::Null,
                     },
-                    uid
+                    uid,
                 },
             );
 
