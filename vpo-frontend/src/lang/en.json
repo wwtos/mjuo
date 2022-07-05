@@ -13,6 +13,7 @@
                 "dynamic": "Dynamic({{uid}})"
             },
             "value": {
+                "default": "Default",
                 "gain": "Gain",
                 "frequency": "Frequency",
                 "resonance": "Resonance",
@@ -27,6 +28,9 @@
         "customSockets": {
             "stream": {
                 "mixer": "Input {{input_number}}"
+            },
+            "value": {
+                "expression": "x{{input_number}}"
             }
         },
         "nodes": {
@@ -37,7 +41,8 @@
             "midiToValuesNode": "Midi To Values Node",
             "envelopeNode": "Envelope Node",
             "biquadFilterNode": "Biquad Filter Node",
-            "mixerNode": "Mixer Node"
+            "mixerNode": "Mixer Node",
+            "expressionNode": "Expression Node"
         },
         "editor": {
             "create": "Create!",

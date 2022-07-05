@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
 use crate::{errors::NodeError, node::Node};
@@ -9,11 +8,10 @@ use crate::graph_tests::TestNode;
 use super::{
     biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, gain::GainGraphNode,
     midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
-    oscillator::OscillatorNode, output::OutputNode,
+    oscillator::OscillatorNode, output::OutputNode, expression::ExpressionNode,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "variant", content = "data")]
+#[derive(Debug)]
 pub enum NodeVariant {
     GainGraphNode(GainGraphNode),
     OutputNode(OutputNode),
@@ -23,6 +21,7 @@ pub enum NodeVariant {
     EnvelopeNode(EnvelopeNode),
     BiquadFilterNode(BiquadFilterNode),
     MixerNode(MixerNode),
+    ExpressionNode(ExpressionNode),
     #[cfg(test)]
     TestNode(TestNode),
 }
@@ -35,6 +34,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "EnvelopeNode" => Ok(NodeVariant::EnvelopeNode(EnvelopeNode::new(config))),
         "BiquadFilterNode" => Ok(NodeVariant::BiquadFilterNode(BiquadFilterNode::new(config))),
         "MixerNode" => Ok(NodeVariant::MixerNode(MixerNode::default())),
+        "ExpressionNode" => Ok(NodeVariant::ExpressionNode(ExpressionNode::new())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -51,6 +51,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::EnvelopeNode(_) => "envelopeNode".to_string(),
         NodeVariant::BiquadFilterNode(_) => "biquadFilterNode".to_string(),
         NodeVariant::MixerNode(_) => "mixerNode".to_string(),
+        NodeVariant::ExpressionNode(_) => "expressionNode".to_string(),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "testNode".to_string(),
     }
@@ -67,6 +68,7 @@ impl<'a> AsRef<dyn Node + 'a> for NodeVariant {
             Self::EnvelopeNode(node) => node as &dyn Node,
             Self::BiquadFilterNode(node) => node as &dyn Node,
             Self::MixerNode(node) => node as &dyn Node,
+            Self::ExpressionNode(node) => node as &dyn Node,
             #[cfg(test)]
             Self::TestNode(node) => node as &dyn Node,
         }
@@ -84,6 +86,7 @@ impl<'a> AsMut<dyn Node + 'a> for NodeVariant {
             Self::EnvelopeNode(node) => node as &mut dyn Node,
             Self::BiquadFilterNode(node) => node as &mut dyn Node,
             Self::MixerNode(node) => node as &mut dyn Node,
+            Self::ExpressionNode(node) => node as &mut dyn Node,
             #[cfg(test)]
             Self::TestNode(node) => node as &mut dyn Node,
         }

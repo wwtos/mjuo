@@ -24,5 +24,9 @@ export const variants = [
     {
         name: i18n.t("nodes.mixerNode"),
         internal: "MixerNode"
+    },
+    {
+        name: i18n.t("nodes.expressionNode"),
+        internal: "ExpressionNode"
     }
 ];

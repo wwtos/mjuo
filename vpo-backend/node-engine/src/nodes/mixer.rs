@@ -62,7 +62,7 @@ impl Node for MixerNode {
                     SocketType::Stream(StreamSocketType::Audio),
                     "stream.mixer".to_string(),
                     Some(json! {{ "input_number": i + 1 }})
-                ).unwrap().as_stream().unwrap(), 
+                ).unwrap().0.as_stream().unwrap(), 
                 0.0)
             );
         }
@@ -71,6 +71,7 @@ impl Node for MixerNode {
             did_rows_change,
             node_rows: node_rows,
             changed_properties: None,
+            errors_and_warnings: None
         }
     }
 }

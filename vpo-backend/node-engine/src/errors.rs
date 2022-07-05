@@ -1,3 +1,4 @@
+use rhai::{ParseError, EvalAltResult};
 use thiserror::Error;
 
 use serde_json;
@@ -31,10 +32,17 @@ pub enum NodeError {
     PropertyMissing(String),
     #[error("Socket by the name of `{0}` registered under different type")]
     RegistryCollision(String),
+    #[error("Rhai parser error: {0}")]
+    RhaiParserError(ParseError),
+    #[error("Rhai evaluation error: {0}")]
+    RhaiEvalError(EvalAltResult)
 }
 
 #[derive(Error, Debug)]
-pub enum NodeWarning {}
+pub enum NodeWarning {
+    #[error("Value of type `{0}` was returned, ignoring")]
+    RhaiInvalidReturnType(String)
+}
 
 #[derive(Debug)]
 pub struct ErrorsAndWarnings {

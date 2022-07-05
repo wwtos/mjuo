@@ -1,7 +1,7 @@
 import { BehaviorSubject, Observable } from "rxjs";
 import { MemberType } from "safety-match";
 import { i18n, i18n$ } from "../i18n";
-import { jsonToSocketType, SocketType } from "./connection";
+import { deserializeSocketType, SocketType } from "./connection";
 import { map } from "rxjs/operators";
 
 class RegistryValue {
@@ -11,7 +11,7 @@ class RegistryValue {
 
     constructor (json: any) {
         this.template = json.template;
-        this.socketType = jsonToSocketType(json.socket_type);
+        this.socketType = deserializeSocketType(json.socket_type);
         this.associatedData = json.associated_data;
     }
 }
