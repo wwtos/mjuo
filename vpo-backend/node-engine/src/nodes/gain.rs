@@ -38,14 +38,10 @@ impl Node for GainGraphNode {
             self.gain = gain.clamp(0.0, 1.0);
         }
 
-        InitResult {
-            did_rows_change: false,
-            node_rows: vec![
-                NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
-                NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
-                NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
-            ],
-            changed_properties: None,
-        }
+        InitResult::simple(vec![
+            NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+        ])
     }
 }
