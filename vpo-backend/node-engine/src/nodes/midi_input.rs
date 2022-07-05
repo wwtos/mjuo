@@ -22,10 +22,8 @@ impl Node for MidiInNode {
     }
 
     fn init(&mut self, _properties: &HashMap<String, Property>, _registry: &mut SocketRegistry) -> InitResult {
-        InitResult {
-            did_rows_change: false,
-            node_rows: vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])],
-            changed_properties: None,
-        }
+        InitResult::simple(vec![
+            NodeRow::MidiOutput(MidiSocketType::Default, vec![])
+        ])
     }
 }
