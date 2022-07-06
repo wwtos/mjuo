@@ -59,6 +59,14 @@ impl BiquadFilter {
         new_filter
     }
 
+    pub fn reset(&mut self) {
+        self.a1 = 0.0;
+        self.a2 = 0.0;
+        self.b0 = 1.0;
+        self.b1 = 0.0;
+        self.b2 = 0.0;
+    }
+
     pub fn filter_audio(&mut self, input_in: f32) -> f32 {
         if self.dirty {
             self.recompute();
