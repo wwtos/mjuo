@@ -28,7 +28,7 @@ impl Node for BiquadFilterNode {
         match socket_type {
             ValueSocketType::Frequency => {
                 if let Some(frequency) = value.as_float() {
-                    self.filter.set_frequency(frequency);
+                    self.filter.set_frequency(frequency.max(1.0));
                 }
             }
             ValueSocketType::Resonance => {
@@ -69,7 +69,7 @@ impl Node for BiquadFilterNode {
         _registry: &mut SocketRegistry,
         _scripting_engine: &Engine,
     ) -> InitResult {
-        println!("initialized with {:?}", properties);
+        self.filter.reset();
 
         if let Some(Property::MultipleChoice(filter_type)) = properties.get("filter_type") {
             self.filter.set_filter_type(match filter_type.as_str() {
