@@ -13,7 +13,7 @@ pub struct Connection {
     pub to_node: NodeIndex,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,

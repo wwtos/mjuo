@@ -47,7 +47,7 @@ impl Traverser {
 
             // populate the defaults for the traverser
             let defaults_in: Vec<NodeRow> = defaults_list
-                .map(|socket_type| node.get_default(&socket_type).unwrap())
+                .filter_map(|socket_type| node.get_default(&socket_type))
                 .collect();
 
             // now, find where in the traversal order the linked nodes are
@@ -82,8 +82,10 @@ impl Traverser {
 
         // populate the defaults for the traverser
         let defaults_in: Vec<NodeRow> = defaults_list
-            .map(|socket_type| node_wrapper.get_default(&socket_type).unwrap())
+            .filter_map(|socket_type| node_wrapper.get_default(&socket_type))
             .collect();
+
+        println!("defaults: {:?}", defaults_in);
 
         if let Some(entry) = self.nodes.iter_mut().find(|entry| node_index == &entry.0) {
             entry.1.defaults_in = defaults_in;
