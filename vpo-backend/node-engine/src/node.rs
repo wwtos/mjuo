@@ -330,6 +330,11 @@ impl NodeWrapper {
     }
 
     pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
+        // if it's connected to something, it doesn't have a default
+        if let Some(_) = self.get_input_connection_by_type(socket_type) {
+            return None;
+        }
+
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let type_and_direction = (*override_row).clone().to_type_and_direction();
 
