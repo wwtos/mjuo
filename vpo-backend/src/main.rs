@@ -195,6 +195,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             *sample = audio;
 
+            if is_first_time {
+                let midi_node = graph.get_node(&midi_in_node).unwrap().node;
+                let mut midi_node = (*midi_node).borrow_mut();
+
+                midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
+            }
+
             is_first_time = false;
         }
 
