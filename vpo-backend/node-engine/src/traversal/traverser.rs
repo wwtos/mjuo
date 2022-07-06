@@ -85,8 +85,6 @@ impl Traverser {
             .filter_map(|socket_type| node_wrapper.get_default(&socket_type))
             .collect();
 
-        println!("defaults: {:?}", defaults_in);
-
         if let Some(entry) = self.nodes.iter_mut().find(|entry| node_index == &entry.0) {
             entry.1.defaults_in = defaults_in;
         }
