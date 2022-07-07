@@ -1,7 +1,7 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex, NodeRow, NodeWrapper } from "../node-engine/node";
-    import { Graph } from "../node-engine/graph";
+    import { NodeGraph } from "../node-engine/node_graph";
     import { SocketType, SocketDirection, socketToKey } from "../node-engine/connection";
     import { socketTypeToString } from "./interpolation";
     import { map } from "rxjs/operators";
@@ -14,7 +14,7 @@
 
     export let width = 200;
 
-    export let nodes: Graph;
+    export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;
 
     let sockets = wrapper.nodeRows.pipe(

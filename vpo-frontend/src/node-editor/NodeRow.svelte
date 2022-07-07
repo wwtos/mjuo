@@ -3,7 +3,7 @@
 
     import { SocketType, SocketDirection, Primitive, ValueSocketType, areSocketTypesEqual } from "../node-engine/connection";
     import { NodeRow, NodeWrapper, NodeRowAsTypeAndDirection, NodeRowFromTypeAndDirection } from "../node-engine/node";
-    import { Graph } from "../node-engine/graph";
+    import { NodeGraph } from "../node-engine/node_graph";
     import { fixDigits } from "../util/fix-digits";
     import { BehaviorSubject, Observable } from "rxjs";
 
@@ -19,7 +19,7 @@
     export let socketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
     export let socketMouseup = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
     export let defaultValue;
-    export let nodes: Graph;
+    export let nodes: NodeGraph;
     
     let socket: HTMLDivElement;
 

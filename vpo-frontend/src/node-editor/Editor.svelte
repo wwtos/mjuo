@@ -3,7 +3,7 @@
     import Connection from "./Connection.svelte";
     import { socketRegistry } from "./state"
     import { onMount } from 'svelte';
-    import { Graph, PossibleNode } from '../node-engine/graph';
+    import { NodeGraph, PossibleNode } from '../node-engine/node_graph';
     import { NodeIndex, NodeWrapper } from "../node-engine/node";
     import { MidiSocketType, SocketDirection, socketToKey, Connection as ConnectionObj, SocketType } from "../node-engine/connection";
     import { IPCSocket } from "../util/socket";
@@ -19,7 +19,7 @@
 
     export let ipcSocket: IPCSocket;
 
-    export let nodes: Graph;
+    export let nodes: NodeGraph;
 
     // TODO: remove debugging VVV
     window["ipcSocket"] = ipcSocket;
