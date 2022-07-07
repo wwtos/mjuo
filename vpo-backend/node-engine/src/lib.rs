@@ -1,6 +1,6 @@
 pub mod connection;
 pub mod errors;
-pub mod graph;
+pub mod node_graph;
 pub mod graph_manager;
 pub mod node;
 pub mod nodes;

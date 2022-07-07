@@ -1,9 +1,9 @@
 use async_std::{channel::Sender, task::block_on};
 use ipc::ipc_message::IPCMessage;
-use node_engine::{graph::Graph, socket_registry::SocketRegistry, errors::NodeError};
+use node_engine::{node_graph::NodeGraph, socket_registry::SocketRegistry, errors::NodeError};
 use serde_json::json;
 
-pub fn update_graph(graph: &Graph, to_server: &Sender<IPCMessage>) {
+pub fn update_graph(graph: &NodeGraph, to_server: &Sender<IPCMessage>) {
     let json = graph.serialize_to_json().unwrap();
 
     block_on(async {

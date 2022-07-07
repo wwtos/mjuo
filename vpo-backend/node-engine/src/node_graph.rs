@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Graph {
+pub struct NodeGraph {
     nodes: Vec<PossibleNode>,
 }
 
@@ -46,9 +46,9 @@ fn create_new_node(
     })
 }
 
-impl Graph {
-    pub fn new() -> Graph {
-        Graph { nodes: Vec::new() }
+impl NodeGraph {
+    pub fn new() -> NodeGraph {
+        NodeGraph { nodes: Vec::new() }
     }
 
     pub fn add_node(
@@ -483,7 +483,7 @@ impl Graph {
     }
 }
 
-impl Graph {
+impl NodeGraph {
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
         // serialize all of the graph nodes, as it currently stands
         let nodes = serde_json::Value::Array(
@@ -538,7 +538,7 @@ impl Graph {
     }
 }
 
-impl Default for Graph {
+impl Default for NodeGraph {
     fn default() -> Self {
         Self::new()
     }

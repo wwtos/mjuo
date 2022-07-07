@@ -1,6 +1,6 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph::Graph, nodes::variants::new_variant, socket_registry::SocketRegistry};
+use node_engine::{errors::NodeError, node_graph::NodeGraph, nodes::variants::new_variant, socket_registry::SocketRegistry};
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 use rhai::Engine;
@@ -23,7 +23,7 @@ use crate::{util::update_graph, RouteReturn};
 ///
 pub fn route(
     message: Map<String, Value>,
-    graph: &mut Graph,
+    graph: &mut NodeGraph,
     to_server: &Sender<IPCMessage>,
     config: &SoundConfig,
     registry: &mut SocketRegistry,

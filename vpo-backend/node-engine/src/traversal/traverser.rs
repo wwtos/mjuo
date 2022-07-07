@@ -3,7 +3,7 @@ use rhai::Engine;
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    graph::Graph,
+    node_graph::NodeGraph,
     node::{NodeIndex, NodeRow},
 };
 
@@ -21,7 +21,7 @@ pub struct Traverser {
 }
 
 impl Traverser {
-    pub fn get_traverser(graph: &Graph) -> Traverser {
+    pub fn get_traverser(graph: &NodeGraph) -> Traverser {
         // first, get traversal order
         let traversal_order = calculate_graph_traverse_order(graph);
 
@@ -64,7 +64,7 @@ impl Traverser {
         Traverser { nodes }
     }
 
-    pub fn update_node_defaults(&mut self, graph: &Graph, node_index: &NodeIndex) {
+    pub fn update_node_defaults(&mut self, graph: &NodeGraph, node_index: &NodeIndex) {
         let node_wrapper_ref = graph.get_node(node_index).unwrap().node;
         let node_wrapper = (*node_wrapper_ref).borrow_mut();
 
@@ -92,7 +92,7 @@ impl Traverser {
 
     pub fn traverse(
         &self,
-        graph: &mut Graph,
+        graph: &mut NodeGraph,
         input_defaults: bool,
         current_time: i64,
         scripting_engine: &Engine,

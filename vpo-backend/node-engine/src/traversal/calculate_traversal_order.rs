@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use crate::connection::Connection;
-use crate::graph::PossibleNode;
+use crate::node_graph::PossibleNode;
 
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
 
 pub fn calculate_graph_traverse_order(
-    original_graph: &crate::graph::Graph,
+    original_graph: &crate::node_graph::NodeGraph,
 ) -> Vec<crate::node::NodeIndex> {
     // traverse backward and build a traversal order
 

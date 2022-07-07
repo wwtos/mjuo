@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::graph::Graph;
+use crate::node_graph::NodeGraph;
 
 #[derive(Hash, PartialEq, Eq)]
 pub struct GraphIndex {
@@ -9,7 +9,7 @@ pub struct GraphIndex {
 
 #[derive(Default)]
 pub struct GraphManager {
-    graphs: HashMap<GraphIndex, Graph>,
+    graphs: HashMap<GraphIndex, NodeGraph>,
     graph_id_counter: u64,
 }
 
@@ -25,7 +25,7 @@ impl GraphManager {
             GraphIndex {
                 index: self.graph_id_counter - 1,
             },
-            Graph::new(),
+            NodeGraph::new(),
         );
 
         GraphIndex {
@@ -33,11 +33,11 @@ impl GraphManager {
         }
     }
 
-    pub fn get_graph_ref(&self, index: &GraphIndex) -> Option<&Graph> {
+    pub fn get_graph_ref(&self, index: &GraphIndex) -> Option<&NodeGraph> {
         self.graphs.get(index)
     }
 
-    pub fn get_graph_mut(&mut self, index: &GraphIndex) -> Option<&mut Graph> {
+    pub fn get_graph_mut(&mut self, index: &GraphIndex) -> Option<&mut NodeGraph> {
         self.graphs.get_mut(index)
     }
 }
