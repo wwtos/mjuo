@@ -1,14 +1,14 @@
 <script lang="ts">
     import { MemberType } from "safety-match";
 
-    import { Graph } from "../node-engine/graph";
+    import { NodeGraph } from "../node-engine/node_graph";
     import { NodeWrapper } from "../node-engine/node";
     import { Property, PropertyType } from "../node-engine/property";
 
     export let nodeWrapper: NodeWrapper;
     export let propName: string;
     export let propType: MemberType<typeof PropertyType>;
-    export let nodes: Graph;
+    export let nodes: NodeGraph;
 
     let choices: any = propType.data;
 

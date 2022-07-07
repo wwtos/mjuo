@@ -13,7 +13,7 @@ export const PossibleNode = makeTaggedUnion({
     "None": (generation: number) => generation, // generation last held (u32)
 });
 
-export class Graph {
+export class NodeGraph {
     private nodes: (NodeWrapper | undefined)[];
     keyedNodeStore: BehaviorSubject<([string, NodeWrapper])[]>;
     keyedConnectionStore: BehaviorSubject<([string, Connection])[]>;
