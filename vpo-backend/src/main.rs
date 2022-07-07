@@ -8,7 +8,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{MidiSocketType, StreamSocketType, SocketType};
-use node_engine::graph::{Graph, PossibleNode};
+use node_engine::node_graph::{NodeGraph, PossibleNode};
 
 use node_engine::graph_manager::GraphManager;
 use node_engine::node::NodeIndex;
@@ -46,7 +46,7 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
 
 fn handle_msg(
     msg: IPCMessage,
-    graph: &mut Graph,
+    graph: &mut NodeGraph,
     to_server: &Sender<IPCMessage>,
     traverser: &mut Traverser,
     sound_config: &SoundConfig,

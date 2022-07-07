@@ -9,7 +9,7 @@ use crate::node::{InitResult, NodeIndex, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
-use crate::{graph::Graph, node::Node};
+use crate::{node_graph::NodeGraph, node::Node};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TestNode {}
@@ -39,7 +39,7 @@ impl Node for TestNode {
 
 #[test]
 fn graph_node_crud() {
-    let mut graph = Graph::new();
+    let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let mut scripting_engine = Engine::new();
 
@@ -110,7 +110,7 @@ fn graph_node_crud() {
 
 #[test]
 fn graph_connecting() {
-    let mut graph = Graph::new();
+    let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let mut scripting_engine = Engine::new();
 
@@ -286,7 +286,7 @@ fn graph_connecting() {
 /// connections from all the nodes it's connected to
 #[test]
 fn hanging_connections() -> Result<(), NodeError> {
-    let mut graph = Graph::new();
+    let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let mut scripting_engine = Engine::new();
 

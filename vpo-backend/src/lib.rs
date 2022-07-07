@@ -1,6 +1,6 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph::Graph, socket_registry::SocketRegistry};
+use node_engine::{errors::NodeError, node_graph::NodeGraph, socket_registry::SocketRegistry};
 use rhai::Engine;
 use serde_json::Value;
 use sound_engine::SoundConfig;
@@ -14,7 +14,7 @@ pub struct RouteReturn {
 
 pub fn route(
     msg: IPCMessage,
-    graph: &mut Graph,
+    graph: &mut NodeGraph,
     to_server: &Sender<IPCMessage>,
     config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
