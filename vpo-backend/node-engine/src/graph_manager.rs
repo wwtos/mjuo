@@ -1,17 +1,18 @@
-use std::ops::{Index, IndexMut};
+use std::{ops::{Index, IndexMut}, collections::HashMap};
 
-use petgraph::{stable_graph::StableDiGraph, graph::NodeIndex};
+use crate::{node_graph::NodeGraph, node::NodeIndex};
 
-use crate::node_graph::NodeGraph;
+type GraphIndex = u64;
 
-#[derive(Hash, PartialEq, Eq)]
-pub struct GraphIndex {
-    index: u64,
+pub struct NodeGraphWrapper {
+    graph: NodeGraph,
+    associated_nodes: Vec<NodeIndex>
 }
 
 #[derive(Default)]
 pub struct GraphManager {
-    graphs: StableDiGraph<NodeGraph, ()>,
+    node_graphs: HashMap<u64, NodeGraphWrapper>,
+    current_uid: u64
 }
 
 impl GraphManager {
@@ -19,23 +20,23 @@ impl GraphManager {
         Self::default()
     }
 
-    pub fn new_graph(&mut self) -> NodeIndex {
-        self.graphs.add_node(NodeGraph::new())
+    pub fn new_graph(&mut self) -> GraphIndex {
+        let graph_index = self.current_uid;
+        self.current_uid += 1;
+
+        self.node_graphs.insert(self.current_uid, NodeGraphWrapper {
+            graph: NodeGraph::new(),
+            associated_nodes: vec![]
+        });
+
+        graph_index
     }
 
-    pub fn get_graph_ref(&self, index: NodeIndex) -> Option<&NodeGraph> {
-        if self.graphs.contains_node(index) {
-            Some(self.graphs.index(index))
-        } else {
-            None
-        }
+    pub fn get_graph_ref(&self, index: GraphIndex) -> Option<&NodeGraph> {
+        self.node_graphs.get(&index).map(|x| &x.graph)
     }
 
-    pub fn get_graph_mut(&mut self, index: NodeIndex) -> Option<&mut NodeGraph> {
-        if self.graphs.contains_node(index) {
-            Some(self.graphs.index_mut(index))
-        } else {
-            None
-        }
+    pub fn get_graph_mut(&mut self, index: GraphIndex) -> Option<&mut NodeGraph> {
+        self.node_graphs.get_mut(&index).map(|x| &mut x.graph)
     }
 }
