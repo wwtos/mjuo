@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::ops::{Index, IndexMut};
+
+use petgraph::{stable_graph::StableDiGraph, graph::NodeIndex};
 
 use crate::node_graph::NodeGraph;
 
@@ -9,8 +11,7 @@ pub struct GraphIndex {
 
 #[derive(Default)]
 pub struct GraphManager {
-    graphs: HashMap<GraphIndex, NodeGraph>,
-    graph_id_counter: u64,
+    graphs: StableDiGraph<NodeGraph, ()>,
 }
 
 impl GraphManager {
@@ -18,26 +19,23 @@ impl GraphManager {
         Self::default()
     }
 
-    pub fn new_graph(&mut self) -> GraphIndex {
-        self.graph_id_counter += 1;
+    pub fn new_graph(&mut self) -> NodeIndex {
+        self.graphs.add_node(NodeGraph::new())
+    }
 
-        self.graphs.insert(
-            GraphIndex {
-                index: self.graph_id_counter - 1,
-            },
-            NodeGraph::new(),
-        );
-
-        GraphIndex {
-            index: self.graph_id_counter - 1,
+    pub fn get_graph_ref(&self, index: NodeIndex) -> Option<&NodeGraph> {
+        if self.graphs.contains_node(index) {
+            Some(self.graphs.index(index))
+        } else {
+            None
         }
     }
 
-    pub fn get_graph_ref(&self, index: &GraphIndex) -> Option<&NodeGraph> {
-        self.graphs.get(index)
-    }
-
-    pub fn get_graph_mut(&mut self, index: &GraphIndex) -> Option<&mut NodeGraph> {
-        self.graphs.get_mut(index)
+    pub fn get_graph_mut(&mut self, index: NodeIndex) -> Option<&mut NodeGraph> {
+        if self.graphs.contains_node(index) {
+            Some(self.graphs.index_mut(index))
+        } else {
+            None
+        }
     }
 }
