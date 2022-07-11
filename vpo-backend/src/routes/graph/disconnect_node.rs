@@ -34,7 +34,7 @@ pub fn route(
         )?;
     }
 
-    update_graph(graph, to_server);
+    update_graph(graph, current_graph_index, to_server);
 
     Ok(Some(RouteReturn {
         should_reindex_graph: true,
