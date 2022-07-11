@@ -1,5 +1,5 @@
-import type { Graph } from "./graph";
+import type { NodeGraph } from "./node_graph";
 
 export class GraphManager {
-    graphs: Graph[];
+    graphs: NodeGraph[];
 }
