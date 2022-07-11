@@ -11,14 +11,14 @@ use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum ChangedState {
     NewInfo,
     InfoProcessed,
     NoInfo,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MidiToValuesNode {
     midi_in: Vec<MidiData>,
     frequency: f32,

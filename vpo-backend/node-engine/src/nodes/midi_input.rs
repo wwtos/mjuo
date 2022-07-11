@@ -8,7 +8,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MidiInNode {
     midi_in: Vec<MidiData>,
 }

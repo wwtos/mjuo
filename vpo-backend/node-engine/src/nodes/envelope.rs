@@ -13,7 +13,7 @@ use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnvelopeNode {
     envelope: Envelope,
 }

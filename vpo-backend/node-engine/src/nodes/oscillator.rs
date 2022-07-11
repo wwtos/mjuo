@@ -15,7 +15,7 @@ use crate::property::PropertyType;
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OscillatorNode {
     oscillator: Oscillator,
     audio_out: f32,

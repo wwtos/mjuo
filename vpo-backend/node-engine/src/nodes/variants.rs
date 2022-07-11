@@ -25,7 +25,7 @@ use super::{
 };
 
 #[enum_dispatch]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum NodeVariant {
     GainGraphNode,
     OutputNode,

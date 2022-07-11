@@ -20,6 +20,7 @@ export class NodeGraph {
     nodeStore: BehaviorSubject<(NodeWrapper | undefined)[]>;
     changedNodes: NodeIndex[];
     ipcSocket: IPCSocket;
+    graphIndex: number;
     selectedNodes: [];
 
     constructor (ipcSocket: IPCSocket) {
@@ -32,6 +33,8 @@ export class NodeGraph {
         this.keyedConnectionStore = new BehaviorSubject(this.getKeyedConnections());
 
         this.changedNodes = [];
+
+        this.graphIndex = 0;
     }
 
     getNode (index: NodeIndex): (NodeWrapper | undefined) {
@@ -59,6 +62,13 @@ export class NodeGraph {
     }
 
     applyJson(json: any) {
+        if (json.graphIndex !== this.graphIndex) {
+            // flush everything
+            this.keyedNodeStore.next([]);
+            this.keyedConnectionStore.next([]);
+            this.nodeStore.next([]);
+        }
+
         for (let i = 0; i < json.nodes.length; i++) {
             let node: any = json.nodes[i];
             const index = new NodeIndex(node.index.index, node.index.generation);

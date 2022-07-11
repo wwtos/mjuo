@@ -11,7 +11,7 @@ use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MixerNode {
     input_count: i32,
     last_input_count: i32,
