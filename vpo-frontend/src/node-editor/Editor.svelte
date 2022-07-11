@@ -63,9 +63,6 @@
 
     let selectedNodes: NodeIndex[] = [];
 
-    // map a node socket to its xy coords in the editor
-    let nodeSocketPositionMapping = {};
-
     onMount(async () => {
         window.addEventListener("mousemove", ({clientX, clientY}) => {
             // convert window coordinates to editor coordinates
@@ -105,15 +102,17 @@
         zoomer = panzoom(nodeContainer);
     });
 
-    function createNode () {
+    function createNode (e: MouseEvent) {
+        e.stopPropagation();
+
         ipcSocket.createNode(nodeTypeToCreate, {
             x: 0,
             y: 0
         });
     }
 
-    let keyedNodes;
-    let keyedConnections;
+    let keyedNodes: [string, NodeWrapper][];
+    let keyedConnections: [string, ConnectionObj][];
 
     nodes.keyedNodeStore.subscribe(newKeyedNodes => {
         keyedNodes = newKeyedNodes;
@@ -231,7 +230,7 @@
         // can't connect input to output
         if (direction === connectionBeingCreatedFrom.direction) return;
 
-        let newConnection;
+        let newConnection: ConnectionObj;
 
         // if the user started dragging from the input side, be sure to
         // connect the output to the input, not the input to the output
@@ -255,10 +254,6 @@
             "action": "graph/connectNode",
             "payload": newConnection
         })));
-    }
-
-    function handleExportSocketPositionMapping(socketPositionMapping: ({ [key: string]: [number, number] }), key: string) {
-        nodeSocketPositionMapping[key] = socketPositionMapping;
     }
 
     function connectionToPoints(connection: any): {x1: number, y1: number, x2: number, y2: number} {
