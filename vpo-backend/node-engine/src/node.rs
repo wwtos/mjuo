@@ -15,6 +15,7 @@ use crate::connection::{
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
+use crate::graph_manager::GraphIndex;
 use crate::node_graph::NodeGraph;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
@@ -145,6 +146,7 @@ pub struct NodeWrapper {
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
+    inner_graph_index: Option<GraphIndex>
 }
 
 impl NodeWrapper {
@@ -183,6 +185,7 @@ impl NodeWrapper {
             node_rows: init_result.node_rows,
             properties,
             ui_data: HashMap::new(),
+            inner_graph_index: None
         };
 
         // insert some initial UI data
@@ -344,7 +347,8 @@ impl NodeWrapper {
             "connected_inputs": self.connected_inputs,
             "connected_outputs": self.connected_outputs,
             "properties": self.properties,
-            "ui_data": self.ui_data
+            "ui_data": self.ui_data,
+            "inner_graph_index": self.inner_graph_index,
         }})
     }
 
