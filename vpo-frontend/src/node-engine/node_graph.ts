@@ -88,7 +88,8 @@ export class NodeGraph {
                 this.nodes[i] = new NodeWrapper(
                     new Node([], [], {}),
                     index,
-                    [], [], [], [], {}, {x: 0, y: 0}
+                    [], [], [], [], {}, {x: 0, y: 0},
+                    node.inner_graph_index
                 );
             }
 
@@ -106,8 +107,7 @@ export class NodeGraph {
                 ...this.nodes[i]?.uiData.getValue(),
                 ...node.ui_data
             });
-
-            console.log(node.connected_inputs);
+            
             // apply new input and output connections
             this.nodes[i]?.connectedInputs.next(node.connected_inputs.map((inputConnection): InputSideConnection => {
                 return new InputSideConnection(
