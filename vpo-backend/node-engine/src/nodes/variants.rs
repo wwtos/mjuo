@@ -21,7 +21,7 @@ use crate::graph_tests::TestNode;
 use super::{
     biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, expression::ExpressionNode,
     gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
-    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
+    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode, dummy::DummyNode
 };
 
 #[enum_dispatch]
@@ -36,8 +36,15 @@ pub enum NodeVariant {
     BiquadFilterNode,
     MixerNode,
     ExpressionNode,
+    DummyNode,
     #[cfg(test)]
     TestNode,
+}
+
+impl Default for NodeVariant {
+    fn default() -> Self {
+        NodeVariant::DummyNode(DummyNode::default())
+    }
 }
 
 pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant, NodeError> {
@@ -49,6 +56,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "BiquadFilterNode" => Ok(NodeVariant::BiquadFilterNode(BiquadFilterNode::new(config))),
         "MixerNode" => Ok(NodeVariant::MixerNode(MixerNode::default())),
         "ExpressionNode" => Ok(NodeVariant::ExpressionNode(ExpressionNode::new())),
+        "DummyNode" => Ok(NodeVariant::DummyNode(DummyNode::default())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -66,7 +74,8 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::BiquadFilterNode(_) => "biquadFilterNode".to_string(),
         NodeVariant::MixerNode(_) => "mixerNode".to_string(),
         NodeVariant::ExpressionNode(_) => "expressionNode".to_string(),
+        NodeVariant::DummyNode(_) => "dummyNode".to_string(),
         #[cfg(test)]
-        NodeVariant::TestNode(_) => "testNode".to_string(),
+        NodeVariant::TestNode(_) => "TestNode".to_string(),
     }
 }
