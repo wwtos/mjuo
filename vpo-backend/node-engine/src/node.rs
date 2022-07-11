@@ -93,9 +93,11 @@ pub trait Node: Debug {
         scripting_engine: &Engine,
     ) -> InitResult;
 
-    fn get_inner_graph_io_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
+    fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
     }
+
+    fn init_graph(&mut self, graph: &mut NodeGraph, input_node: &NodeIndex, output_node: &NodeIndex) {} 
 
     /// Process received data.
     fn process(
