@@ -1,4 +1,5 @@
 pub mod biquad_filter;
+pub mod dummy;
 pub mod envelope;
 pub mod expression;
 pub mod gain;
