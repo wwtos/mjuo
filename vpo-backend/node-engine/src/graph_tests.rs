@@ -41,7 +41,7 @@ impl Node for TestNode {
 fn graph_node_crud() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let mut scripting_engine = Engine::new();
+    let scripting_engine = Engine::new();
 
     // add a new node
     let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
@@ -97,7 +97,7 @@ fn graph_node_crud() {
 fn graph_connecting() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let mut scripting_engine = Engine::new();
+    let scripting_engine = Engine::new();
 
     // add two new nodes
     let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
@@ -106,26 +106,22 @@ fn graph_connecting() {
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
-    {
-        let from_node_wrapped = graph.get_node(&first_node_index).unwrap().node;
-        let from_node = (*from_node_wrapped).borrow();
+    let from_node = graph.get_node(&first_node_index).unwrap();
 
-        assert_eq!(
-            from_node.has_output_socket(&SocketType::Midi(MidiSocketType::Default)),
-            false
-        );
-        // drop `from` node borrow
-    }
+    assert_eq!(
+        from_node.has_output_socket(&SocketType::Midi(MidiSocketType::Default)),
+        false
+    );
 
     assert_eq!(
         format!(
             "{:?}",
             graph
                 .connect(
-                    first_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
-                    second_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
+                    &first_node_index,
+                    &SocketType::Midi(MidiSocketType::Default),
+                    &second_node_index,
+                    &SocketType::Midi(MidiSocketType::Default),
                 )
                 .unwrap_err()
         ),
@@ -136,26 +132,22 @@ fn graph_connecting() {
     );
 
     // ditto with on the to side
-    {
-        let to_node_wrapped = graph.get_node(&first_node_index).unwrap().node;
-        let to_node = (*to_node_wrapped).borrow();
+    let to_node = graph.get_node(&first_node_index).unwrap();
 
-        assert_eq!(
-            to_node.has_input_socket(&SocketType::Stream(StreamSocketType::Dynamic(2))),
-            false
-        );
-        // drop `to` node borrow
-    }
+    assert_eq!(
+        to_node.has_input_socket(&SocketType::Stream(StreamSocketType::Dynamic(2))),
+        false
+    );
 
     assert_eq!(
         format!(
             "{:?}",
             graph
                 .connect(
-                    first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                    second_node_index,
-                    SocketType::Stream(StreamSocketType::Dynamic(2)),
+                    &first_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
+                    &second_node_index,
+                    &SocketType::Stream(StreamSocketType::Dynamic(2)),
                 )
                 .unwrap_err()
         ),
@@ -171,10 +163,10 @@ fn graph_connecting() {
             "{:?}",
             graph
                 .connect(
-                    first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                    second_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
+                    &first_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
+                    &second_node_index,
+                    &SocketType::Midi(MidiSocketType::Default),
                 )
                 .unwrap_err()
         ),
@@ -191,10 +183,10 @@ fn graph_connecting() {
     assert_eq!(
         graph
             .connect(
-                first_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
+                &first_node_index,
+                &SocketType::Stream(StreamSocketType::Audio),
+                &second_node_index,
+                &SocketType::Stream(StreamSocketType::Audio),
             )
             .is_ok(),
         true
@@ -206,10 +198,10 @@ fn graph_connecting() {
             "{:?}",
             graph
                 .connect(
-                    first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                    second_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    &first_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
+                    &second_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
                 )
                 .unwrap_err()
         ),
@@ -228,10 +220,10 @@ fn graph_connecting() {
             "{:?}",
             graph
                 .connect(
-                    third_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                    second_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    &third_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
+                    &second_node_index,
+                    &SocketType::Stream(StreamSocketType::Audio),
                 )
                 .unwrap_err()
         ),
@@ -245,10 +237,10 @@ fn graph_connecting() {
     assert_eq!(
         graph
             .connect(
-                third_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Detune),
+                &third_node_index,
+                &SocketType::Stream(StreamSocketType::Audio),
+                &second_node_index,
+                &SocketType::Stream(StreamSocketType::Detune),
             )
             .is_ok(),
         true
@@ -261,34 +253,26 @@ fn graph_connecting() {
 fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let mut scripting_engine = Engine::new();
+    let scripting_engine = Engine::new();
 
     // set up a simple network
     let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
     let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
 
     graph.connect(
-        first_node,
-        SocketType::Stream(StreamSocketType::Audio),
-        second_node,
-        SocketType::Stream(StreamSocketType::Audio),
+        &first_node,
+        &SocketType::Stream(StreamSocketType::Audio),
+        &second_node,
+        &SocketType::Stream(StreamSocketType::Audio),
     )?;
 
-    {
-        let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
-        let first_node = (*first_node_wrapped).borrow();
-
-        assert_eq!(first_node.list_connected_output_sockets().len(), 1); // it should be connected here
-    }
+    let first_node_wrapper = graph.get_node(&first_node).unwrap();
+    assert_eq!(first_node_wrapper.list_connected_output_sockets().len(), 1); // it should be connected here
 
     graph.remove_node(&second_node)?;
 
-    {
-        let first_node_wrapped = graph.get_node(&first_node).unwrap().node;
-        let first_node = (*first_node_wrapped).borrow();
-
-        assert_eq!(first_node.list_connected_output_sockets().len(), 0); // it shouldn't be connected to anything
-    }
+    let first_node_wrapper = graph.get_node(&first_node).unwrap();
+    assert_eq!(first_node_wrapper.list_connected_output_sockets().len(), 0); // it shouldn't be connected to anything
 
     Ok(())
 }

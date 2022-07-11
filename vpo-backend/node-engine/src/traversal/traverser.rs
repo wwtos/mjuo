@@ -28,10 +28,7 @@ impl Traverser {
         let mut nodes: Vec<(NodeIndex, NodeTraverseData)> = Vec::with_capacity(traversal_order.len());
 
         for node_index in &traversal_order {
-            let generational_node = graph.get_node(node_index).unwrap();
-
-            let ref_to_node = generational_node.node;
-            let node = (*ref_to_node).borrow();
+            let node = graph.get_node(node_index).unwrap();
 
             // make a list of all the socket defaults
             let defaults_list = node.get_node_rows().iter().filter_map(|row| {
@@ -64,8 +61,7 @@ impl Traverser {
     }
 
     pub fn update_node_defaults(&mut self, graph: &NodeGraph, node_index: &NodeIndex) {
-        let node_wrapper_ref = graph.get_node(node_index).unwrap().node;
-        let node_wrapper = (*node_wrapper_ref).borrow_mut();
+        let node_wrapper = graph.get_node(node_index).unwrap();
 
         // redo the list of defaults for this node
         // make a list of all the socket defaults
@@ -100,8 +96,7 @@ impl Traverser {
         let mut warnings: Vec<NodeWarning> = vec![];
 
         for (node_index, data) in &self.nodes {
-            let node_wrapper_ref = graph.get_node(node_index).unwrap().node;
-            let mut node_wrapper = (*node_wrapper_ref).borrow_mut();
+            let node_wrapper = graph.get_node_mut(node_index).unwrap();
 
             if input_defaults {
                 for default in &data.defaults_in {
@@ -132,28 +127,32 @@ impl Traverser {
             }
 
             for output_connection in &data.outputs_to {
-                let other_node_wrapper_ref = graph.get_node(&output_connection.to_node).unwrap().node;
-                let mut other_node_wrapper = (*other_node_wrapper_ref).borrow_mut();
-
                 match &output_connection.from_socket_type {
                     SocketType::Stream(stream_type) => {
+                        let node_wrapper = graph.get_node_mut(node_index).unwrap();
                         let sample = node_wrapper.get_stream_output(stream_type);
+
+                        let other_node_wrapper = graph.get_node_mut(&output_connection.to_node).unwrap();
                         other_node_wrapper.accept_stream_input(
                             &output_connection.to_socket_type.clone().as_stream().unwrap(),
                             sample,
                         );
                     }
                     SocketType::Midi(midi_type) => {
+                        let node_wrapper = graph.get_node_mut(node_index).unwrap();
                         let midi = node_wrapper.get_midi_output(midi_type);
 
+                        let other_node_wrapper = graph.get_node_mut(&output_connection.to_node).unwrap();
                         if !midi.is_empty() {
                             other_node_wrapper
                                 .accept_midi_input(&output_connection.to_socket_type.clone().as_midi().unwrap(), midi);
                         }
                     }
                     SocketType::Value(value_type) => {
+                        let node_wrapper = graph.get_node_mut(node_index).unwrap();
                         let value = node_wrapper.get_value_output(value_type);
 
+                        let other_node_wrapper = graph.get_node_mut(&output_connection.to_node).unwrap();
                         if let Some(value) = value {
                             other_node_wrapper.accept_value_input(
                                 &output_connection.to_socket_type.clone().as_value().unwrap(),

@@ -1,6 +1,4 @@
-use std::cell::RefCell;
 use std::mem;
-use std::rc::Rc;
 
 use rhai::Engine;
 use serde_json::json;
@@ -8,7 +6,7 @@ use serde_json::json;
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketDirection, SocketType},
     errors::NodeError,
-    node::{GenerationalNode, Node, NodeIndex, NodeRow, NodeWrapper},
+    node::{Node, NodeIndex, NodeRow, NodeWrapper},
     nodes::variants::NodeVariant,
     socket_registry::SocketRegistry,
 };
@@ -20,7 +18,7 @@ pub struct NodeGraph {
 
 #[derive(Debug)]
 pub enum PossibleNode {
-    Some(GenerationalNode),
+    Some(NodeWrapper, u32),
     None(u32), // last generation that was here
 }
 
@@ -30,8 +28,8 @@ fn create_new_node(
     registry: &mut SocketRegistry,
     scripting_engine: &Engine,
 ) -> PossibleNode {
-    PossibleNode::Some(GenerationalNode {
-        node: Rc::new(RefCell::new(NodeWrapper::new(
+    PossibleNode::Some(
+        NodeWrapper::new(
             node,
             NodeIndex {
                 index: 0,
@@ -39,9 +37,9 @@ fn create_new_node(
             },
             registry,
             scripting_engine,
-        ))),
+        ),
         generation,
-    })
+    )
 }
 
 impl NodeGraph {
@@ -97,10 +95,9 @@ impl NodeGraph {
             generation: new_generation,
         };
 
-        let new_node_wrapper = self.get_node(&full_index).unwrap().node;
-        let mut new_node = (*new_node_wrapper).borrow_mut();
+        let new_node_wrapper = self.get_node_mut(&full_index).unwrap();
 
-        new_node.set_index(full_index);
+        new_node_wrapper.set_index(full_index);
 
         // now our nodes knows its index and generation, we're all set!
         full_index
@@ -108,114 +105,111 @@ impl NodeGraph {
 
     pub fn connect(
         &mut self,
-        from_index: NodeIndex,
-        from_socket_type: SocketType,
-        to_index: NodeIndex,
-        to_socket_type: SocketType,
+        from_index: &NodeIndex,
+        from_socket_type: &SocketType,
+        to_index: &NodeIndex,
+        to_socket_type: &SocketType,
     ) -> Result<Connection, NodeError> {
         // check that the node doesn't have an existing connection of this exact type
         // (one output can be connected to many imputs, one to many)
 
-        let from;
-        let to;
-
         // does "from" exist?
-        if let Some(from_extracted) = self.get_node(&from_index) {
-            from = from_extracted;
+        let from = if let Some(from_wrapper) = self.get_node(&from_index) {
+            from_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(from_index));
+            return Err(NodeError::NodeDoesNotExist(*from_index));
         };
 
         // does "to" exist?
-        if let Some(to_extracted) = self.get_node(&to_index) {
-            to = to_extracted;
+        let to = if let Some(to_wrapper) = self.get_node(&to_index) {
+            to_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(to_index));
+            return Err(NodeError::NodeDoesNotExist(*to_index));
         };
-
-        let mut from = (*from.node).borrow_mut();
-        let mut to = (*to.node).borrow_mut();
 
         // check if "to" is connected from "from"
         if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
-            if to_connection.from_node == from_index {
-                return Err(NodeError::AlreadyConnected(from_socket_type, to_socket_type));
+            if &to_connection.from_node == from_index {
+                return Err(NodeError::AlreadyConnected(
+                    from_socket_type.clone(),
+                    to_socket_type.clone(),
+                ));
             }
 
             // it can't be connected twice by anything
-            return Err(NodeError::InputSocketOccupied(to_socket_type));
+            return Err(NodeError::InputSocketOccupied(to_socket_type.clone()));
         }
 
         // make sure `from_type` exists in `from's` outputs
         if !from.has_output_socket(&from_socket_type) {
-            return Err(NodeError::SocketDoesNotExist(from_socket_type));
+            return Err(NodeError::SocketDoesNotExist(from_socket_type.clone()));
         }
 
         // make sure `to_type` exists in `to's` inputs
         if !to.has_input_socket(&to_socket_type) {
-            return Err(NodeError::SocketDoesNotExist(to_socket_type));
+            return Err(NodeError::SocketDoesNotExist(to_socket_type.clone()));
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
-        if mem::discriminant(&from_socket_type) != mem::discriminant(&to_socket_type) {
-            return Err(NodeError::IncompatibleSocketTypes(from_socket_type, to_socket_type));
+        if mem::discriminant(from_socket_type) != mem::discriminant(to_socket_type) {
+            return Err(NodeError::IncompatibleSocketTypes(
+                from_socket_type.clone(),
+                to_socket_type.clone(),
+            ));
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
         // (from both connected nodes), we should be good here
 
         // now we'll create the connection (two-way)
-        to.add_input_connection_unsafe(InputSideConnection {
-            from_socket_type: from_socket_type.clone(),
-            from_node: from.get_index(),
-            to_socket_type: to_socket_type.clone(),
-        });
+        self.get_node_mut(&to_index)
+            .unwrap()
+            .add_input_connection_unsafe(InputSideConnection {
+                from_socket_type: from_socket_type.clone(),
+                from_node: *from_index,
+                to_socket_type: to_socket_type.clone(),
+            });
 
-        from.add_output_connection_unsafe(OutputSideConnection {
-            from_socket_type: from_socket_type.clone(),
-            to_node: to.get_index(),
-            to_socket_type: to_socket_type.clone(),
-        });
+        self.get_node_mut(&from_index)
+            .unwrap()
+            .add_output_connection_unsafe(OutputSideConnection {
+                from_socket_type: from_socket_type.clone(),
+                to_node: *to_index,
+                to_socket_type: to_socket_type.clone(),
+            });
 
         Ok(Connection {
-            from_socket_type,
-            from_node: from.get_index(),
-            to_socket_type,
-            to_node: to.get_index(),
+            from_socket_type: from_socket_type.clone(),
+            from_node: *from_index,
+            to_socket_type: to_socket_type.clone(),
+            to_node: *to_index,
         })
     }
 
     pub fn disconnect(
         &mut self,
-        from_index: NodeIndex,
-        from_socket_type: SocketType,
-        to_index: NodeIndex,
-        to_socket_type: SocketType,
+        from_index: &NodeIndex,
+        from_socket_type: &SocketType,
+        to_index: &NodeIndex,
+        to_socket_type: &SocketType,
     ) -> Result<Connection, NodeError> {
         // check that the connection exists
-        let from;
-        let to;
 
         // does "from" exist?
-        if let Some(from_extracted) = self.get_node(&from_index) {
-            from = from_extracted;
-        } else {
-            return Err(NodeError::NodeDoesNotExist(from_index));
-        };
+        if self.get_node(&from_index).is_none() {
+            return Err(NodeError::NodeDoesNotExist(*from_index));
+        }
 
         // does "to" exist?
-        if let Some(to_extracted) = self.get_node(&to_index) {
-            to = to_extracted;
+        let to = if let Some(to_wrapper) = self.get_node(&to_index) {
+            to_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(to_index));
+            return Err(NodeError::NodeDoesNotExist(*to_index));
         };
-
-        let mut from = (*from.node).borrow_mut();
-        let mut to = (*to.node).borrow_mut();
 
         // check if "to" is connected from "from"
         let already_connected = if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
-            to_connection.from_node == from_index
+            &to_connection.from_node == from_index
         } else {
             false
         };
@@ -228,19 +222,23 @@ impl NodeGraph {
         // (from both connected nodes), we should be good here
 
         // now we'll remove the connection on both nodes
-        to.remove_input_socket_connection_unsafe(&to_socket_type)?;
+        self.get_node_mut(&to_index)
+            .unwrap()
+            .remove_input_socket_connection_unsafe(&to_socket_type)?;
 
-        from.remove_output_socket_connection_unsafe(&OutputSideConnection {
-            from_socket_type: from_socket_type.clone(),
-            to_node: to.get_index(),
-            to_socket_type: to_socket_type.clone(),
-        })?;
+        self.get_node_mut(&from_index)
+            .unwrap()
+            .remove_output_socket_connection_unsafe(&OutputSideConnection {
+                from_socket_type: from_socket_type.clone(),
+                to_node: *to_index,
+                to_socket_type: to_socket_type.clone(),
+            })?;
 
         Ok(Connection {
-            from_socket_type,
-            from_node: from.get_index(),
-            to_socket_type,
-            to_node: to.get_index(),
+            from_socket_type: from_socket_type.clone(),
+            from_node: *from_index,
+            to_socket_type: to_socket_type.clone(),
+            to_node: *to_index,
         })
     }
 
@@ -255,14 +253,21 @@ impl NodeGraph {
     ) -> Result<bool, NodeError> {
         let mut has_changed_self = false;
 
-        if let Some(node_ref) = self.get_node(index) {
-            let mut node_wrapper = (*node_ref.node).borrow_mut();
-
+        // will return the new node rows, if they changed
+        let possible_rows = if let Some(node_wrapper) = self.get_node_mut(index) {
             let props = node_wrapper.get_properties().clone();
 
             let node = &mut node_wrapper.node;
             let init_result = node.init(&props, socket_registry, scripting_engine);
 
+            // if the node returned any properties it wanted to change, apply them here
+            if let Some(new_props) = init_result.changed_properties {
+                for (key, prop) in new_props.into_iter() {
+                    node_wrapper.set_property(key, prop);
+                }
+            }
+
+            // return a list of all the rows that changed to the outer scope
             if init_result.did_rows_change {
                 let old_rows = node_wrapper.get_node_rows().clone();
                 let new_rows = &init_result.node_rows;
@@ -283,82 +288,78 @@ impl NodeGraph {
                     .cloned()
                     .collect();
 
-                for removed_row in removed_rows {
-                    let type_and_direction = removed_row.to_type_and_direction();
+                Some((removed_rows, init_result.node_rows))
+            } else {
+                None
+            }
+        } else {
+            return Err(NodeError::NodeDoesNotExist(*index));
+        };
 
-                    if let Some(type_and_direction) = type_and_direction {
-                        let (socket_type, direction) = type_and_direction;
+        if let Some((removed_rows, new_node_rows)) = possible_rows {
+            for removed_row in removed_rows {
+                let type_and_direction = removed_row.to_type_and_direction();
 
-                        match direction {
-                            SocketDirection::Input => {
-                                let input_connection = node_wrapper.get_input_connection_by_type(&socket_type);
+                if let Some(type_and_direction) = type_and_direction {
+                    let (socket_type, direction) = type_and_direction;
 
-                                if let Some(input_connection) = input_connection {
-                                    let from_ref = self.get_node(&input_connection.from_node);
+                    match direction {
+                        SocketDirection::Input => {
+                            let node_wrapper = self.get_node(index).unwrap();
+                            let input_connection = node_wrapper.get_input_connection_by_type(&socket_type);
 
-                                    if let Some(from_ref) = from_ref {
-                                        let mut from_wrapper = (*from_ref.node).borrow_mut();
+                            if let Some(input_connection) = input_connection {
+                                let from_wrapper = self.get_node_mut(&input_connection.from_node);
 
-                                        from_wrapper
-                                            .remove_output_socket_connection_unsafe(&OutputSideConnection {
-                                                from_socket_type: input_connection.from_socket_type,
-                                                to_node: *index,
-                                                to_socket_type: input_connection.to_socket_type.clone(),
-                                            })
-                                            .unwrap();
-                                    }
-
-                                    node_wrapper
-                                        .remove_input_socket_connection_unsafe(&input_connection.to_socket_type)
-                                        .unwrap();
+                                if let Some(from_wrapper) = from_wrapper {
+                                    from_wrapper.remove_output_socket_connection_unsafe(&OutputSideConnection {
+                                        from_socket_type: input_connection.from_socket_type,
+                                        to_node: *index,
+                                        to_socket_type: input_connection.to_socket_type.clone(),
+                                    })?;
                                 }
+
+                                self.get_node_mut(index)
+                                    .unwrap()
+                                    .remove_input_socket_connection_unsafe(&input_connection.to_socket_type)?;
                             }
-                            SocketDirection::Output => {
-                                let output_connections = node_wrapper.get_output_connections_by_type(&socket_type);
+                        }
+                        SocketDirection::Output => {
+                            let node_wrapper = self.get_node(index).unwrap();
+                            let output_connections = node_wrapper.get_output_connections_by_type(&socket_type);
 
-                                for output_connection in output_connections {
-                                    let to_ref = self.get_node(&output_connection.to_node);
+                            for output_connection in output_connections {
+                                let to_wrapper = self.get_node_mut(&output_connection.to_node);
 
-                                    if let Some(to_ref) = to_ref {
-                                        let mut to_wrapper = (*to_ref.node).borrow_mut();
-
-                                        // remove the other connection to this one
-                                        to_wrapper
-                                            .remove_input_socket_connection_unsafe(&output_connection.to_socket_type)
-                                            .unwrap();
-                                    }
-
-                                    // remove this connection to the other one
-                                    node_wrapper
-                                        .remove_output_socket_connection_unsafe(&OutputSideConnection {
-                                            from_socket_type: output_connection.from_socket_type,
-                                            to_node: output_connection.to_node,
-                                            to_socket_type: output_connection.to_socket_type,
-                                        })
-                                        .unwrap();
+                                if let Some(to_wrapper) = to_wrapper {
+                                    // remove the other connection to this one
+                                    to_wrapper
+                                        .remove_input_socket_connection_unsafe(&output_connection.to_socket_type)?;
                                 }
+
+                                // remove this connection to the other one
+                                self.get_node_mut(index)
+                                    .unwrap()
+                                    .remove_output_socket_connection_unsafe(&OutputSideConnection {
+                                        from_socket_type: output_connection.from_socket_type,
+                                        to_node: output_connection.to_node,
+                                        to_socket_type: output_connection.to_socket_type,
+                                    })?;
                             }
                         }
                     }
                 }
-
-                // at which point we can _finally_ update the node's row list
-                node_wrapper.set_node_rows(init_result.node_rows);
-                has_changed_self = true;
             }
 
-            // if the node returned any properties it wanted to change, apply them here
-            if let Some(new_props) = init_result.changed_properties {
-                for (key, prop) in new_props.into_iter() {
-                    node_wrapper.set_property(key, prop);
-                }
-            }
+            // at which point we can _finally_ update the node's row list
+            self.get_node_mut(index).unwrap().set_node_rows(new_node_rows);
+            has_changed_self = true;
         }
 
         Ok(has_changed_self)
     }
 
-    pub fn get_node(&self, index: &NodeIndex) -> Option<GenerationalNode> {
+    pub fn get_node(&self, index: &NodeIndex) -> Option<&NodeWrapper> {
         // out of bounds?
         if index.index >= self.nodes.len() {
             return None;
@@ -367,12 +368,33 @@ impl NodeGraph {
         let node = &self.nodes[index.index];
 
         // node exists there?
-        if let PossibleNode::Some(node) = node {
+        if let PossibleNode::Some(node, generation) = node {
             // make sure it's the same generation
-            if node.generation != index.generation {
+            if generation != &index.generation {
                 None
             } else {
-                Some(node.clone())
+                Some(node)
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_node_mut(&mut self, index: &NodeIndex) -> Option<&mut NodeWrapper> {
+        // out of bounds?
+        if index.index >= self.nodes.len() {
+            return None;
+        }
+
+        let node = &mut self.nodes[index.index];
+
+        // node exists there?
+        if let PossibleNode::Some(node, generation) = node {
+            // make sure it's the same generation
+            if generation != &index.generation {
+                None
+            } else {
+                Some(node)
             }
         } else {
             None
@@ -387,55 +409,47 @@ impl NodeGraph {
 
         let node = &self.nodes[index.index];
 
-        let node_to_remove_index;
-
         // node exists there?
-        if let PossibleNode::Some(node) = node {
+        let (input_sockets, output_sockets) = if let PossibleNode::Some(node, generation) = node {
             // make sure it's the same generation
-            if node.generation != index.generation {
+            if generation != &index.generation {
                 return Err(NodeError::NodeDoesNotExist(*index));
             } else {
-                // remove any connected node connections
-                let node = (*((*node).node)).borrow();
-
-                for input_socket in node.list_connected_input_sockets() {
-                    // follow the input socket
-                    let from_node = self.get_node(&input_socket.from_node);
-
-                    if let Some(from_node) = from_node {
-                        let from_node = from_node.node;
-                        let mut from_node = (*from_node).borrow_mut();
-
-                        from_node.remove_output_socket_connection_unsafe(&OutputSideConnection {
-                            from_socket_type: input_socket.from_socket_type,
-                            to_node: node.get_index(),
-                            to_socket_type: input_socket.to_socket_type,
-                        })?;
-                    }
-                    // if it doesn't exist, obviously we don't need to worry about removing its connection
-                }
-
-                for output_socket in node.list_connected_output_sockets() {
-                    // follow the output socket
-                    let to_node = self.get_node(&output_socket.to_node);
-
-                    if let Some(to_node) = to_node {
-                        let to_node = to_node.node;
-                        let mut to_node = (*to_node).borrow_mut();
-
-                        to_node.remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
-                    }
-                    // if it doesn't exist, obviously we don't need to worry about removing its connection
-                }
-
-                node_to_remove_index = node.get_index();
+                (
+                    node.list_connected_input_sockets(),
+                    node.list_connected_output_sockets(),
+                )
             }
         } else {
             return Err(NodeError::NodeDoesNotExist(*index));
+        };
+
+        // remove any connected node connections
+        for input_socket in input_sockets {
+            // follow the input socket
+            let from_wrapper = self.get_node_mut(&input_socket.from_node);
+
+            if let Some(from_wrapper) = from_wrapper {
+                from_wrapper.remove_output_socket_connection_unsafe(&OutputSideConnection {
+                    from_socket_type: input_socket.from_socket_type,
+                    to_node: *index,
+                    to_socket_type: input_socket.to_socket_type,
+                })?;
+            }
+            // if it doesn't exist, obviously we don't need to worry about removing its connection
         }
 
-        // move down here so the borrow isn't in the scope anymore
-        self.nodes[node_to_remove_index.index] = PossibleNode::None(node_to_remove_index.generation);
+        for output_socket in output_sockets {
+            // follow the output socket
+            let to_wrapper = self.get_node_mut(&output_socket.to_node);
+
+            if let Some(to_wrapper) = to_wrapper {
+                to_wrapper.remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
+            }
+            // if it doesn't exist, obviously we don't need to worry about removing its connection
+        }
+
+        self.nodes[index.index] = PossibleNode::None(index.generation);
 
         Ok(())
     }
@@ -460,10 +474,7 @@ impl NodeGraph {
             self.nodes
                 .iter()
                 .map(|node| {
-                    if let PossibleNode::Some(node) = node {
-                        let node = &node.node;
-                        let node = (*node).borrow();
-
+                    if let PossibleNode::Some(node, _) = node {
                         match node.serialize_to_json() {
                             Ok(json) => json,
                             Err(_) => serde_json::Value::Null,
@@ -479,10 +490,7 @@ impl NodeGraph {
 
         // make a list of connections based on the input node, as that can't be connected to multiple things
         for node in &self.nodes {
-            if let PossibleNode::Some(some_node) = node {
-                let node = &some_node.node;
-                let node = (*node).borrow();
-
+            if let PossibleNode::Some(node, _) = node {
                 let input_sockets = node.list_connected_input_sockets();
 
                 for socket in input_sockets {

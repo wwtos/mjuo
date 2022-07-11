@@ -14,7 +14,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
 
     for (i, original_node) in original_graph.get_nodes().iter().enumerate() {
         match original_node {
-            PossibleNode::Some(_) => {
+            PossibleNode::Some(_, _) => {
                 graph_lookup.insert(i, graph.add_node(i));
             }
             PossibleNode::None(_) => {}
@@ -23,8 +23,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
 
     for original_node in original_graph.get_nodes().iter() {
         match original_node {
-            PossibleNode::Some(node) => {
-                let node = node.node.borrow();
+            PossibleNode::Some(node, _) => {
                 let node_index = node.get_index();
 
                 for input in node.list_connected_input_sockets() {
@@ -65,7 +64,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
         .map(|index| crate::node::NodeIndex {
             index: index.index(),
             generation: match &original_graph.get_nodes()[index.index()] {
-                PossibleNode::Some(node) => node.generation,
+                PossibleNode::Some(_, generation) => *generation,
                 PossibleNode::None(_) => panic!("unreachable"),
             },
         })
