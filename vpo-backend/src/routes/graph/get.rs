@@ -25,7 +25,7 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
 
-    update_graph(graph, to_server);
+    update_graph(graph, current_graph_index, to_server);
     update_registry(socket_registry, to_server).unwrap();
 
     Ok(None)

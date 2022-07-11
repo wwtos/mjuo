@@ -51,7 +51,7 @@ pub fn route(
     }
 
     if did_any_node_change {
-        update_graph(graph, to_server);
+        update_graph(graph, current_graph_index, to_server);
         update_registry(socket_registry, to_server).unwrap();
     }
 
