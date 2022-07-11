@@ -6,8 +6,10 @@ use serde_json::json;
 use crate::connection::{Primitive, SocketType, ValueSocketType};
 use crate::errors::{ErrorsAndWarnings, NodeError, NodeWarning};
 use crate::node::{InitResult, Node, NodeRow};
+use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
+use crate::traversal::traverser::Traverser;
 
 #[derive(Debug)]
 pub struct ExpressionNode {
@@ -52,7 +54,12 @@ impl Node for ExpressionNode {
         self.value_out.clone()
     }
 
-    fn process(&mut self, _current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        scripting_engine: &Engine,
+        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
+    ) -> Result<(), ErrorsAndWarnings> {
         if let Some(ast) = &self.ast {
             if self.have_values_changed {
                 // add inputs to scope

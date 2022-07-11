@@ -7,8 +7,10 @@ use sound_engine::SoundConfig;
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
+use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
+use crate::traversal::traverser::Traverser;
 
 #[derive(Debug)]
 pub struct BiquadFilterNode {
@@ -49,7 +51,12 @@ impl Node for BiquadFilterNode {
         };
     }
 
-    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.filter.process();
 
         Ok(())

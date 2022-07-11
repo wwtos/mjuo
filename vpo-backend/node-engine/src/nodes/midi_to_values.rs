@@ -6,8 +6,10 @@ use sound_engine::midi::messages::MidiData;
 use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
+use crate::node_graph::NodeGraph;
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
+use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, PartialEq)]
 enum ChangedState {
@@ -43,7 +45,12 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
+    ) -> Result<(), ErrorsAndWarnings> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {

@@ -6,8 +6,10 @@ use serde_json::json;
 use crate::connection::{SocketType, StreamSocketType};
 use crate::errors::ErrorsAndWarnings;
 use crate::node::{InitResult, Node, NodeRow};
+use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
+use crate::traversal::traverser::Traverser;
 
 #[derive(Debug)]
 pub struct MixerNode {
@@ -33,7 +35,12 @@ impl Node for MixerNode {
         self.input_sum += value;
     }
 
-    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        _current_time: i64,
+        _scripting_engine: &Engine,
+        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
+    ) -> Result<(), ErrorsAndWarnings> {
         self.output_audio = self.input_sum / self.input_count as f32;
         self.input_sum = 0.0;
 
