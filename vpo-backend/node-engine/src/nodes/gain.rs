@@ -7,7 +7,7 @@ use crate::node::{InitResult, Node, NodeRow};
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GainGraphNode {
     gain: f32,
     value: f32,

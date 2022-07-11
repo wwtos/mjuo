@@ -8,7 +8,7 @@ use crate::{
     socket_registry::SocketRegistry,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DummyNode {}
 
 impl Node for DummyNode {

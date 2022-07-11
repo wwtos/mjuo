@@ -45,7 +45,7 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
 ///
 /// # Outputs
 /// `out` - Mono waveform out.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Oscillator {
     phase: f32,
     frequency: f32,
