@@ -8,7 +8,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
-use node_engine::node_graph::{NodeGraph, PossibleNode};
+use node_engine::node_graph::{PossibleNode};
 
 use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper};
 use node_engine::node::NodeIndex;
@@ -16,7 +16,6 @@ use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
-use node_engine::traversal::traverser::Traverser;
 use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
@@ -48,7 +47,6 @@ fn handle_msg(
     current_graph_index: GraphIndex,
     graph_manager: &mut GraphManager,
     to_server: &Sender<IPCMessage>,
-    traverser: &mut Traverser,
     sound_config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
     scripting_engine: &Engine,
@@ -72,19 +70,23 @@ fn handle_msg(
 
             if should_reindex_graph {
                 graph_manager.recalculate_traversal_for_graph(current_graph_index);
-            }
 
-            // TODO: this is naive, keep track of what nodes need their defaults updated
-            for (i, node) in graph.get_nodes().iter().enumerate() {
-                if let PossibleNode::Some(_, generation) = node {
-                    traverser.update_node_defaults(
-                        graph,
-                        &NodeIndex {
+                let graph = &graph_manager.get_graph_wrapper_ref(current_graph_index).unwrap().graph;
+
+                // TODO: this is naive, keep track of what nodes need their defaults updated
+                let nodes_to_update = graph.get_nodes().iter().enumerate().filter_map(|(i, node)| {
+                    if let PossibleNode::Some(_, generation) = node {
+                        Some(NodeIndex {
                             index: i,
                             generation: *generation,
-                        },
-                    );
-                }
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<NodeIndex>>();
+
+                graph_manager.update_traversal_defaults(current_graph_index, nodes_to_update);
             }
         }
         Err(err) => {
@@ -142,10 +144,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let scripting_engine = Engine::new_raw();
 
     let mut graph_manager = GraphManager::new();
-    let graph_index = graph_manager.new_graph();
+    let mut current_graph_index = graph_manager.new_graph();
 
     let (output_node, midi_in_node) = {
-        let mut graph = graph_manager.get_graph_wrapper_mut(graph_index).unwrap().graph;
+        let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
 
         let output_node = graph.add_node(
             NodeVariant::OutputNode(OutputNode::default()),
@@ -157,10 +159,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             &mut socket_registry,
             &scripting_engine,
         );
-        let mut traverser = Traverser::get_traverser(&graph);
 
         (output_node, midi_in_node)
     };
+    graph_manager.recalculate_traversal_for_graph(current_graph_index);
 
     let backend = connect_backend()?;
 
@@ -182,9 +184,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Ok(msg) = msg {
             handle_msg(
                 msg,
-                &mut graph,
+                current_graph_index,
+                &mut graph_manager,
                 &to_server,
-                &mut traverser,
                 &sound_config,
                 &mut socket_registry,
                 &scripting_engine,
@@ -192,6 +194,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
+
+        // we can get the graph now, it won't be controlled by the message handler anymore
+        let NodeGraphWrapper {
+            graph,
+            traverser,
+            ..
+        } = &mut *graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap();
 
         let midi = get_midi(&mut midi_backend, &mut parser);
 
@@ -209,7 +218,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
-            let traversal_errors = traverser.traverse(&mut graph, is_first_time, current_time, &scripting_engine);
+            let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &scripting_engine);
 
             if let Err(errors) = traversal_errors {
                 println!("{:?}", errors);
