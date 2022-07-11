@@ -44,4 +44,11 @@ export class IPCSocket {
             "payload": connection
         })));
     }
+
+    switchToGraph (graphIndex: number) {
+        this.send(JSON.parse(JSON.stringify({
+            "action": "graph/switchGraph",
+            "payload": graphIndex
+        })));
+    }
 }
