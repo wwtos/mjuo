@@ -399,15 +399,15 @@ impl NodeWrapper {
         &self.connected_outputs
     }
 
-    pub(in crate) fn add_input_connection_unsafe(&mut self, connection: InputSideConnection) {
+    pub(in crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
         self.connected_inputs.push(connection);
     }
 
-    pub(in crate) fn add_output_connection_unsafe(&mut self, connection: OutputSideConnection) {
+    pub(in crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unsafe(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
+    pub(in crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()
@@ -422,7 +422,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn remove_output_socket_connection_unsafe(
+    pub(in crate) fn remove_output_socket_connection_unchecked(
         &mut self,
         connection: &OutputSideConnection,
     ) -> Result<(), NodeError> {
@@ -441,7 +441,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn _remove_output_socket_connections_unsafe(
+    pub(in crate) fn _remove_output_socket_connections_unchecked(
         &mut self,
         from_type: &SocketType,
     ) -> Result<(), NodeError> {
