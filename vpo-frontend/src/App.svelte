@@ -5,7 +5,7 @@
 	import {SplitDirection} from './layout/enums';
 	import {windowDimensions} from './util/window-size';
 	import {IPCSocket} from './util/socket';
-	import {Graph} from './node-engine/graph';
+	import {NodeGraph} from './node-engine/node_graph';
 	import Toasts from './ui/Toasts.svelte';
 	
 	const ipc = (window as any).ipcRenderer;
@@ -19,7 +19,7 @@
 		height = windowHeight - 3;
 	});
 
-	let nodes = new Graph(ipcSocket);
+	let nodes = new NodeGraph(ipcSocket);
 </script>
 
 <main>

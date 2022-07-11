@@ -5,7 +5,7 @@ import { deserializeProperty, deserializePropertyType, Property, PropertyType } 
 import { BehaviorSubject, combineLatest, Observable } from "rxjs";
 import { distinctUntilChanged, map, mergeMap } from "rxjs/operators";
 import { shallowEqual } from 'fast-equals';
-import { makeTaggedUnion, MemberType } from "safety-match";
+import { makeTaggedUnion, MemberType, none } from "safety-match";
 
 const TITLE_HEIGHT = 30;
 const SOCKET_HEIGHT = 36;
@@ -21,7 +21,8 @@ export const NodeRow = makeTaggedUnion({
     "MidiOutput": (type: MemberType<typeof MidiSocketType>, defaultVal: any[]): [MemberType<typeof MidiSocketType>, any[]] => [type, defaultVal],
     "ValueOutput": (type: MemberType<typeof ValueSocketType>, defaultVal: MemberType<typeof Primitive>): [MemberType<typeof ValueSocketType>, MemberType<typeof Primitive>] => [type, defaultVal],
     "NodeRefOutput": (type: MemberType<typeof NodeRefSocketType>) => type,
-    "Property": (name: string, type: MemberType<typeof PropertyType>, defaultVal: MemberType<typeof Property>): [string, MemberType<typeof PropertyType>, MemberType<typeof Property>] => [name, type, defaultVal]
+    "Property": (name: string, type: MemberType<typeof PropertyType>, defaultVal: MemberType<typeof Property>): [string, MemberType<typeof PropertyType>, MemberType<typeof Property>] => [name, type, defaultVal],
+    "InnerGraph": none
 });
 
 export function NodeRowAsTypeAndDirection (nodeRow: MemberType<typeof NodeRow>): [MemberType<typeof SocketType>, SocketDirection] | undefined {
@@ -82,6 +83,8 @@ export function deserializeNodeRow (json: any) {
             return NodeRow.NodeRefOutput(deserializeNodeRefSocketType(json.data[0]));
         case "Property":
             return NodeRow.Property(json.data[0], deserializePropertyType(json.data[1]), deserializeProperty(json.data[2]));
+        case "InnerGraph":
+            return NodeRow.InnerGraph;
     }
 };
 
@@ -138,6 +141,7 @@ export class NodeWrapper {
     nodeRows: BehaviorSubject<MemberType<typeof NodeRow>[]>;
     properties: BehaviorSubject<object>;
     uiData: BehaviorSubject<UiData>;
+    innerGraphIndex: number | null;
 
     constructor(
         node: Node,
@@ -147,7 +151,8 @@ export class NodeWrapper {
         defaultOverrides: MemberType<typeof NodeRow>[],
         nodeRows: MemberType<typeof NodeRow>[],
         properties: object,
-        uiData: UiData
+        uiData: UiData,
+        innerGraphIndex: number | null
     ) {
         this.node = new BehaviorSubject(node);
         this.index = index;
@@ -157,6 +162,7 @@ export class NodeWrapper {
         this.defaultOverrides = new BehaviorSubject(defaultOverrides);
         this.properties = new BehaviorSubject(properties);
         this.uiData = new BehaviorSubject(uiData);
+        this.innerGraphIndex = innerGraphIndex;
     }
 
     toJSON(): object {
@@ -229,7 +235,7 @@ export class NodeWrapper {
                     }
                 });
 
-                if (defaultOverride) return (defaultOverride.data)[1];
+                if (defaultOverride && defaultOverride.data) return (defaultOverride.data)[1];
 
                 const defaultNodeRow = nodeRows.find(nodeRow => {
                     const typeAndDirection = NodeRowAsTypeAndDirection(nodeRow);
@@ -242,7 +248,7 @@ export class NodeWrapper {
                     }
                 });
 
-                if (defaultNodeRow) return (defaultNodeRow.data)[1];
+                if (defaultNodeRow && defaultNodeRow.data) return (defaultNodeRow.data)[1];
             })
         );
     }
