@@ -15,9 +15,11 @@ use crate::connection::{
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
+use crate::node_graph::NodeGraph;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
+use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -91,8 +93,17 @@ pub trait Node: Debug {
         scripting_engine: &Engine,
     ) -> InitResult;
 
+    fn get_inner_graph_io_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
+        vec![]
+    }
+
     /// Process received data.
-    fn process(&mut self, current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
+    fn process(
+        &mut self,
+        current_time: i64,
+        scripting_engine: &Engine,
+        inner_graph: Option<(&mut NodeGraph, &Traverser)>
+    ) -> Result<(), ErrorsAndWarnings> {
         Ok(())
     }
 
