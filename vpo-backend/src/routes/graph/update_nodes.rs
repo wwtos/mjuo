@@ -23,9 +23,7 @@ pub fn route(
         for node_json in nodes_to_update {
             let index: NodeIndex = serde_json::from_value(node_json["index"].clone())?;
 
-            let did_apply_json = if let Some(generational_node) = graph.get_node(&index) {
-                let mut node = (*generational_node.node).borrow_mut();
-
+            let did_apply_json = if let Some(node) = graph.get_node_mut(&index) {
                 node.apply_json(node_json)?;
 
                 true

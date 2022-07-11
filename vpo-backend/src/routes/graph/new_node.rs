@@ -38,8 +38,7 @@ pub fn route(
     };
 
     if let Value::Object(ui_data) = &message["payload"]["ui_data"] {
-        let node_ref = graph.get_node(&index).unwrap().node;
-        let mut node = (*node_ref).borrow_mut();
+        let node = graph.get_node_mut(&index).unwrap();
 
         // overwrite default values
         for (key, value) in ui_data.to_owned().into_iter() {

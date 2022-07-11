@@ -16,10 +16,10 @@ pub fn route(
         let connection: Connection = serde_json::from_value(message["payload"].clone())?;
 
         graph.disconnect(
-            connection.from_node,
-            connection.from_socket_type,
-            connection.to_node,
-            connection.to_socket_type,
+            &connection.from_node,
+            &connection.from_socket_type,
+            &connection.to_node,
+            &connection.to_socket_type,
         )?;
     }
 
