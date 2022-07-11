@@ -1,8 +1,6 @@
-use std::cell::{Cell, RefCell, RefMut};
-use std::rc::Rc;
+use std::cell::{RefCell, RefMut};
 use std::{cell::Ref, collections::HashMap};
 
-use crate::node_graph::PossibleNode;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 

@@ -8,7 +8,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
-use node_engine::node_graph::{PossibleNode};
+use node_engine::node_graph::PossibleNode;
 
 use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper};
 use node_engine::node::NodeIndex;
@@ -74,17 +74,21 @@ fn handle_msg(
                 let graph = &graph_manager.get_graph_wrapper_ref(current_graph_index).unwrap().graph;
 
                 // TODO: this is naive, keep track of what nodes need their defaults updated
-                let nodes_to_update = graph.get_nodes().iter().enumerate().filter_map(|(i, node)| {
-                    if let PossibleNode::Some(_, generation) = node {
-                        Some(NodeIndex {
-                            index: i,
-                            generation: *generation,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<NodeIndex>>();
+                let nodes_to_update = graph
+                    .get_nodes()
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, node)| {
+                        if let PossibleNode::Some(_, generation) = node {
+                            Some(NodeIndex {
+                                index: i,
+                                generation: *generation,
+                            })
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<NodeIndex>>();
 
                 graph_manager.update_traversal_defaults(current_graph_index, nodes_to_update);
             }
@@ -196,11 +200,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         // we can get the graph now, it won't be controlled by the message handler anymore
-        let NodeGraphWrapper {
-            graph,
-            traverser,
-            ..
-        } = &mut *graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap();
+        let NodeGraphWrapper { graph, traverser, .. } =
+            &mut *graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap();
 
         let midi = get_midi(&mut midi_backend, &mut parser);
 
