@@ -42,7 +42,8 @@
             "envelopeNode": "Envelope Node",
             "biquadFilterNode": "Biquad Filter Node",
             "mixerNode": "Mixer Node",
-            "expressionNode": "Expression Node"
+            "expressionNode": "Expression Node",
+            "functionNode": "Function Node"
         },
         "editor": {
             "create": "Create!",
