@@ -1,6 +1,6 @@
 use crate::connection::{MidiSocketType, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::ErrorsAndWarnings;
-use crate::node::InitResult;
+use crate::node::{InitResult, NodeIndex};
 use crate::node_graph::NodeGraph;
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;

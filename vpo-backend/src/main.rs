@@ -10,7 +10,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
 use node_engine::node_graph::{NodeGraph, PossibleNode};
 
-use node_engine::graph_manager::GraphManager;
+use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper};
 use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
@@ -45,14 +45,23 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
 
 fn handle_msg(
     msg: IPCMessage,
-    graph: &mut NodeGraph,
+    current_graph_index: GraphIndex,
+    graph_manager: &mut GraphManager,
     to_server: &Sender<IPCMessage>,
     traverser: &mut Traverser,
     sound_config: &SoundConfig,
     socket_registry: &mut SocketRegistry,
     scripting_engine: &Engine,
 ) {
-    let result = route(msg, graph, to_server, sound_config, socket_registry, scripting_engine);
+    let result = route(
+        msg,
+        current_graph_index,
+        graph_manager,
+        to_server,
+        sound_config,
+        socket_registry,
+        scripting_engine,
+    );
 
     match result {
         Ok(route_result) => {
@@ -62,7 +71,7 @@ fn handle_msg(
             };
 
             if should_reindex_graph {
-                *traverser = Traverser::get_traverser(graph);
+                graph_manager.recalculate_traversal_for_graph(current_graph_index);
             }
 
             // TODO: this is naive, keep track of what nodes need their defaults updated
@@ -135,18 +144,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut graph_manager = GraphManager::new();
     let graph_index = graph_manager.new_graph();
 
-    let graph = graph_manager.get_graph_mut(graph_index).unwrap();
-    let output_node = graph.add_node(
-        NodeVariant::OutputNode(OutputNode::default()),
-        &mut socket_registry,
-        &scripting_engine,
-    );
-    let midi_in_node = graph.add_node(
-        NodeVariant::MidiInNode(MidiInNode::default()),
-        &mut socket_registry,
-        &scripting_engine,
-    );
-    let mut traverser = Traverser::get_traverser(&graph);
+    let (output_node, midi_in_node) = {
+        let mut graph = graph_manager.get_graph_wrapper_mut(graph_index).unwrap().graph;
+
+        let output_node = graph.add_node(
+            NodeVariant::OutputNode(OutputNode::default()),
+            &mut socket_registry,
+            &scripting_engine,
+        );
+        let midi_in_node = graph.add_node(
+            NodeVariant::MidiInNode(MidiInNode::default()),
+            &mut socket_registry,
+            &scripting_engine,
+        );
+        let mut traverser = Traverser::get_traverser(&graph);
+
+        (output_node, midi_in_node)
+    };
 
     let backend = connect_backend()?;
 
@@ -168,7 +182,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Ok(msg) = msg {
             handle_msg(
                 msg,
-                graph,
+                &mut graph,
                 &to_server,
                 &mut traverser,
                 &sound_config,
@@ -195,7 +209,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
-            let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &scripting_engine);
+            let traversal_errors = traverser.traverse(&mut graph, is_first_time, current_time, &scripting_engine);
 
             if let Err(errors) = traversal_errors {
                 println!("{:?}", errors);

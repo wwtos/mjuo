@@ -20,6 +20,12 @@ pub struct Traverser {
     nodes: Vec<(NodeIndex, NodeTraverseData)>,
 }
 
+impl Default for Traverser {
+    fn default() -> Self {
+        Traverser { nodes: vec![] }
+    }
+}
+
 impl Traverser {
     pub fn get_traverser(graph: &NodeGraph) -> Traverser {
         // first, get traversal order
@@ -118,7 +124,8 @@ impl Traverser {
             }
 
             // make de magic happenz
-            let process_result = node_wrapper.process(current_time, scripting_engine);
+            // TODO: Don't just input 'none' into the graph
+            let process_result = node_wrapper.process(current_time, scripting_engine, None);
 
             // record any errors
             if let Err(mut errors_and_warnings) = process_result {
