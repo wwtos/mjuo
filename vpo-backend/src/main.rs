@@ -16,7 +16,6 @@ use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
-use node_engine::traversal;
 use node_engine::traversal::traverser::{Traverser};
 use rhai::Engine;
 use serde_json::json;
@@ -68,10 +67,10 @@ fn handle_msg(
 
             // TODO: this is naive, keep track of what nodes need their defaults updated
             for (i, node) in graph.get_nodes().iter().enumerate() {
-                if let PossibleNode::Some(node) = node {
+                if let PossibleNode::Some(_, generation) = node {
                     traverser.update_node_defaults(graph, &NodeIndex {
                         index: i,
-                        generation: node.generation
+                        generation: *generation
                     });
                 }
             }
@@ -131,7 +130,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut socket_registry = SocketRegistry::new();
     SocketType::register_defaults(&mut socket_registry);
 
-    let mut scripting_engine = Engine::new_raw();
+    let scripting_engine = Engine::new_raw();
 
     let mut graph_manager = GraphManager::new();
     let graph_index = graph_manager.new_graph();
@@ -167,13 +166,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         let midi = get_midi(&mut midi_backend, &mut parser);
 
         if !midi.is_empty() {
-            let midi_node = graph.get_node(&midi_in_node).unwrap().node;
-            let mut midi_node = (*midi_node).borrow_mut();
+            let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
 
             midi_node.accept_midi_input(&MidiSocketType::Default, midi.clone());
         } else {
-            let midi_node = graph.get_node(&midi_in_node).unwrap().node;
-            let mut midi_node = (*midi_node).borrow_mut();
+            let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
 
             midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
         }
@@ -188,16 +185,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("{:?}", errors);
             }
 
-            let output_node = graph.get_node(&output_node).unwrap().node;
-            let output_node = (*output_node).borrow();
+            let output_node = graph.get_node_mut(&output_node).unwrap();
 
             let audio = output_node.get_stream_output(&StreamSocketType::Audio);
 
             *sample = audio;
 
             if is_first_time {
-                let midi_node = graph.get_node(&midi_in_node).unwrap().node;
-                let mut midi_node = (*midi_node).borrow_mut();
+                let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
 
                 midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
             }
