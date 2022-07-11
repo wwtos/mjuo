@@ -71,24 +71,26 @@ fn handle_msg(
             if should_reindex_graph {
                 graph_manager.recalculate_traversal_for_graph(current_graph_index);
 
-                let graph = &graph_manager.get_graph_wrapper_ref(current_graph_index).unwrap().graph;
+                let nodes_to_update = {
+                    let graph = &graph_manager.get_graph_wrapper_ref(current_graph_index).unwrap().graph;
 
-                // TODO: this is naive, keep track of what nodes need their defaults updated
-                let nodes_to_update = graph
-                    .get_nodes()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, node)| {
-                        if let PossibleNode::Some(_, generation) = node {
-                            Some(NodeIndex {
-                                index: i,
-                                generation: *generation,
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<NodeIndex>>();
+                    // TODO: this is naive, keep track of what nodes need their defaults updated
+                    graph
+                        .get_nodes()
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, node)| {
+                            if let PossibleNode::Some(_, generation) = node {
+                                Some(NodeIndex {
+                                    index: i,
+                                    generation: *generation,
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<NodeIndex>>()
+                };
 
                 graph_manager.update_traversal_defaults(current_graph_index, nodes_to_update);
             }
