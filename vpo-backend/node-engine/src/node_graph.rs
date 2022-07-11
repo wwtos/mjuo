@@ -164,7 +164,7 @@ impl NodeGraph {
         // now we'll create the connection (two-way)
         self.get_node_mut(&to_index)
             .unwrap()
-            .add_input_connection_unsafe(InputSideConnection {
+            .add_input_connection_unchecked(InputSideConnection {
                 from_socket_type: from_socket_type.clone(),
                 from_node: *from_index,
                 to_socket_type: to_socket_type.clone(),
@@ -172,7 +172,7 @@ impl NodeGraph {
 
         self.get_node_mut(&from_index)
             .unwrap()
-            .add_output_connection_unsafe(OutputSideConnection {
+            .add_output_connection_unchecked(OutputSideConnection {
                 from_socket_type: from_socket_type.clone(),
                 to_node: *to_index,
                 to_socket_type: to_socket_type.clone(),
@@ -224,11 +224,11 @@ impl NodeGraph {
         // now we'll remove the connection on both nodes
         self.get_node_mut(&to_index)
             .unwrap()
-            .remove_input_socket_connection_unsafe(&to_socket_type)?;
+            .remove_input_socket_connection_unchecked(&to_socket_type)?;
 
         self.get_node_mut(&from_index)
             .unwrap()
-            .remove_output_socket_connection_unsafe(&OutputSideConnection {
+            .remove_output_socket_connection_unchecked(&OutputSideConnection {
                 from_socket_type: from_socket_type.clone(),
                 to_node: *to_index,
                 to_socket_type: to_socket_type.clone(),
@@ -312,7 +312,7 @@ impl NodeGraph {
                                 let from_wrapper = self.get_node_mut(&input_connection.from_node);
 
                                 if let Some(from_wrapper) = from_wrapper {
-                                    from_wrapper.remove_output_socket_connection_unsafe(&OutputSideConnection {
+                                    from_wrapper.remove_output_socket_connection_unchecked(&OutputSideConnection {
                                         from_socket_type: input_connection.from_socket_type,
                                         to_node: *index,
                                         to_socket_type: input_connection.to_socket_type.clone(),
@@ -321,7 +321,7 @@ impl NodeGraph {
 
                                 self.get_node_mut(index)
                                     .unwrap()
-                                    .remove_input_socket_connection_unsafe(&input_connection.to_socket_type)?;
+                                    .remove_input_socket_connection_unchecked(&input_connection.to_socket_type)?;
                             }
                         }
                         SocketDirection::Output => {
@@ -334,13 +334,13 @@ impl NodeGraph {
                                 if let Some(to_wrapper) = to_wrapper {
                                     // remove the other connection to this one
                                     to_wrapper
-                                        .remove_input_socket_connection_unsafe(&output_connection.to_socket_type)?;
+                                        .remove_input_socket_connection_unchecked(&output_connection.to_socket_type)?;
                                 }
 
                                 // remove this connection to the other one
                                 self.get_node_mut(index)
                                     .unwrap()
-                                    .remove_output_socket_connection_unsafe(&OutputSideConnection {
+                                    .remove_output_socket_connection_unchecked(&OutputSideConnection {
                                         from_socket_type: output_connection.from_socket_type,
                                         to_node: output_connection.to_node,
                                         to_socket_type: output_connection.to_socket_type,
@@ -430,7 +430,7 @@ impl NodeGraph {
             let from_wrapper = self.get_node_mut(&input_socket.from_node);
 
             if let Some(from_wrapper) = from_wrapper {
-                from_wrapper.remove_output_socket_connection_unsafe(&OutputSideConnection {
+                from_wrapper.remove_output_socket_connection_unchecked(&OutputSideConnection {
                     from_socket_type: input_socket.from_socket_type,
                     to_node: *index,
                     to_socket_type: input_socket.to_socket_type,
@@ -444,7 +444,7 @@ impl NodeGraph {
             let to_wrapper = self.get_node_mut(&output_socket.to_node);
 
             if let Some(to_wrapper) = to_wrapper {
-                to_wrapper.remove_input_socket_connection_unsafe(&output_socket.to_socket_type)?;
+                to_wrapper.remove_input_socket_connection_unchecked(&output_socket.to_socket_type)?;
             }
             // if it doesn't exist, obviously we don't need to worry about removing its connection
         }
