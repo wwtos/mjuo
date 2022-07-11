@@ -27,21 +27,20 @@ pub fn route(
 
         if let Some(Value::String(action_name)) = action {
             return match action_name.as_str() {
-                "graph/get" => {
-                    routes::graph::get::route(message, graph, to_server, config, socket_registry)
-                }
+                "graph/get" => routes::graph::get::route(message, graph, to_server, config, socket_registry),
                 "graph/newNode" => {
                     routes::graph::new_node::route(message, graph, to_server, config, socket_registry, scripting_engine)
                 }
-                "graph/updateNodes" => {
-                    routes::graph::update_nodes::route(message, graph, to_server, config, socket_registry, scripting_engine)
-                }
-                "graph/connectNode" => {
-                    routes::graph::connect_node::route(message, graph, to_server, config)
-                }
-                "graph/disconnectNode" => {
-                    routes::graph::disconnect_node::route(message, graph, to_server, config)
-                }
+                "graph/updateNodes" => routes::graph::update_nodes::route(
+                    message,
+                    graph,
+                    to_server,
+                    config,
+                    socket_registry,
+                    scripting_engine,
+                ),
+                "graph/connectNode" => routes::graph::connect_node::route(message, graph, to_server, config),
+                "graph/disconnectNode" => routes::graph::disconnect_node::route(message, graph, to_server, config),
                 _ => Ok(None),
             };
         }

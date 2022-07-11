@@ -7,7 +7,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{MidiSocketType, StreamSocketType, SocketType};
+use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
 use node_engine::node_graph::{NodeGraph, PossibleNode};
 
 use node_engine::graph_manager::GraphManager;
@@ -16,7 +16,7 @@ use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
-use node_engine::traversal::traverser::{Traverser};
+use node_engine::traversal::traverser::Traverser;
 use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
@@ -58,7 +58,7 @@ fn handle_msg(
         Ok(route_result) => {
             let should_reindex_graph = match route_result {
                 Some(route_result) => route_result.should_reindex_graph,
-                None => false
+                None => false,
             };
 
             if should_reindex_graph {
@@ -68,10 +68,13 @@ fn handle_msg(
             // TODO: this is naive, keep track of what nodes need their defaults updated
             for (i, node) in graph.get_nodes().iter().enumerate() {
                 if let PossibleNode::Some(_, generation) = node {
-                    traverser.update_node_defaults(graph, &NodeIndex {
-                        index: i,
-                        generation: *generation
-                    });
+                    traverser.update_node_defaults(
+                        graph,
+                        &NodeIndex {
+                            index: i,
+                            generation: *generation,
+                        },
+                    );
                 }
             }
         }
@@ -105,10 +108,7 @@ fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Error>> 
     Ok(backend)
 }
 
-fn get_midi(
-    midi_backend: &mut Box<dyn MidiClientBackend>,
-    parser: &mut MidiParser,
-) -> Vec<MidiData> {
+fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiParser) -> Vec<MidiData> {
     let midi_in = midi_backend.read().unwrap();
     let mut messages: Vec<MidiData> = Vec::new();
 
@@ -136,8 +136,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let graph_index = graph_manager.new_graph();
 
     let graph = graph_manager.get_graph_mut(graph_index).unwrap();
-    let output_node = graph.add_node(NodeVariant::OutputNode(OutputNode::default()), &mut socket_registry, &scripting_engine);
-    let midi_in_node = graph.add_node(NodeVariant::MidiInNode(MidiInNode::default()), &mut socket_registry, &scripting_engine);
+    let output_node = graph.add_node(
+        NodeVariant::OutputNode(OutputNode::default()),
+        &mut socket_registry,
+        &scripting_engine,
+    );
+    let midi_in_node = graph.add_node(
+        NodeVariant::MidiInNode(MidiInNode::default()),
+        &mut socket_registry,
+        &scripting_engine,
+    );
     let mut traverser = Traverser::get_traverser(&graph);
 
     let backend = connect_backend()?;
@@ -158,7 +166,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, graph, &to_server, &mut traverser, &sound_config, &mut socket_registry, &scripting_engine);
+            handle_msg(
+                msg,
+                graph,
+                &to_server,
+                &mut traverser,
+                &sound_config,
+                &mut socket_registry,
+                &scripting_engine,
+            );
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
@@ -203,10 +219,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         backend.write(&buffer)?;
 
         let now = Instant::now() - start;
-        let sample_duration =
-            Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
-        let buffer_time =
-            Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
+        let sample_duration = Duration::from_secs_f64(1.0 / (SAMPLE_RATE as f64 / BUFFER_SIZE as f64));
+        let buffer_time = Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
 
         if !(now > buffer_time || buffer_time - now < Duration::from_secs_f64(0.3)) {
             thread::sleep(sample_duration);

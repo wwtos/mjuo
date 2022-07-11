@@ -33,13 +33,7 @@ pub struct Envelope {
 
 // TODO: ADSR linear only
 impl Envelope {
-    pub fn new(
-        config: &SoundConfig,
-        attack: f32,
-        decay: f32,
-        sustain: f32,
-        release: f32,
-    ) -> Envelope {
+    pub fn new(config: &SoundConfig, attack: f32, decay: f32, sustain: f32, release: f32) -> Envelope {
         Envelope {
             sample_rate: config.sample_rate,
             attack,

@@ -25,10 +25,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
     file.read_exact(&mut four_byte_buffer)?;
 
     if b"RIFF" != &four_byte_buffer {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "WAV has malformed data.",
-        ));
+        return Err(Error::new(ErrorKind::InvalidData, "WAV has malformed data."));
     }
 
     // next is the file size
@@ -39,10 +36,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
     file.read_exact(&mut four_byte_buffer)?;
 
     if b"WAVE" != &four_byte_buffer {
-        return Err(Error::new(
-            ErrorKind::InvalidData,
-            "WAV has malformed data.",
-        ));
+        return Err(Error::new(ErrorKind::InvalidData, "WAV has malformed data."));
     }
 
     // now we're done with the main part, next is parsing out the headers
@@ -67,10 +61,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
                 file.read_exact(&mut four_byte_buffer)?; // get length of chunk
 
                 if u32::from_le_bytes(four_byte_buffer) != 16 {
-                    return Err(Error::new(
-                        ErrorKind::InvalidData,
-                        "WAV has malformed data.",
-                    ));
+                    return Err(Error::new(ErrorKind::InvalidData, "WAV has malformed data."));
                 }
 
                 // we only support PCM uncompressed format
@@ -114,9 +105,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
             _ => {
                 file.read_exact(&mut four_byte_buffer)?; // get length of chunk
                                                          // jump ahead
-                file.seek(SeekFrom::Current(
-                    u32::from_le_bytes(four_byte_buffer) as i64
-                ))?;
+                file.seek(SeekFrom::Current(u32::from_le_bytes(four_byte_buffer) as i64))?;
             }
         }
     }
@@ -146,9 +135,8 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
                 let mut sample_result = 0_f32;
 
                 for channel in buffer.chunks_exact(2) {
-                    sample_result += i16::from_le_bytes(channel.try_into().unwrap_or_default())
-                        as f32
-                        / i16::MAX as f32;
+                    sample_result +=
+                        i16::from_le_bytes(channel.try_into().unwrap_or_default()) as f32 / i16::MAX as f32;
                 }
 
                 sample[sample_location] = sample_result / (fmt_header.channels as f32);
@@ -156,7 +144,10 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
             bps => {
                 return Err(Error::new(
                     ErrorKind::Other,
-                    format!("I- I don't even know how I got here. You're using a bits per sample of {}???", bps)
+                    format!(
+                        "I- I don't even know how I got here. You're using a bits per sample of {}???",
+                        bps
+                    ),
                 ));
             }
         }

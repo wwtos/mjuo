@@ -39,8 +39,7 @@ impl MonoBufferPlayer {
         let buffer_rate = (*self.buffer).borrow().sample_rate;
 
         self.playback_rate = playback_rate;
-        self.adjusted_playback_rate =
-            (buffer_rate as f32 / self.global_sample_rate as f32) * playback_rate;
+        self.adjusted_playback_rate = (buffer_rate as f32 / self.global_sample_rate as f32) * playback_rate;
     }
 }
 

@@ -102,7 +102,7 @@ pub trait Node: Debug {
         &mut self,
         current_time: i64,
         scripting_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>
+        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
     ) -> Result<(), ErrorsAndWarnings> {
         Ok(())
     }
@@ -418,7 +418,10 @@ impl NodeWrapper {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
+    pub(in crate) fn remove_input_socket_connection_unchecked(
+        &mut self,
+        to_type: &SocketType,
+    ) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()

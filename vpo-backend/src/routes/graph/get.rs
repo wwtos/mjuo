@@ -4,7 +4,10 @@ use node_engine::{errors::NodeError, node_graph::NodeGraph, socket_registry::Soc
 use serde_json::{Map, Value};
 use sound_engine::SoundConfig;
 
-use crate::{util::{update_graph, update_registry}, RouteReturn};
+use crate::{
+    util::{update_graph, update_registry},
+    RouteReturn,
+};
 
 pub fn route(
     _message: Map<String, Value>,
