@@ -1,22 +1,23 @@
-use std::{collections::HashMap, cell::Ref};
-use std::cell::{RefCell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
+use std::{cell::Ref, collections::HashMap};
 
+use crate::node_graph::PossibleNode;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
-type GraphIndex = u64;
+pub type GraphIndex = u64;
 
 #[derive(Debug)]
 pub struct NodeGraphWrapper {
-    graph: NodeGraph,
-    traverser: Traverser,
+    pub graph: NodeGraph,
+    pub traverser: Traverser,
     associated_nodes: Vec<NodeIndex>,
 }
 
 #[derive(Default, Debug)]
 pub struct GraphManager {
-    node_graphs: HashMap<u64, Rc<RefCell<NodeGraphWrapper>>>,
+    node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>>,
     current_uid: u64,
 }
 
@@ -31,11 +32,11 @@ impl GraphManager {
 
         self.node_graphs.insert(
             graph_index,
-            Rc::new(RefCell::new(NodeGraphWrapper {
+            RefCell::new(NodeGraphWrapper {
                 graph: NodeGraph::new(),
                 traverser: Traverser::default(),
                 associated_nodes: vec![],
-            })),
+            }),
         );
 
         graph_index
@@ -49,7 +50,24 @@ impl GraphManager {
         self.node_graphs.get(&index).map(|x| (*x).borrow_mut())
     }
 
-    pub fn get_graph_wrapper_rc(&self, index: GraphIndex) -> Option<Rc<RefCell<NodeGraphWrapper>>> {
-        self.node_graphs.get(&index).map(|x| x.clone())
+    pub fn recalculate_traversal_for_graph(&self, index: GraphIndex) {
+        let graph_wrapper = self.get_graph_wrapper_mut(index);
+
+        // set the new traverser
+        if let Some(mut graph_wrapper) = graph_wrapper {
+            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
+        }
+    }
+
+    pub fn update_traversal_defaults(&self, index: GraphIndex, nodes_to_update: Vec<NodeIndex>) {
+        let graph_wrapper = self.get_graph_wrapper_mut(index);
+
+        if let Some(mut graph_wrapper) = graph_wrapper {
+            let NodeGraphWrapper { traverser, graph, .. } = &mut *graph_wrapper;
+
+            for node_index in nodes_to_update.iter() {
+                traverser.update_node_defaults(graph, node_index);
+            }
+        }
     }
 }
