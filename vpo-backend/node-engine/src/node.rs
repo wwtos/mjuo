@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
-use std::{cell::RefCell, rc::Rc};
 
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
@@ -476,10 +475,4 @@ impl Display for NodeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "index: {}, generation: {}", self.index, self.generation)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct GenerationalNode {
-    pub node: Rc<RefCell<NodeWrapper>>,
-    pub generation: u32,
 }
