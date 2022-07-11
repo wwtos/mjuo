@@ -36,10 +36,7 @@ impl Node for ExpressionNode {
     fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
         match socket_type {
             &ValueSocketType::Dynamic(uid) => {
-                let local_index = self
-                    .values_in_mapping
-                    .iter()
-                    .find(|mapping| mapping.0 == uid);
+                let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
 
                 if let Some(local_index) = local_index {
                     self.values_in[local_index.1] = value;
@@ -55,17 +52,12 @@ impl Node for ExpressionNode {
         self.value_out.clone()
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         if let Some(ast) = &self.ast {
             if self.have_values_changed {
                 // add inputs to scope
                 for (i, val) in self.values_in.iter().enumerate() {
-                    self.scope
-                        .push(format!("x{}", i + 1), val.clone().as_dynamic());
+                    self.scope.push(format!("x{}", i + 1), val.clone().as_dynamic());
                 }
 
                 // now we run the expression!
@@ -86,9 +78,7 @@ impl Node for ExpressionNode {
 
                                 return Err(ErrorsAndWarnings {
                                     errors: vec![],
-                                    warnings: vec![NodeWarning::RhaiInvalidReturnType(
-                                        output.type_name().to_string(),
-                                    )],
+                                    warnings: vec![NodeWarning::RhaiInvalidReturnType(output.type_name().to_string())],
                                 });
                             }
                         }

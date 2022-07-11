@@ -16,10 +16,7 @@ fn test_request_new_socket_name() {
         None,
     );
 
-    assert_eq!(
-        res.unwrap(),
-        (SocketType::Stream(StreamSocketType::Dynamic(0)), 0)
-    )
+    assert_eq!(res.unwrap(), (SocketType::Stream(StreamSocketType::Dynamic(0)), 0))
 }
 
 #[test]

@@ -15,10 +15,7 @@ pub struct GainGraphNode {
 
 impl Default for GainGraphNode {
     fn default() -> Self {
-        GainGraphNode {
-            gain: 0.2,
-            value: 0.0,
-        }
+        GainGraphNode { gain: 0.2, value: 0.0 }
     }
 }
 

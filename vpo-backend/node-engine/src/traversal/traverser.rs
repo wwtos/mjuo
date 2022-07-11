@@ -3,8 +3,8 @@ use rhai::Engine;
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    node_graph::NodeGraph,
     node::{NodeIndex, NodeRow},
+    node_graph::NodeGraph,
 };
 
 use super::calculate_traversal_order::calculate_graph_traverse_order;
@@ -25,8 +25,7 @@ impl Traverser {
         // first, get traversal order
         let traversal_order = calculate_graph_traverse_order(graph);
 
-        let mut nodes: Vec<(NodeIndex, NodeTraverseData)> =
-            Vec::with_capacity(traversal_order.len());
+        let mut nodes: Vec<(NodeIndex, NodeTraverseData)> = Vec::with_capacity(traversal_order.len());
 
         for node_index in &traversal_order {
             let generational_node = graph.get_node(node_index).unwrap();
@@ -133,19 +132,14 @@ impl Traverser {
             }
 
             for output_connection in &data.outputs_to {
-                let other_node_wrapper_ref =
-                    graph.get_node(&output_connection.to_node).unwrap().node;
+                let other_node_wrapper_ref = graph.get_node(&output_connection.to_node).unwrap().node;
                 let mut other_node_wrapper = (*other_node_wrapper_ref).borrow_mut();
 
                 match &output_connection.from_socket_type {
                     SocketType::Stream(stream_type) => {
                         let sample = node_wrapper.get_stream_output(stream_type);
                         other_node_wrapper.accept_stream_input(
-                            &output_connection
-                                .to_socket_type
-                                .clone()
-                                .as_stream()
-                                .unwrap(),
+                            &output_connection.to_socket_type.clone().as_stream().unwrap(),
                             sample,
                         );
                     }
@@ -153,10 +147,8 @@ impl Traverser {
                         let midi = node_wrapper.get_midi_output(midi_type);
 
                         if !midi.is_empty() {
-                            other_node_wrapper.accept_midi_input(
-                                &output_connection.to_socket_type.clone().as_midi().unwrap(),
-                                midi,
-                            );
+                            other_node_wrapper
+                                .accept_midi_input(&output_connection.to_socket_type.clone().as_midi().unwrap(), midi);
                         }
                     }
                     SocketType::Value(value_type) => {

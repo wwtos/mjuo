@@ -43,11 +43,7 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {

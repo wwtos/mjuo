@@ -204,7 +204,9 @@ impl SocketType {
         ];
 
         for socket in socket_list {
-            registry.register_socket(socket.0.to_string(), socket.1, socket.0.to_string(), None).unwrap();
+            registry
+                .register_socket(socket.0.to_string(), socket.1, socket.0.to_string(), None)
+                .unwrap();
         }
     }
 }
