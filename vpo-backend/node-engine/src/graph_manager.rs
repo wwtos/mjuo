@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, cell::Ref};
+use std::cell::{RefCell, RefMut};
+use std::rc::Rc;
 
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
@@ -6,7 +8,7 @@ type GraphIndex = u64;
 
 #[derive(Debug)]
 pub struct NodeGraphWrapper {
-    graph: NodeGraph,
+    graph: Rc<RefCell<NodeGraph>>,
     associated_nodes: Vec<NodeIndex>,
 }
 
@@ -28,7 +30,7 @@ impl GraphManager {
         self.node_graphs.insert(
             graph_index,
             NodeGraphWrapper {
-                graph: NodeGraph::new(),
+                graph: Rc::new(RefCell::new(NodeGraph::new())),
                 associated_nodes: vec![],
             },
         );
@@ -36,11 +38,15 @@ impl GraphManager {
         graph_index
     }
 
-    pub fn get_graph_ref(&self, index: GraphIndex) -> Option<&NodeGraph> {
-        self.node_graphs.get(&index).map(|x| &x.graph)
+    pub fn get_graph_ref(&self, index: GraphIndex) -> Option<Ref<NodeGraph>> {
+        self.node_graphs.get(&index).map(|x| x.graph.borrow())
     }
 
-    pub fn get_graph_mut(&mut self, index: GraphIndex) -> Option<&mut NodeGraph> {
-        self.node_graphs.get_mut(&index).map(|x| &mut x.graph)
+    pub fn get_graph_mut(&self, index: GraphIndex) -> Option<RefMut<NodeGraph>> {
+        self.node_graphs.get_mut(&index).map(|x| x.graph.borrow_mut())
+    }
+
+    pub fn get_graph_rc(&self, index: GraphIndex) -> Option<Rc<RefCell<NodeGraph>>> {
+        self.node_graphs.get(&index).map(|x| x.graph.clone())
     }
 }
