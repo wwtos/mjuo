@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use crate::{connection::Connection, errors::NodeError, node::NodeIndex};
+use crate::{connection::Connection, node::NodeIndex};
 
 #[test]
 fn index_deserialize() {
