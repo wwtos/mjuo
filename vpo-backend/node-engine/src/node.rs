@@ -390,8 +390,13 @@ impl NodeWrapper {
         self.node.get_value_output(socket_type)
     }
 
-    pub fn process(&mut self, current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
-        self.node.process(current_time, scripting_engine)
+    pub fn process(
+        &mut self,
+        current_time: i64,
+        scripting_engine: &Engine,
+        inner_graph: Option<(&mut NodeGraph, &Traverser)>
+    ) -> Result<(), ErrorsAndWarnings> {
+        self.node.process(current_time, scripting_engine, inner_graph)
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
