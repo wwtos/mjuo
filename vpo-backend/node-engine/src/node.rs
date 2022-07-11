@@ -11,8 +11,8 @@ use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{
-    InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive,
-    SocketDirection, SocketType, StreamSocketType, ValueSocketType,
+    InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
+    SocketType, StreamSocketType, ValueSocketType,
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
@@ -32,36 +32,24 @@ pub enum NodeRow {
     ValueOutput(ValueSocketType, Primitive),
     NodeRefOutput(NodeRefSocketType),
     Property(String, PropertyType, Property),
+    InnerGraph,
 }
 
 impl NodeRow {
     pub fn to_type_and_direction(self) -> Option<(SocketType, SocketDirection)> {
         match self {
-            NodeRow::StreamInput(stream_type, _) => {
-                Some((SocketType::Stream(stream_type), SocketDirection::Input))
-            }
-            NodeRow::MidiInput(midi_type, _) => {
-                Some((SocketType::Midi(midi_type), SocketDirection::Input))
-            }
-            NodeRow::ValueInput(value_type, _) => {
-                Some((SocketType::Value(value_type), SocketDirection::Input))
-            }
-            NodeRow::NodeRefInput(node_ref_type) => {
-                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input))
-            }
-            NodeRow::StreamOutput(stream_type, _) => {
-                Some((SocketType::Stream(stream_type), SocketDirection::Output))
-            }
-            NodeRow::MidiOutput(midi_type, _) => {
-                Some((SocketType::Midi(midi_type), SocketDirection::Output))
-            }
-            NodeRow::ValueOutput(value_type, _) => {
-                Some((SocketType::Value(value_type), SocketDirection::Output))
-            }
+            NodeRow::StreamInput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
+            NodeRow::MidiInput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
+            NodeRow::ValueInput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Input)),
+            NodeRow::NodeRefInput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input)),
+            NodeRow::StreamOutput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
+            NodeRow::MidiOutput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
+            NodeRow::ValueOutput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Output)),
             NodeRow::NodeRefOutput(node_ref_type) => {
                 Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output))
             }
-            NodeRow::Property(_, _, _) => None,
+            NodeRow::Property(..) => None,
+            NodeRow::InnerGraph => None,
         }
     }
 }
@@ -105,11 +93,7 @@ pub trait Node: Debug {
     ) -> InitResult;
 
     /// Process received data.
-    fn process(
-        &mut self,
-        current_time: i64,
-        scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         Ok(())
     }
 
@@ -138,8 +122,9 @@ pub trait Node: Debug {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct NodeWrapper {
+    #[serde(skip)]
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
@@ -241,23 +226,16 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .filter_map(|row| match row {
-                NodeRow::StreamInput(stream_input_type, _) => {
-                    Some(SocketType::Stream(stream_input_type.clone()))
-                }
-                NodeRow::MidiInput(midi_input_type, _) => {
-                    Some(SocketType::Midi(midi_input_type.clone()))
-                }
-                NodeRow::ValueInput(value_input_type, _) => {
-                    Some(SocketType::Value(value_input_type.clone()))
-                }
-                NodeRow::NodeRefInput(node_ref_input_type) => {
-                    Some(SocketType::NodeRef(node_ref_input_type.clone()))
-                }
+                NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
+                NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
+                NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
+                NodeRow::NodeRefInput(node_ref_input_type) => Some(SocketType::NodeRef(node_ref_input_type.clone())),
                 NodeRow::StreamOutput(_, _) => None,
                 NodeRow::MidiOutput(_, _) => None,
                 NodeRow::ValueOutput(_, _) => None,
                 NodeRow::NodeRefOutput(_) => None,
                 NodeRow::Property(..) => None,
+                NodeRow::InnerGraph => None,
             })
             .collect()
     }
@@ -270,39 +248,25 @@ impl NodeWrapper {
                 NodeRow::MidiInput(_, _) => None,
                 NodeRow::ValueInput(_, _) => None,
                 NodeRow::NodeRefInput(_) => None,
-                NodeRow::StreamOutput(stream_output_type, _) => {
-                    Some(SocketType::Stream(stream_output_type.clone()))
-                }
-                NodeRow::MidiOutput(midi_output_type, _) => {
-                    Some(SocketType::Midi(midi_output_type.clone()))
-                }
-                NodeRow::ValueOutput(value_output_type, _) => {
-                    Some(SocketType::Value(value_output_type.clone()))
-                }
-                NodeRow::NodeRefOutput(node_ref_output_type) => {
-                    Some(SocketType::NodeRef(node_ref_output_type.clone()))
-                }
+                NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
+                NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
+                NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
+                NodeRow::NodeRefOutput(node_ref_output_type) => Some(SocketType::NodeRef(node_ref_output_type.clone())),
                 NodeRow::Property(..) => None,
+                NodeRow::InnerGraph => None,
             })
             .collect()
     }
 
     pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_input_sockets()
-            .iter()
-            .any(|socket| *socket == *socket_type)
+        self.list_input_sockets().iter().any(|socket| *socket == *socket_type)
     }
 
     pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_output_sockets()
-            .iter()
-            .any(|socket| *socket == *socket_type)
+        self.list_output_sockets().iter().any(|socket| *socket == *socket_type)
     }
 
-    pub fn get_input_connection_by_type(
-        &self,
-        input_socket_type: &SocketType,
-    ) -> Option<InputSideConnection> {
+    pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
         let input = self
             .connected_inputs
             .iter()
@@ -311,10 +275,7 @@ impl NodeWrapper {
         input.map(|input| (*input).clone())
     }
 
-    pub fn get_output_connections_by_type(
-        &self,
-        output_socket_type: &SocketType,
-    ) -> Vec<OutputSideConnection> {
+    pub fn get_output_connections_by_type(&self, output_socket_type: &SocketType) -> Vec<OutputSideConnection> {
         let my_outputs_filtered = self
             .connected_outputs
             .iter()
@@ -380,8 +341,7 @@ impl NodeWrapper {
         println!("Applying json: {}", json);
 
         let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let properties: HashMap<String, Property> =
-            serde_json::from_value(json["properties"].clone())?;
+        let properties: HashMap<String, Property> = serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
         let default_overrides = serde_json::from_value(json["default_overrides"].clone())?;
 
@@ -420,11 +380,7 @@ impl NodeWrapper {
         self.node.get_value_output(socket_type)
     }
 
-    pub fn process(
-        &mut self,
-        current_time: i64,
-        scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    pub fn process(&mut self, current_time: i64, scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         self.node.process(current_time, scripting_engine)
     }
 
@@ -452,10 +408,7 @@ impl NodeWrapper {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unsafe(
-        &mut self,
-        to_type: &SocketType,
-    ) -> Result<(), NodeError> {
+    pub(in crate) fn remove_input_socket_connection_unsafe(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()

@@ -6,9 +6,7 @@ use crate::node_graph::PossibleNode;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
 
-pub fn calculate_graph_traverse_order(
-    original_graph: &crate::node_graph::NodeGraph,
-) -> Vec<crate::node::NodeIndex> {
+pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGraph) -> Vec<crate::node::NodeIndex> {
     // traverse backward and build a traversal order
 
     let mut graph = StableGraph::<usize, Connection>::new();

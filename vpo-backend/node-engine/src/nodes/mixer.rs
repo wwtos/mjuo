@@ -33,11 +33,7 @@ impl Node for MixerNode {
         self.input_sum += value;
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         self.output_audio = self.input_sum / self.input_count as f32;
         self.input_sum = 0.0;
 
@@ -59,11 +55,7 @@ impl Node for MixerNode {
         }
 
         let mut node_rows = vec![
-            NodeRow::Property(
-                "input_count".to_string(),
-                PropertyType::Integer,
-                Property::Integer(2),
-            ),
+            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
         ];
         let did_rows_change = self.input_count != self.last_input_count;

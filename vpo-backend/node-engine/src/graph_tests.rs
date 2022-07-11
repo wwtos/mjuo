@@ -9,7 +9,7 @@ use crate::node::{InitResult, NodeIndex, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
-use crate::{node_graph::NodeGraph, node::Node};
+use crate::{node::Node, node_graph::NodeGraph};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TestNode {}
@@ -44,11 +44,7 @@ fn graph_node_crud() {
     let mut scripting_engine = Engine::new();
 
     // add a new node
-    let first_node_index = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
 
     // check that the node exists
     assert!(graph.get_node(&first_node_index).is_some());
@@ -72,11 +68,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(&first_node_index).is_none());
 
     // now add a second node
-    let second_node_index = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
 
     // it should have taken the place of the first node
     assert_eq!(first_node_index.index, second_node_index.index);
@@ -88,21 +80,14 @@ fn graph_node_crud() {
     // let's see what happens if we try to delete node one
     assert_eq!(
         format!("{:?}", &graph.remove_node(&first_node_index).unwrap_err()),
-        format!(
-            "{:?}",
-            &NodeError::NodeDoesNotExist(first_node_index.clone())
-        )
+        format!("{:?}", &NodeError::NodeDoesNotExist(first_node_index.clone()))
     );
 
     // second node should still exist though with the right generation
     assert!(graph.get_node(&second_node_index).is_some());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
+    graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph.serialize_to_json());
@@ -115,21 +100,9 @@ fn graph_connecting() {
     let mut scripting_engine = Engine::new();
 
     // add two new nodes
-    let first_node_index = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
-    let second_node_index = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
-    let third_node_index = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
+    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -291,16 +264,8 @@ fn hanging_connections() -> Result<(), NodeError> {
     let mut scripting_engine = Engine::new();
 
     // set up a simple network
-    let first_node = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
-    let second_node = graph.add_node(
-        NodeVariant::TestNode(TestNode {}),
-        &mut registry,
-        &scripting_engine,
-    );
+    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
 
     graph.connect(
         first_node,

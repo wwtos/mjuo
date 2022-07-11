@@ -19,9 +19,9 @@ use crate::{errors::NodeError, node::Node};
 use crate::graph_tests::TestNode;
 
 use super::{
-    biquad_filter::BiquadFilterNode, envelope::EnvelopeNode, expression::ExpressionNode,
-    gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
-    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode, dummy::DummyNode
+    biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
+    gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
+    oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[enum_dispatch]

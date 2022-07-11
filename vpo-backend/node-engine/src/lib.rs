@@ -1,8 +1,8 @@
 pub mod connection;
 pub mod errors;
-pub mod node_graph;
 pub mod graph_manager;
 pub mod node;
+pub mod node_graph;
 pub mod nodes;
 pub mod property;
 pub mod socket_registry;

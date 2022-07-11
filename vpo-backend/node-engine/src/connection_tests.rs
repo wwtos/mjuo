@@ -56,8 +56,7 @@ fn connection_deserialize() {
 
     println!("{}", json_str);
 
-    let connection: Result<Connection, serde_json::Error> =
-        serde_json::from_str::<Connection>(json_str.as_str());
+    let connection: Result<Connection, serde_json::Error> = serde_json::from_str::<Connection>(json_str.as_str());
 
     println!("{:?}", connection);
 }

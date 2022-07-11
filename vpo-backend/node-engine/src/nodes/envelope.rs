@@ -76,11 +76,7 @@ impl Node for EnvelopeNode {
         ])
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _current_time: i64, _scripting_engine: &Engine) -> Result<(), ErrorsAndWarnings> {
         self.envelope.process();
 
         Ok(())
