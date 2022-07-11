@@ -1,6 +1,6 @@
 use async_std::{channel::Sender, task::block_on};
 use ipc::ipc_message::IPCMessage;
-use node_engine::{node_graph::NodeGraph, socket_registry::SocketRegistry, errors::NodeError};
+use node_engine::{errors::NodeError, node_graph::NodeGraph, socket_registry::SocketRegistry};
 use serde_json::json;
 
 pub fn update_graph(graph: &NodeGraph, to_server: &Sender<IPCMessage>) {

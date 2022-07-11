@@ -1,6 +1,5 @@
 use crate::graph_manager::GraphManager;
 
-
 #[test]
 fn create_graph() {
     let mut graph_manager = GraphManager::default();

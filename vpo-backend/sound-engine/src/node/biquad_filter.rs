@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::SoundConfig;
 
@@ -72,10 +72,9 @@ impl BiquadFilter {
             self.recompute();
         }
 
-        let output =
-            (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
-                - (self.a1 * self.prev_output_1)
-                - (self.a2 * self.prev_output_2);
+        let output = (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
+            - (self.a1 * self.prev_output_1)
+            - (self.a2 * self.prev_output_2);
 
         self.prev_input_2 = self.prev_input_1;
         self.prev_input_1 = input_in;
@@ -174,7 +173,7 @@ impl BiquadFilter {
     pub fn get_filter_type(&self) -> BiquadFilterType {
         self.filter_type
     }
-    
+
     pub fn set_filter_type(&mut self, filter_type: BiquadFilterType) {
         self.dirty = true;
         self.filter_type = filter_type;
@@ -183,7 +182,7 @@ impl BiquadFilter {
     pub fn get_frequency(&self) -> f32 {
         self.frequency
     }
-    
+
     pub fn set_frequency(&mut self, frequency: f32) {
         self.dirty = true;
         self.frequency = frequency;
@@ -192,7 +191,7 @@ impl BiquadFilter {
     pub fn get_q(&self) -> f32 {
         self.q
     }
-    
+
     pub fn set_q(&mut self, q: f32) {
         self.dirty = true;
         self.q = q;
@@ -206,4 +205,3 @@ impl BiquadFilter {
         self.output_out
     }
 }
-

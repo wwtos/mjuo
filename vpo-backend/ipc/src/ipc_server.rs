@@ -22,11 +22,7 @@ enum RawMessage {
 pub struct IPCServer {}
 
 impl IPCServer {
-    pub fn open(
-        _to_server: Sender<IPCMessage>,
-        from_main: Receiver<IPCMessage>,
-        to_main: Sender<IPCMessage>,
-    ) {
+    pub fn open(_to_server: Sender<IPCMessage>, from_main: Receiver<IPCMessage>, to_main: Sender<IPCMessage>) {
         block_on(async {
             let listener = TcpListener::bind("127.0.0.1:26642").await?;
             let mut incoming = listener.incoming();

@@ -150,13 +150,9 @@ impl MidiParser {
             }
             // pitch bend
             (0b1110, _) => {
-                let pitch_bend = (((self.buffer[1] as u16) | ((self.buffer[2] as u16) << 7)) as i16
-                    - 0x2000) as Bend;
+                let pitch_bend = (((self.buffer[1] as u16) | ((self.buffer[2] as u16) << 7)) as i16 - 0x2000) as Bend;
 
-                MidiData::PitchBend {
-                    channel,
-                    pitch_bend,
-                }
+                MidiData::PitchBend { channel, pitch_bend }
             }
             _ => {
                 match self.last_message {

@@ -1,6 +1,6 @@
+pub mod biquad_filter;
 pub mod dummy;
 pub mod envelope;
-pub mod biquad_filter;
 pub mod mono_buffer_player;
 pub mod oscillator;
 
