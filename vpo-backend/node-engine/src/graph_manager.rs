@@ -1,18 +1,16 @@
-use std::{
-    collections::HashMap,
-    ops::{Index, IndexMut},
-};
+use std::collections::HashMap;
 
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 type GraphIndex = u64;
 
+#[derive(Debug)]
 pub struct NodeGraphWrapper {
     graph: NodeGraph,
     associated_nodes: Vec<NodeIndex>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GraphManager {
     node_graphs: HashMap<u64, NodeGraphWrapper>,
     current_uid: u64,
@@ -28,7 +26,7 @@ impl GraphManager {
         self.current_uid += 1;
 
         self.node_graphs.insert(
-            self.current_uid,
+            graph_index,
             NodeGraphWrapper {
                 graph: NodeGraph::new(),
                 associated_nodes: vec![],
