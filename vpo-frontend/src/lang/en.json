@@ -43,7 +43,9 @@
             "biquadFilterNode": "Biquad Filter Node",
             "mixerNode": "Mixer Node",
             "expressionNode": "Expression Node",
-            "functionNode": "Function Node"
+            "functionNode": "Function Node",
+            "inputsNode": "Inputs Node",
+            "outputsNode": "Outputs Node"
         },
         "editor": {
             "create": "Create!",

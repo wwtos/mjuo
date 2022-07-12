@@ -19,6 +19,8 @@ use crate::{errors::NodeError, node::Node};
 use crate::graph_tests::TestNode;
 
 use super::function_node::FunctionNode;
+use super::inputs::InputsNode;
+use super::outputs::OutputsNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
     gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
@@ -39,6 +41,8 @@ pub enum NodeVariant {
     ExpressionNode,
     DummyNode,
     FunctionNode,
+    InputsNode,
+    OutputsNode,
     #[cfg(test)]
     TestNode,
 }
@@ -60,6 +64,8 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "ExpressionNode" => Ok(NodeVariant::ExpressionNode(ExpressionNode::new())),
         "DummyNode" => Ok(NodeVariant::DummyNode(DummyNode::default())),
         "FunctionNode" => Ok(NodeVariant::FunctionNode(FunctionNode::default())),
+        "InputsNode" => Ok(NodeVariant::InputsNode(InputsNode::default())),
+        "OutputsNode" => Ok(NodeVariant::OutputsNode(OutputsNode::default())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -79,6 +85,8 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::ExpressionNode(_) => "expressionNode".to_string(),
         NodeVariant::DummyNode(_) => "dummyNode".to_string(),
         NodeVariant::FunctionNode(_) => "functionNode".to_string(),
+        NodeVariant::InputsNode(_) => "inputsNode".to_string(),
+        NodeVariant::OutputsNode(_) => "outputsNode".to_string(),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),
     }

@@ -32,5 +32,13 @@ export const variants = [
     {
         name: i18n.t("nodes.functionNode"),
         internal: "FunctionNode"
+    },
+    {
+        name: i18n.t("nodes.inputsNode"),
+        internal: "InputsNode"
+    },
+    {
+        name: i18n.t("nodes.outputsNode"),
+        internal: "OutputsNode"
     }
 ];

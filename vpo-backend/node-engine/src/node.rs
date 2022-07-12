@@ -54,6 +54,29 @@ impl NodeRow {
             NodeRow::InnerGraph => None,
         }
     }
+
+    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection) -> Self {
+        match direction {
+            SocketDirection::Input => {
+                match socket_type {
+                    SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0),
+                    SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, vec![]),
+                    SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0)),
+                    SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type),
+                    SocketType::MethodCall(_) => unimplemented!(),
+                }
+            }
+            SocketDirection::Output => {
+                match socket_type {
+                    SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0),
+                    SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, vec![]),
+                    SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0)),
+                    SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type),
+                    SocketType::MethodCall(_) => unimplemented!(),
+                }
+            }
+        }
+    }
 }
 
 pub struct InitResult {
