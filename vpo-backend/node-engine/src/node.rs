@@ -15,7 +15,7 @@ use crate::connection::{
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
-use crate::graph_manager::GraphIndex;
+use crate::graph_manager::{GraphIndex, self, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
@@ -159,7 +159,6 @@ impl NodeWrapper {
         let name = variant_to_name(&node);
 
         let init_result = node.init(&HashMap::new(), registry, scripting_engine);
-
         // TODO: check validity of node_rows here (no socket duplicates)
 
         // extract properties from result from `init`
@@ -195,6 +194,16 @@ impl NodeWrapper {
         wrapper.ui_data.insert("title".to_string(), json! { name });
 
         wrapper
+    }
+
+    pub fn does_need_inner_graph_created(&self) -> bool {
+        self.node_rows.iter().any(|row| {
+            if let NodeRow::InnerGraph = row { true } else { false }
+        }) && self.inner_graph_index.is_none()
+    }
+
+    pub fn set_inner_graph_index(&mut self, index: GraphIndex) {
+        self.inner_graph_index = Some(index);
     }
 
     pub fn get_index(&self) -> NodeIndex {

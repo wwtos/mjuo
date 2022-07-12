@@ -38,5 +38,6 @@ pub fn route(
 
     Ok(Some(RouteReturn {
         should_reindex_graph: true,
+        new_graph_index: None
     }))
 }
