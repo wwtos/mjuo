@@ -40,5 +40,9 @@ export const variants = [
     {
         name: i18n.t("nodes.outputsNode"),
         internal: "OutputsNode"
+    },
+    {
+        name: i18n.t("nodes.streamExpressionNode"),
+        internal: "StreamExpressionNode"
     }
 ];
