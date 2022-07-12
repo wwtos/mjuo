@@ -3,7 +3,6 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
     graph_manager::{GraphIndex, GraphManager},
-    nodes::variants::new_variant,
     socket_registry::SocketRegistry,
 };
 use rhai::Engine;

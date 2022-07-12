@@ -12,9 +12,9 @@ pub struct FunctionNode {}
 impl Node for FunctionNode {
     fn init(
         &mut self,
-        props: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
+        _props: &HashMap<String, Property>,
+        _registry: &mut SocketRegistry,
+        _scripting_engine: &Engine,
     ) -> InitResult {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
