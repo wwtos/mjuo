@@ -93,7 +93,7 @@
 
     function rowToKey(row: MemberType<typeof ReducedRowType>): string {
         return row.variant === "SocketRow" ? socketToKey(row.data[0], row.data[1]) :
-               row.variant === "PropertyRow" ? "prop" + row.data[1] :
+               row.variant === "PropertyRow" ? "prop." + row.data[0] :
                "innerGraph";
     }
 
@@ -123,8 +123,8 @@
             <NodePropertyRow
                 {nodes}
                 nodeWrapper={wrapper}
-                propName={row.data[1]}
-                propType={row.data[2]}
+                propName={row.data[0]}
+                propType={row.data[1]}
             />
         {:else}
             <div class="container">
