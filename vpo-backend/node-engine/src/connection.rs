@@ -1,5 +1,6 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
+use sound_engine::midi::messages::MidiData;
 use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
@@ -90,6 +91,37 @@ pub enum Primitive {
     Int(i32),
     Boolean(bool),
     String(String),
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
+pub enum SocketValue {
+    Stream(f32),
+    Midi(Vec<MidiData>),
+    Value(Primitive),
+}
+
+impl SocketValue {
+    pub fn as_stream(self) -> Option<f32> {
+        match self {
+            SocketValue::Stream(value) => Some(value),
+            _ => None
+        }
+    }
+
+    pub fn as_midi(self) -> Option<Vec<MidiData>> {
+        match self {
+            SocketValue::Midi(value) => Some(value),
+            _ => None
+        }
+    }
+
+    pub fn as_value(self) -> Option<Primitive> {
+        match self {
+            SocketValue::Value(value) => Some(value),
+            _ => None
+        }
+    }
 }
 
 impl Primitive {
