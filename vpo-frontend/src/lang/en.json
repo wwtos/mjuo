@@ -27,7 +27,8 @@
         },
         "customSockets": {
             "stream": {
-                "mixer": "Input {{input_number}}"
+                "mixer": "Input {{input_number}}",
+                "stream_expression": "x{{input_number}}"
             },
             "value": {
                 "expression": "x{{input_number}}"
