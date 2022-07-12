@@ -1,10 +1,13 @@
 pub mod alsa_midi;
+pub mod alsa;
 pub mod pulse;
 
 use std::error::Error;
 
+use crate::constants::BUFFER_SIZE;
+
 pub trait AudioClientBackend {
-    fn write(&self, data: &[f32]) -> Result<(), Box<dyn Error>>;
+    fn write(&self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn Error>>;
     fn connect(&mut self) -> Result<(), Box<dyn Error>>;
     fn drain(&self) -> Result<(), Box<dyn Error>>;
 }
