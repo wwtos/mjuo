@@ -290,7 +290,7 @@
         </div>
         <div style="z-index: 10">
             {#each keyedNodes as [key, node] (key) }
-                <Node {nodes} wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} />
+                <Node {nodes} wrapper={node} onMousedown={handleNodeMousedown} onSocketMousedown={handleSocketMousedown} onSocketMouseup={handleSocketMouseup} {ipcSocket} />
             {/each}
         </div>
     </div>

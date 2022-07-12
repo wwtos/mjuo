@@ -62,12 +62,11 @@ export class NodeGraph {
     }
 
     applyJson(json: any) {
-        if (json.graphIndex !== this.graphIndex) {
-            // flush everything
-            this.keyedNodeStore.next([]);
-            this.keyedConnectionStore.next([]);
-            this.nodeStore.next([]);
+        if (this.graphIndex !== json.graphIndex) {
+            this.nodes = [];
         }
+
+        this.graphIndex = json.graphIndex;
 
         for (let i = 0; i < json.nodes.length; i++) {
             let node: any = json.nodes[i];
@@ -154,7 +153,7 @@ export class NodeGraph {
                 let newConnection = new Connection(connection.fromSocketType, connection.fromNode, connection.toSocketType, node.index);
 
                 keyedConnections.push([
-                    newConnection.getKey(),
+                    this.graphIndex + "-" + newConnection.getKey(),
                     newConnection
                 ]);
             }
@@ -174,7 +173,7 @@ export class NodeGraph {
             const generation = node.index.generation;
             const nodeWrapper = node;
 
-            keyedNodes.push([i + "," + generation, nodeWrapper]);
+            keyedNodes.push([this.graphIndex + "-" + i + "," + generation, nodeWrapper]);
         }
 
         return keyedNodes;
