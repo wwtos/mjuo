@@ -27,7 +27,7 @@ use sound_engine::SoundConfig;
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
-use vpo_backend::route;
+use vpo_backend::{route, RouteReturn};
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
@@ -44,7 +44,7 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
 
 fn handle_msg(
     msg: IPCMessage,
-    current_graph_index: GraphIndex,
+    current_graph_index: &mut GraphIndex,
     graph_manager: &mut GraphManager,
     to_server: &Sender<IPCMessage>,
     sound_config: &SoundConfig,
@@ -53,7 +53,7 @@ fn handle_msg(
 ) {
     let result = route(
         msg,
-        current_graph_index,
+        *current_graph_index,
         graph_manager,
         to_server,
         sound_config,
@@ -63,16 +63,20 @@ fn handle_msg(
 
     match result {
         Ok(route_result) => {
-            let should_reindex_graph = match route_result {
-                Some(route_result) => route_result.should_reindex_graph,
-                None => false,
+            let route_result = match route_result {
+                Some(route_result) => route_result,
+                None => RouteReturn::default(),
             };
 
-            if should_reindex_graph {
-                graph_manager.recalculate_traversal_for_graph(current_graph_index);
+            if let Some(new_graph_index) = route_result.new_graph_index {
+                *current_graph_index = new_graph_index;
+            }
+
+            if route_result.should_reindex_graph {
+                graph_manager.recalculate_traversal_for_graph(*current_graph_index);
 
                 let nodes_to_update = {
-                    let graph = &graph_manager.get_graph_wrapper_ref(current_graph_index).unwrap().graph;
+                    let graph = &graph_manager.get_graph_wrapper_ref(*current_graph_index).unwrap().graph;
 
                     // TODO: this is naive, keep track of what nodes need their defaults updated
                     graph
@@ -92,7 +96,7 @@ fn handle_msg(
                         .collect::<Vec<NodeIndex>>()
                 };
 
-                graph_manager.update_traversal_defaults(current_graph_index, nodes_to_update);
+                graph_manager.update_traversal_defaults(*current_graph_index, nodes_to_update);
             }
         }
         Err(err) => {
@@ -150,7 +154,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let scripting_engine = Engine::new_raw();
 
     let mut graph_manager = GraphManager::new();
-    let mut current_graph_index = graph_manager.new_graph();
+    let root_graph_index = graph_manager.new_graph();
+    let mut current_graph_index = root_graph_index;
 
     let (output_node, midi_in_node) = {
         let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
@@ -190,7 +195,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Ok(msg) = msg {
             handle_msg(
                 msg,
-                current_graph_index,
+                &mut current_graph_index,
                 &mut graph_manager,
                 &to_server,
                 &sound_config,
@@ -203,7 +208,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // we can get the graph now, it won't be controlled by the message handler anymore
         let NodeGraphWrapper { graph, traverser, .. } =
-            &mut *graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap();
+            &mut *graph_manager.get_graph_wrapper_mut(root_graph_index).unwrap();
 
         let midi = get_midi(&mut midi_backend, &mut parser);
 

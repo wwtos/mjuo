@@ -12,8 +12,10 @@ use sound_engine::SoundConfig;
 pub mod routes;
 pub mod util;
 
+#[derive(Default)]
 pub struct RouteReturn {
     pub should_reindex_graph: bool,
+    pub new_graph_index: Option<GraphIndex>
 }
 
 pub fn route(
@@ -69,6 +71,15 @@ pub fn route(
                     scripting_engine,
                 ),
                 "graph/disconnectNode" => routes::graph::disconnect_node::route(
+                    message,
+                    current_graph_index,
+                    graph_manager,
+                    to_server,
+                    sound_config,
+                    socket_registry,
+                    scripting_engine,
+                ),
+                "graph/switchGraph" => routes::graph::switch_graph::route(
                     message,
                     current_graph_index,
                     graph_manager,

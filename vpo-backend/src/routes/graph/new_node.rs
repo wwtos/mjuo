@@ -35,16 +35,30 @@ pub fn route(
     socket_registry: &mut SocketRegistry,
     scripting_engine: &Engine,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
+    let (index, needs_graph) = if let Value::String(node_type) = &message["payload"]["type"] {
+        let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
 
-    let index = if let Value::String(node_type) = &message["payload"]["type"] {
         let new_node = new_variant(node_type, sound_config).unwrap();
 
-        graph.add_node(new_node, socket_registry, scripting_engine)
+        let new_node_index = graph.add_node(new_node, socket_registry, scripting_engine);
+        let new_node_wrapper = graph.get_node(&new_node_index).unwrap();
+
+        (new_node_index, new_node_wrapper.does_need_inner_graph_created())
     } else {
         return Ok(None);
     };
 
+    if needs_graph {
+        // create a graph for it
+        let new_graph_index = graph_manager.new_graph();
+
+        let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
+        let new_node = graph.get_node_mut(&index).unwrap();
+        
+        new_node.set_inner_graph_index(new_graph_index);
+    }
+
+    let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
     if let Value::Object(ui_data) = &message["payload"]["ui_data"] {
         let node = graph.get_node_mut(&index).unwrap();
 
@@ -58,5 +72,6 @@ pub fn route(
 
     Ok(Some(RouteReturn {
         should_reindex_graph: true,
+        new_graph_index: None,
     }))
 }
