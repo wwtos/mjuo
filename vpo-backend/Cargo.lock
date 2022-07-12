@@ -672,6 +672,7 @@ dependencies = [
  "rhai",
  "serde",
  "serde_json",
+ "smallvec",
  "sound-engine",
  "strum",
  "strum_macros",
