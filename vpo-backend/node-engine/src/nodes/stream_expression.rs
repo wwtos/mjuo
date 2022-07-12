@@ -58,6 +58,9 @@ impl Node for StreamExpressionNode {
         _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
     ) -> Result<(), ErrorsAndWarnings> {
         if let Some(ast) = &self.ast {
+            // start by rewinding the scope
+            self.scope.rewind(0);
+
             // add inputs to scope
             for (i, val) in self.values_in.iter().enumerate() {
                 self.scope.push(format!("x{}", i + 1), *val);
@@ -71,18 +74,10 @@ impl Node for StreamExpressionNode {
                 Ok(output) => {
                     self.value_out = output;
                 }
-                Err(err) => {
-                    // cleanup before erroring
-                    self.scope.rewind(0);
-
-                    return Err(ErrorsAndWarnings {
-                        errors: vec![NodeError::RhaiEvalError(*err)],
-                        warnings: vec![],
-                    });
+                Err(_) => {
+                    self.value_out = 0.0;
                 }
             }
-
-            self.scope.rewind(0);
         }
 
         Ok(())
@@ -95,6 +90,7 @@ impl Node for StreamExpressionNode {
         scripting_engine: &Engine,
     ) -> InitResult {
         let mut did_rows_change = false;
+        let mut possible_error = None;
 
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
@@ -173,19 +169,23 @@ impl Node for StreamExpressionNode {
             node_rows.push(NodeRow::StreamInput(new_socket_type, 0.0));
         }
 
-        // compile the expression and collect any errors
-        let possible_ast = scripting_engine.compile(&expression);
-        let mut possible_error = None;
+        if expression.is_empty() {
+            // if it's empty, don't compile it
+            self.ast = None;
+        } else {
+            // compile the expression and collect any errors
+            let possible_ast = scripting_engine.compile(&expression);
 
-        match possible_ast {
-            Ok(ast) => {
-                self.ast = Some(ast);
-            }
-            Err(err) => {
-                possible_error = Some(ErrorsAndWarnings {
-                    errors: vec![NodeError::RhaiParserError(err)],
-                    warnings: vec![],
-                });
+            match possible_ast {
+                Ok(ast) => {
+                    self.ast = Some(ast);
+                }
+                Err(err) => {
+                    possible_error = Some(ErrorsAndWarnings {
+                        errors: vec![NodeError::RhaiParserError(err)],
+                        warnings: vec![],
+                    });
+                }
             }
         }
 
