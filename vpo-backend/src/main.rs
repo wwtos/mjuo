@@ -76,6 +76,21 @@ fn handle_msg(
             if route_result.should_reindex_graph {
                 graph_manager.recalculate_traversal_for_graph(*current_graph_index);
             }
+            
+            // TODO: also naive
+            // checks if this is a subgraph (aka not root graph), and if it is, notify
+            // the parent node that it was changed
+            if current_graph_index != &0 {
+                let parent_nodes = graph_manager.get_subgraph_parent_nodes(*current_graph_index);
+
+                for (parent_node_graph, parent_node_index) in parent_nodes {
+                    let parent_node_graph = &mut graph_manager.get_graph_wrapper_mut(parent_node_graph).unwrap().graph;
+                    let subgraph = &mut graph_manager.get_graph_wrapper_mut(*current_graph_index).unwrap().graph;
+
+                    let node = parent_node_graph.get_node_mut(&parent_node_index).unwrap();
+                    node.node_init_graph(subgraph);
+                }
+            }
 
             let nodes_to_update = {
                 let graph = &graph_manager.get_graph_wrapper_ref(*current_graph_index).unwrap().graph;

@@ -40,7 +40,16 @@ impl GraphManager {
         graph_index
     }
 
-    pub fn add_parent_node(&mut self, inner_graph: GraphIndex, graph_of_parent_node: GraphIndex, parent_node: NodeIndex) {
+    pub fn get_subgraph_parent_nodes(&self, subgraph_index: GraphIndex) -> Vec<(GraphIndex, NodeIndex)> {
+        self.get_graph_wrapper_ref(subgraph_index).unwrap().parent_nodes.clone()
+    }
+
+    pub fn add_parent_node(
+        &mut self,
+        inner_graph: GraphIndex,
+        graph_of_parent_node: GraphIndex,
+        parent_node: NodeIndex,
+    ) {
         let mut inner_graph = self.get_graph_wrapper_mut(inner_graph).unwrap();
 
         // TODO: verify `node_graph` is valid
