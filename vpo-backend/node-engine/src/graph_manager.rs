@@ -40,11 +40,11 @@ impl GraphManager {
         graph_index
     }
 
-    pub fn add_parent_node(&mut self, child_graph: GraphIndex, graph_of_parent_node: GraphIndex, parent_node: NodeIndex) {
-        let mut child_graph = self.get_graph_wrapper_mut(child_graph).unwrap();
+    pub fn add_parent_node(&mut self, inner_graph: GraphIndex, graph_of_parent_node: GraphIndex, parent_node: NodeIndex) {
+        let mut inner_graph = self.get_graph_wrapper_mut(inner_graph).unwrap();
 
         // TODO: verify `node_graph` is valid
-        child_graph.parent_nodes.push((graph_of_parent_node, parent_node));
+        inner_graph.parent_nodes.push((graph_of_parent_node, parent_node));
     }
 
     pub fn get_graph_wrapper_ref(&self, index: GraphIndex) -> Option<Ref<NodeGraphWrapper>> {
