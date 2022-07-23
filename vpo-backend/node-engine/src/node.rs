@@ -169,7 +169,7 @@ pub struct NodeWrapper {
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
     inner_graph_index: Option<GraphIndex>,
-    inner_graph_io_indexes: Option<(NodeIndex, NodeIndex)>
+    inner_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
 }
 
 impl NodeWrapper {
@@ -244,16 +244,10 @@ impl NodeWrapper {
         new_inputs_node.set_inputs(inputs);
         new_outputs_node.set_outputs(outputs);
 
-        let mut inner_graph = graph_manager.get_graph_wrapper_mut(*index).unwrap();
+        let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
-        let input_index =
-            inner_graph
-                .graph
-                .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
-        let output_index =
-            inner_graph
-                .graph
-                .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
+        let input_index = inner_graph.add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
+        let output_index = inner_graph.add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
 
         self.inner_graph_io_indexes = Some((input_index, output_index));
     }
@@ -475,10 +469,7 @@ impl NodeWrapper {
     }
 
     pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
-        let (
-            input_node,
-            output_node
-        ) = &self.inner_graph_io_indexes.unwrap();
+        let (input_node, output_node) = &self.inner_graph_io_indexes.unwrap();
 
         self.node.init_graph(graph, input_node, output_node);
     }
