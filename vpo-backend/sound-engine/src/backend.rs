@@ -1,5 +1,5 @@
-pub mod alsa_midi;
 pub mod alsa;
+pub mod alsa_midi;
 pub mod pulse;
 
 use std::error::Error;

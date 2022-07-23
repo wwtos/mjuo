@@ -20,15 +20,15 @@ use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa::AlsaAudioBackend;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
+use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;
-use sound_engine::backend::{AudioClientBackend};
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::SoundConfig;
 
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
-use vpo_backend::{route, RouteReturn, write_to_file};
+use vpo_backend::{route, write_to_file, RouteReturn};
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
@@ -249,7 +249,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             is_first_time = false;
         }
-        
+
         backend.write(&buffer)?;
         //write_to_file(&mut output_file, &buffer)?;
 

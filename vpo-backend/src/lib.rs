@@ -9,7 +9,7 @@ use node_engine::{
 };
 use rhai::Engine;
 use serde_json::Value;
-use sound_engine::{SoundConfig, constants::BUFFER_SIZE};
+use sound_engine::{constants::BUFFER_SIZE, SoundConfig};
 
 pub mod routes;
 pub mod util;
@@ -17,7 +17,7 @@ pub mod util;
 #[derive(Default)]
 pub struct RouteReturn {
     pub should_reindex_graph: bool,
-    pub new_graph_index: Option<GraphIndex>
+    pub new_graph_index: Option<GraphIndex>,
 }
 
 pub fn route(
