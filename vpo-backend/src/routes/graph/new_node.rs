@@ -99,7 +99,7 @@ pub fn route(
             new_graph_index
         };
         
-        graph_manager.associate_node(new_graph_index, current_graph_index, index);
+        graph_manager.add_parent_node(new_graph_index, current_graph_index, index);
     }
 
     let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
