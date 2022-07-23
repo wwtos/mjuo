@@ -157,7 +157,7 @@ pub trait Node: Debug {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeWrapper {
     #[serde(skip)]
     pub(crate) node: NodeVariant,

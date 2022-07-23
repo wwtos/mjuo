@@ -11,12 +11,12 @@ use crate::{
     socket_registry::SocketRegistry,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NodeGraph {
     nodes: Vec<PossibleNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PossibleNode {
     Some(NodeWrapper, u32),
     None(u32), // last generation that was here
