@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use rhai::{Engine, Scope, AST};
 use serde_json::json;
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 
 use crate::connection::{SocketType, StreamSocketType};
 use crate::errors::{ErrorsAndWarnings, NodeError};

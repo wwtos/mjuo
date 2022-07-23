@@ -1,7 +1,15 @@
-use std::{error, thread, sync::mpsc::{channel, Sender}, time::{Duration, Instant}};
+use std::{
+    error,
+    sync::mpsc::{channel, Sender},
+    thread,
+    time::{Duration, Instant},
+};
 
-use alsa::{Direction, PCM, ValueOr, pcm::{HwParams, Format, Access}};
 use crate::constants::{BUFFER_SIZE, SAMPLE_RATE};
+use alsa::{
+    pcm::{Access, Format, HwParams},
+    Direction, ValueOr, PCM,
+};
 
 use super::AudioClientBackend;
 
@@ -18,7 +26,7 @@ impl AlsaAudioBackend {
 impl AudioClientBackend for AlsaAudioBackend {
     fn connect(&mut self) -> Result<(), Box<dyn error::Error>> {
         let (sender, receiver) = channel::<[f32; BUFFER_SIZE]>();
-        
+
         thread::spawn(move || {
             loop {
                 let pcm = PCM::new("default", Direction::Playback, false).unwrap();
@@ -56,7 +64,11 @@ impl AudioClientBackend for AlsaAudioBackend {
                         first_time = false;
                         Ok(receiver.recv().unwrap())
                     } else {
-                        let time_available = buffer_time - now;
+                        let time_available = if buffer_time > now {
+                            buffer_time - now
+                        } else {
+                            Duration::ZERO
+                        };
 
                         if time_available < sample_duration * 2 {
                             receiver.recv_timeout(Duration::ZERO)
@@ -74,7 +86,7 @@ impl AudioClientBackend for AlsaAudioBackend {
                                 underrun_count -= 1;
                                 Ok(0)
                             }
-                        },
+                        }
                         Err(_) => {
                             println!("buffer underrun");
                             underrun_count += 1;
@@ -85,8 +97,8 @@ impl AudioClientBackend for AlsaAudioBackend {
                     };
 
                     match res {
-                        Ok(_) => {},
-                        Err(_) => break 'inner
+                        Ok(_) => {}
+                        Err(_) => break 'inner,
                     }
                 }
             }

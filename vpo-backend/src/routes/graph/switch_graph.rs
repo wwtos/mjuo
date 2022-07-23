@@ -27,6 +27,6 @@ pub fn route(
 
     Ok(Some(RouteReturn {
         should_reindex_graph: false,
-        new_graph_index: Some(new_graph_index)
+        new_graph_index: Some(new_graph_index),
     }))
 }

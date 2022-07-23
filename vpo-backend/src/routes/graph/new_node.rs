@@ -1,6 +1,7 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
+    connection::{SocketDirection, SocketType},
     errors::NodeError,
     graph_manager::{GraphIndex, GraphManager},
     nodes::variants::new_variant,
@@ -49,13 +50,56 @@ pub fn route(
     };
 
     if needs_graph {
-        // create a graph for it
-        let new_graph_index = graph_manager.new_graph();
+        let new_graph_index = {
+            // create a graph for it
+            let new_graph_index = graph_manager.new_graph();
 
-        let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
-        let new_node = graph.get_node_mut(&index).unwrap();
+            let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
+            let new_node = graph.get_node_mut(&index).unwrap();
+
+            let (input_sockets, output_sockets) = {
+                let inner_sockets = new_node.get_inner_graph_socket_list(socket_registry);
+
+                (
+                    inner_sockets
+                        .iter()
+                        .filter_map(|inner_socket| {
+                            if inner_socket.1 == SocketDirection::Input {
+                                Some(inner_socket.0.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<SocketType>>(),
+                    inner_sockets
+                        .iter()
+                        .filter_map(|inner_socket| {
+                            if inner_socket.1 == SocketDirection::Output {
+                                Some(inner_socket.0.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<SocketType>>(),
+                )
+            };
+
+            new_node.init_inner_graph(
+                &new_graph_index,
+                graph_manager,
+                input_sockets,
+                output_sockets,
+                socket_registry,
+                scripting_engine,
+            );
+
+            let new_inner_graph = &mut graph_manager.get_graph_wrapper_mut(new_graph_index).unwrap().graph;
+            new_node.node_init_graph(new_inner_graph);
+
+            new_graph_index
+        };
         
-        new_node.set_inner_graph_index(new_graph_index);
+        graph_manager.associate_node(new_graph_index, current_graph_index, index);
     }
 
     let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;

@@ -15,8 +15,11 @@ use crate::connection::{
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
-use crate::graph_manager::{GraphIndex};
+use crate::graph_manager::{self, GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
+use crate::nodes::inputs::InputsNode;
+use crate::nodes::output;
+use crate::nodes::outputs::OutputsNode;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
@@ -57,24 +60,20 @@ impl NodeRow {
 
     pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection) -> Self {
         match direction {
-            SocketDirection::Input => {
-                match socket_type {
-                    SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0),
-                    SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, vec![]),
-                    SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0)),
-                    SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type),
-                    SocketType::MethodCall(_) => unimplemented!(),
-                }
-            }
-            SocketDirection::Output => {
-                match socket_type {
-                    SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0),
-                    SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, vec![]),
-                    SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0)),
-                    SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type),
-                    SocketType::MethodCall(_) => unimplemented!(),
-                }
-            }
+            SocketDirection::Input => match socket_type {
+                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0),
+                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, vec![]),
+                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0)),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type),
+                SocketType::MethodCall(_) => unimplemented!(),
+            },
+            SocketDirection::Output => match socket_type {
+                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0),
+                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, vec![]),
+                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0)),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type),
+                SocketType::MethodCall(_) => unimplemented!(),
+            },
         }
     }
 }
@@ -169,7 +168,8 @@ pub struct NodeWrapper {
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
-    inner_graph_index: Option<GraphIndex>
+    inner_graph_index: Option<GraphIndex>,
+    inner_graph_io_indexes: Option<(NodeIndex, NodeIndex)>
 }
 
 impl NodeWrapper {
@@ -207,7 +207,8 @@ impl NodeWrapper {
             node_rows: init_result.node_rows,
             properties,
             ui_data: HashMap::new(),
-            inner_graph_index: None
+            inner_graph_index: None,
+            inner_graph_io_indexes: None,
         };
 
         // insert some initial UI data
@@ -220,9 +221,41 @@ impl NodeWrapper {
     }
 
     pub fn does_need_inner_graph_created(&self) -> bool {
-        self.node_rows.iter().any(|row| {
-            if let NodeRow::InnerGraph = row { true } else { false }
-        }) && self.inner_graph_index.is_none()
+        self.node_rows
+            .iter()
+            .any(|row| if let NodeRow::InnerGraph = row { true } else { false })
+            && self.inner_graph_index.is_none()
+    }
+
+    pub fn init_inner_graph(
+        &mut self,
+        index: &GraphIndex,
+        graph_manager: &GraphManager,
+        inputs: Vec<SocketType>,
+        outputs: Vec<SocketType>,
+        registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+    ) {
+        self.set_inner_graph_index(index.clone());
+
+        let mut new_inputs_node = InputsNode::default();
+        let mut new_outputs_node = OutputsNode::default();
+
+        new_inputs_node.set_inputs(inputs);
+        new_outputs_node.set_outputs(outputs);
+
+        let mut inner_graph = graph_manager.get_graph_wrapper_mut(*index).unwrap();
+
+        let input_index =
+            inner_graph
+                .graph
+                .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
+        let output_index =
+            inner_graph
+                .graph
+                .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
+
+        self.inner_graph_io_indexes = Some((input_index, output_index));
     }
 
     pub fn set_inner_graph_index(&mut self, index: GraphIndex) {
@@ -435,6 +468,19 @@ impl NodeWrapper {
         inner_graph: Option<(&mut NodeGraph, &Traverser)>,
     ) -> Result<(), ErrorsAndWarnings> {
         self.node.process(current_time, scripting_engine, inner_graph)
+    }
+
+    pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
+        self.node.get_inner_graph_socket_list(registry)
+    }
+
+    pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
+        let (
+            input_node,
+            output_node
+        ) = &self.inner_graph_io_indexes.unwrap();
+
+        self.node.init_graph(graph, input_node, output_node);
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
