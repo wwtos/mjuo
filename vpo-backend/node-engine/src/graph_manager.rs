@@ -10,10 +10,7 @@ pub type GraphIndex = u64;
 pub struct NodeGraphWrapper {
     pub graph: NodeGraph,
     pub traverser: Traverser,
-
-    // TODO: should I rename `associated_nodes` to `parent_nodes`?
-    
-    associated_nodes: Vec<(GraphIndex, NodeIndex)>,
+    parent_nodes: Vec<(GraphIndex, NodeIndex)>,
 }
 
 #[derive(Default, Debug)]
@@ -36,18 +33,18 @@ impl GraphManager {
             RefCell::new(NodeGraphWrapper {
                 graph: NodeGraph::new(),
                 traverser: Traverser::default(),
-                associated_nodes: vec![],
+                parent_nodes: vec![],
             }),
         );
 
         graph_index
     }
 
-    pub fn associate_node(&mut self, graph_to_associate: GraphIndex, node_graph: GraphIndex, node_index: NodeIndex) {
-        let mut graph_to_associate = self.get_graph_wrapper_mut(graph_to_associate).unwrap();
+    pub fn add_parent_node(&mut self, child_graph: GraphIndex, graph_of_parent_node: GraphIndex, parent_node: NodeIndex) {
+        let mut child_graph = self.get_graph_wrapper_mut(child_graph).unwrap();
 
         // TODO: verify `node_graph` is valid
-        graph_to_associate.associated_nodes.push((node_graph, node_index));
+        child_graph.parent_nodes.push((graph_of_parent_node, parent_node));
     }
 
     pub fn get_graph_wrapper_ref(&self, index: GraphIndex) -> Option<Ref<NodeGraphWrapper>> {
