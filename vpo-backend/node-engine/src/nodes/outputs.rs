@@ -24,6 +24,30 @@ impl OutputsNode {
     pub fn set_outputs(&mut self, outputs: Vec<SocketType>) {
         self.dirty = true;
         self.outputs = outputs;
+
+        for i in 0..self.values.len().min(self.outputs.len()) {
+            self.values[i] = match self.outputs[i] {
+                SocketType::Stream(_) => SocketValue::Stream(0.0),
+                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
+                SocketType::NodeRef(_) => SocketValue::NodeRef,
+                SocketType::MethodCall(_) => todo!(),
+            };
+        }
+
+        for i in self.values.len()..self.outputs.len() {
+            self.values.push(match self.outputs[i] {
+                SocketType::Stream(_) => SocketValue::Stream(0.0),
+                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
+                SocketType::NodeRef(_) => SocketValue::NodeRef,
+                SocketType::MethodCall(_) => todo!(),
+            });
+        }
+
+        if self.values.len() > self.outputs.len() {
+            self.values.truncate(self.outputs.len());
+        }
     }
 }
 

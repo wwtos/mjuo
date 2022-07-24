@@ -99,6 +99,7 @@ pub enum SocketValue {
     Stream(f32),
     Midi(Vec<MidiData>),
     Value(Primitive),
+    NodeRef,
 }
 
 impl SocketValue {
