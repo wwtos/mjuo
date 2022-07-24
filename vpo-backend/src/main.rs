@@ -133,7 +133,7 @@ fn handle_msg(
 }
 
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
+    let mut backend: Box<dyn AudioClientBackend> = Box::new(AlsaAudioBackend::new());
     backend.connect()?;
 
     Ok(backend)
