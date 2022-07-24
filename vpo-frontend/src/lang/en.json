@@ -47,7 +47,8 @@
             "functionNode": "Function Node",
             "inputsNode": "Inputs Node",
             "outputsNode": "Outputs Node",
-            "streamExpressionNode": "Stream Expression Node"
+            "streamExpressionNode": "Stream Expression Node",
+            "polyphonicNode": "Polyphonic Node"
         },
         "editor": {
             "create": "Create!",

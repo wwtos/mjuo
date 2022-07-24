@@ -21,6 +21,7 @@ use crate::graph_tests::TestNode;
 use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::outputs::OutputsNode;
+use super::polyphonic::PolyphonicNode;
 use super::stream_expression::StreamExpressionNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
@@ -45,6 +46,7 @@ pub enum NodeVariant {
     InputsNode,
     OutputsNode,
     StreamExpressionNode,
+    PolyphonicNode,
     #[cfg(test)]
     TestNode,
 }
@@ -69,6 +71,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "InputsNode" => Ok(NodeVariant::InputsNode(InputsNode::default())),
         "OutputsNode" => Ok(NodeVariant::OutputsNode(OutputsNode::default())),
         "StreamExpressionNode" => Ok(NodeVariant::StreamExpressionNode(StreamExpressionNode::new())),
+        "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::default())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -91,6 +94,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::InputsNode(_) => "inputsNode".to_string(),
         NodeVariant::OutputsNode(_) => "outputsNode".to_string(),
         NodeVariant::StreamExpressionNode(_) => "streamExpressionNode".to_string(),
+        NodeVariant::PolyphonicNode(_) => "polyphonicNode".to_string(),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),
     }

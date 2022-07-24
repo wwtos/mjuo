@@ -20,9 +20,9 @@ use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa::AlsaAudioBackend;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
+use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;
-use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::SoundConfig;
 
@@ -77,7 +77,7 @@ fn handle_msg(
             if route_result.should_reindex_graph {
                 graph_manager.recalculate_traversal_for_graph(*current_graph_index);
             }
-            
+
             // TODO: also naive
             // checks if this is a subgraph (aka not root graph), and if it is, notify
             // the parent node that it was changed
@@ -229,6 +229,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let NodeGraphWrapper { graph, traverser, .. } =
             &mut *graph_manager.get_graph_wrapper_mut(root_graph_index).unwrap();
 
+        let mut has_midi_been_inputted = false;
         let midi = get_midi(&mut midi_backend, &mut parser);
 
         if !midi.is_empty() {
@@ -257,13 +258,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             *sample = audio;
 
-            if is_first_time {
+            if !has_midi_been_inputted {
                 let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
 
                 midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
             }
 
             is_first_time = false;
+            has_midi_been_inputted = true;
         }
 
         backend.write(&buffer)?;

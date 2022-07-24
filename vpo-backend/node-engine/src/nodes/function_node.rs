@@ -17,7 +17,7 @@ pub struct FunctionNode {
     output: f32,
     is_first_time: bool,
     inner_input_node: NodeIndex,
-    inner_output_node: NodeIndex
+    inner_output_node: NodeIndex,
 }
 
 impl Default for FunctionNode {
@@ -28,8 +28,14 @@ impl Default for FunctionNode {
             input: 0_f32,
             output: 0_f32,
             is_first_time: true,
-            inner_input_node: NodeIndex { index: 0, generation: 0 },
-            inner_output_node: NodeIndex { index: 0, generation: 0 },
+            inner_input_node: NodeIndex {
+                index: 0,
+                generation: 0,
+            },
+            inner_output_node: NodeIndex {
+                index: 0,
+                generation: 0,
+            },
         }
     }
 }
@@ -80,11 +86,16 @@ impl Node for FunctionNode {
         let subgraph_input_node = self.local_graph.get_node_mut(&self.inner_input_node).unwrap();
         subgraph_input_node.accept_stream_input(&StreamSocketType::Audio, self.input);
 
-        self.traverser.traverse(&mut self.local_graph, self.is_first_time, current_time, scripting_engine)?;
+        self.traverser.traverse(
+            &mut self.local_graph,
+            self.is_first_time,
+            current_time,
+            scripting_engine,
+        )?;
 
         let subgraph_output_node = self.local_graph.get_node_mut(&self.inner_output_node).unwrap();
         self.output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);
-        
+
         self.is_first_time = false;
 
         Ok(())
