@@ -44,28 +44,27 @@ pub enum NodeWarning {
     RhaiInvalidReturnType(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ErrorsAndWarnings {
     pub errors: Vec<NodeError>,
     pub warnings: Vec<NodeWarning>,
 }
 
 impl ErrorsAndWarnings {
-    pub fn merge(first: Result<(), ErrorsAndWarnings>, second: Result<(), ErrorsAndWarnings>) -> Result<(), ErrorsAndWarnings> {
-        if let Err(mut first) = first {
-            if let Err(second) = second {
-                // extend the first with the errors from the second
-                first.errors.extend(second.errors);
-                first.warnings.extend(second.warnings);
-
-                Err(first)
-            } else {
-                Err(first)
+    pub fn merge(mut self, other: Result<(), ErrorsAndWarnings>) -> Result<ErrorsAndWarnings, ErrorsAndWarnings> {
+        if let Err(other) = other {
+            if other.warnings.len() > 0 {
+                self.warnings.extend(other.warnings);
             }
-        } else if let Err(second) = second {
-            Err(second)
+
+            if other.errors.len() > 0 {
+                self.errors.extend(other.errors);
+                Err(self)
+            } else {
+                Ok(self)
+            }
         } else {
-            Ok(())
+            Ok(self)
         }
     }
 }

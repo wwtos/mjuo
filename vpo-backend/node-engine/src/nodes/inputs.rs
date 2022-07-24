@@ -33,6 +33,8 @@ impl InputsNode {
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
                 SocketType::MethodCall(_) => todo!(),
             };
+
+            self.value_changed[i] = true;
         }
 
         for i in self.values.len()..self.inputs.len() {
@@ -43,10 +45,13 @@ impl InputsNode {
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
                 SocketType::MethodCall(_) => todo!(),
             });
+
+            self.value_changed.push(true);
         }
 
         if self.values.len() > self.inputs.len() {
             self.values.truncate(self.inputs.len());
+            self.value_changed.truncate(self.inputs.len());
         }
     }
 }

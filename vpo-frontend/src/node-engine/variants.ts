@@ -44,5 +44,9 @@ export const variants = [
     {
         name: i18n.t("nodes.streamExpressionNode"),
         internal: "StreamExpressionNode"
+    },
+    {
+        name: i18n.t("nodes.polyphonicNode"),
+        internal: "PolyphonicNode"
     }
 ];
