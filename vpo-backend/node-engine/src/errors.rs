@@ -49,3 +49,23 @@ pub struct ErrorsAndWarnings {
     pub errors: Vec<NodeError>,
     pub warnings: Vec<NodeWarning>,
 }
+
+impl ErrorsAndWarnings {
+    pub fn merge(first: Result<(), ErrorsAndWarnings>, second: Result<(), ErrorsAndWarnings>) -> Result<(), ErrorsAndWarnings> {
+        if let Err(mut first) = first {
+            if let Err(second) = second {
+                // extend the first with the errors from the second
+                first.errors.extend(second.errors);
+                first.warnings.extend(second.warnings);
+
+                Err(first)
+            } else {
+                Err(first)
+            }
+        } else if let Err(second) = second {
+            Err(second)
+        } else {
+            Ok(())
+        }
+    }
+}

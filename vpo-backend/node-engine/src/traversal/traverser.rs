@@ -9,13 +9,13 @@ use crate::{
 
 use super::calculate_traversal_order::calculate_graph_traverse_order;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct NodeTraverseData {
     defaults_in: Vec<NodeRow>,
     outputs_to: Vec<OutputSideConnection>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Traverser {
     nodes: Vec<(NodeIndex, NodeTraverseData)>,
 }

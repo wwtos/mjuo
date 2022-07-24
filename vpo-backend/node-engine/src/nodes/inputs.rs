@@ -24,6 +24,30 @@ impl InputsNode {
     pub fn set_inputs(&mut self, inputs: Vec<SocketType>) {
         self.dirty = true;
         self.inputs = inputs;
+
+        for i in 0..self.values.len().min(self.inputs.len()) {
+            self.values[i] = match self.inputs[i] {
+                SocketType::Stream(_) => SocketValue::Stream(0.0),
+                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
+                SocketType::NodeRef(_) => SocketValue::NodeRef,
+                SocketType::MethodCall(_) => todo!(),
+            };
+        }
+
+        for i in self.values.len()..self.inputs.len() {
+            self.values.push(match self.inputs[i] {
+                SocketType::Stream(_) => SocketValue::Stream(0.0),
+                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
+                SocketType::NodeRef(_) => SocketValue::NodeRef,
+                SocketType::MethodCall(_) => todo!(),
+            });
+        }
+
+        if self.values.len() > self.inputs.len() {
+            self.values.truncate(self.inputs.len());
+        }
     }
 }
 

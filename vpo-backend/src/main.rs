@@ -22,6 +22,7 @@ use sound_engine::backend::alsa::AlsaAudioBackend;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;
+use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::SoundConfig;
 
@@ -132,7 +133,7 @@ fn handle_msg(
 }
 
 fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(AlsaAudioBackend::new());
+    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
     backend.connect()?;
 
     Ok(backend)

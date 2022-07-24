@@ -120,7 +120,7 @@ pub trait Node: Debug {
         vec![]
     }
 
-    fn init_graph(&mut self, graph: &mut NodeGraph, input_node: &NodeIndex, output_node: &NodeIndex) {}
+    fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
     /// Process received data.
     fn process(
@@ -471,7 +471,7 @@ impl NodeWrapper {
     pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
         let (input_node, output_node) = &self.inner_graph_io_indexes.unwrap();
 
-        self.node.init_graph(graph, input_node, output_node);
+        self.node.init_graph(graph, input_node.clone(), output_node.clone());
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
