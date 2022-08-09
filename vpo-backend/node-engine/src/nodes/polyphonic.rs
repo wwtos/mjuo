@@ -13,6 +13,7 @@ use crate::traversal::traverser::Traverser;
 use crate::{property::Property, socket_registry::SocketRegistry};
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
+//                                                             50 ms
 const SAME_VALUE_LENGTH_THRESHOLD: i64 = (SAMPLE_RATE / 1000 * 50) as i64;
 
 #[derive(Debug, Clone)]
