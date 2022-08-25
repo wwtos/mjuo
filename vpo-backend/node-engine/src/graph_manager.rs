@@ -6,6 +6,7 @@ use sound_engine::SoundConfig;
 
 use crate::connection::{SocketDirection, SocketType};
 use crate::errors::NodeError;
+use crate::node::NodeRow;
 use crate::node_graph::create_new_node;
 use crate::nodes::variants::new_variant;
 use crate::socket_registry::SocketRegistry;
@@ -87,6 +88,24 @@ impl GraphManager {
         });
     }
 
+    pub fn remove_parent_node(
+        &mut self,
+        child_graph: GraphIndex,
+        graph_of_parent_node: GraphIndex,
+        parent_node: NodeIndex,
+    ) -> Result<(), NodeError> {
+        let mut child_graph = self.get_graph_wrapper_mut(child_graph).ok_or(NodeError::GraphDoesNotExist(child_graph))?;
+
+        let entry = child_graph.parent_nodes.iter().position(|potential_parent_node| {
+            potential_parent_node.node_index == parent_node &&
+            potential_parent_node.graph_index == graph_of_parent_node
+        }).ok_or(NodeError::GraphDoesNotExist(graph_of_parent_node))?;
+
+        child_graph.parent_nodes.remove(entry);
+
+        Ok(())
+    }
+
     pub fn get_graph_wrapper_ref(&self, index: GraphIndex) -> Option<Ref<NodeGraphWrapper>> {
         self.node_graphs.get(&index).map(|x| (*x).borrow())
     }
@@ -117,18 +136,18 @@ impl GraphManager {
     }
 
     /// Will error out if there's more than one node connected
-    pub fn remove_graph(&mut self, graph_index: &GraphIndex) -> Result<GlobalNodeIndex, NodeError> {
+    pub fn remove_graph(&mut self, graph_index: &GraphIndex) -> Result<(), NodeError> {
         let number_of_parent_nodes = {
             let graph = self.get_graph_wrapper_mut(*graph_index).ok_or(NodeError::GraphDoesNotExist(*graph_index))?;
             graph.parent_nodes.len()
         };
 
-        if graph.parent_nodes.len() > 1 {
+        if number_of_parent_nodes > 1 {
             Err(NodeError::GraphHasOtherParents)
-        } else if graph.parent_nodes.len() == 1 {
-            
         } else {
+            self.node_graphs.remove(graph_index);
 
+            Ok(())
         }
     }
 }
@@ -178,8 +197,10 @@ impl GraphManager {
         let child_graph_index = if let Some(node_index) = node_index {
             // did it previously have a child graph?
             if let Some(child_graph_index) = child_graph_index {
-                // if so, create it at the previous index
-                self.new_graph_unchecked(child_graph_index);
+                // if so, create it at the previous index (if it doesn't already exist)
+                if self.get_graph_wrapper_ref(child_graph_index).is_none() {
+                    self.new_graph_unchecked(child_graph_index);
+                }
 
                 // link them to each other
                 self.add_parent_node(child_graph_index, graph_index, node_index);
@@ -269,17 +290,38 @@ impl GraphManager {
         })
     }
 
-    pub fn remove_node(&mut self, graph_index: &GraphIndex, node_index: &NodeIndex) -> Result<(), NodeError> {
+    pub fn remove_node(&mut self, graph_index: &GraphIndex, node_index: &NodeIndex) -> Result<Vec<NodeRow>, NodeError> {
         // first, see if the node is linked to a child graph
-        let graph = self.get_graph_wrapper_mut(*graph_index).ok_or(NodeError::GraphDoesNotExist(*graph_index))?;
-        let node = graph.graph.get_node(node_index).ok_or(NodeError::NodeDoesNotExist(*node_index))?;
+        let possible_child_graph_index = {
+            let graph = self.get_graph_wrapper_mut(*graph_index).ok_or(NodeError::GraphDoesNotExist(*graph_index))?;
+            let node = graph.graph.get_node(node_index).ok_or(NodeError::NodeDoesNotExist(*node_index))?;
 
-        if let Some(child_graph_index) = node.get_child_graph_index() {
+            node.get_child_graph_index().clone()
+        };
+
+        if let Some(child_graph_index) = possible_child_graph_index {
             // we need to remove that graph
             
-
+            if let Err(err) = self.remove_graph(graph_index) {
+                match err {
+                    NodeError::GraphHasOtherParents => {
+                        // if it has other parents, just unlink it
+                        self.remove_parent_node(child_graph_index, *graph_index, *node_index)?;
+                    }
+                    _ => {}
+                }
+            }
         }
 
-        Ok(())
+        // now that we've ensured that the graph is disconnected, we can safely delete the node
+        // but first, we need to make a list of its current connections (for undo)
+        let mut graph = self.get_graph_wrapper_mut(*graph_index).unwrap();
+        let node = graph.graph.get_node(node_index).ok_or(NodeError::NodeDoesNotExist(*node_index))?;
+
+        let node_connections = node.get_node_rows().clone();
+
+        graph.graph.remove_node(node_index)?;
+
+        Ok(node_connections)
     }
 }
