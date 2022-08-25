@@ -4,10 +4,15 @@ use thiserror::Error;
 use serde_json;
 
 use crate::connection::SocketType;
+use crate::graph_manager::GraphIndex;
 use crate::node::NodeIndex;
 
 #[derive(Error, Debug)]
 pub enum NodeError {
+    #[error("Graph does not exist at index `{0}`")]
+    GraphDoesNotExist(GraphIndex),
+    #[error("Graph has more than one parent, cannot remove")]
+    GraphHasOtherParents,
     #[error("Connection between {0} and {1} already exists")]
     AlreadyConnected(SocketType, SocketType),
     #[error("Input socket already occupied (Input {0})")]

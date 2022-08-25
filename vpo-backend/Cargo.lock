@@ -636,6 +636,7 @@ dependencies = [
 name = "node-engine"
 version = "0.1.0"
 dependencies = [
+ "async-std",
  "enum_dispatch",
  "lazy_static",
  "petgraph",

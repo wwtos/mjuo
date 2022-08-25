@@ -6,6 +6,7 @@ pub mod node_graph;
 pub mod nodes;
 pub mod property;
 pub mod socket_registry;
+pub mod state;
 pub mod traversal;
 
 #[cfg(test)]

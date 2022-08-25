@@ -57,7 +57,7 @@ pub fn route(
             let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
             let new_node = graph.get_node_mut(&index).unwrap();
 
-            // get a list of the input and output nodes in the subgraph
+            // get a list of the input and output nodes in the child graph
             let (input_sockets, output_sockets) = {
                 let inner_sockets = new_node.get_inner_graph_socket_list(socket_registry);
 
