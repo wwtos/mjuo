@@ -9,6 +9,8 @@ use crate::node::NodeIndex;
 
 #[derive(Error, Debug)]
 pub enum NodeError {
+    #[error("The field `{0}` was missing during an action rollback")]
+    ActionRollbackFieldMissing(String),
     #[error("Graph does not exist at index `{0}`")]
     GraphDoesNotExist(GraphIndex),
     #[error("Graph has more than one parent, cannot remove")]

@@ -478,6 +478,10 @@ impl NodeWrapper {
         self.node.init_graph(graph, input_node.clone(), output_node.clone());
     }
 
+    pub fn get_node_type(&self) -> String {
+        variant_to_name(&self.node)
+    }
+
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {
         self.index = index;
     }
