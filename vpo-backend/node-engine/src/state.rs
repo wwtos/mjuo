@@ -30,17 +30,17 @@ pub enum Action {
     },
     ChangeNodeProperties {
         index: GlobalNodeIndex,
-        before: HashMap<String, Property>,
+        before: Option<HashMap<String, Property>>,
         after: HashMap<String, Property>,
     },
     ChangeNodeUiData {
         index: GlobalNodeIndex,
-        before: HashMap<String, Value>,
+        before: Option<HashMap<String, Value>>,
         after: HashMap<String, Value>,
     },
     ChangeNodeOverrides {
         index: GlobalNodeIndex,
-        before: Vec<NodeRow>,
+        before: Option<Vec<NodeRow>>,
         after: Vec<NodeRow>,
     },
     AddConnection {
@@ -72,32 +72,80 @@ impl StateManager {
         (&mut self.socket_registry, &mut self.scripting_engine)
     }
 
-    pub fn apply_action(&mut self, action: &Action) -> Result<Action, NodeError> {
+    fn apply_action(&mut self, action: Action) -> Result<Action, NodeError> {
         match action {
             Action::CreateNode {
                 node_type,
                 graph_index,
                 node_index,
                 child_graph_index: inner_graph_index,
-            } => self.graph_manager.create_node_unchecked(
+            } => self.graph_manager.create_node_at_index(
                 &node_type,
-                *graph_index,
-                *node_index,
-                *inner_graph_index,
+                graph_index,
+                node_index,
+                inner_graph_index,
                 &self.sound_config,
                 &mut self.socket_registry,
                 &self.scripting_engine,
             ),
-            Action::RemoveNode { index, .. } => self.graph_manager.remove_node(index),
-            Action::ChangeNodeProperties { index, before, after } => todo!(),
-            Action::ChangeNodeUiData { index, before, after } => todo!(),
-            Action::ChangeNodeOverrides { index, before, after } => todo!(),
+            Action::RemoveNode { index, .. } => self.graph_manager.remove_node(&index),
+            Action::ChangeNodeProperties { index, before: _, after } => {
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                let before = node.replace_properties(after.clone());
+
+                Ok(Action::ChangeNodeProperties {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            }
+            Action::ChangeNodeUiData { index, before: _, after } => {
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                let before = node.replace_ui_data(after.clone());
+
+                Ok(Action::ChangeNodeUiData {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            },
+            Action::ChangeNodeOverrides { index, before: _, after } => {
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                let before = node.replace_default_overrides(after.clone());
+
+                Ok(Action::ChangeNodeOverrides {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            },
             Action::AddConnection { connection } => todo!(),
             Action::RemoveConnection { connection } => todo!(),
         }
     }
 
-    pub fn rollback_action(&mut self, action: &Action) -> Result<Action, NodeError> {
+    fn rollback_action(&mut self, action: Action) -> Result<Action, NodeError> {
         match action {
             Action::CreateNode {
                 node_type,
@@ -105,11 +153,11 @@ impl StateManager {
                 node_index,
                 child_graph_index: inner_graph_index,
             } => {
-                let node_index = node_index.expect("node_index never initialized when action was first done!");
+                let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing("node_index".to_string()))?;
 
                 self.graph_manager
                     .remove_node(&GlobalNodeIndex {
-                        graph_index: *graph_index,
+                        graph_index: graph_index,
                         node_index: node_index.clone(),
                     })
                     .map(|_| Action::CreateNode {
@@ -127,21 +175,15 @@ impl StateManager {
                 serialized,
             } => {
                 // unwrap all the Option fields (should be present for a rollback)
-                let node_type = node_type
-                    .as_ref()
-                    .ok_or(NodeError::ActionRollbackFieldMissing("node_type".to_string()))?;
-                let connections = connections
-                    .as_ref()
-                    .ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
-                let serialized = serialized
-                    .as_ref()
-                    .ok_or(NodeError::ActionRollbackFieldMissing("serialized".to_string()))?;
+                let node_type = node_type.ok_or(NodeError::ActionRollbackFieldMissing("node_type".to_string()))?;
+                let connections = connections.ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
+                let serialized = serialized.ok_or(NodeError::ActionRollbackFieldMissing("serialized".to_string()))?;
 
-                self.graph_manager.create_node_unchecked(
+                self.graph_manager.create_node_at_index(
                     &node_type,
                     index.graph_index,
                     Some(index.node_index),
-                    *child_graph_index,
+                    child_graph_index,
                     &self.sound_config,
                     &mut self.socket_registry,
                     &self.scripting_engine,
@@ -153,7 +195,7 @@ impl StateManager {
                     .get_graph_wrapper_mut(index.graph_index)
                     .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
 
-                for connection in connections {
+                for connection in connections.iter() {
                     graph.graph.connect(
                         &connection.from_node,
                         &connection.from_socket_type,
@@ -168,16 +210,79 @@ impl StateManager {
 
                 node.apply_json(&serialized)?;
 
-                // finally, reinit it
+                // finally, reinit the node
                 graph
                     .graph
                     .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
 
-                Ok(action.clone())
+                Ok(Action::RemoveNode {
+                    node_type: Some(node_type),
+                    index,
+                    child_graph_index,
+                    connections: Some(connections),
+                    serialized: Some(serialized),
+                })
             }
-            Action::ChangeNodeProperties { index, before, after } => todo!(),
-            Action::ChangeNodeUiData { index, before, after } => todo!(),
-            Action::ChangeNodeOverrides { index, before, after } => todo!(),
+            Action::ChangeNodeProperties { index, before, after } => {
+                let before = before
+                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                node.set_properties(before.clone());
+
+                Ok(Action::ChangeNodeProperties {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            },
+            Action::ChangeNodeUiData { index, before, after } => {
+                let before = before
+                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                node.set_ui_data(before.clone());
+
+                Ok(Action::ChangeNodeUiData {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            },
+            Action::ChangeNodeOverrides { index, before, after } => {
+                let before = before
+                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+
+                let mut graph = self
+                    .graph_manager
+                    .get_graph_wrapper_mut(index.graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+
+                let node = graph.graph.get_node_mut(&index.node_index);
+                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+
+                node.set_default_overrides(before.clone());
+
+                Ok(Action::ChangeNodeOverrides {
+                    index: index,
+                    before: Some(before),
+                    after: after,
+                })
+            },
             Action::AddConnection { connection } => todo!(),
             Action::RemoveConnection { connection } => todo!(),
         }

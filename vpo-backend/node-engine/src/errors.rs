@@ -23,6 +23,8 @@ pub enum NodeError {
     NotConnected,
     #[error("Node does not exist in graph (index `{0}`)")]
     NodeDoesNotExist(NodeIndex),
+    #[error("Node already exists at index `{0}`")]
+    NodeAlreadyExists(NodeIndex),
     #[error("Mismatched node index: currently {0}, got {1}")]
     MismatchedNodeIndex(NodeIndex, NodeIndex),
     #[error("Node index `{0}` out of bounds")]

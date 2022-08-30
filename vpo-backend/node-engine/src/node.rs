@@ -280,12 +280,28 @@ impl NodeWrapper {
         self.properties = properties;
     }
 
+    pub fn replace_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
+        std::mem::replace(&mut self.properties, properties)
+    }
+
     pub fn get_ui_data(&self) -> &HashMap<String, Value> {
         &self.ui_data
     }
 
     pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) {
         self.ui_data = ui_data;
+    }
+
+    pub fn replace_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
+        std::mem::replace(&mut self.ui_data, ui_data)
+    }
+
+    pub fn set_default_overrides(&mut self, default_overrides: Vec<NodeRow>) {
+        self.default_overrides = default_overrides;
+    }
+
+    pub fn replace_default_overrides(&mut self, default_overrides: Vec<NodeRow>) -> Vec<NodeRow> {
+        std::mem::replace(&mut self.default_overrides, default_overrides)
     }
 
     pub fn set_ui_data_property(&mut self, key: String, value: Value) {

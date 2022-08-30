@@ -160,7 +160,7 @@ impl GraphManager {
 }
 
 impl GraphManager {
-    pub fn create_node_unchecked(
+    pub fn create_node_at_index(
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
@@ -175,6 +175,10 @@ impl GraphManager {
 
             // if it's a redo, it has a specific index it needs to be at
             if let Some(node_index) = node_index {
+                if let Some(_) = graph.get_node(&node_index) {
+                    return Err(NodeError::NodeAlreadyExists(node_index));
+                }
+
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
                 let new_node_wrapper = create_new_node(new_node, node_index.generation, registry, engine);

@@ -10,7 +10,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
 use node_engine::node_graph::PossibleNode;
 
-use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper};
+use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper, GlobalNodeIndex};
 use node_engine::node::NodeIndex;
 use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
@@ -84,7 +84,7 @@ fn handle_msg(
             if current_graph_index != &0 {
                 let parent_nodes = graph_manager.get_subgraph_parent_nodes(*current_graph_index);
 
-                for (parent_node_graph, parent_node_index) in parent_nodes {
+                for GlobalNodeIndex { graph_index: parent_node_graph, node_index: parent_node_index } in parent_nodes {
                     let parent_node_graph = &mut graph_manager.get_graph_wrapper_mut(parent_node_graph).unwrap().graph;
                     let subgraph = &mut graph_manager.get_graph_wrapper_mut(*current_graph_index).unwrap().graph;
 
