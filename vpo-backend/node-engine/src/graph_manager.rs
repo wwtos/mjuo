@@ -320,10 +320,7 @@ impl GraphManager {
         // now that we've ensured that the graph is disconnected, we can safely delete the node
         // but first, we need to make a list of its current connections (for undo)
         let mut graph = self.get_graph_wrapper_mut(*graph_index).unwrap();
-        let node = graph
-            .graph
-            .get_node(node_index)
-            .ok_or(NodeError::NodeDoesNotExist(*node_index))?;
+        let node = graph.graph.get_node(node_index).expect("Node already checked");
 
         // get everything useful from the node before deleting it
         let node_type = node.get_node_type();

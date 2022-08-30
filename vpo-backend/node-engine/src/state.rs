@@ -44,19 +44,23 @@ pub enum Action {
         after: Vec<NodeRow>,
     },
     AddConnection {
+        graph_index: GraphIndex,
         connection: Connection,
     },
     RemoveConnection {
+        graph_index: GraphIndex,
         connection: Connection,
     },
 }
 
+#[derive(Clone)]
 pub struct ActionBundle {
     actions: Vec<Action>,
 }
 
 pub struct StateManager {
     history: Vec<ActionBundle>,
+    place_in_history: usize,
     graph_manager: GraphManager,
     sound_config: SoundConfig,
     socket_registry: SocketRegistry,
@@ -64,12 +68,74 @@ pub struct StateManager {
 }
 
 impl StateManager {
+    pub fn new(sound_config: SoundConfig) -> StateManager {
+        StateManager {
+            history: vec![],
+            place_in_history: 0,
+            graph_manager: GraphManager::new(),
+            sound_config,
+            socket_registry: SocketRegistry::new(),
+            scripting_engine: Engine::new(),
+        }
+    }
+
     pub fn get_sound_config(&self) -> &SoundConfig {
         &self.sound_config
     }
 
     pub fn get_registry_and_engine(&mut self) -> (&mut SocketRegistry, &mut Engine) {
         (&mut self.socket_registry, &mut self.scripting_engine)
+    }
+
+    pub fn commit(&mut self, actions: ActionBundle) -> Result<(), NodeError> {
+        let new_actions = actions
+            .actions
+            .into_iter()
+            .map(|action| self.apply_action(action))
+            .collect::<Result<Vec<Action>, NodeError>>()?;
+
+        if self.place_in_history < self.history.len() {
+            self.history.truncate(self.place_in_history);
+        }
+
+        self.history.push(ActionBundle { actions: new_actions });
+
+        self.place_in_history += 1;
+
+        Ok(())
+    }
+
+    pub fn undo(&mut self) -> Result<bool, NodeError> {
+        if self.place_in_history > 0 {
+            let to_rollback = self.history[self.place_in_history].clone();
+
+            // roll back in reverse order
+            for action in to_rollback.actions.into_iter().rev() {
+                self.rollback_action(action)?;
+            }
+
+            self.place_in_history -= 1;
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn redo(&mut self) -> Result<bool, NodeError> {
+        if self.place_in_history < self.history.len() {
+            let to_redo = self.history[self.place_in_history].clone();
+
+            for action in to_redo.actions.into_iter() {
+                self.apply_action(action)?;
+            }
+
+            self.place_in_history += 1;
+
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     fn apply_action(&mut self, action: Action) -> Result<Action, NodeError> {
@@ -89,7 +155,11 @@ impl StateManager {
                 &self.scripting_engine,
             ),
             Action::RemoveNode { index, .. } => self.graph_manager.remove_node(&index),
-            Action::ChangeNodeProperties { index, before: _, after } => {
+            Action::ChangeNodeProperties {
+                index,
+                before: _,
+                after,
+            } => {
                 let mut graph = self
                     .graph_manager
                     .get_graph_wrapper_mut(index.graph_index)
@@ -106,7 +176,11 @@ impl StateManager {
                     after: after,
                 })
             }
-            Action::ChangeNodeUiData { index, before: _, after } => {
+            Action::ChangeNodeUiData {
+                index,
+                before: _,
+                after,
+            } => {
                 let mut graph = self
                     .graph_manager
                     .get_graph_wrapper_mut(index.graph_index)
@@ -122,8 +196,12 @@ impl StateManager {
                     before: Some(before),
                     after: after,
                 })
-            },
-            Action::ChangeNodeOverrides { index, before: _, after } => {
+            }
+            Action::ChangeNodeOverrides {
+                index,
+                before: _,
+                after,
+            } => {
                 let mut graph = self
                     .graph_manager
                     .get_graph_wrapper_mut(index.graph_index)
@@ -139,9 +217,51 @@ impl StateManager {
                     before: Some(before),
                     after: after,
                 })
-            },
-            Action::AddConnection { connection } => todo!(),
-            Action::RemoveConnection { connection } => todo!(),
+            }
+            Action::AddConnection {
+                graph_index,
+                connection,
+            } => {
+                let graph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .graph;
+
+                graph.connect(
+                    &connection.from_node,
+                    &connection.from_socket_type,
+                    &connection.to_node,
+                    &connection.to_socket_type,
+                )?;
+
+                Ok(Action::AddConnection {
+                    graph_index,
+                    connection,
+                })
+            }
+            Action::RemoveConnection {
+                graph_index,
+                connection,
+            } => {
+                let graph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .graph;
+
+                graph.disconnect(
+                    &connection.from_node,
+                    &connection.from_socket_type,
+                    &connection.to_node,
+                    &connection.to_socket_type,
+                )?;
+
+                Ok(Action::RemoveConnection {
+                    graph_index,
+                    connection,
+                })
+            }
         }
     }
 
@@ -176,7 +296,8 @@ impl StateManager {
             } => {
                 // unwrap all the Option fields (should be present for a rollback)
                 let node_type = node_type.ok_or(NodeError::ActionRollbackFieldMissing("node_type".to_string()))?;
-                let connections = connections.ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
+                let connections =
+                    connections.ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
                 let serialized = serialized.ok_or(NodeError::ActionRollbackFieldMissing("serialized".to_string()))?;
 
                 self.graph_manager.create_node_at_index(
@@ -224,8 +345,7 @@ impl StateManager {
                 })
             }
             Action::ChangeNodeProperties { index, before, after } => {
-                let before = before
-                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
 
                 let mut graph = self
                     .graph_manager
@@ -242,10 +362,9 @@ impl StateManager {
                     before: Some(before),
                     after: after,
                 })
-            },
+            }
             Action::ChangeNodeUiData { index, before, after } => {
-                let before = before
-                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
 
                 let mut graph = self
                     .graph_manager
@@ -262,10 +381,9 @@ impl StateManager {
                     before: Some(before),
                     after: after,
                 })
-            },
+            }
             Action::ChangeNodeOverrides { index, before, after } => {
-                let before = before
-                    .ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
 
                 let mut graph = self
                     .graph_manager
@@ -282,9 +400,51 @@ impl StateManager {
                     before: Some(before),
                     after: after,
                 })
-            },
-            Action::AddConnection { connection } => todo!(),
-            Action::RemoveConnection { connection } => todo!(),
+            }
+            Action::AddConnection {
+                graph_index,
+                connection,
+            } => {
+                let graph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .graph;
+
+                graph.disconnect(
+                    &connection.from_node,
+                    &connection.from_socket_type,
+                    &connection.to_node,
+                    &connection.to_socket_type,
+                )?;
+
+                Ok(Action::AddConnection {
+                    graph_index,
+                    connection,
+                })
+            }
+            Action::RemoveConnection {
+                graph_index,
+                connection,
+            } => {
+                let graph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .graph;
+
+                graph.connect(
+                    &connection.from_node,
+                    &connection.from_socket_type,
+                    &connection.to_node,
+                    &connection.to_socket_type,
+                )?;
+
+                Ok(Action::RemoveConnection {
+                    graph_index,
+                    connection,
+                })
+            }
         }
     }
 }
