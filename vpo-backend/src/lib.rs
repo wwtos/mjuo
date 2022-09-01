@@ -5,7 +5,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
     graph_manager::{GraphIndex, GraphManager},
-    socket_registry::SocketRegistry,
+    socket_registry::SocketRegistry, state::StateManager,
 };
 use rhai::Engine;
 use serde_json::Value;
@@ -16,18 +16,14 @@ pub mod util;
 
 #[derive(Default)]
 pub struct RouteReturn {
-    pub should_reindex_graph: bool,
+    pub graph_to_reindex: Option<GraphIndex>,
     pub new_graph_index: Option<GraphIndex>,
 }
 
 pub fn route(
     msg: IPCMessage,
-    current_graph_index: GraphIndex,
-    graph_manager: &mut GraphManager,
     to_server: &Sender<IPCMessage>,
-    sound_config: &SoundConfig,
-    socket_registry: &mut SocketRegistry,
-    scripting_engine: &Engine,
+    state: &mut StateManager
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 
@@ -38,57 +34,33 @@ pub fn route(
             return match action_name.as_str() {
                 "graph/get" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
-                "graph/newNode" => routes::graph::new_node::route(
+                "graph/newNode" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
-                "graph/updateNodes" => routes::graph::update_nodes::route(
+                "graph/updateNodes" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
-                "graph/connectNode" => routes::graph::connect_node::route(
+                "graph/connectNode" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
-                "graph/disconnectNode" => routes::graph::disconnect_node::route(
+                "graph/disconnectNode" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
-                "graph/switchGraph" => routes::graph::switch_graph::route(
+                "graph/switchGraph" => routes::graph::get::route(
                     message,
-                    current_graph_index,
-                    graph_manager,
                     to_server,
-                    sound_config,
-                    socket_registry,
-                    scripting_engine,
+                    state
                 ),
                 _ => Ok(None),
             };

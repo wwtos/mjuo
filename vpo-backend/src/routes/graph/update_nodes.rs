@@ -2,58 +2,76 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
-    graph_manager::{GraphIndex, GraphManager},
+    graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    socket_registry::SocketRegistry,
+    state::{Action, ActionBundle, StateManager},
 };
-use rhai::Engine;
 use serde_json::{Map, Value};
-use sound_engine::SoundConfig;
 
 use crate::{
-    util::{update_graph, update_registry},
+    util::{send_graph_updates, send_registry_updates},
     RouteReturn,
 };
 
 pub fn route(
-    message: Map<String, Value>,
-    current_graph_index: GraphIndex,
-    graph_manager: &mut GraphManager,
+    msg: Map<String, Value>,
     to_server: &Sender<IPCMessage>,
-    _sound_config: &SoundConfig,
-    socket_registry: &mut SocketRegistry,
-    scripting_engine: &Engine,
+    state: &mut StateManager,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let nodes_raw = message.get("payload").unwrap();
+    let nodes_to_update = msg["payload"]["updatedNodes"]
+        .as_array()
+        .ok_or(NodeError::PropertyMissingOrMalformed("updatedNodes".to_string()))?;
 
-    let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
+    let graph_index = msg["payload"]["graphIndex"]
+        .as_u64()
+        .ok_or(NodeError::PropertyMissingOrMalformed("graphIndex".to_string()))?;
 
-    let mut did_any_node_change = false;
+    let actions =
+        nodes_to_update
+            .iter()
+            .try_fold(Vec::new(), |mut actions, node_json| -> Result<Vec<Action>, NodeError> {
+                let index: NodeIndex = serde_json::from_value(node_json["index"].clone())?;
 
-    if let Value::Array(nodes_to_update) = nodes_raw {
-        for node_json in nodes_to_update {
-            let index: NodeIndex = serde_json::from_value(node_json["index"].clone())?;
-
-            let did_apply_json = if let Some(node) = graph.get_node_mut(&index) {
-                node.apply_json(node_json)?;
-
-                true
-            } else {
-                false
-            };
-
-            if did_apply_json {
-                if graph.init_node(&index, socket_registry, &scripting_engine)? {
-                    did_any_node_change = true;
+                if node_json["properties"].is_object() {
+                    actions.push(Action::ChangeNodeProperties {
+                        index: GlobalNodeIndex {
+                            node_index: index,
+                            graph_index: graph_index,
+                        },
+                        before: None,
+                        after: serde_json::from_value(node_json["properties"].clone())?,
+                    })
                 }
-            }
-        }
-    }
 
-    if did_any_node_change {
-        update_graph(graph, current_graph_index, to_server);
-        update_registry(socket_registry, to_server).unwrap();
-    }
+                if node_json["ui_data"].is_object() {
+                    actions.push(Action::ChangeNodeUiData {
+                        index: GlobalNodeIndex {
+                            node_index: index,
+                            graph_index: graph_index,
+                        },
+                        before: None,
+                        after: serde_json::from_value(node_json["ui_data"].clone())?,
+                    })
+                }
+
+                if node_json["default_overrides"].is_array() {
+                    actions.push(Action::ChangeNodeOverrides {
+                        index: GlobalNodeIndex {
+                            node_index: index,
+                            graph_index: graph_index,
+                        },
+                        before: None,
+                        after: serde_json::from_value(node_json["properties"].clone())?,
+                    })
+                }
+
+                Ok(actions)
+            })?;
+
+    state.commit(ActionBundle { actions })?;
+
+    send_graph_updates(state, graph_index, to_server);
+    send_registry_updates(state.get_registry(), to_server).unwrap();
 
     Ok(None)
 }

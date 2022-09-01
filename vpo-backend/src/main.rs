@@ -16,6 +16,7 @@ use node_engine::nodes::midi_input::MidiInNode;
 use node_engine::nodes::output::OutputNode;
 use node_engine::nodes::variants::NodeVariant;
 use node_engine::socket_registry::SocketRegistry;
+use node_engine::state::StateManager;
 use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa::AlsaAudioBackend;
@@ -46,21 +47,13 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
 
 fn handle_msg(
     msg: IPCMessage,
-    current_graph_index: &mut GraphIndex,
-    graph_manager: &mut GraphManager,
     to_server: &Sender<IPCMessage>,
-    sound_config: &SoundConfig,
-    socket_registry: &mut SocketRegistry,
-    scripting_engine: &Engine,
+    state: &mut StateManager
 ) {
     let result = route(
         msg,
-        *current_graph_index,
-        graph_manager,
         to_server,
-        sound_config,
-        socket_registry,
-        scripting_engine,
+        state
     );
 
     match result {
@@ -70,12 +63,8 @@ fn handle_msg(
                 None => RouteReturn::default(),
             };
 
-            if let Some(new_graph_index) = route_result.new_graph_index {
-                *current_graph_index = new_graph_index;
-            }
-
-            if route_result.should_reindex_graph {
-                graph_manager.recalculate_traversal_for_graph(*current_graph_index);
+            if let Some(to_reindex) = route_result.graph_to_reindex {
+                graph_manager.recalculate_traversal_for_graph(*to_reindex);
             }
 
             // TODO: also naive
@@ -167,38 +156,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut output_file = std::fs::File::create("audio.raw").unwrap();
 
-    let mut socket_registry = SocketRegistry::new();
-    SocketType::register_defaults(&mut socket_registry);
-
-    let scripting_engine = Engine::new_raw();
-
-    let mut graph_manager = GraphManager::new();
-    let root_graph_index = graph_manager.new_graph();
-    let mut current_graph_index = root_graph_index;
-
-    let (output_node, midi_in_node) = {
-        let graph = &mut graph_manager.get_graph_wrapper_mut(current_graph_index).unwrap().graph;
-
-        let output_node = graph.add_node(
-            NodeVariant::OutputNode(OutputNode::default()),
-            &mut socket_registry,
-            &scripting_engine,
-        );
-        let midi_in_node = graph.add_node(
-            NodeVariant::MidiInNode(MidiInNode::default()),
-            &mut socket_registry,
-            &scripting_engine,
-        );
-
-        (output_node, midi_in_node)
-    };
-    graph_manager.recalculate_traversal_for_graph(current_graph_index);
-
-    let backend = connect_backend()?;
-
     let sound_config = SoundConfig {
         sample_rate: SAMPLE_RATE,
     };
+
+    let mut state = StateManager::new(sound_config);
+
+    let backend = connect_backend()?;
 
     let mut midi_backend = connect_midi_backend()?;
     let mut parser = MidiParser::new();
@@ -212,15 +176,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(
-                msg,
-                &mut current_graph_index,
-                &mut graph_manager,
-                &to_server,
-                &sound_config,
-                &mut socket_registry,
-                &scripting_engine,
-            );
+            handle_msg(msg, &to_server, &mut state);
+
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
         }
