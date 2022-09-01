@@ -37,8 +37,8 @@ pub enum NodeError {
     JsonParserError(#[from] serde_json::error::Error),
     #[error("Node type does not exist")]
     NodeTypeDoesNotExist,
-    #[error("Property `{0}` missing!")]
-    PropertyMissing(String),
+    #[error("Property `{0}` missing or malformed")]
+    PropertyMissingOrMalformed(String),
     #[error("Socket by the name of `{0}` registered under different type")]
     RegistryCollision(String),
     #[error("Rhai parser error: {0}")]
