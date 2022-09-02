@@ -70,6 +70,12 @@ export class NodeGraph {
 
         for (let i = 0; i < json.nodes.length; i++) {
             let node: any = json.nodes[i];
+
+            if (node === null) {
+                this.nodes[i] = undefined;
+                continue;
+            }
+
             const index = new NodeIndex(node.index.index, node.index.generation);
 
             // does this node already exist?
