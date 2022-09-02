@@ -405,6 +405,12 @@ impl StateManager {
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
+                if let Some(ref mut to_update) = action_result.defaults_to_update {
+                    to_update.push(index.clone())
+                } else {
+                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                }
+
                 Ok(Action::ChangeNodeUiData {
                     index: index,
                     before: Some(before),
@@ -619,6 +625,12 @@ impl StateManager {
                 node.set_ui_data(before.clone());
 
                 action_result.graph_operated_on = Some(index.graph_index);
+
+                if let Some(ref mut to_update) = action_result.defaults_to_update {
+                    to_update.push(index.clone())
+                } else {
+                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                }
 
                 Ok(Action::ChangeNodeUiData {
                     index: index,
