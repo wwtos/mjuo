@@ -119,13 +119,15 @@ impl GraphManager {
         self.node_graphs.get(&index).map(|x| (*x).borrow_mut())
     }
 
-    pub fn recalculate_traversal_for_graph(&self, index: GraphIndex) {
-        let graph_wrapper = self.get_graph_wrapper_mut(index);
+    pub fn recalculate_traversal_for_graph(&self, index: &GraphIndex) -> Result<(), NodeError> {
+        let mut graph_wrapper = self
+            .get_graph_wrapper_mut(*index)
+            .ok_or(NodeError::GraphDoesNotExist(*index))?;
 
         // set the new traverser
-        if let Some(mut graph_wrapper) = graph_wrapper {
-            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
-        }
+        graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
+
+        Ok(())
     }
 
     pub fn update_traversal_defaults(&self, index: GraphIndex, nodes_to_update: Vec<NodeIndex>) {
@@ -191,7 +193,6 @@ impl GraphManager {
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
                 let new_node_index = graph.add_node(new_node, registry, engine);
-                let new_node_wrapper = graph.get_node(&new_node_index).unwrap();
 
                 new_node_index
             }

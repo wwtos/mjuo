@@ -2,14 +2,9 @@ use std::{error::Error, io::Write};
 
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{
-    errors::NodeError,
-    graph_manager::{GraphIndex, GraphManager},
-    socket_registry::SocketRegistry, state::StateManager,
-};
-use rhai::Engine;
+use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::StateManager};
 use serde_json::Value;
-use sound_engine::{constants::BUFFER_SIZE, SoundConfig};
+use sound_engine::constants::BUFFER_SIZE;
 
 pub mod routes;
 pub mod util;
@@ -17,13 +12,13 @@ pub mod util;
 #[derive(Default)]
 pub struct RouteReturn {
     pub graph_to_reindex: Option<GraphIndex>,
-    pub new_graph_index: Option<GraphIndex>,
+    pub graph_operated_on: Option<GraphIndex>,
 }
 
 pub fn route(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager
+    state: &mut StateManager,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 
@@ -32,36 +27,12 @@ pub fn route(
 
         if let Some(Value::String(action_name)) = action {
             return match action_name.as_str() {
-                "graph/get" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
-                "graph/newNode" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
-                "graph/updateNodes" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
-                "graph/connectNode" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
-                "graph/disconnectNode" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
-                "graph/switchGraph" => routes::graph::get::route(
-                    message,
-                    to_server,
-                    state
-                ),
+                "graph/get" => routes::graph::get::route(message, to_server, state),
+                "graph/newNode" => routes::graph::get::route(message, to_server, state),
+                "graph/updateNodes" => routes::graph::get::route(message, to_server, state),
+                "graph/connectNode" => routes::graph::get::route(message, to_server, state),
+                "graph/disconnectNode" => routes::graph::get::route(message, to_server, state),
+                "graph/switchGraph" => routes::graph::get::route(message, to_server, state),
                 _ => Ok(None),
             };
         }

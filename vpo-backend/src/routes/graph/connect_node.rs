@@ -2,7 +2,7 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
-    state::{StateManager, ActionBundle, Action},
+    state::{Action, ActionBundle, StateManager},
 };
 use serde_json::{Map, Value};
 
@@ -17,19 +17,15 @@ pub fn route(
         .as_u64()
         .ok_or(NodeError::PropertyMissingOrMalformed("graphIndex".to_string()))?;
 
-    state.commit(ActionBundle {
-        actions: vec![
-            Action::AddConnection {
-                graph_index: graph_index,
-                connection: serde_json::from_value(msg["payload"].clone())?
-            },
-        ]
-    })?;
+    state.commit(ActionBundle::new(vec![Action::AddConnection {
+        graph_index: graph_index,
+        connection: serde_json::from_value(msg["payload"].clone())?,
+    }]))?;
 
-    send_graph_updates(state, graph_index, to_server);
+    send_graph_updates(state, graph_index, to_server)?;
 
     Ok(Some(RouteReturn {
         graph_to_reindex: Some(graph_index),
-        new_graph_index: None,
+        graph_operated_on: Some(graph_index),
     }))
 }

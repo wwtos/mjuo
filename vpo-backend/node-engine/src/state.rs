@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use serde_json::Value;
-use sound_engine::SoundConfig;
+use sound_engine::{midi::messages::MidiData, SoundConfig};
 
 use crate::{
-    connection::{Connection, SocketType},
+    connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
     errors::NodeError,
-    graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager},
+    graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, NodeGraphWrapper},
     node::{NodeIndex, NodeRow},
     nodes::{midi_input::MidiInNode, output::OutputNode, variants::NodeVariant},
     property::Property,
@@ -59,6 +59,12 @@ pub struct ActionBundle {
     actions: Vec<Action>,
 }
 
+impl ActionBundle {
+    pub fn new(actions: Vec<Action>) -> ActionBundle {
+        ActionBundle { actions: actions }
+    }
+}
+
 pub struct StateManager {
     history: Vec<ActionBundle>,
     place_in_history: usize,
@@ -100,7 +106,9 @@ impl StateManager {
             (output_node, midi_in_node)
         };
 
-        graph_manager.recalculate_traversal_for_graph(root_graph_index);
+        graph_manager
+            .recalculate_traversal_for_graph(&root_graph_index)
+            .unwrap();
 
         StateManager {
             history,
@@ -129,6 +137,67 @@ impl StateManager {
 
     pub fn get_registry_and_engine(&mut self) -> (&mut SocketRegistry, &mut Engine) {
         (&mut self.socket_registry, &mut self.scripting_engine)
+    }
+
+    pub fn index_graph(&mut self, graph_index: &GraphIndex) -> Result<(), NodeError> {
+        self.graph_manager.recalculate_traversal_for_graph(graph_index)
+    }
+
+    pub fn notify_parents_of_graph_change(&mut self, graph_index: &GraphIndex) -> Result<(), NodeError> {
+        if graph_index != &0 {
+            let parent_nodes = self.graph_manager.get_subgraph_parent_nodes(*graph_index);
+
+            for GlobalNodeIndex {
+                graph_index: parent_node_graph,
+                node_index: parent_node_index,
+            } in parent_nodes
+            {
+                let parent_node_graph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(parent_node_graph)
+                    .ok_or(NodeError::GraphDoesNotExist(*graph_index))?
+                    .graph;
+                let subgraph = &mut self
+                    .graph_manager
+                    .get_graph_wrapper_mut(*graph_index)
+                    .ok_or(NodeError::GraphDoesNotExist(*graph_index))?
+                    .graph;
+
+                let node = parent_node_graph
+                    .get_node_mut(&parent_node_index)
+                    .ok_or(NodeError::NodeDoesNotExist(parent_node_index))?;
+                node.node_init_graph(subgraph);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn step(&mut self, current_time: i64, is_first_time: bool, midi_in: Vec<MidiData>) -> f32 {
+        let NodeGraphWrapper {
+            ref mut graph,
+            ref traverser,
+            ..
+        } = &mut *self.graph_manager.get_graph_wrapper_mut(self.root_graph_index).unwrap();
+
+        if !midi_in.is_empty() {
+            let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
+            midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
+        } else if is_first_time {
+            let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
+            midi_in_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
+        }
+
+        let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine);
+
+        if let Err(errors) = traversal_errors {
+            println!("{:?}", errors);
+        }
+
+        let output_node = graph.get_node_mut(&self.output_node).unwrap();
+        let audio = output_node.get_stream_output(&StreamSocketType::Audio);
+
+        audio
     }
 }
 

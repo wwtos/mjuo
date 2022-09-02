@@ -7,21 +7,13 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::connection::{MidiSocketType, SocketType, StreamSocketType};
 use node_engine::node_graph::PossibleNode;
 
-use node_engine::graph_manager::{GraphIndex, GraphManager, NodeGraphWrapper, GlobalNodeIndex};
 use node_engine::node::NodeIndex;
-use node_engine::nodes::midi_input::MidiInNode;
-use node_engine::nodes::output::OutputNode;
-use node_engine::nodes::variants::NodeVariant;
-use node_engine::socket_registry::SocketRegistry;
 use node_engine::state::StateManager;
-use rhai::Engine;
 use serde_json::json;
 use sound_engine::backend::alsa::AlsaAudioBackend;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
-use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
@@ -30,7 +22,7 @@ use sound_engine::SoundConfig;
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
-use vpo_backend::{route, write_to_file, RouteReturn};
+use vpo_backend::{route, RouteReturn};
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
@@ -45,16 +37,8 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn handle_msg(
-    msg: IPCMessage,
-    to_server: &Sender<IPCMessage>,
-    state: &mut StateManager
-) {
-    let result = route(
-        msg,
-        to_server,
-        state
-    );
+fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut StateManager) {
+    let result = route(msg, to_server, state);
 
     match result {
         Ok(route_result) => {
@@ -64,46 +48,44 @@ fn handle_msg(
             };
 
             if let Some(to_reindex) = route_result.graph_to_reindex {
-                graph_manager.recalculate_traversal_for_graph(*to_reindex);
+                state.index_graph(&to_reindex).unwrap();
             }
 
-            // TODO: also naive
-            // checks if this is a subgraph (aka not root graph), and if it is, notify
-            // the parent node that it was changed
-            if current_graph_index != &0 {
-                let parent_nodes = graph_manager.get_subgraph_parent_nodes(*current_graph_index);
+            if let Some(graph_index) = route_result.graph_operated_on {
+                // TODO: also naive
+                // checks if this is a subgraph (aka not root graph), and if it is, notify
+                // the parent node that it was changed
+                state.notify_parents_of_graph_change(&graph_index).unwrap();
 
-                for GlobalNodeIndex { graph_index: parent_node_graph, node_index: parent_node_index } in parent_nodes {
-                    let parent_node_graph = &mut graph_manager.get_graph_wrapper_mut(parent_node_graph).unwrap().graph;
-                    let subgraph = &mut graph_manager.get_graph_wrapper_mut(*current_graph_index).unwrap().graph;
+                let nodes_to_update = {
+                    let graph = &state
+                        .get_graph_manager()
+                        .get_graph_wrapper_ref(graph_index)
+                        .unwrap()
+                        .graph;
 
-                    let node = parent_node_graph.get_node_mut(&parent_node_index).unwrap();
-                    node.node_init_graph(subgraph);
-                }
+                    // TODO: this is naive, keep track of what nodes need their defaults updated
+                    graph
+                        .get_nodes()
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, node)| {
+                            if let PossibleNode::Some(_, generation) = node {
+                                Some(NodeIndex {
+                                    index: i,
+                                    generation: *generation,
+                                })
+                            } else {
+                                None
+                            }
+                        })
+                        .collect::<Vec<NodeIndex>>()
+                };
+
+                state
+                    .get_graph_manager()
+                    .update_traversal_defaults(graph_index, nodes_to_update);
             }
-
-            let nodes_to_update = {
-                let graph = &graph_manager.get_graph_wrapper_ref(*current_graph_index).unwrap().graph;
-
-                // TODO: this is naive, keep track of what nodes need their defaults updated
-                graph
-                    .get_nodes()
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, node)| {
-                        if let PossibleNode::Some(_, generation) = node {
-                            Some(NodeIndex {
-                                index: i,
-                                generation: *generation,
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<NodeIndex>>()
-            };
-
-            graph_manager.update_traversal_defaults(*current_graph_index, nodes_to_update);
         }
         Err(err) => {
             let err_str = err.to_string();
@@ -154,7 +136,7 @@ fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiPars
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
 
-    let mut output_file = std::fs::File::create("audio.raw").unwrap();
+    // let mut output_file = std::fs::File::create("audio.raw").unwrap();
 
     let sound_config = SoundConfig {
         sample_rate: SAMPLE_RATE,
@@ -182,47 +164,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             is_first_time = true;
         }
 
-        // we can get the graph now, it won't be controlled by the message handler anymore
-        let NodeGraphWrapper { graph, traverser, .. } =
-            &mut *graph_manager.get_graph_wrapper_mut(root_graph_index).unwrap();
-
-        let mut has_midi_been_inputted = false;
         let midi = get_midi(&mut midi_backend, &mut parser);
-
-        if !midi.is_empty() {
-            let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
-
-            midi_node.accept_midi_input(&MidiSocketType::Default, midi.clone());
-        } else {
-            let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
-
-            midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
-        }
 
         let mut buffer = [0_f32; BUFFER_SIZE];
 
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
-            let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &scripting_engine);
 
-            if let Err(errors) = traversal_errors {
-                println!("{:?}", errors);
-            }
+            let midi_to_input = if is_first_time { midi.clone() } else { Vec::new() };
 
-            let output_node = graph.get_node_mut(&output_node).unwrap();
-
-            let audio = output_node.get_stream_output(&StreamSocketType::Audio);
-
-            *sample = audio;
-
-            if !has_midi_been_inputted {
-                let midi_node = graph.get_node_mut(&midi_in_node).unwrap();
-
-                midi_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
-            }
+            *sample = state.step(current_time, is_first_time, midi_to_input);
 
             is_first_time = false;
-            has_midi_been_inputted = true;
         }
 
         backend.write(&buffer)?;

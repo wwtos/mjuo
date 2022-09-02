@@ -4,7 +4,7 @@ use node_engine::{errors::NodeError, graph_manager::GraphIndex, socket_registry:
 use serde_json::json;
 
 pub fn send_graph_updates(
-    state: &StateManager,
+    state: &mut StateManager,
     graph_index: GraphIndex,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), NodeError> {

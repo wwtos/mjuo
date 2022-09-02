@@ -68,10 +68,10 @@ pub fn route(
                 Ok(actions)
             })?;
 
-    state.commit(ActionBundle { actions })?;
+    state.commit(ActionBundle::new(actions))?;
 
-    send_graph_updates(state, graph_index, to_server);
-    send_registry_updates(state.get_registry(), to_server).unwrap();
+    send_graph_updates(state, graph_index, to_server)?;
+    send_registry_updates(state.get_registry(), to_server)?;
 
     Ok(None)
 }
