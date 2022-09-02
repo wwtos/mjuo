@@ -52,7 +52,7 @@ impl IPCServer {
 
                             match message {
                                 IPCMessage::Json(json) => {
-                                    println!("Sending {}", json);
+                                    // println!("Sending {}", json);
 
                                     let message = build_message_json(json);
 

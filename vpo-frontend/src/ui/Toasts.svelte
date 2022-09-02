@@ -4,7 +4,7 @@
 
     export let ipcSocket: IPCSocket;
 
-    ipcSocket.onMessage(message => {
+    ipcSocket.onMessage(([message]) => {
         if(message.action === "toast/error") {
             toast.push(message.payload, {
                 theme: {

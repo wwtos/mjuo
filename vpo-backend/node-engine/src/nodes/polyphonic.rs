@@ -40,7 +40,7 @@ impl PolyphonicInfo {
 #[derive(Debug, Clone)]
 struct Voice {
     graph: NodeGraph,
-    info: PolyphonicInfo
+    info: PolyphonicInfo,
 }
 
 #[derive(Debug, Clone)]
@@ -91,15 +91,14 @@ impl Node for PolyphonicNode {
         if self.voices.len() > 0 {
             for i in 0..self.polyphony {
                 if i as usize >= self.voices.len() {
-                    self.voices
-                        .push(Voice {
-                            graph: self.voices[0].graph.clone(),
-                            info: PolyphonicInfo::new(self.current_time)
-                        });
+                    self.voices.push(Voice {
+                        graph: self.voices[0].graph.clone(),
+                        info: PolyphonicInfo::new(self.current_time),
+                    });
                 } else {
                     self.voices[i as usize] = Voice {
                         graph: self.voices[0].graph.clone(),
-                        info: PolyphonicInfo::new(self.current_time)
+                        info: PolyphonicInfo::new(self.current_time),
                     };
                 }
             }
@@ -160,11 +159,14 @@ impl Node for PolyphonicNode {
                         // be sure to send a note off message first
                         subgraph_input_node.accept_midi_input(
                             &MidiSocketType::Default,
-                            vec![MidiData::NoteOff {
-                                channel: channel,
-                                note,
-                                velocity: 0,
-                            }, message],
+                            vec![
+                                MidiData::NoteOff {
+                                    channel: channel,
+                                    note,
+                                    velocity: 0,
+                                },
+                                message,
+                            ],
                         );
 
                         already_on.info.active = true;
@@ -180,11 +182,14 @@ impl Node for PolyphonicNode {
                             // TODO: test code here VV
                             subgraph_input_node.accept_midi_input(
                                 &MidiSocketType::Default,
-                                vec![MidiData::NoteOff {
-                                    channel: channel,
-                                    note: available.info.note,
-                                    velocity: 0,
-                                }, message],
+                                vec![
+                                    MidiData::NoteOff {
+                                        channel: channel,
+                                        note: available.info.note,
+                                        velocity: 0,
+                                    },
+                                    message,
+                                ],
                             );
 
                             available.info.active = true;
@@ -203,11 +208,14 @@ impl Node for PolyphonicNode {
                             // be sure to send a note off message first
                             subgraph_input_node.accept_midi_input(
                                 &MidiSocketType::Default,
-                                vec![MidiData::NoteOff {
-                                    channel: channel,
-                                    note: oldest.info.note,
-                                    velocity: 0,
-                                }, message],
+                                vec![
+                                    MidiData::NoteOff {
+                                        channel: channel,
+                                        note: oldest.info.note,
+                                        velocity: 0,
+                                    },
+                                    message,
+                                ],
                             );
 
                             oldest.info.active = true;
@@ -241,15 +249,14 @@ impl Node for PolyphonicNode {
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
         for i in 0..self.polyphony {
             if i as usize >= self.voices.len() {
-                self.voices
-                    .push(Voice {
-                        graph: graph.clone(),
-                        info: PolyphonicInfo::new(self.current_time)
-                    });
+                self.voices.push(Voice {
+                    graph: graph.clone(),
+                    info: PolyphonicInfo::new(self.current_time),
+                });
             } else {
                 self.voices[i as usize] = Voice {
                     graph: graph.clone(),
-                    info: PolyphonicInfo::new(self.current_time)
+                    info: PolyphonicInfo::new(self.current_time),
                 };
             }
         }

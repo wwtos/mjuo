@@ -22,7 +22,7 @@ pub enum PossibleNode {
     None(u32), // last generation that was here
 }
 
-fn create_new_node(
+pub(in crate) fn create_new_node(
     node: NodeVariant,
     generation: u32,
     registry: &mut SocketRegistry,
@@ -464,6 +464,10 @@ impl NodeGraph {
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub(in crate) fn set_node_unchecked(&mut self, index: NodeIndex, node: PossibleNode) {
+        self.nodes[index.index] = node;
     }
 }
 

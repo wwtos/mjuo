@@ -168,8 +168,8 @@ pub struct NodeWrapper {
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
-    inner_graph_index: Option<GraphIndex>,
-    inner_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
+    child_graph_index: Option<GraphIndex>,
+    child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
 }
 
 impl NodeWrapper {
@@ -207,8 +207,8 @@ impl NodeWrapper {
             node_rows: init_result.node_rows,
             properties,
             ui_data: HashMap::new(),
-            inner_graph_index: None,
-            inner_graph_io_indexes: None,
+            child_graph_index: None,
+            child_graph_io_indexes: None,
         };
 
         // insert some initial UI data
@@ -224,7 +224,7 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .any(|row| if let NodeRow::InnerGraph = row { true } else { false })
-            && self.inner_graph_index.is_none()
+            && self.child_graph_index.is_none()
     }
 
     pub fn init_inner_graph(
@@ -249,15 +249,19 @@ impl NodeWrapper {
         let input_index = inner_graph.add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
         let output_index = inner_graph.add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
 
-        self.inner_graph_io_indexes = Some((input_index, output_index));
+        self.child_graph_io_indexes = Some((input_index, output_index));
     }
 
     pub fn set_inner_graph_index(&mut self, index: GraphIndex) {
-        self.inner_graph_index = Some(index);
+        self.child_graph_index = Some(index);
     }
 
     pub fn get_index(&self) -> NodeIndex {
         self.index
+    }
+
+    pub fn get_child_graph_index(&self) -> &Option<GraphIndex> {
+        &self.child_graph_index
     }
 
     pub fn get_property(&self, name: &str) -> Option<Property> {
@@ -276,12 +280,28 @@ impl NodeWrapper {
         self.properties = properties;
     }
 
+    pub fn replace_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
+        std::mem::replace(&mut self.properties, properties)
+    }
+
     pub fn get_ui_data(&self) -> &HashMap<String, Value> {
         &self.ui_data
     }
 
     pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) {
         self.ui_data = ui_data;
+    }
+
+    pub fn replace_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
+        std::mem::replace(&mut self.ui_data, ui_data)
+    }
+
+    pub fn set_default_overrides(&mut self, default_overrides: Vec<NodeRow>) {
+        self.default_overrides = default_overrides;
+    }
+
+    pub fn replace_default_overrides(&mut self, default_overrides: Vec<NodeRow>) -> Vec<NodeRow> {
+        std::mem::replace(&mut self.default_overrides, default_overrides)
     }
 
     pub fn set_ui_data_property(&mut self, key: String, value: Value) {
@@ -407,7 +427,7 @@ impl NodeWrapper {
             "connected_outputs": self.connected_outputs,
             "properties": self.properties,
             "ui_data": self.ui_data,
-            "inner_graph_index": self.inner_graph_index,
+            "inner_graph_index": self.child_graph_index,
         }})
     }
 
@@ -469,9 +489,13 @@ impl NodeWrapper {
     }
 
     pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
-        let (input_node, output_node) = &self.inner_graph_io_indexes.unwrap();
+        let (input_node, output_node) = &self.child_graph_io_indexes.unwrap();
 
         self.node.init_graph(graph, input_node.clone(), output_node.clone());
+    }
+
+    pub fn get_node_type(&self) -> String {
+        variant_to_name(&self.node)
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

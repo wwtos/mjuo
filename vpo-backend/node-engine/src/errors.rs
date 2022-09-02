@@ -4,10 +4,17 @@ use thiserror::Error;
 use serde_json;
 
 use crate::connection::SocketType;
+use crate::graph_manager::GraphIndex;
 use crate::node::NodeIndex;
 
 #[derive(Error, Debug)]
 pub enum NodeError {
+    #[error("The field `{0}` was missing during an action rollback")]
+    ActionRollbackFieldMissing(String),
+    #[error("Graph does not exist at index `{0}`")]
+    GraphDoesNotExist(GraphIndex),
+    #[error("Graph has more than one parent, cannot remove")]
+    GraphHasOtherParents,
     #[error("Connection between {0} and {1} already exists")]
     AlreadyConnected(SocketType, SocketType),
     #[error("Input socket already occupied (Input {0})")]
@@ -16,6 +23,8 @@ pub enum NodeError {
     NotConnected,
     #[error("Node does not exist in graph (index `{0}`)")]
     NodeDoesNotExist(NodeIndex),
+    #[error("Node already exists at index `{0}`")]
+    NodeAlreadyExists(NodeIndex),
     #[error("Mismatched node index: currently {0}, got {1}")]
     MismatchedNodeIndex(NodeIndex, NodeIndex),
     #[error("Node index `{0}` out of bounds")]
@@ -26,10 +35,12 @@ pub enum NodeError {
     IncompatibleSocketTypes(SocketType, SocketType),
     #[error("Json parser error: `{0}`")]
     JsonParserError(#[from] serde_json::error::Error),
+    #[error("Json parser error: `{0}` ({1})")]
+    JsonParserErrorInContext(serde_json::error::Error, String),
     #[error("Node type does not exist")]
     NodeTypeDoesNotExist,
-    #[error("Property `{0}` missing!")]
-    PropertyMissing(String),
+    #[error("Property `{0}` missing or malformed")]
+    PropertyMissingOrMalformed(String),
     #[error("Socket by the name of `{0}` registered under different type")]
     RegistryCollision(String),
     #[error("Rhai parser error: {0}")]

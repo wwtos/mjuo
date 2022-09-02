@@ -1,5 +1,6 @@
 // @ts-ignore
 import Net from 'net';
+import { copyFileSync } from 'original-fs';
 import { makeTaggedUnion, MemberType, none } from 'safety-match';
 
 var RawMessage = makeTaggedUnion({
@@ -13,6 +14,8 @@ const port = 26642;
 const host = '127.0.0.1';
 
 const client = new Net.Socket();
+
+let reconnectLoop: ReturnType<typeof setInterval> | undefined;
 
 enum MessageType {
     PING = 0x00,
@@ -132,7 +135,29 @@ class Client {
         });
         
         client.on('end', function() {
-            console.log('Requested an end to the TCP connection');
+            console.log('Requested an end to the TCP connection, trying to reconnect');
+
+            if (reconnectLoop === undefined) {
+                reconnectLoop = setInterval(() => {
+                    client.end();
+                    client.connect({ port: port, host: host }, function() {
+                        // If there is no error, the server has accepted the request and created a new 
+                        // socket dedicated to us.
+                        console.log('TCP connection established with the server.');
+                        clearInterval(reconnectLoop);
+                        reconnectLoop = undefined;
+                
+                        // The client can now send data to the server by writing to its socket.
+                        let text = new TextEncoder().encode(JSON.stringify({
+                            action: "establishConnection"
+                        }));
+                        
+                        client.write(buildMessage(MessageType.DATA_JSON, text));
+                    });
+                    
+                    process.stdout.write(".");
+                }, 500);
+            }
         });
     }
 
