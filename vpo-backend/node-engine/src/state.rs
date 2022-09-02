@@ -14,7 +14,7 @@ use crate::{
 };
 use rhai::Engine;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Action {
     CreateNode {
         node_type: String,
@@ -254,6 +254,8 @@ impl StateManager {
     }
 
     fn apply_action(&mut self, action: Action) -> Result<Action, NodeError> {
+        println!("Applying action: {:?}", action);
+
         match action {
             Action::CreateNode {
                 node_type,

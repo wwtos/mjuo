@@ -26,11 +26,15 @@ pub fn route(
         .as_u64()
         .ok_or(NodeError::PropertyMissingOrMalformed("graphIndex".to_string()))?;
 
+    println!("{}", msg);
+
     let actions =
         nodes_to_update
             .iter()
             .try_fold(Vec::new(), |mut actions, node_json| -> Result<Vec<Action>, NodeError> {
-                let index: NodeIndex = serde_json::from_value(node_json["index"].clone())?;
+                let index: NodeIndex = serde_json::from_value(node_json["index"].clone()).map_err(|err| {
+                    NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].index".to_string())
+                })?;
 
                 if node_json["properties"].is_object() {
                     actions.push(Action::ChangeNodeProperties {
@@ -39,7 +43,9 @@ pub fn route(
                             graph_index: graph_index,
                         },
                         before: None,
-                        after: serde_json::from_value(node_json["properties"].clone())?,
+                        after: serde_json::from_value(node_json["properties"].clone()).map_err(|err| {
+                            NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].properties".to_string())
+                        })?,
                     })
                 }
 
@@ -50,7 +56,9 @@ pub fn route(
                             graph_index: graph_index,
                         },
                         before: None,
-                        after: serde_json::from_value(node_json["ui_data"].clone())?,
+                        after: serde_json::from_value(node_json["ui_data"].clone()).map_err(|err| {
+                            NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].ui_data".to_string())
+                        })?,
                     })
                 }
 
@@ -61,7 +69,12 @@ pub fn route(
                             graph_index: graph_index,
                         },
                         before: None,
-                        after: serde_json::from_value(node_json["properties"].clone())?,
+                        after: serde_json::from_value(node_json["default_overrides"].clone()).map_err(|err| {
+                            NodeError::JsonParserErrorInContext(
+                                err,
+                                "payload.updatedNodes[x].default_overrides".to_string(),
+                            )
+                        })?,
                     })
                 }
 

@@ -19,7 +19,7 @@ pub fn route(
 
     state.commit(ActionBundle::new(vec![Action::RemoveConnection {
         graph_index: graph_index,
-        connection: serde_json::from_value(msg["payload"].clone())?,
+        connection: serde_json::from_value(msg["payload"]["connection"].clone())?,
     }]))?;
 
     send_graph_updates(state, graph_index, to_server)?;

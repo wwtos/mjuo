@@ -29,10 +29,9 @@
     let nodeTypeToCreate: string;
 
     let zoomer;
+    let currentGraphIndex = 0;
 
-    ipcSocket.send({
-        "action": "graph/get"
-    });
+    ipcSocket.requestGraph(currentGraphIndex);
 
     ipcSocket.onMessage(([message]) => {
         console.log("received", message);
@@ -105,7 +104,7 @@
     function createNode (e: MouseEvent) {
         e.stopPropagation();
 
-        ipcSocket.createNode(nodeTypeToCreate, {
+        ipcSocket.createNode(currentGraphIndex, nodeTypeToCreate, {
             x: 0,
             y: 0
         });
@@ -186,7 +185,7 @@
                     index
                 );
 
-                ipcSocket.disconnectNode(fullConnection);
+                ipcSocket.disconnectNode(currentGraphIndex, fullConnection);
 
                 // add the connection line back for connecting to something else
                 connectionBeingCreatedFrom = {
@@ -250,10 +249,7 @@
             );
         }
 
-        ipcSocket.send(JSON.parse(JSON.stringify({
-            "action": "graph/connectNode",
-            "payload": newConnection
-        })));
+        ipcSocket.connectNode(currentGraphIndex, newConnection);
     }
 
     function connectionToPoints(connection: any): {x1: number, y1: number, x2: number, y2: number} {

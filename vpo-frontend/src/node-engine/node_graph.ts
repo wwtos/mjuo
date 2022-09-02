@@ -197,10 +197,7 @@ export class NodeGraph {
                     }
                 )));
 
-            this.ipcSocket.send({
-                "action": "graph/updateNodes",
-                "payload": nodesToUpdateJson
-            });
+            this.ipcSocket.updateNodes(this.graphIndex, nodesToUpdateJson);
 
             this.changedNodes.length = 0;
         }

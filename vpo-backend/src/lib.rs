@@ -28,11 +28,10 @@ pub fn route(
         if let Value::String(action_name) = action {
             return match action_name.as_str() {
                 "graph/get" => routes::graph::get::route(json, to_server, state),
-                "graph/newNode" => routes::graph::get::route(json, to_server, state),
-                "graph/updateNodes" => routes::graph::get::route(json, to_server, state),
-                "graph/connectNode" => routes::graph::get::route(json, to_server, state),
-                "graph/disconnectNode" => routes::graph::get::route(json, to_server, state),
-                "graph/switchGraph" => routes::graph::get::route(json, to_server, state),
+                "graph/newNode" => routes::graph::new_node::route(json, to_server, state),
+                "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state),
+                "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state),
+                "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state),
                 _ => Ok(None),
             };
         }

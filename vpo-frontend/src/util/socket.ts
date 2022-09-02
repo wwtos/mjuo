@@ -19,36 +19,55 @@ export class IPCSocket {
         });
     }
 
-    createNode (type: string, uiData?: UiData) {
+    createNode (graphIndex: number, type: string, uiData?: UiData) {
         this.send({
             "action": "graph/newNode",
             "payload": {
+                graphIndex,
                 "type": type,
-                "ui_data": uiData
+                "ui_data": uiData,
             }
         });
     }
 
-    updateNodes (nodes: NodeWrapper[]) {
+    updateNodes (graphIndex: number, nodes: NodeWrapper[]) {
         const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
 
         this.send({
             "action": "graph/updateNodes",
-            "payload": nodesToUpdateJson
+            "payload": {
+                graphIndex,
+                "updatedNodes": nodesToUpdateJson,
+            }
         });
     }
 
-    disconnectNode (connection: Connection) {
+    connectNode (graphIndex: number, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
-            "action": "graph/disconnectNode",
-            "payload": connection
+            "action": "graph/connectNode",
+            "payload": {
+                graphIndex,
+                connection
+            }
         })));
     }
 
-    switchToGraph (graphIndex: number) {
+    disconnectNode (graphIndex: number, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
-            "action": "graph/switchGraph",
-            "payload": graphIndex
+            "action": "graph/disconnectNode",
+            "payload": {
+                graphIndex,
+                connection
+            }
+        })));
+    }
+
+    requestGraph (graphIndex: number) {
+        this.send(JSON.parse(JSON.stringify({
+            "action": "graph/get",
+            "payload": {
+                graphIndex
+            }
         })));
     }
 }
