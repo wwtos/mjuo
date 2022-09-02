@@ -70,4 +70,16 @@ export class IPCSocket {
             }
         })));
     }
+
+    undo () {
+        this.send(JSON.parse(JSON.stringify({
+            "action": "graph/undo",
+        })));
+    }
+
+    redo () {
+        this.send(JSON.parse(JSON.stringify({
+            "action": "graph/redo",
+        })));
+    }
 }

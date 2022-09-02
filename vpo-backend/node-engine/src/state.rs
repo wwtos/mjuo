@@ -54,6 +54,12 @@ pub enum Action {
     },
 }
 
+pub struct ActionResult {
+    pub graph_to_reindex: Option<GraphIndex>,
+    pub graph_operated_on: Option<GraphIndex>,
+    pub defaults_to_update: Option<Vec<GlobalNodeIndex>>,
+}
+
 #[derive(Clone)]
 pub struct ActionBundle {
     actions: Vec<Action>,
@@ -202,61 +208,141 @@ impl StateManager {
 }
 
 impl StateManager {
-    pub fn commit(&mut self, actions: ActionBundle) -> Result<(), NodeError> {
-        let new_actions = actions
+    fn handle_action_results(&mut self, action_results: Vec<ActionResult>) -> Vec<GraphIndex> {
+        let mut graphs_to_reindex: Vec<GraphIndex> = Vec::new();
+        let mut graphs_operated_on: Vec<GraphIndex> = Vec::new();
+        let mut defaults_to_update: Vec<GlobalNodeIndex> = Vec::new();
+
+        let mut all_graphs_that_changed: Vec<GraphIndex> = Vec::new();
+
+        for action_result in action_results {
+            if let Some(graph_to_reindex) = action_result.graph_to_reindex {
+                if !graphs_to_reindex.contains(&graph_to_reindex) {
+                    graphs_to_reindex.push(graph_to_reindex)
+                }
+
+                if !all_graphs_that_changed.contains(&graph_to_reindex) {
+                    all_graphs_that_changed.push(graph_to_reindex);
+                }
+            }
+
+            if let Some(graph_operated_on) = action_result.graph_operated_on {
+                if !graphs_operated_on.contains(&graph_operated_on) {
+                    graphs_operated_on.push(graph_operated_on)
+                }
+
+                if !all_graphs_that_changed.contains(&graph_operated_on) {
+                    all_graphs_that_changed.push(graph_operated_on);
+                }
+            }
+
+            if let Some(new_defaults_to_update) = action_result.defaults_to_update {
+                for new_default_to_update in new_defaults_to_update {
+                    if !all_graphs_that_changed.contains(&new_default_to_update.graph_index) {
+                        all_graphs_that_changed.push(new_default_to_update.graph_index);
+                    }
+
+                    if !defaults_to_update.contains(&new_default_to_update) {
+                        defaults_to_update.push(new_default_to_update)
+                    }
+                }
+            }
+        }
+
+        for to_reindex in graphs_to_reindex {
+            self.index_graph(&to_reindex).unwrap();
+        }
+
+        for graph_operated_on in graphs_operated_on {
+            self.notify_parents_of_graph_change(&graph_operated_on).unwrap();
+        }
+
+        for default_to_update in defaults_to_update {
+            self.graph_manager
+                .update_traversal_defaults(default_to_update.graph_index, vec![default_to_update.node_index]);
+        }
+
+        all_graphs_that_changed
+    }
+
+    pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<GraphIndex>, NodeError> {
+        let (new_actions, action_results) = actions
             .actions
             .into_iter()
             .map(|action| self.apply_action(action))
-            .collect::<Result<Vec<Action>, NodeError>>()?;
+            .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
+            .into_iter()
+            .unzip();
 
         if self.place_in_history < self.history.len() {
             self.history.truncate(self.place_in_history);
         }
 
-        self.history.push(ActionBundle { actions: new_actions });
+        let graphs_changed = self.handle_action_results(action_results);
 
+        self.history.push(ActionBundle { actions: new_actions });
         self.place_in_history += 1;
 
-        Ok(())
+        Ok(graphs_changed)
     }
 
-    pub fn undo(&mut self) -> Result<bool, NodeError> {
+    pub fn undo(&mut self) -> Result<Vec<GraphIndex>, NodeError> {
         if self.place_in_history > 0 {
-            let to_rollback = self.history[self.place_in_history].clone();
+            let to_rollback = self.history[self.place_in_history - 1].clone();
 
             // roll back in reverse order
-            for action in to_rollback.actions.into_iter().rev() {
-                self.rollback_action(action)?;
-            }
+            let (_, action_results) = to_rollback
+                .actions
+                .into_iter()
+                .rev()
+                .map(|action| self.rollback_action(action))
+                .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
+                .into_iter()
+                .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
+
+            let graphs_changed = self.handle_action_results(action_results);
 
             self.place_in_history -= 1;
 
-            Ok(true)
+            Ok(graphs_changed)
         } else {
-            Ok(false)
+            Ok(Vec::new())
         }
     }
 
-    pub fn redo(&mut self) -> Result<bool, NodeError> {
+    pub fn redo(&mut self) -> Result<Vec<GraphIndex>, NodeError> {
         if self.place_in_history < self.history.len() {
             let to_redo = self.history[self.place_in_history].clone();
 
-            for action in to_redo.actions.into_iter() {
-                self.apply_action(action)?;
-            }
+            let (_, action_results) = to_redo
+                .actions
+                .into_iter()
+                .rev()
+                .map(|action| self.apply_action(action))
+                .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
+                .into_iter()
+                .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
+
+            let graphs_changed = self.handle_action_results(action_results);
 
             self.place_in_history += 1;
 
-            Ok(true)
+            Ok(graphs_changed)
         } else {
-            Ok(false)
+            Ok(Vec::new())
         }
     }
 
-    fn apply_action(&mut self, action: Action) -> Result<Action, NodeError> {
+    fn apply_action(&mut self, action: Action) -> Result<(Action, ActionResult), NodeError> {
         println!("Applying action: {:?}", action);
 
-        match action {
+        let mut action_result = ActionResult {
+            graph_to_reindex: None,
+            graph_operated_on: None,
+            defaults_to_update: None,
+        };
+
+        let new_action = match action {
             Action::CreateNode {
                 node_type,
                 graph_index,
@@ -271,7 +357,14 @@ impl StateManager {
                 &mut self.socket_registry,
                 &self.scripting_engine,
             ),
-            Action::RemoveNode { index, .. } => self.graph_manager.remove_node(&index),
+            Action::RemoveNode { index, .. } => {
+                let result = self.graph_manager.remove_node(&index)?;
+
+                action_result.graph_operated_on = Some(index.graph_index);
+                action_result.graph_to_reindex = Some(index.graph_index);
+
+                Ok(result)
+            }
             Action::ChangeNodeProperties {
                 index,
                 before: _,
@@ -286,6 +379,8 @@ impl StateManager {
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
                 let before = node.replace_properties(after.clone());
+
+                action_result.graph_operated_on = Some(index.graph_index);
 
                 Ok(Action::ChangeNodeProperties {
                     index: index,
@@ -308,6 +403,8 @@ impl StateManager {
 
                 let before = node.replace_ui_data(after.clone());
 
+                action_result.graph_operated_on = Some(index.graph_index);
+
                 Ok(Action::ChangeNodeUiData {
                     index: index,
                     before: Some(before),
@@ -328,6 +425,14 @@ impl StateManager {
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
                 let before = node.replace_default_overrides(after.clone());
+
+                action_result.graph_operated_on = Some(index.graph_index);
+
+                if let Some(ref mut to_update) = action_result.defaults_to_update {
+                    to_update.push(index.clone())
+                } else {
+                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                }
 
                 Ok(Action::ChangeNodeOverrides {
                     index: index,
@@ -352,6 +457,9 @@ impl StateManager {
                     &connection.to_socket_type,
                 )?;
 
+                action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
+
                 Ok(Action::AddConnection {
                     graph_index,
                     connection,
@@ -374,16 +482,27 @@ impl StateManager {
                     &connection.to_socket_type,
                 )?;
 
+                action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
+
                 Ok(Action::RemoveConnection {
                     graph_index,
                     connection,
                 })
             }
-        }
+        }?;
+
+        Ok((new_action, action_result))
     }
 
-    fn rollback_action(&mut self, action: Action) -> Result<Action, NodeError> {
-        match action {
+    fn rollback_action(&mut self, action: Action) -> Result<(Action, ActionResult), NodeError> {
+        let mut action_result = ActionResult {
+            graph_to_reindex: None,
+            graph_operated_on: None,
+            defaults_to_update: None,
+        };
+
+        let new_action = match action {
             Action::CreateNode {
                 node_type,
                 graph_index,
@@ -391,6 +510,8 @@ impl StateManager {
                 child_graph_index: inner_graph_index,
             } => {
                 let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing("node_index".to_string()))?;
+
+                action_result.graph_operated_on = Some(graph_index);
 
                 self.graph_manager
                     .remove_node(&GlobalNodeIndex {
@@ -416,6 +537,8 @@ impl StateManager {
                 let connections =
                     connections.ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
                 let serialized = serialized.ok_or(NodeError::ActionRollbackFieldMissing("serialized".to_string()))?;
+
+                action_result.graph_operated_on = Some(index.graph_index);
 
                 self.graph_manager.create_node_at_index(
                     &node_type,
@@ -474,6 +597,8 @@ impl StateManager {
 
                 node.set_properties(before.clone());
 
+                action_result.graph_operated_on = Some(index.graph_index);
+
                 Ok(Action::ChangeNodeProperties {
                     index: index,
                     before: Some(before),
@@ -493,6 +618,8 @@ impl StateManager {
 
                 node.set_ui_data(before.clone());
 
+                action_result.graph_operated_on = Some(index.graph_index);
+
                 Ok(Action::ChangeNodeUiData {
                     index: index,
                     before: Some(before),
@@ -511,6 +638,14 @@ impl StateManager {
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
                 node.set_default_overrides(before.clone());
+
+                action_result.graph_operated_on = Some(index.graph_index);
+
+                if let Some(ref mut to_update) = action_result.defaults_to_update {
+                    to_update.push(index.clone())
+                } else {
+                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                }
 
                 Ok(Action::ChangeNodeOverrides {
                     index: index,
@@ -535,6 +670,9 @@ impl StateManager {
                     &connection.to_socket_type,
                 )?;
 
+                action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
+
                 Ok(Action::AddConnection {
                     graph_index,
                     connection,
@@ -557,11 +695,16 @@ impl StateManager {
                     &connection.to_socket_type,
                 )?;
 
+                action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
+
                 Ok(Action::RemoveConnection {
                     graph_index,
                     connection,
                 })
             }
-        }
+        }?;
+
+        Ok((new_action, action_result))
     }
 }

@@ -7,9 +7,6 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::node_graph::PossibleNode;
-
-use node_engine::node::NodeIndex;
 use node_engine::state::StateManager;
 use serde_json::json;
 use sound_engine::backend::alsa::AlsaAudioBackend;
@@ -47,46 +44,6 @@ fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut State
                 Some(route_result) => route_result,
                 None => RouteReturn::default(),
             };
-
-            if let Some(to_reindex) = route_result.graph_to_reindex {
-                state.index_graph(&to_reindex).unwrap();
-            }
-
-            if let Some(graph_index) = route_result.graph_operated_on {
-                // TODO: also naive
-                // checks if this is a subgraph (aka not root graph), and if it is, notify
-                // the parent node that it was changed
-                state.notify_parents_of_graph_change(&graph_index).unwrap();
-
-                let nodes_to_update = {
-                    let graph = &state
-                        .get_graph_manager()
-                        .get_graph_wrapper_ref(graph_index)
-                        .unwrap()
-                        .graph;
-
-                    // TODO: this is naive, keep track of what nodes need their defaults updated
-                    graph
-                        .get_nodes()
-                        .iter()
-                        .enumerate()
-                        .filter_map(|(i, node)| {
-                            if let PossibleNode::Some(_, generation) = node {
-                                Some(NodeIndex {
-                                    index: i,
-                                    generation: *generation,
-                                })
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<NodeIndex>>()
-                };
-
-                state
-                    .get_graph_manager()
-                    .update_traversal_defaults(graph_index, nodes_to_update);
-            }
         }
         Err(err) => {
             let err_str = err.to_string();

@@ -32,6 +32,8 @@ pub fn route(
                 "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state),
                 "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state),
                 "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state),
+                "graph/undo" => routes::graph::undo::route(json, to_server, state),
+                "graph/redo" => routes::graph::redo::route(json, to_server, state),
                 _ => Ok(None),
             };
         }

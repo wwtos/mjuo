@@ -15,7 +15,7 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 pub type GraphIndex = u64;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
     pub node_index: NodeIndex,
