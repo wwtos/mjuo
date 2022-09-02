@@ -4,7 +4,7 @@ use node_engine::{
     errors::NodeError,
     state::{Action, ActionBundle, StateManager},
 };
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::{util::send_graph_updates, RouteReturn};
 
@@ -23,7 +23,7 @@ use crate::{util::send_graph_updates, RouteReturn};
 /// }```
 ///
 pub fn route(
-    msg: Map<String, Value>,
+    msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut StateManager,
 ) -> Result<Option<RouteReturn>, NodeError> {

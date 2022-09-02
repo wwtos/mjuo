@@ -22,17 +22,17 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 
-    if let Value::Object(message) = json {
-        let action = message.get("action");
+    if let Value::Object(ref message) = json {
+        let action = &message["action"];
 
-        if let Some(Value::String(action_name)) = action {
+        if let Value::String(action_name) = action {
             return match action_name.as_str() {
-                "graph/get" => routes::graph::get::route(message, to_server, state),
-                "graph/newNode" => routes::graph::get::route(message, to_server, state),
-                "graph/updateNodes" => routes::graph::get::route(message, to_server, state),
-                "graph/connectNode" => routes::graph::get::route(message, to_server, state),
-                "graph/disconnectNode" => routes::graph::get::route(message, to_server, state),
-                "graph/switchGraph" => routes::graph::get::route(message, to_server, state),
+                "graph/get" => routes::graph::get::route(json, to_server, state),
+                "graph/newNode" => routes::graph::get::route(json, to_server, state),
+                "graph/updateNodes" => routes::graph::get::route(json, to_server, state),
+                "graph/connectNode" => routes::graph::get::route(json, to_server, state),
+                "graph/disconnectNode" => routes::graph::get::route(json, to_server, state),
+                "graph/switchGraph" => routes::graph::get::route(json, to_server, state),
                 _ => Ok(None),
             };
         }

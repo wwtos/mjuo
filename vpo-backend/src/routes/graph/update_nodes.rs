@@ -6,7 +6,7 @@ use node_engine::{
     node::NodeIndex,
     state::{Action, ActionBundle, StateManager},
 };
-use serde_json::{Map, Value};
+use serde_json::Value;
 
 use crate::{
     util::{send_graph_updates, send_registry_updates},
@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub fn route(
-    msg: Map<String, Value>,
+    msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut StateManager,
 ) -> Result<Option<RouteReturn>, NodeError> {
