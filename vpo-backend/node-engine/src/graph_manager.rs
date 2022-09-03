@@ -183,7 +183,8 @@ impl GraphManager {
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_wrapper = create_new_node(new_node, node_index.generation, registry, engine);
+                let new_node_wrapper =
+                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine);
 
                 graph.set_node_unchecked(node_index, new_node_wrapper);
 

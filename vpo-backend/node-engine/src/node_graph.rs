@@ -24,20 +24,13 @@ pub enum PossibleNode {
 
 pub(in crate) fn create_new_node(
     node: NodeVariant,
+    index: usize,
     generation: u32,
     registry: &mut SocketRegistry,
     scripting_engine: &Engine,
 ) -> PossibleNode {
     PossibleNode::Some(
-        NodeWrapper::new(
-            node,
-            NodeIndex {
-                index: 0,
-                generation: 0,
-            },
-            registry,
-            scripting_engine,
-        ),
+        NodeWrapper::new(node, NodeIndex { index, generation }, registry, scripting_engine),
         generation,
     )
 }
@@ -57,7 +50,7 @@ impl NodeGraph {
         let new_generation;
 
         if self.nodes.is_empty() {
-            self.nodes.push(create_new_node(node, 0, registry, scripting_engine));
+            self.nodes.push(create_new_node(node, 0, 0, registry, scripting_engine));
 
             index = self.nodes.len() - 1;
             new_generation = 0;
@@ -81,12 +74,13 @@ impl NodeGraph {
                     );
                 };
 
-                self.nodes[index] = create_new_node(node, new_generation, registry, scripting_engine);
+                self.nodes[index] = create_new_node(node, index, new_generation, registry, scripting_engine);
             } else {
-                self.nodes.push(create_new_node(node, 0, registry, scripting_engine));
-
-                index = self.nodes.len() - 1;
+                index = self.nodes.len();
                 new_generation = 0;
+
+                self.nodes
+                    .push(create_new_node(node, index, new_generation, registry, scripting_engine));
             }
         }
 
@@ -94,10 +88,6 @@ impl NodeGraph {
             index,
             generation: new_generation,
         };
-
-        let new_node_wrapper = self.get_node_mut(&full_index).unwrap();
-
-        new_node_wrapper.set_index(full_index);
 
         // now our nodes knows its index and generation, we're all set!
         full_index

@@ -348,15 +348,19 @@ impl StateManager {
                 graph_index,
                 node_index,
                 child_graph_index: inner_graph_index,
-            } => self.graph_manager.create_node_at_index(
-                &node_type,
-                graph_index,
-                node_index,
-                inner_graph_index,
-                &self.sound_config,
-                &mut self.socket_registry,
-                &self.scripting_engine,
-            ),
+            } => {
+                action_result.graph_operated_on = Some(graph_index);
+
+                self.graph_manager.create_node_at_index(
+                    &node_type,
+                    graph_index,
+                    node_index,
+                    inner_graph_index,
+                    &self.sound_config,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                )
+            }
             Action::RemoveNode { index, .. } => {
                 let result = self.graph_manager.remove_node(&index)?;
 
