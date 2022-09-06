@@ -23,7 +23,7 @@ export class NodeGraph {
     graphIndex: number;
     selectedNodes: [];
 
-    constructor (ipcSocket: IPCSocket) {
+    constructor (ipcSocket: IPCSocket, graphIndex: number) {
         this.ipcSocket = ipcSocket;
 
         this.nodes = [];
@@ -34,7 +34,7 @@ export class NodeGraph {
 
         this.changedNodes = [];
 
-        this.graphIndex = 0;
+        this.graphIndex = graphIndex;
     }
 
     getNode (index: NodeIndex): (NodeWrapper | undefined) {
@@ -63,7 +63,7 @@ export class NodeGraph {
 
     applyJson(json: any) {
         if (this.graphIndex !== json.graphIndex) {
-            this.nodes = [];
+            throw new Error(`json being applied to wrong graph! Current graph is ${this.graphIndex}, got ${json.graphIndex}`);
         }
 
         this.graphIndex = json.graphIndex;
@@ -186,6 +186,8 @@ export class NodeGraph {
     }
 
     markNodeAsUpdated(index: NodeIndex) {
+        console.log(`node ${index} was updated`);
+        
         // don't mark it for updating if it's already been marked
         if (this.changedNodes.find(nodeIndex => nodeIndex.index === index.index && nodeIndex.generation === index.generation)) return;
 
@@ -204,6 +206,23 @@ export class NodeGraph {
                 )));
 
             this.ipcSocket.updateNodes(this.graphIndex, nodesToUpdateJson);
+
+            this.changedNodes.length = 0;
+        }
+    }
+
+    writeChangedNodesToServerUi() {
+        // only write changes if any nodes were marked for updating
+        if (this.changedNodes.length > 0) {
+            const nodesToUpdateJson = 
+                JSON.parse(JSON.stringify(this.changedNodes.map(
+                    (nodeIndex) => {
+                        const node = this.getNode(nodeIndex);
+                        return node;
+                    }
+                )));
+
+            this.ipcSocket.updateNodesUi(this.graphIndex, nodesToUpdateJson);
 
             this.changedNodes.length = 0;
         }

@@ -1,6 +1,5 @@
 // @ts-ignore
 import Net from 'net';
-import { copyFileSync } from 'original-fs';
 import { makeTaggedUnion, MemberType, none } from 'safety-match';
 
 var RawMessage = makeTaggedUnion({

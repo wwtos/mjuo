@@ -42,6 +42,18 @@ export class IPCSocket {
         });
     }
 
+    updateNodesUi (graphIndex: number, nodes: NodeWrapper[]) {
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+
+        this.send({
+            "action": "graph/updateNodesUi",
+            "payload": {
+                graphIndex,
+                "updatedNodes": nodesToUpdateJson,
+            }
+        });
+    }
+
     connectNode (graphIndex: number, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/connectNode",
