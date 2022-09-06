@@ -436,16 +436,12 @@ impl NodeWrapper {
         println!("Applying json: {}", json);
 
         let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let properties: HashMap<String, Property> = serde_json::from_value(json["properties"].clone())?;
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
-        let default_overrides = serde_json::from_value(json["default_overrides"].clone())?;
 
         if index != self.index {
             return Err(NodeError::MismatchedNodeIndex(self.index, index));
         }
 
-        self.properties = properties;
-        self.default_overrides = default_overrides;
         self.ui_data = ui_data;
 
         Ok(())
@@ -496,6 +492,14 @@ impl NodeWrapper {
 
     pub fn get_node_type(&self) -> String {
         variant_to_name(&self.node)
+    }
+
+    pub(in crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
+        self.child_graph_io_indexes = ios;
+    }
+
+    pub(in crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
+        &self.child_graph_io_indexes
     }
 
     pub(in crate) fn set_index(&mut self, index: NodeIndex) {

@@ -21,11 +21,13 @@ pub enum Action {
         graph_index: GraphIndex,
         node_index: Option<NodeIndex>,
         child_graph_index: Option<GraphIndex>,
+        child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
     },
     RemoveNode {
         node_type: Option<String>,
         index: GlobalNodeIndex,
         child_graph_index: Option<GraphIndex>,
+        child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
         connections: Option<Vec<Connection>>,
         serialized: Option<Value>,
     },
@@ -347,7 +349,8 @@ impl StateManager {
                 node_type,
                 graph_index,
                 node_index,
-                child_graph_index: inner_graph_index,
+                child_graph_index,
+                child_graph_io_indexes,
             } => {
                 action_result.graph_operated_on = Some(graph_index);
 
@@ -355,7 +358,8 @@ impl StateManager {
                     &node_type,
                     graph_index,
                     node_index,
-                    inner_graph_index,
+                    child_graph_index,
+                    child_graph_io_indexes,
                     &self.sound_config,
                     &mut self.socket_registry,
                     &self.scripting_engine,
@@ -517,7 +521,8 @@ impl StateManager {
                 node_type,
                 graph_index,
                 node_index,
-                child_graph_index: inner_graph_index,
+                child_graph_index,
+                child_graph_io_indexes,
             } => {
                 let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing("node_index".to_string()))?;
 
@@ -532,13 +537,15 @@ impl StateManager {
                         node_type: node_type.clone(),
                         graph_index: graph_index.clone(),
                         node_index: Some(node_index),
-                        child_graph_index: inner_graph_index.clone(),
+                        child_graph_index: child_graph_index.clone(),
+                        child_graph_io_indexes: child_graph_io_indexes.clone(),
                     })
             }
             Action::RemoveNode {
                 node_type,
                 index,
                 child_graph_index,
+                child_graph_io_indexes,
                 connections,
                 serialized,
             } => {
@@ -555,6 +562,7 @@ impl StateManager {
                     index.graph_index,
                     Some(index.node_index),
                     child_graph_index,
+                    child_graph_io_indexes,
                     &self.sound_config,
                     &mut self.socket_registry,
                     &self.scripting_engine,
@@ -590,6 +598,7 @@ impl StateManager {
                     node_type: Some(node_type),
                     index,
                     child_graph_index,
+                    child_graph_io_indexes,
                     connections: Some(connections),
                     serialized: Some(serialized),
                 })

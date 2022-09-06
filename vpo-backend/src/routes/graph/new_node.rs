@@ -39,6 +39,7 @@ pub fn route(
         graph_index: graph_index,
         node_index: None,
         child_graph_index: None,
+        child_graph_io_indexes: None,
     }]))?;
 
     // if let Value::Object(ui_data) = &message["payload"]["ui_data"] {
