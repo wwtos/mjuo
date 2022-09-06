@@ -267,14 +267,23 @@ impl StateManager {
         all_graphs_that_changed
     }
 
+    pub fn is_action_property_related(action: &Action) -> bool {
+        match action {
+            Action::ChangeNodeProperties { .. } => true,
+            Action::ChangeNodeUiData { .. } => true,
+            Action::ChangeNodeOverrides { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<GraphIndex>, NodeError> {
-        let (new_actions, action_results) = actions
+        let (mut new_actions, action_results) = actions
             .actions
             .into_iter()
             .map(|action| self.apply_action(action))
             .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
             .into_iter()
-            .unzip();
+            .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
 
         if self.place_in_history < self.history.len() {
             self.history.truncate(self.place_in_history);
@@ -282,8 +291,22 @@ impl StateManager {
 
         let graphs_changed = self.handle_action_results(action_results);
 
-        self.history.push(ActionBundle { actions: new_actions });
-        self.place_in_history += 1;
+        // determine whether to add a new action bundle, or to concatinate it to the current
+        // action bundle
+        if !self.history.is_empty() {
+            let should_add_to_current_bundle = self.history[self.place_in_history - 1]
+                .actions
+                .iter()
+                .all(Self::is_action_property_related);
+
+            if should_add_to_current_bundle {
+                self.history[self.place_in_history - 1].actions.append(&mut new_actions);
+            }
+        } else {
+            self.history.push(ActionBundle { actions: new_actions });
+
+            self.place_in_history += 1;
+        }
 
         Ok(graphs_changed)
     }

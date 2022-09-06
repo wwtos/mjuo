@@ -1,10 +1,6 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{
-    errors::NodeError,
-    node::NodeIndex,
-    state::{Action, ActionBundle, StateManager},
-};
+use node_engine::{errors::NodeError, node::NodeIndex, state::StateManager};
 use serde_json::Value;
 
 use crate::{
@@ -27,32 +23,24 @@ pub fn route(
 
     println!("{}", msg);
 
-    let actions =
-        nodes_to_update
-            .iter()
-            .try_fold(Vec::new(), |actions, node_json| -> Result<Vec<Action>, NodeError> {
-                let index: NodeIndex = serde_json::from_value(node_json["index"].clone()).map_err(|err| {
-                    NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].index".to_string())
-                })?;
+    for node_json in nodes_to_update {
+        let index: NodeIndex = serde_json::from_value(node_json["index"].clone())
+            .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].index".to_string()))?;
 
-                if node_json["ui_data"].is_object() {
-                    let graph = &mut state
-                        .get_graph_manager()
-                        .get_graph_wrapper_mut(graph_index)
-                        .ok_or(NodeError::GraphDoesNotExist(graph_index))?;
+        if node_json["ui_data"].is_object() {
+            let graph = &mut state
+                .get_graph_manager()
+                .get_graph_wrapper_mut(graph_index)
+                .ok_or(NodeError::GraphDoesNotExist(graph_index))?;
 
-                    let node = graph
-                        .graph
-                        .get_node_mut(&index)
-                        .ok_or(NodeError::NodeDoesNotExist(index))?;
+            let node = graph
+                .graph
+                .get_node_mut(&index)
+                .ok_or(NodeError::NodeDoesNotExist(index))?;
 
-                    node.apply_json(node_json)?;
-                }
-
-                Ok(actions)
-            })?;
-
-    state.commit(ActionBundle::new(actions))?;
+            node.apply_json(node_json)?;
+        }
+    }
 
     send_graph_updates(state, graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;
