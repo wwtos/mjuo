@@ -9,7 +9,6 @@ use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::state::StateManager;
 use serde_json::json;
-use sound_engine::backend::alsa::AlsaAudioBackend;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
@@ -40,7 +39,7 @@ fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut State
 
     match result {
         Ok(route_result) => {
-            let route_result = match route_result {
+            match route_result {
                 Some(route_result) => route_result,
                 None => RouteReturn::default(),
             };

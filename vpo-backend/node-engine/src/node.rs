@@ -15,10 +15,9 @@ use crate::connection::{
 };
 
 use crate::errors::{ErrorsAndWarnings, NodeError};
-use crate::graph_manager::{self, GraphIndex, GraphManager};
+use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
-use crate::nodes::output;
 use crate::nodes::outputs::OutputsNode;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
