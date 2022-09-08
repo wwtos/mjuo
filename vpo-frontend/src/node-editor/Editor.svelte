@@ -31,9 +31,8 @@
     let nodeTypeToCreate: string;
 
     let zoomer;
-    let currentGraphIndex = 0;
 
-    ipcSocket.requestGraph(currentGraphIndex);
+    ipcSocket.requestGraph(0);
 
     let editor: HTMLDivElement;
     let nodeContainer: HTMLDivElement;
@@ -99,7 +98,7 @@
     function createNode (e: MouseEvent) {
         e.stopPropagation();
 
-        ipcSocket.createNode(currentGraphIndex, nodeTypeToCreate, {
+        ipcSocket.createNode($activeGraph.graphIndex, nodeTypeToCreate, {
             x: 0,
             y: 0
         });
@@ -195,7 +194,7 @@
                     index
                 );
 
-                ipcSocket.disconnectNode(currentGraphIndex, fullConnection);
+                ipcSocket.disconnectNode($activeGraph.graphIndex, fullConnection);
 
                 // add the connection line back for connecting to something else
                 connectionBeingCreatedFrom = {
@@ -259,7 +258,7 @@
             );
         }
 
-        ipcSocket.connectNode(currentGraphIndex, newConnection);
+        ipcSocket.connectNode($activeGraph.graphIndex, newConnection);
     }
 
     function connectionToPoints(connection: any): {x1: number, y1: number, x2: number, y2: number} {

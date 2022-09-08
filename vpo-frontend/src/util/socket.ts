@@ -1,5 +1,5 @@
 import type { Connection } from "../node-engine/connection";
-import type { NodeWrapper, UiData } from "../node-engine/node";
+import type { NodeIndex, NodeWrapper, UiData } from "../node-engine/node";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -26,6 +26,16 @@ export class IPCSocket {
                 graphIndex,
                 "type": type,
                 "ui_data": uiData,
+            }
+        });
+    }
+
+    removeNode (graphIndex: number, nodeIndex: NodeIndex) {
+        this.send({
+            "action": "graph/removeNode",
+            "payload": {
+                graphIndex,
+                nodeIndex
             }
         });
     }
