@@ -277,6 +277,8 @@ impl StateManager {
     }
 
     pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<GraphIndex>, NodeError> {
+        let is_new_bundle_property_related = actions.actions.iter().all(Self::is_action_property_related);
+
         let (mut new_actions, action_results) = actions
             .actions
             .into_iter()
@@ -294,13 +296,17 @@ impl StateManager {
         // determine whether to add a new action bundle, or to concatinate it to the current
         // action bundle
         if !self.history.is_empty() {
-            let should_add_to_current_bundle = self.history[self.place_in_history - 1]
+            let is_current_bundle_property_related = self.history[self.place_in_history - 1]
                 .actions
                 .iter()
                 .all(Self::is_action_property_related);
 
-            if should_add_to_current_bundle {
+            if is_current_bundle_property_related && is_new_bundle_property_related {
                 self.history[self.place_in_history - 1].actions.append(&mut new_actions);
+            } else {
+                self.history.push(ActionBundle { actions: new_actions });
+
+                self.place_in_history += 1;
             }
         } else {
             self.history.push(ActionBundle { actions: new_actions });
@@ -410,6 +416,10 @@ impl StateManager {
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
                 let before = node.replace_properties(after.clone());
+
+                graph
+                    .graph
+                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -533,6 +543,8 @@ impl StateManager {
     }
 
     fn rollback_action(&mut self, action: Action) -> Result<(Action, ActionResult), NodeError> {
+        println!("Rolling back action: {:?}", action);
+
         let mut action_result = ActionResult {
             graph_to_reindex: None,
             graph_operated_on: None,
@@ -610,6 +622,8 @@ impl StateManager {
                 let node = graph.graph.get_node_mut(&index.node_index);
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
+                println!("found node to apply json");
+
                 node.apply_json(&serialized)?;
 
                 // finally, reinit the node
@@ -638,6 +652,10 @@ impl StateManager {
                 let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
 
                 node.set_properties(before.clone());
+
+                graph
+                    .graph
+                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
