@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::constants::{SAMPLE_RATE, TWO_PI};
+use crate::constants::SAMPLE_RATE;
 
 use crate::error::NodeError;
 use crate::node::{AudioNode, InputType, OutputType};
@@ -84,8 +84,10 @@ impl Oscillator {
 
     #[inline]
     pub fn process_fast(&mut self) -> f32 {
-        let phase_advance = self.frequency / (SAMPLE_RATE as f32) * TWO_PI;
-        self.phase = (self.phase + phase_advance) % TWO_PI;
+        let phase_advance = self.frequency / (SAMPLE_RATE as f32);
+
+        self.phase = self.phase + phase_advance;
+        self.phase -= self.phase.floor();
 
         interpolate(&self.waveform, self.frequency, self.phase)
     }
