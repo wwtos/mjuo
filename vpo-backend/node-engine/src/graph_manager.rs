@@ -1,8 +1,10 @@
 use std::cell::{RefCell, RefMut};
+use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
 use rhai::Engine;
 use sound_engine::SoundConfig;
+use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
 use crate::errors::NodeError;
@@ -30,7 +32,7 @@ pub struct NodeGraphWrapper {
 
 #[derive(Default, Debug)]
 pub struct GraphManager {
-    node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>>,
+    node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>, BuildHasherDefault<XxHash64>>,
     current_uid: u64,
 }
 
