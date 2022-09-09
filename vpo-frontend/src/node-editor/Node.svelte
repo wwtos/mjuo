@@ -10,6 +10,7 @@
     import { i18n } from '../i18n.js';
     import { Property, PropertyType } from "../node-engine/property";
     import { IPCSocket } from "../util/socket";
+    import { createEventDispatcher } from "svelte";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -19,6 +20,8 @@
     export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;
     export let ipcSocket: IPCSocket;
+
+    const dispatch = createEventDispatcher();
 
     const ReducedRowType = makeTaggedUnion({
         SocketRow(socketType: MemberType<typeof SocketType>, socketDirection: SocketDirection, value: any) {
@@ -99,7 +102,9 @@
 
     function openInnerGraph() {
         if (wrapper.innerGraphIndex !== null) {
-            ipcSocket.switchToGraph(wrapper.innerGraphIndex);
+            dispatch("changeGraph", {
+                graphIndex: wrapper.innerGraphIndex
+            });
         }
     }
 </script>

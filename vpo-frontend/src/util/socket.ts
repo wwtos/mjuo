@@ -1,5 +1,5 @@
 import type { Connection } from "../node-engine/connection";
-import type { NodeWrapper, UiData } from "../node-engine/node";
+import type { NodeIndex, NodeWrapper, UiData } from "../node-engine/node";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -30,11 +30,33 @@ export class IPCSocket {
         });
     }
 
+    removeNode (graphIndex: number, nodeIndex: NodeIndex) {
+        this.send({
+            "action": "graph/removeNode",
+            "payload": {
+                graphIndex,
+                nodeIndex
+            }
+        });
+    }
+
     updateNodes (graphIndex: number, nodes: NodeWrapper[]) {
         const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
 
         this.send({
             "action": "graph/updateNodes",
+            "payload": {
+                graphIndex,
+                "updatedNodes": nodesToUpdateJson,
+            }
+        });
+    }
+
+    updateNodesUi (graphIndex: number, nodes: NodeWrapper[]) {
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+
+        this.send({
+            "action": "graph/updateNodesUi",
             "payload": {
                 graphIndex,
                 "updatedNodes": nodesToUpdateJson,

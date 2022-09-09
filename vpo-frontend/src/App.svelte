@@ -7,9 +7,26 @@
 	import {IPCSocket} from './util/socket';
 	import {NodeGraph} from './node-engine/node_graph';
 	import Toasts from './ui/Toasts.svelte';
+	import { graphManager, ipcSocket, socketRegistry } from './node-editor/state';
+	import { BehaviorSubject } from 'rxjs';
 	
 	const ipc = (window as any).ipcRenderer;
-	let ipcSocket: any = new IPCSocket(ipc);
+	let newIpcSocket: any = new IPCSocket(ipc);
+
+	ipcSocket.next(newIpcSocket);
+	graphManager.setIpcSocket(newIpcSocket);
+
+	window["graphManager"] = graphManager;
+
+	newIpcSocket.onMessage(([message]) => {
+        console.log("received", message);
+
+        if (message.action === "graph/updateGraph") {
+            graphManager.applyJson(message);
+        } else if (message.action === "registry/updateRegistry") {
+            $socketRegistry.applyJson(message.payload);
+        }
+    });
 
 	let width = 0;
 	let height = 0;
@@ -19,7 +36,7 @@
 		height = windowHeight - 3;
 	});
 
-	let nodes = new NodeGraph(ipcSocket);
+	let activeGraph = new BehaviorSubject<NodeGraph>(graphManager.getRootGraph());
 </script>
 
 <main>
@@ -34,10 +51,10 @@
 	firstPanel={SideNavbar}
 	secondPanel={Editor}
 	secondState={{
-		ipcSocket: ipcSocket,
-		nodes: nodes
+		ipcSocket: newIpcSocket,
+		activeGraph: activeGraph
 	}} />
-	<Toasts ipcSocket={ipcSocket} />
+	<Toasts ipcSocket={newIpcSocket} />
 	<!-- <SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}

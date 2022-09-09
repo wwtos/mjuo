@@ -29,7 +29,9 @@ pub fn route(
             return match action_name.as_str() {
                 "graph/get" => routes::graph::get::route(json, to_server, state),
                 "graph/newNode" => routes::graph::new_node::route(json, to_server, state),
+                "graph/removeNode" => routes::graph::remove_node::route(json, to_server, state),
                 "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state),
+                "graph/updateNodesUi" => routes::graph::update_node_ui::route(json, to_server, state),
                 "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state),
                 "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state),
                 "graph/undo" => routes::graph::undo::route(json, to_server, state),

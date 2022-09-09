@@ -176,7 +176,7 @@ export class NodeWrapper {
         };
     }
 
-    getInputConnectionByType(inputSocketType: MemberType<typeof SocketType>): Observable < InputSideConnection | undefined > {
+    getInputConnectionByType(inputSocketType: MemberType<typeof SocketType>): Observable<InputSideConnection | undefined> {
         return this.connectedInputs.pipe(
             map(connectedInputs => {
                 return connectedInputs.find(input => areSocketTypesEqual(input.toSocketType, inputSocketType));
@@ -185,7 +185,7 @@ export class NodeWrapper {
         );
     }
 
-    getOutputConnectionsByType(outputSocketType: MemberType<typeof SocketType>): Observable < OutputSideConnection[] > {
+    getOutputConnectionsByType(outputSocketType: MemberType<typeof SocketType>): Observable<OutputSideConnection[]> {
         return this.connectedOutputs.pipe(
             map(connectedOutputs => {
                     return connectedOutputs.filter(input => input.fromSocketType === outputSocketType);
@@ -194,7 +194,7 @@ export class NodeWrapper {
             ));
     }
 
-    getPropertyValue(propertyName: string): Observable < any > {
+    getPropertyValue(propertyName: string): Observable<any> {
         return combineLatest([this.properties, this.nodeRows]).pipe(
             map(([properties, nodeRows]) => {
                 if (properties[propertyName] !== undefined) {
@@ -273,7 +273,7 @@ export class NodeWrapper {
                 const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
                 const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
 
-                return this.uiData.pipe <[number, number]> (
+                return this.uiData.pipe<[number, number]>(
                     map(uiData => [uiData.x + relativeX, uiData.y + relativeY])
                 );
             })
@@ -349,6 +349,10 @@ export class NodeIndex {
 
     toKey(): string {
         return this.index + "," + this.generation;
+    }
+
+    toString(): string {
+        return `NodeIndex { index: ${this.index}, generation: ${this.generation} }`;
     }
 }
 

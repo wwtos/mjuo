@@ -1,8 +1,10 @@
 use std::cell::{RefCell, RefMut};
+use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
 use rhai::Engine;
 use sound_engine::SoundConfig;
+use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
 use crate::errors::NodeError;
@@ -30,7 +32,7 @@ pub struct NodeGraphWrapper {
 
 #[derive(Default, Debug)]
 pub struct GraphManager {
-    node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>>,
+    node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>, BuildHasherDefault<XxHash64>>,
     current_uid: u64,
 }
 
@@ -168,6 +170,7 @@ impl GraphManager {
         graph_index: GraphIndex,
         node_index: Option<NodeIndex>,
         child_graph_index: Option<GraphIndex>,
+        child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
         sound_config: &SoundConfig,
         registry: &mut SocketRegistry,
         engine: &Engine,
@@ -183,7 +186,8 @@ impl GraphManager {
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_wrapper = create_new_node(new_node, node_index.generation, registry, engine);
+                let new_node_wrapper =
+                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine);
 
                 graph.set_node_unchecked(node_index, new_node_wrapper);
 
@@ -207,6 +211,57 @@ impl GraphManager {
                 // if so, create it at the previous index (if it doesn't already exist)
                 if self.get_graph_wrapper_ref(child_graph_index).is_none() {
                     self.new_graph_unchecked(child_graph_index);
+
+                    let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
+                    let new_node = graph.get_node_mut(&new_node_index).unwrap();
+
+                    // get a list of the input and output nodes in the child graph
+                    // (for creating the InputsNode and OutputsNode inside the child graph)
+                    let (input_sockets, output_sockets) = {
+                        let inner_sockets = new_node.get_inner_graph_socket_list(registry);
+
+                        (
+                            inner_sockets
+                                .iter()
+                                .filter_map(|inner_socket| {
+                                    if inner_socket.1 == SocketDirection::Input {
+                                        Some(inner_socket.0.clone())
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<SocketType>>(),
+                            inner_sockets
+                                .iter()
+                                .filter_map(|inner_socket| {
+                                    if inner_socket.1 == SocketDirection::Output {
+                                        Some(inner_socket.0.clone())
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<SocketType>>(),
+                        )
+                    };
+
+                    // let the node's wrapper set up the graph
+                    new_node.init_inner_graph(
+                        &child_graph_index,
+                        self,
+                        input_sockets,
+                        output_sockets,
+                        registry,
+                        engine,
+                    );
+
+                    // run the node's graph init function
+                    let new_inner_graph = &mut self.get_graph_wrapper_mut(child_graph_index).unwrap().graph;
+                    new_node.node_init_graph(new_inner_graph);
+                } else {
+                    let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
+                    let new_node = graph.get_node_mut(&new_node_index).unwrap();
+
+                    new_node.set_child_graph_io_indexes(child_graph_io_indexes);
                 }
 
                 // link them to each other
@@ -286,11 +341,15 @@ impl GraphManager {
             }
         };
 
+        let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
+        let new_node = graph.get_node_mut(&new_node_index).unwrap();
+
         Ok(Action::CreateNode {
             node_type: node_type.to_string(),
             graph_index: graph_index,
             node_index: Some(new_node_index),
             child_graph_index,
+            child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
         })
     }
 
@@ -352,6 +411,8 @@ impl GraphManager {
         ]
         .concat();
 
+        let node_ios = node.get_child_graph_io_indexes().clone();
+
         // also, save the properties, value overrides, etc
         let node_state = node.serialize_to_json()?;
 
@@ -365,6 +426,7 @@ impl GraphManager {
                 node_index: *node_index,
             },
             child_graph_index: possible_child_graph_index,
+            child_graph_io_indexes: node_ios,
             connections: Some(node_connections),
             serialized: Some(node_state),
         })

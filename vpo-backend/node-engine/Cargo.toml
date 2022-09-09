@@ -18,3 +18,4 @@ rhai = { version = "1.7.0", features = ["f32_float", "only_i32"] }
 enum_dispatch = "0.3.8"
 smallvec = "1.9.0"
 async-std = "1.10.0"
+twox-hash = "1.6.3"

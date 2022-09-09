@@ -2,6 +2,8 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
+    graph_manager::GlobalNodeIndex,
+    node::NodeIndex,
     state::{Action, ActionBundle, StateManager},
 };
 use serde_json::Value;
@@ -13,11 +15,11 @@ use crate::{util::send_graph_updates, RouteReturn};
 /// JSON should be formatted thus:
 /// ```json
 /// {
-///     "action": "graph/newNode",
+///     "action": "graph/deleteNode",
 ///     "payload": {
-///         "type": "[node type]",
-///         "ui_data": {
-///             foo: "override ui_data here"
+///         graphIndex: number,
+///         nodeIndex: {
+///             
 ///         }
 ///     }
 /// }```
@@ -27,29 +29,24 @@ pub fn route(
     to_server: &Sender<IPCMessage>,
     state: &mut StateManager,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let node_type = msg["payload"]["type"]
-        .as_str()
-        .ok_or(NodeError::PropertyMissingOrMalformed("payload.type".to_string()))?;
+    let node_index: NodeIndex = serde_json::from_value(msg["payload"]["nodeIndex"].clone())
+        .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.nodeIndex".to_string()))?;
+
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
         .ok_or(NodeError::PropertyMissingOrMalformed("payload.graphIndex".to_string()))?;
 
-    state.commit(ActionBundle::new(vec![Action::CreateNode {
-        node_type: node_type.to_string(),
-        graph_index: graph_index,
-        node_index: None,
+    state.commit(ActionBundle::new(vec![Action::RemoveNode {
+        node_type: None,
+        index: GlobalNodeIndex {
+            node_index: node_index,
+            graph_index: graph_index,
+        },
+        connections: None,
+        serialized: None,
         child_graph_index: None,
         child_graph_io_indexes: None,
     }]))?;
-
-    // if let Value::Object(ui_data) = &message["payload"]["ui_data"] {
-    //     let node = graph.get_node_mut(&index).unwrap();
-
-    //     // overwrite default values
-    //     for (key, value) in ui_data.to_owned().into_iter() {
-    //         node.set_ui_data_property(key, value);
-    //     }
-    // }
 
     send_graph_updates(state, graph_index, to_server)?;
 

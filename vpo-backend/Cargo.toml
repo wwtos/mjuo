@@ -18,6 +18,14 @@ strum = "0.24.0"
 strum_macros = "0.24"
 rhai = { version = "1.7.0", features = ["f32_float", "only_i32"] }
 
+[profile.release-x86_64-pc-windows-gnu]
+inherits = "release"
+opt-level = 3
+
+[profile.release-x86_64-unknown-linux-gnu]
+inherits = "release"
+opt-level = 3
+
 [profile.debug-release]
 inherits = "dev"
 opt-level = 3

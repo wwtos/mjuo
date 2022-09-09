@@ -81,7 +81,7 @@ impl Node for FunctionNode {
         &mut self,
         current_time: i64,
         scripting_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
+        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
     ) -> Result<(), ErrorsAndWarnings> {
         let subgraph_input_node = self.local_graph.get_node_mut(&self.inner_input_node).unwrap();
         subgraph_input_node.accept_stream_input(&StreamSocketType::Audio, self.input);
