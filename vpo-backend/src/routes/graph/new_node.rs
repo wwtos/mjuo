@@ -6,7 +6,7 @@ use node_engine::{
 };
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -26,6 +26,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_type = msg["payload"]["type"]
         .as_str()

@@ -6,12 +6,13 @@ use node_engine::{
 };
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()

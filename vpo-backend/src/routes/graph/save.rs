@@ -12,6 +12,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut StateManager,
+    global_state: &mut GlobalStsate,
 ) -> Result<Option<RouteReturn>, NodeError> {
     Ok(None)
 }

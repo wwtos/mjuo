@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::io::Write;
+use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -19,6 +20,7 @@ use sound_engine::SoundConfig;
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
+use vpo_backend::state::GlobalState;
 use vpo_backend::{route, RouteReturn};
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
@@ -34,8 +36,13 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut NodeEngineState) {
-    let result = route(msg, to_server, state);
+fn handle_msg(
+    msg: IPCMessage,
+    to_server: &Sender<IPCMessage>,
+    state: &mut NodeEngineState,
+    global_state: &mut GlobalState,
+) {
+    let result = route(msg, to_server, state, global_state);
 
     match result {
         Ok(route_result) => {
@@ -99,7 +106,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         sample_rate: SAMPLE_RATE,
     };
 
-    let mut state = NodeEngineState::new(sound_config);
+    let mut engine_state = NodeEngineState::new(sound_config);
+    let mut global_state = GlobalState::new();
 
     let backend = connect_backend()?;
 
@@ -115,7 +123,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, &to_server, &mut state);
+            handle_msg(msg, &to_server, &mut engine_state, &mut global_state);
 
             // TODO: this shouldn't reset `is_first_time` for just any message
             is_first_time = true;
@@ -130,7 +138,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             let midi_to_input = if is_first_time { midi.clone() } else { Vec::new() };
 
-            *sample = state.step(current_time, is_first_time, midi_to_input);
+            *sample = engine_state.step(current_time, is_first_time, midi_to_input);
 
             is_first_time = false;
         }
