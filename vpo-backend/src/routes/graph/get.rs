@@ -1,6 +1,6 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, state::StateManager};
+use node_engine::{errors::NodeError, state::NodeEngineState};
 use serde_json::Value;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()

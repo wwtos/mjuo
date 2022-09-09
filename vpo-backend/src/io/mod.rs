@@ -1,9 +1,9 @@
 use std::{fs, path::Path};
 
-use node_engine::{errors::NodeError, state::StateManager};
+use node_engine::{errors::NodeError, state::NodeEngineState};
 use serde_json::json;
 
-pub fn save(state: &StateManager, path: &Path) -> Result<(), NodeError> {
+pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     let state = json!({
         "version": "1.0",
         "state": state.to_json()?

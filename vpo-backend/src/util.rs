@@ -1,10 +1,12 @@
 use async_std::{channel::Sender, task::block_on};
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::StateManager};
+use node_engine::{
+    errors::NodeError, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::NodeEngineState,
+};
 use serde_json::json;
 
 pub fn send_graph_updates(
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
     graph_index: GraphIndex,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), NodeError> {

@@ -7,7 +7,7 @@ use async_std::channel::{unbounded, Receiver, Sender};
 
 use async_std::task::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::state::StateManager;
+use node_engine::state::NodeEngineState;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
@@ -34,7 +34,7 @@ fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
-fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut StateManager) {
+fn handle_msg(msg: IPCMessage, to_server: &Sender<IPCMessage>, state: &mut NodeEngineState) {
     let result = route(msg, to_server, state);
 
     match result {
@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         sample_rate: SAMPLE_RATE,
     };
 
-    let mut state = StateManager::new(sound_config);
+    let mut state = NodeEngineState::new(sound_config);
 
     let backend = connect_backend()?;
 

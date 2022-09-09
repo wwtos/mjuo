@@ -2,7 +2,7 @@ use std::{error::Error, io::Write};
 
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::StateManager};
+use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::NodeEngineState};
 use serde_json::Value;
 use sound_engine::constants::BUFFER_SIZE;
 
@@ -19,7 +19,7 @@ pub struct RouteReturn {
 pub fn route(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 

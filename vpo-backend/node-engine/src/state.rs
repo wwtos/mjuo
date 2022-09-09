@@ -73,7 +73,7 @@ impl ActionBundle {
     }
 }
 
-pub struct StateManager {
+pub struct NodeEngineState {
     history: Vec<ActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
@@ -85,8 +85,8 @@ pub struct StateManager {
     midi_in_node: NodeIndex,
 }
 
-impl StateManager {
-    pub fn new(sound_config: SoundConfig) -> StateManager {
+impl NodeEngineState {
+    pub fn new(sound_config: SoundConfig) -> NodeEngineState {
         let history = Vec::new();
         let place_in_history = 0;
         let mut graph_manager = GraphManager::new();
@@ -118,7 +118,7 @@ impl StateManager {
             .recalculate_traversal_for_graph(&root_graph_index)
             .unwrap();
 
-        StateManager {
+        NodeEngineState {
             history,
             place_in_history,
             graph_manager,
@@ -209,7 +209,7 @@ impl StateManager {
     }
 }
 
-impl StateManager {
+impl NodeEngineState {
     fn handle_action_results(&mut self, action_results: Vec<ActionResult>) -> Vec<GraphIndex> {
         let mut graphs_to_reindex: Vec<GraphIndex> = Vec::new();
         let mut graphs_operated_on: Vec<GraphIndex> = Vec::new();
@@ -775,7 +775,7 @@ impl StateManager {
     }
 }
 
-impl StateManager {
+impl NodeEngineState {
     pub fn to_json(&self) -> Result<Value, NodeError> {
         Ok(json!({
             "graphs": self.graph_manager.to_json()?,
