@@ -6,6 +6,7 @@ use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::StateMana
 use serde_json::Value;
 use sound_engine::constants::BUFFER_SIZE;
 
+pub mod io;
 pub mod routes;
 pub mod util;
 

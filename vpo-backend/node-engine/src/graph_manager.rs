@@ -3,6 +3,7 @@ use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
 use rhai::Engine;
+use serde_json::{json, Value};
 use sound_engine::SoundConfig;
 use twox_hash::XxHash64;
 
@@ -430,5 +431,22 @@ impl GraphManager {
             connections: Some(node_connections),
             serialized: Some(node_state),
         })
+    }
+}
+
+impl GraphManager {
+    pub fn to_json(&self) -> Result<Value, NodeError> {
+        let mut formatted_node_graphs = HashMap::new();
+
+        for (index, graph_wrapper) in &self.node_graphs {
+            let json = graph_wrapper.borrow().graph.serialize_to_json()?;
+
+            formatted_node_graphs.insert(index.to_string(), json);
+        }
+
+        Ok(json!({
+            "node_graphs": formatted_node_graphs,
+            "current_uid": self.current_uid
+        }))
     }
 }

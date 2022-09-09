@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use sound_engine::{midi::messages::MidiData, SoundConfig};
 
 use crate::{
@@ -772,5 +772,17 @@ impl StateManager {
         }?;
 
         Ok((new_action, action_result))
+    }
+}
+
+impl StateManager {
+    pub fn to_json(&self) -> Result<Value, NodeError> {
+        Ok(json!({
+            "graphs": self.graph_manager.to_json()?,
+            "socket_registry": self.socket_registry.to_json()?,
+            "root_graph_index": self.root_graph_index,
+            "output_node": self.output_node,
+            "midi_in_node": self.midi_in_node
+        }))
     }
 }

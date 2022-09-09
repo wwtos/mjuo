@@ -30,6 +30,10 @@ impl SocketRegistry {
         }
     }
 
+    pub fn to_json(&self) -> Result<Value, NodeError> {
+        Ok(serde_json::to_value(self)?)
+    }
+
     pub fn register_socket(
         &mut self,
         name: String,
