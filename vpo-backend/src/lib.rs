@@ -40,6 +40,7 @@ pub fn route(
                 "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state, global_state),
                 "graph/undo" => routes::graph::undo::route(json, to_server, state, global_state),
                 "graph/redo" => routes::graph::redo::route(json, to_server, state, global_state),
+                "io/save" => routes::graph::save::route(json, to_server, state, global_state),
                 _ => Ok(None),
             };
         }

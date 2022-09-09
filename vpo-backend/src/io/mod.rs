@@ -9,7 +9,7 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
         "state": state.to_json()?
     });
 
-    fs::write(path, state.to_string())?;
+    fs::write(path.join("state.json"), state.to_string())?;
 
     Ok(())
 }

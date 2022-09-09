@@ -1,7 +1,7 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 pub struct GlobalState {
-    active_project: Option<Box<Path>>,
+    pub active_project: Option<PathBuf>,
 }
 
 impl GlobalState {
