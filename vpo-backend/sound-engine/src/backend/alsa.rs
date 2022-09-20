@@ -109,7 +109,7 @@ impl AudioClientBackend for AlsaAudioBackend {
         Ok(())
     }
 
-    fn write(&self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn error::Error>> {
+    fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn error::Error>> {
         self.sender.as_ref().unwrap().send(data.clone())?;
 
         Ok(())
