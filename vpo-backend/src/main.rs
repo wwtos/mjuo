@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::io::Write;
-use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -11,6 +10,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::state::NodeEngineState;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
+use sound_engine::backend::cpal::CpalBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;
@@ -109,7 +109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut engine_state = NodeEngineState::new(sound_config);
     let mut global_state = GlobalState::new();
 
-    let backend = connect_backend()?;
+    let mut backend = connect_backend()?;
 
     let mut midi_backend = connect_midi_backend()?;
     let mut parser = MidiParser::new();
