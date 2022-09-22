@@ -18,7 +18,6 @@ pub struct RegistryValue {
 #[derive(Serialize, Deserialize)]
 pub struct SocketRegistry {
     name_to_socket_type: HashMap<String, RegistryValue>,
-    #[serde(skip)]
     uid_counter: u64,
 }
 
@@ -28,10 +27,6 @@ impl SocketRegistry {
             name_to_socket_type: HashMap::new(),
             uid_counter: 0,
         }
-    }
-
-    pub fn to_json(&self) -> Result<Value, NodeError> {
-        Ok(serde_json::to_value(self)?)
     }
 
     pub fn register_socket(

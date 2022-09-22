@@ -1,6 +1,7 @@
 use std::mem;
 
 use rhai::Engine;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::{
@@ -11,18 +12,19 @@ use crate::{
     socket_registry::SocketRegistry,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeGraph {
     nodes: Vec<PossibleNode>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "variant", content = "data")]
 pub enum PossibleNode {
     Some(NodeWrapper, u32),
     None(u32), // last generation that was here
 }
 
-pub(in crate) fn create_new_node(
+pub(crate) fn create_new_node(
     node: NodeVariant,
     index: usize,
     generation: u32,
@@ -456,7 +458,7 @@ impl NodeGraph {
         self.len() == 0
     }
 
-    pub(in crate) fn set_node_unchecked(&mut self, index: NodeIndex, node: PossibleNode) {
+    pub(crate) fn set_node_unchecked(&mut self, index: NodeIndex, node: PossibleNode) {
         self.nodes[index.index] = node;
     }
 }

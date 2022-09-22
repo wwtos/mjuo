@@ -5,11 +5,9 @@ use std::fmt::{Debug, Display};
 
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
-use serde::de::{DeserializeSeed, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
-use sound_engine::SoundConfig;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -24,7 +22,6 @@ use crate::nodes::outputs::OutputsNode;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
-use crate::state::NodeEngineState;
 use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -159,9 +156,17 @@ pub trait Node: Debug {
     }
 }
 
+fn serialize_node_prop<S>(node: &NodeVariant, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&variant_to_name(node))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeWrapper {
-    #[serde(skip)]
+    #[serde(serialize_with = "serialize_node_prop")]
+    #[serde(skip_deserializing)]
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
@@ -504,7 +509,7 @@ impl NodeWrapper {
         &self.child_graph_io_indexes
     }
 
-    pub(crate) fn set_index(&mut self, index: NodeIndex) {
+    pub(crate) fn _set_index(&mut self, index: NodeIndex) {
         self.index = index;
     }
 
@@ -585,42 +590,6 @@ impl NodeWrapper {
         }
     }
 }
-/*
-struct SoundConfigSeed(SoundConfig);
-
-impl<'de, 'a> DeserializeSeed<'de> for SoundConfigSeed {
-    type Value = NodeWrapper;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        type Value = NodeWrapper;
-
-        // struct SoundConfigVisitor();
-
-        // impl<'de, 'a, T> Visitor<'de> for SoundConfigVisitor<'a, T>
-        // where
-        //     T: Deserialize<'de>,
-        // {
-        //     type Value = NodeWrapper;
-
-        //     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        //         write!(formatter, "an object (nodewrapper)")
-        //     }
-
-        //     fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
-        //     where
-        //         A: SeqAccess<'de>,
-        //     {
-
-        //         Ok(())
-        //     }
-        // }
-        deserializer.deserialize_struct("NodeWrapper", fields, visitor)
-    }
-}
- */
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub struct NodeIndex {
