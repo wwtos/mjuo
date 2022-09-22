@@ -9,7 +9,7 @@ pub fn route(
     _msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    global_state: &mut GlobalState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     println!("undo");
     let graphs_changed = state.undo()?;

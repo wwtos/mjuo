@@ -12,7 +12,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    global_state: &mut GlobalState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()

@@ -10,7 +10,6 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::state::NodeEngineState;
 use serde_json::json;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
-use sound_engine::backend::cpal::CpalBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
 use sound_engine::backend::MidiClientBackend;

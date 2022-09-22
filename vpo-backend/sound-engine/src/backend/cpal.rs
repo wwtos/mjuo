@@ -15,13 +15,13 @@ pub struct CpalBackend {
 }
 
 impl CpalBackend {
-    pub fn new(latency: f32) -> CpalBackend {
-        enumerate_devices();
+    pub fn new(latency: f32) -> Result<CpalBackend, Box<dyn error::Error>> {
+        enumerate_devices()?;
 
-        CpalBackend {
+        Ok(CpalBackend {
             latency,
             producer: None,
-        }
+        })
     }
 }
 
@@ -150,13 +150,14 @@ fn enumerate_devices() -> Result<(), Box<dyn error::Error>> {
             if let Ok(conf) = device.default_output_config() {
                 println!("    Default output stream config:\n      {:?}", conf);
             }
-            let output_configs = match device.supported_output_configs() {
-                Ok(f) => f.collect(),
-                Err(e) => {
-                    println!("    Error getting supported output configs: {:?}", e);
-                    Vec::new()
-                }
-            };
+
+            // let output_configs = match device.supported_output_configs() {
+            //     Ok(f) => f.collect(),
+            //     Err(e) => {
+            //         println!("    Error getting supported output configs: {:?}", e);
+            //         Vec::new()
+            //     }
+            // };
             // if !output_configs.is_empty() {
             //     println!("    All supported output stream configs:");
             //     for (config_index, config) in output_configs.into_iter().enumerate() {

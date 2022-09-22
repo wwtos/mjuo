@@ -28,7 +28,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    global_state: &mut GlobalState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_index: NodeIndex = serde_json::from_value(msg["payload"]["nodeIndex"].clone())
         .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.nodeIndex".to_string()))?;
