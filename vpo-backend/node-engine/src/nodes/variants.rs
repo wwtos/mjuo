@@ -26,7 +26,7 @@ use super::stream_expression::StreamExpressionNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
     gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
-    oscillator::OscillatorNode, output::OutputNode,
+    oscillator::OscillatorNode, output::OutputNode, placeholder::Placeholder,
 };
 
 #[enum_dispatch]
@@ -47,6 +47,7 @@ pub enum NodeVariant {
     OutputsNode,
     StreamExpressionNode,
     PolyphonicNode,
+    Placeholder,
     #[cfg(test)]
     TestNode,
 }
@@ -95,6 +96,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::OutputsNode(_) => "OutputsNode".to_string(),
         NodeVariant::StreamExpressionNode(_) => "StreamExpressionNode".to_string(),
         NodeVariant::PolyphonicNode(_) => "PolyphonicNode".to_string(),
+        NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),
     }
