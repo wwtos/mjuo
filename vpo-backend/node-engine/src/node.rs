@@ -5,9 +5,11 @@ use std::fmt::{Debug, Display};
 
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
-use serde::{Deserialize, Serialize};
+use serde::de::{DeserializeSeed, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
+use sound_engine::SoundConfig;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -22,6 +24,7 @@ use crate::nodes::outputs::OutputsNode;
 use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
+use crate::state::NodeEngineState;
 use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -493,42 +496,39 @@ impl NodeWrapper {
         variant_to_name(&self.node)
     }
 
-    pub(in crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
+    pub(crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
         self.child_graph_io_indexes = ios;
     }
 
-    pub(in crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
+    pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
         &self.child_graph_io_indexes
     }
 
-    pub(in crate) fn set_index(&mut self, index: NodeIndex) {
+    pub(crate) fn set_index(&mut self, index: NodeIndex) {
         self.index = index;
     }
 
-    pub(in crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
+    pub(crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
         self.node_rows = rows;
     }
 
-    pub(in crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
+    pub(crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
         &self.node_rows
     }
 
-    pub(in crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
+    pub(crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
         &self.connected_outputs
     }
 
-    pub(in crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
+    pub(crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
         self.connected_inputs.push(connection);
     }
 
-    pub(in crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
+    pub(crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unchecked(
-        &mut self,
-        to_type: &SocketType,
-    ) -> Result<(), NodeError> {
+    pub(crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()
@@ -543,7 +543,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn remove_output_socket_connection_unchecked(
+    pub(crate) fn remove_output_socket_connection_unchecked(
         &mut self,
         connection: &OutputSideConnection,
     ) -> Result<(), NodeError> {
@@ -562,7 +562,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn _remove_output_socket_connections_unchecked(
+    pub(crate) fn _remove_output_socket_connections_unchecked(
         &mut self,
         from_type: &SocketType,
     ) -> Result<(), NodeError> {
@@ -585,6 +585,42 @@ impl NodeWrapper {
         }
     }
 }
+/*
+struct SoundConfigSeed(SoundConfig);
+
+impl<'de, 'a> DeserializeSeed<'de> for SoundConfigSeed {
+    type Value = NodeWrapper;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        type Value = NodeWrapper;
+
+        // struct SoundConfigVisitor();
+
+        // impl<'de, 'a, T> Visitor<'de> for SoundConfigVisitor<'a, T>
+        // where
+        //     T: Deserialize<'de>,
+        // {
+        //     type Value = NodeWrapper;
+
+        //     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        //         write!(formatter, "an object (nodewrapper)")
+        //     }
+
+        //     fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+        //     where
+        //         A: SeqAccess<'de>,
+        //     {
+
+        //         Ok(())
+        //     }
+        // }
+        deserializer.deserialize_struct("NodeWrapper", fields, visitor)
+    }
+}
+ */
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 pub struct NodeIndex {
