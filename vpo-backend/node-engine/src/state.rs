@@ -778,11 +778,23 @@ impl NodeEngineState {
 impl NodeEngineState {
     pub fn to_json(&self) -> Result<Value, NodeError> {
         Ok(json!({
-            "graphs": self.graph_manager,
+            "graph_manager": self.graph_manager,
             "socket_registry": self.socket_registry,
             "root_graph_index": self.root_graph_index,
             "output_node": self.output_node,
             "midi_in_node": self.midi_in_node
         }))
+    }
+
+    pub fn apply_json(&mut self, mut json: Value) -> Result<(), NodeError> {
+        self.history.clear();
+        self.place_in_history = 0;
+        self.graph_manager = serde_json::from_value(json["graph_manager"].take())?;
+        self.socket_registry = serde_json::from_value(json["socket_registry"].take())?;
+        self.root_graph_index = serde_json::from_value(json["root_graph_index"].take())?;
+        self.output_node = serde_json::from_value(json["output_node"].take())?;
+        self.midi_in_node = serde_json::from_value(json["midi_in_node"].take())?;
+
+        Ok(())
     }
 }

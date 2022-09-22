@@ -41,6 +41,7 @@ pub fn route(
                 "graph/undo" => routes::graph::undo::route(json, to_server, state, global_state),
                 "graph/redo" => routes::graph::redo::route(json, to_server, state, global_state),
                 "io/save" => routes::graph::save::route(json, to_server, state, global_state),
+                "io/load" => routes::graph::load::route(json, to_server, state, global_state),
                 _ => Ok(None),
             };
         }
