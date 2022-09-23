@@ -53,6 +53,26 @@
     let selectedNodes: NodeIndex[] = [];
 
     onMount(async () => {
+        editor.addEventListener("keydown", event => {
+            if (event.ctrlKey) {
+                switch (event.key) {
+                    case "z":
+                        if (event.shiftKey) {
+                            ipcSocket.redo();
+                        } else {
+                            ipcSocket.undo();
+                        }
+                        break;
+                    case "y":
+                        ipcSocket.redo();
+                        break;
+                    case "s":
+                        ipcSocket.save();
+                        break;
+                }
+            }
+        });
+
         window.addEventListener("mousemove", ({clientX, clientY}) => {
             // convert window coordinates to editor coordinates
             let [mouseX, mouseY] = transformMouseRelativeToEditor(editor, zoomer, clientX, clientY);

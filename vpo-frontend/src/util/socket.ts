@@ -104,4 +104,28 @@ export class IPCSocket {
             "action": "graph/redo",
         })));
     }
+
+    save (path?: string) {
+        if (path) {
+            this.send({
+                "action": "io/save",
+                "payload": {
+                    "path": path
+                }
+            });
+        } else {
+            this.send({
+                "action": "io/save",
+            });
+        }
+    }
+
+    load (path: string) {
+        this.send({
+            "action": "io/load",
+            "payload": {
+                "path": path
+            }
+        });
+    }
 }

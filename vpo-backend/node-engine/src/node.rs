@@ -5,9 +5,10 @@ use std::fmt::{Debug, Display};
 
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
+use sound_engine::SoundConfig;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -19,7 +20,8 @@ use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
 use crate::nodes::outputs::OutputsNode;
-use crate::nodes::variants::{variant_to_name, NodeVariant};
+use crate::nodes::placeholder::Placeholder;
+use crate::nodes::variants::{new_variant, variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
@@ -156,9 +158,26 @@ pub trait Node: Debug {
     }
 }
 
+fn serialize_node_prop<S>(node: &NodeVariant, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&variant_to_name(node))
+}
+
+fn deserialize_node_prop<'de, D>(deserializer: D) -> Result<NodeVariant, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let variant_name: String = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(NodeVariant::Placeholder(Placeholder::new(variant_name.to_string())))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeWrapper {
-    #[serde(skip)]
+    #[serde(serialize_with = "serialize_node_prop")]
+    #[serde(deserialize_with = "deserialize_node_prop")]
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
@@ -446,6 +465,12 @@ impl NodeWrapper {
         Ok(())
     }
 
+    pub(crate) fn post_deserialization(&mut self, sound_config: &SoundConfig) -> Result<(), NodeError> {
+        self.node = new_variant(&self.node.as_placeholder_value().unwrap(), sound_config)?;
+
+        Ok(())
+    }
+
     pub fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
         self.node.accept_stream_input(socket_type, value);
     }
@@ -493,42 +518,39 @@ impl NodeWrapper {
         variant_to_name(&self.node)
     }
 
-    pub(in crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
+    pub(crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
         self.child_graph_io_indexes = ios;
     }
 
-    pub(in crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
+    pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
         &self.child_graph_io_indexes
     }
 
-    pub(in crate) fn set_index(&mut self, index: NodeIndex) {
+    pub(crate) fn _set_index(&mut self, index: NodeIndex) {
         self.index = index;
     }
 
-    pub(in crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
+    pub(crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
         self.node_rows = rows;
     }
 
-    pub(in crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
+    pub(crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
         &self.node_rows
     }
 
-    pub(in crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
+    pub(crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
         &self.connected_outputs
     }
 
-    pub(in crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
+    pub(crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
         self.connected_inputs.push(connection);
     }
 
-    pub(in crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
+    pub(crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
         self.connected_outputs.push(connection);
     }
 
-    pub(in crate) fn remove_input_socket_connection_unchecked(
-        &mut self,
-        to_type: &SocketType,
-    ) -> Result<(), NodeError> {
+    pub(crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
         let to_remove = self
             .connected_inputs
             .iter()
@@ -543,7 +565,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn remove_output_socket_connection_unchecked(
+    pub(crate) fn remove_output_socket_connection_unchecked(
         &mut self,
         connection: &OutputSideConnection,
     ) -> Result<(), NodeError> {
@@ -562,7 +584,7 @@ impl NodeWrapper {
         }
     }
 
-    pub(in crate) fn _remove_output_socket_connections_unchecked(
+    pub(crate) fn _remove_output_socket_connections_unchecked(
         &mut self,
         from_type: &SocketType,
     ) -> Result<(), NodeError> {

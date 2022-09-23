@@ -18,7 +18,6 @@ pub struct RegistryValue {
 #[derive(Serialize, Deserialize)]
 pub struct SocketRegistry {
     name_to_socket_type: HashMap<String, RegistryValue>,
-    #[serde(skip)]
     uid_counter: u64,
 }
 

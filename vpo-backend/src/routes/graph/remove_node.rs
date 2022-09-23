@@ -4,11 +4,11 @@ use node_engine::{
     errors::NodeError,
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, StateManager},
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -27,7 +27,8 @@ use crate::{util::send_graph_updates, RouteReturn};
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_index: NodeIndex = serde_json::from_value(msg["payload"]["nodeIndex"].clone())
         .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.nodeIndex".to_string()))?;

@@ -47,6 +47,8 @@ pub enum NodeError {
     RhaiParserError(ParseError),
     #[error("Rhai evaluation error: {0}")]
     RhaiEvalError(EvalAltResult),
+    #[error("IO Error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 #[derive(Error, Debug)]

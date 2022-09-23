@@ -1,9 +1,10 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, node::NodeIndex, state::StateManager};
+use node_engine::{errors::NodeError, node::NodeIndex, state::NodeEngineState};
 use serde_json::Value;
 
 use crate::{
+    state::GlobalState,
     util::{send_graph_updates, send_registry_updates},
     RouteReturn,
 };
@@ -11,7 +12,8 @@ use crate::{
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let nodes_to_update = msg["payload"]["updatedNodes"]
         .as_array()

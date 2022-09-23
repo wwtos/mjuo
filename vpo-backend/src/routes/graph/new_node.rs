@@ -2,11 +2,11 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
-    state::{Action, ActionBundle, StateManager},
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -25,7 +25,8 @@ use crate::{util::send_graph_updates, RouteReturn};
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_type = msg["payload"]["type"]
         .as_str()

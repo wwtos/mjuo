@@ -7,6 +7,7 @@ pub mod ringbuffer;
 pub mod util;
 pub mod wave;
 
+#[derive(Clone)]
 pub struct SoundConfig {
     pub sample_rate: u32,
 }

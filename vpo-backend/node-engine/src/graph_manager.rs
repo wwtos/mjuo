@@ -3,6 +3,8 @@ use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
 use rhai::Engine;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sound_engine::SoundConfig;
 use twox_hash::XxHash64;
 
@@ -17,20 +19,21 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 pub type GraphIndex = u64;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
     pub node_index: NodeIndex,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct NodeGraphWrapper {
     pub graph: NodeGraph,
+    #[serde(skip)]
     pub traverser: Traverser,
     parent_nodes: Vec<GlobalNodeIndex>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct GraphManager {
     node_graphs: HashMap<u64, RefCell<NodeGraphWrapper>, BuildHasherDefault<XxHash64>>,
     current_uid: u64,
@@ -57,7 +60,7 @@ impl GraphManager {
         graph_index
     }
 
-    pub(in crate) fn new_graph_unchecked(&mut self, graph_index: GraphIndex) -> GraphIndex {
+    pub(crate) fn new_graph_unchecked(&mut self, graph_index: GraphIndex) -> GraphIndex {
         self.node_graphs.insert(
             graph_index,
             RefCell::new(NodeGraphWrapper {
@@ -430,5 +433,40 @@ impl GraphManager {
             connections: Some(node_connections),
             serialized: Some(node_state),
         })
+    }
+}
+
+impl GraphManager {
+    pub fn to_json(&self) -> Result<Value, NodeError> {
+        let mut formatted_node_graphs = HashMap::new();
+
+        for (index, graph_wrapper) in &self.node_graphs {
+            let json = graph_wrapper.borrow().graph.serialize_to_json()?;
+
+            formatted_node_graphs.insert(index.to_string(), json);
+        }
+
+        Ok(json!({
+            "node_graphs": formatted_node_graphs,
+            "current_uid": self.current_uid
+        }))
+    }
+
+    pub fn post_deserialization(
+        &mut self,
+        socket_registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+        sound_config: &SoundConfig,
+    ) -> Result<(), NodeError> {
+        for (_, graph_wrapper) in self.node_graphs.iter() {
+            let mut graph_wrapper = graph_wrapper.borrow_mut();
+
+            graph_wrapper
+                .graph
+                .post_deserialization(socket_registry, scripting_engine, sound_config)?;
+            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
+        }
+
+        Ok(())
     }
 }

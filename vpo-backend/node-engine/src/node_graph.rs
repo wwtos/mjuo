@@ -1,7 +1,9 @@
 use std::mem;
 
 use rhai::Engine;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketDirection, SocketType},
@@ -11,18 +13,19 @@ use crate::{
     socket_registry::SocketRegistry,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeGraph {
     nodes: Vec<PossibleNode>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "variant", content = "data")]
 pub enum PossibleNode {
     Some(NodeWrapper, u32),
     None(u32), // last generation that was here
 }
 
-pub(in crate) fn create_new_node(
+pub(crate) fn create_new_node(
     node: NodeVariant,
     index: usize,
     generation: u32,
@@ -240,6 +243,7 @@ impl NodeGraph {
         index: &NodeIndex,
         socket_registry: &mut SocketRegistry,
         scripting_engine: &Engine,
+        force_update: bool,
     ) -> Result<bool, NodeError> {
         let mut has_changed_self = false;
 
@@ -258,7 +262,7 @@ impl NodeGraph {
             }
 
             // return a list of all the rows that changed to the outer scope
-            if init_result.did_rows_change {
+            if init_result.did_rows_change || force_update {
                 let old_rows = node_wrapper.get_node_rows().clone();
                 let new_rows = &init_result.node_rows;
 
@@ -456,7 +460,7 @@ impl NodeGraph {
         self.len() == 0
     }
 
-    pub(in crate) fn set_node_unchecked(&mut self, index: NodeIndex, node: PossibleNode) {
+    pub(crate) fn set_node_unchecked(&mut self, index: NodeIndex, node: PossibleNode) {
         self.nodes[index.index] = node;
     }
 }
@@ -507,6 +511,36 @@ impl NodeGraph {
             "nodes": nodes,
             "connections": connections
         }))
+    }
+
+    pub fn post_deserialization(
+        &mut self,
+        socket_registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+        sound_config: &SoundConfig,
+    ) -> Result<(), NodeError> {
+        // go through and run post_deserialization on each node
+        // then, initialize all those nodes in the graph here
+        self.nodes
+            .iter_mut()
+            .filter_map(|possible_node| {
+                if let PossibleNode::Some(node, _) = possible_node {
+                    let res = node.post_deserialization(sound_config);
+
+                    match res {
+                        Ok(_) => Some(Ok(node.get_index())),
+                        Err(err) => Some(Err(err)),
+                    }
+                } else {
+                    None
+                }
+            })
+            .collect::<Result<Vec<NodeIndex>, NodeError>>()?
+            .iter()
+            .map(|node_index| self.init_node(node_index, socket_registry, scripting_engine, true))
+            .collect::<Result<Vec<_>, NodeError>>()?;
+
+        Ok(())
     }
 }
 

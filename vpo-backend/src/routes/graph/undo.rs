@@ -1,14 +1,15 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, state::StateManager};
+use node_engine::{errors::NodeError, state::NodeEngineState};
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
 pub fn route(
     _msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     println!("undo");
     let graphs_changed = state.undo()?;

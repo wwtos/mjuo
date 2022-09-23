@@ -47,7 +47,7 @@ impl AudioClientBackend for PulseClientBackend {
         Ok(())
     }
 
-    fn write(&self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn Error>> {
+    fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn Error>> {
         let mut data_out = [0_u8; BUFFER_SIZE * 4];
 
         // TODO: would memcpy work here faster?

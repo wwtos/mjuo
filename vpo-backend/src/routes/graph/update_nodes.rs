@@ -4,11 +4,12 @@ use node_engine::{
     errors::NodeError,
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, StateManager},
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 
 use crate::{
+    state::GlobalState,
     util::{send_graph_updates, send_registry_updates},
     RouteReturn,
 };
@@ -16,7 +17,8 @@ use crate::{
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let nodes_to_update = msg["payload"]["updatedNodes"]
         .as_array()

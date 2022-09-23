@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use sound_engine::{midi::messages::MidiData, SoundConfig};
 
 use crate::{
@@ -73,7 +73,7 @@ impl ActionBundle {
     }
 }
 
-pub struct StateManager {
+pub struct NodeEngineState {
     history: Vec<ActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
@@ -85,8 +85,8 @@ pub struct StateManager {
     midi_in_node: NodeIndex,
 }
 
-impl StateManager {
-    pub fn new(sound_config: SoundConfig) -> StateManager {
+impl NodeEngineState {
+    pub fn new(sound_config: SoundConfig) -> NodeEngineState {
         let history = Vec::new();
         let place_in_history = 0;
         let mut graph_manager = GraphManager::new();
@@ -118,7 +118,7 @@ impl StateManager {
             .recalculate_traversal_for_graph(&root_graph_index)
             .unwrap();
 
-        StateManager {
+        NodeEngineState {
             history,
             place_in_history,
             graph_manager,
@@ -209,7 +209,7 @@ impl StateManager {
     }
 }
 
-impl StateManager {
+impl NodeEngineState {
     fn handle_action_results(&mut self, action_results: Vec<ActionResult>) -> Vec<GraphIndex> {
         let mut graphs_to_reindex: Vec<GraphIndex> = Vec::new();
         let mut graphs_operated_on: Vec<GraphIndex> = Vec::new();
@@ -417,9 +417,12 @@ impl StateManager {
 
                 let before = node.replace_properties(after.clone());
 
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -627,9 +630,12 @@ impl StateManager {
                 node.apply_json(&serialized)?;
 
                 // finally, reinit the node
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 Ok(Action::RemoveNode {
                     node_type: Some(node_type),
@@ -653,9 +659,12 @@ impl StateManager {
 
                 node.set_properties(before.clone());
 
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -772,5 +781,39 @@ impl StateManager {
         }?;
 
         Ok((new_action, action_result))
+    }
+}
+
+impl NodeEngineState {
+    pub fn to_json(&self) -> Result<Value, NodeError> {
+        Ok(json!({
+            "graph_manager": self.graph_manager,
+            "socket_registry": self.socket_registry,
+            "root_graph_index": self.root_graph_index,
+            "output_node": self.output_node,
+            "midi_in_node": self.midi_in_node
+        }))
+    }
+
+    pub fn apply_json(&mut self, mut json: Value) -> Result<(), NodeError> {
+        self.history.clear();
+        self.place_in_history = 0;
+        self.graph_manager = serde_json::from_value(json["graph_manager"].take())?;
+        self.socket_registry = serde_json::from_value(json["socket_registry"].take())?;
+        self.root_graph_index = serde_json::from_value(json["root_graph_index"].take())?;
+        self.output_node = serde_json::from_value(json["output_node"].take())?;
+        self.midi_in_node = serde_json::from_value(json["midi_in_node"].take())?;
+
+        let NodeEngineState {
+            graph_manager,
+            socket_registry,
+            scripting_engine,
+            sound_config,
+            ..
+        } = self;
+
+        graph_manager.post_deserialization(socket_registry, scripting_engine, sound_config)?;
+
+        Ok(())
     }
 }

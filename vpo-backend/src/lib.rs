@@ -2,11 +2,14 @@ use std::{error::Error, io::Write};
 
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::StateManager};
+use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::NodeEngineState};
 use serde_json::Value;
 use sound_engine::constants::BUFFER_SIZE;
+use state::GlobalState;
 
+pub mod io;
 pub mod routes;
+pub mod state;
 pub mod util;
 
 #[derive(Default)]
@@ -18,7 +21,8 @@ pub struct RouteReturn {
 pub fn route(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
-    state: &mut StateManager,
+    state: &mut NodeEngineState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let IPCMessage::Json(json) = msg;
 
@@ -27,15 +31,17 @@ pub fn route(
 
         if let Value::String(action_name) = action {
             return match action_name.as_str() {
-                "graph/get" => routes::graph::get::route(json, to_server, state),
-                "graph/newNode" => routes::graph::new_node::route(json, to_server, state),
-                "graph/removeNode" => routes::graph::remove_node::route(json, to_server, state),
-                "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state),
-                "graph/updateNodesUi" => routes::graph::update_node_ui::route(json, to_server, state),
-                "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state),
-                "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state),
-                "graph/undo" => routes::graph::undo::route(json, to_server, state),
-                "graph/redo" => routes::graph::redo::route(json, to_server, state),
+                "graph/get" => routes::graph::get::route(json, to_server, state, global_state),
+                "graph/newNode" => routes::graph::new_node::route(json, to_server, state, global_state),
+                "graph/removeNode" => routes::graph::remove_node::route(json, to_server, state, global_state),
+                "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state, global_state),
+                "graph/updateNodesUi" => routes::graph::update_node_ui::route(json, to_server, state, global_state),
+                "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state, global_state),
+                "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state, global_state),
+                "graph/undo" => routes::graph::undo::route(json, to_server, state, global_state),
+                "graph/redo" => routes::graph::redo::route(json, to_server, state, global_state),
+                "io/save" => routes::graph::save::route(json, to_server, state, global_state),
+                "io/load" => routes::graph::load::route(json, to_server, state, global_state),
                 _ => Ok(None),
             };
         }
