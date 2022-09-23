@@ -56,3 +56,6 @@ typings/
 out/
 
 public/build/
+
+*.wav
+*.mp3
