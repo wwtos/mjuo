@@ -1,10 +1,12 @@
-import { app, BrowserWindow, IpcMainEvent, WebContents } from 'electron';
+import { app, BrowserWindow, IpcMainEvent, WebContents, dialog } from 'electron';
 import path from 'path';
 
 import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
 import { MemberType } from 'safety-match';
+
+let activeWindow: BrowserWindow;
 
 interface Reply {
     value: object,
@@ -42,6 +44,23 @@ ipcMain.on("send", (event, data) => {
     client.sendJson(data);
 });
 
+ipcMain.on("action", (event, data) => {
+    if (data?.action === "io/openSaveDialog") {
+        ipcSender = event.sender;
+
+        dialog.showOpenDialog(activeWindow, {
+            properties: [ "openDirectory" ]
+        }).then(({filePaths}) => {
+            client.sendJson({
+                "action": "io/save",
+                "payload": {"path": filePaths[0]}
+            });
+        });
+    }
+    
+    // ipcSender.send("action", );
+});
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 // if (require('electron-squirrel-startup')) { // eslint-disable-line global-require
 //     app.quit();
@@ -57,6 +76,8 @@ const createWindow = () => {
     });
     mainWindow.loadFile(path.join(__dirname, '../public/index.html'));
     mainWindow.webContents.openDevTools();
+
+    activeWindow = mainWindow;
 };
 
 app.on('ready', createWindow);

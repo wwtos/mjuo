@@ -6,6 +6,15 @@ export class IPCSocket {
 
     constructor(ipcRenderer: any) {
         this.ipcRenderer = ipcRenderer;
+
+        this.onMessage(([message]) => {
+            if (message?.action === "io/getSaveLocation") {
+                this.ipcRenderer.send("action", {
+                    title: "Select a folder to put your project files in",
+                    action: "io/openSaveDialog"
+                });
+            }
+        })
     }
 
     send(json: object) {
