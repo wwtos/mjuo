@@ -52,6 +52,15 @@ pub enum NodeVariant {
     TestNode,
 }
 
+impl NodeVariant {
+    pub fn as_placeholder_value(&self) -> Option<String> {
+        match self {
+            NodeVariant::Placeholder(placeholder) => Some(placeholder.get_variant()),
+            _ => None,
+        }
+    }
+}
+
 impl Default for NodeVariant {
     fn default() -> Self {
         NodeVariant::DummyNode(DummyNode::default())
@@ -60,6 +69,8 @@ impl Default for NodeVariant {
 
 pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant, NodeError> {
     match node_type {
+        "OutputNode" => Ok(NodeVariant::OutputNode(OutputNode::default())),
+        "MidiInNode" => Ok(NodeVariant::MidiInNode(MidiInNode::default())),
         "GainGraphNode" => Ok(NodeVariant::GainGraphNode(GainGraphNode::default())),
         "OscillatorNode" => Ok(NodeVariant::OscillatorNode(OscillatorNode::default())),
         "MidiToValuesNode" => Ok(NodeVariant::MidiToValuesNode(MidiToValuesNode::default())),

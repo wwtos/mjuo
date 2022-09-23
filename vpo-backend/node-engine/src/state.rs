@@ -417,9 +417,12 @@ impl NodeEngineState {
 
                 let before = node.replace_properties(after.clone());
 
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -627,9 +630,12 @@ impl NodeEngineState {
                 node.apply_json(&serialized)?;
 
                 // finally, reinit the node
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 Ok(Action::RemoveNode {
                     node_type: Some(node_type),
@@ -653,9 +659,12 @@ impl NodeEngineState {
 
                 node.set_properties(before.clone());
 
-                graph
-                    .graph
-                    .init_node(&index.node_index, &mut self.socket_registry, &self.scripting_engine)?;
+                graph.graph.init_node(
+                    &index.node_index,
+                    &mut self.socket_registry,
+                    &self.scripting_engine,
+                    false,
+                )?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -794,6 +803,16 @@ impl NodeEngineState {
         self.root_graph_index = serde_json::from_value(json["root_graph_index"].take())?;
         self.output_node = serde_json::from_value(json["output_node"].take())?;
         self.midi_in_node = serde_json::from_value(json["midi_in_node"].take())?;
+
+        let NodeEngineState {
+            graph_manager,
+            socket_registry,
+            scripting_engine,
+            sound_config,
+            ..
+        } = self;
+
+        graph_manager.post_deserialization(socket_registry, scripting_engine, sound_config)?;
 
         Ok(())
     }

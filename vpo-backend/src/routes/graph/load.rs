@@ -3,10 +3,10 @@ use std::{
     str::FromStr,
 };
 
-use async_std::{channel::Sender, task::block_on};
+use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, state::NodeEngineState};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::{io::load, state::GlobalState, RouteReturn};
 

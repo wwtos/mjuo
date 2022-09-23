@@ -11,6 +11,7 @@ pub mod mixer;
 pub mod oscillator;
 pub mod output;
 pub mod outputs;
+pub mod placeholder;
 pub mod polyphonic;
 pub mod stream_expression;
 pub mod variants;

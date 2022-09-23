@@ -17,6 +17,10 @@ impl Placeholder {
     pub fn new(node_type: String) -> Placeholder {
         Placeholder { node_type }
     }
+
+    pub fn get_variant(&self) -> String {
+        self.node_type.clone()
+    }
 }
 
 /// Placeholder

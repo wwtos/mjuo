@@ -451,4 +451,22 @@ impl GraphManager {
             "current_uid": self.current_uid
         }))
     }
+
+    pub fn post_deserialization(
+        &mut self,
+        socket_registry: &mut SocketRegistry,
+        scripting_engine: &Engine,
+        sound_config: &SoundConfig,
+    ) -> Result<(), NodeError> {
+        for (_, graph_wrapper) in self.node_graphs.iter() {
+            let mut graph_wrapper = graph_wrapper.borrow_mut();
+
+            graph_wrapper
+                .graph
+                .post_deserialization(socket_registry, scripting_engine, sound_config)?;
+            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
+        }
+
+        Ok(())
+    }
 }

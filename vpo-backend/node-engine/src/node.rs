@@ -5,9 +5,10 @@ use std::fmt::{Debug, Display};
 
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use sound_engine::midi::messages::MidiData;
+use sound_engine::SoundConfig;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -19,7 +20,8 @@ use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
 use crate::nodes::outputs::OutputsNode;
-use crate::nodes::variants::{variant_to_name, NodeVariant};
+use crate::nodes::placeholder::Placeholder;
+use crate::nodes::variants::{new_variant, variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
@@ -163,10 +165,19 @@ where
     serializer.serialize_str(&variant_to_name(node))
 }
 
+fn deserialize_node_prop<'de, D>(deserializer: D) -> Result<NodeVariant, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let variant_name: String = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(NodeVariant::Placeholder(Placeholder::new(variant_name.to_string())))
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NodeWrapper {
     #[serde(serialize_with = "serialize_node_prop")]
-    #[serde(skip_deserializing)]
+    #[serde(deserialize_with = "deserialize_node_prop")]
     pub(crate) node: NodeVariant,
     index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
@@ -450,6 +461,12 @@ impl NodeWrapper {
         }
 
         self.ui_data = ui_data;
+
+        Ok(())
+    }
+
+    pub(crate) fn post_deserialization(&mut self, sound_config: &SoundConfig) -> Result<(), NodeError> {
+        self.node = new_variant(&self.node.as_placeholder_value().unwrap(), sound_config)?;
 
         Ok(())
     }
