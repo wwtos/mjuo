@@ -130,12 +130,6 @@ where
     }
 }
 
-unsafe impl<T> Send for BufferLeft<T> where T: Send + Sync {}
-unsafe impl<T> Sync for BufferLeft<T> where T: Send + Sync {}
-
-unsafe impl<T> Send for BufferRight<T> where T: Send + Sync {}
-unsafe impl<T> Sync for BufferRight<T> where T: Send + Sync {}
-
 pub fn double_buffer<T>(buffer_a: T, buffer_b: T) -> (BufferLeft<T>, BufferRight<T>)
 where
     T: Send + Sync,
