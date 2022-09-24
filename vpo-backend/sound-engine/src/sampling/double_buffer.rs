@@ -1,11 +1,7 @@
-use std::{
-    cell::UnsafeCell,
-    sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError},
-    time::Duration,
-};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
 
 #[cfg(test)]
-use std::thread;
+use std::{thread, time::Duration};
 
 pub struct DoubleBuffer<T> {
     buffer_left: Mutex<BufferWrapper<T>>,
@@ -40,14 +36,14 @@ pub struct BufferLeft<T>
 where
     T: Send + Sync,
 {
-    packet: UnsafeCell<Arc<DoubleBuffer<T>>>,
+    packet: Arc<DoubleBuffer<T>>,
 }
 
 pub struct BufferRight<T>
 where
     T: Send + Sync,
 {
-    packet: UnsafeCell<Arc<DoubleBuffer<T>>>,
+    packet: Arc<DoubleBuffer<T>>,
 }
 
 impl<T> BufferLeft<T>
@@ -55,9 +51,7 @@ where
     T: Send + Sync,
 {
     pub fn new(packet: Arc<DoubleBuffer<T>>) -> BufferLeft<T> {
-        BufferLeft {
-            packet: UnsafeCell::new(packet),
-        }
+        BufferLeft { packet }
     }
 }
 
@@ -66,9 +60,7 @@ where
     T: Send + Sync,
 {
     pub fn new(packet: Arc<DoubleBuffer<T>>) -> BufferRight<T> {
-        BufferRight {
-            packet: UnsafeCell::new(packet),
-        }
+        BufferRight { packet }
     }
 }
 
@@ -77,33 +69,29 @@ where
     T: Send + Sync,
 {
     fn lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe { (*self.packet.get()).buffer_left.lock() }
+        (*self.packet).buffer_left.lock()
     }
 
     fn try_lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe { (*self.packet.get()).buffer_left.try_lock() }
+        (*self.packet).buffer_left.try_lock()
     }
 
     fn swap(&mut self) -> Result<(), PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe {
-            // ensure we have access to these
-            let mut lock_left = (*self.packet.get()).buffer_left.lock()?;
-            let mut lock_right = (*self.packet.get()).buffer_right.lock()?;
+        // ensure we have access to these
+        let mut lock_left = (*self.packet).buffer_left.lock()?;
+        let mut lock_right = (*self.packet).buffer_right.lock()?;
 
-            std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-        }
+        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
 
         Ok(())
     }
 
     fn try_swap(&mut self) -> Result<(), TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe {
-            // ensure we have access to these
-            let mut lock_left = (*self.packet.get()).buffer_left.try_lock()?;
-            let mut lock_right = (*self.packet.get()).buffer_right.try_lock()?;
+        // ensure we have access to these
+        let mut lock_left = (*self.packet).buffer_left.try_lock()?;
+        let mut lock_right = (*self.packet).buffer_right.try_lock()?;
 
-            std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-        }
+        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
 
         Ok(())
     }
@@ -114,33 +102,29 @@ where
     T: Send + Sync,
 {
     fn lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe { (*self.packet.get()).buffer_right.lock() }
+        (*self.packet).buffer_right.lock()
     }
 
     fn try_lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe { (*self.packet.get()).buffer_right.try_lock() }
+        (*self.packet).buffer_right.try_lock()
     }
 
     fn swap(&mut self) -> Result<(), PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe {
-            // ensure we have access to these
-            let mut lock_left = (*self.packet.get()).buffer_left.lock()?;
-            let mut lock_right = (*self.packet.get()).buffer_right.lock()?;
+        // ensure we have access to these
+        let mut lock_left = (*self.packet).buffer_left.lock()?;
+        let mut lock_right = (*self.packet).buffer_right.lock()?;
 
-            std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-        }
+        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
 
         Ok(())
     }
 
     fn try_swap(&mut self) -> Result<(), TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        unsafe {
-            // ensure we have access to these
-            let mut lock_left = (*self.packet.get()).buffer_left.try_lock()?;
-            let mut lock_right = (*self.packet.get()).buffer_right.try_lock()?;
+        // ensure we have access to these
+        let mut lock_left = (*self.packet).buffer_left.try_lock()?;
+        let mut lock_right = (*self.packet).buffer_right.try_lock()?;
 
-            std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-        }
+        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
 
         Ok(())
     }
