@@ -1,184 +1,104 @@
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, TryLockError};
+use std::{
+    ops::DerefMut,
+    sync::{Mutex, TryLockError},
+};
 
 #[cfg(test)]
-use std::{thread, time::Duration};
+use std::{sync::Arc, thread, time::Duration};
 
 pub struct DoubleBuffer<T> {
-    buffer_left: Mutex<BufferWrapper<T>>,
-    buffer_right: Mutex<BufferWrapper<T>>,
+    pub active: Mutex<T>,
+    pub background: Mutex<T>,
 }
+
+#[derive(Debug)]
+pub struct WouldBlock;
 
 impl<T> DoubleBuffer<T> {
     pub fn new(buffer_left: T, buffer_right: T) -> DoubleBuffer<T> {
         DoubleBuffer {
-            buffer_left: Mutex::new(BufferWrapper(buffer_left)),
-            buffer_right: Mutex::new(BufferWrapper(buffer_right)),
+            active: Mutex::new(buffer_left),
+            background: Mutex::new(buffer_right),
         }
     }
 }
 
-pub trait BufferHalf<T>
-where
-    T: Send + Sync,
-{
-    fn lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, PoisonError<MutexGuard<'_, BufferWrapper<T>>>>;
-
-    fn try_lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, TryLockError<MutexGuard<'_, BufferWrapper<T>>>>;
-
-    fn swap(&mut self) -> Result<(), PoisonError<MutexGuard<'_, BufferWrapper<T>>>>;
-
-    fn try_swap(&mut self) -> Result<(), TryLockError<MutexGuard<'_, BufferWrapper<T>>>>;
-}
-
-pub struct BufferWrapper<T>(T);
-
-pub struct BufferLeft<T>
-where
-    T: Send + Sync,
-{
-    packet: Arc<DoubleBuffer<T>>,
-}
-
-pub struct BufferRight<T>
-where
-    T: Send + Sync,
-{
-    packet: Arc<DoubleBuffer<T>>,
-}
-
-impl<T> BufferLeft<T>
-where
-    T: Send + Sync,
-{
-    pub fn new(packet: Arc<DoubleBuffer<T>>) -> BufferLeft<T> {
-        BufferLeft { packet }
-    }
-}
-
-impl<T> BufferRight<T>
-where
-    T: Send + Sync,
-{
-    pub fn new(packet: Arc<DoubleBuffer<T>>) -> BufferRight<T> {
-        BufferRight { packet }
-    }
-}
-
-impl<T> BufferHalf<T> for BufferLeft<T>
-where
-    T: Send + Sync,
-{
-    fn lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        (*self.packet).buffer_left.lock()
-    }
-
-    fn try_lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        (*self.packet).buffer_left.try_lock()
-    }
-
-    fn swap(&mut self) -> Result<(), PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
+impl<T> DoubleBuffer<T> {
+    pub fn swap(&self) {
         // ensure we have access to these
-        let mut lock_left = (*self.packet).buffer_left.lock()?;
-        let mut lock_right = (*self.packet).buffer_right.lock()?;
+        let mut lock_active = self.active.lock().unwrap();
+        let mut lock_background = self.background.lock().unwrap();
 
-        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-
-        Ok(())
+        std::mem::swap(lock_active.deref_mut(), lock_background.deref_mut());
     }
 
-    fn try_swap(&mut self) -> Result<(), TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
+    pub fn try_swap(&self) -> Result<(), WouldBlock> {
         // ensure we have access to these
-        let mut lock_left = (*self.packet).buffer_left.try_lock()?;
-        let mut lock_right = (*self.packet).buffer_right.try_lock()?;
+        let mut lock_active = self.active.try_lock().map_err(|err| match err {
+            TryLockError::Poisoned(_) => panic!("poisoned lock"),
+            TryLockError::WouldBlock => WouldBlock,
+        })?;
+        let mut lock_background = self.background.try_lock().map_err(|err| match err {
+            TryLockError::Poisoned(_) => panic!("poisoned lock"),
+            TryLockError::WouldBlock => WouldBlock,
+        })?;
 
-        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
+        std::mem::swap(lock_active.deref_mut(), lock_background.deref_mut());
 
         Ok(())
     }
 }
 
-impl<T> BufferHalf<T> for BufferRight<T>
+pub fn double_buffer<T>(buffer_a: T, buffer_b: T) -> DoubleBuffer<T>
 where
     T: Send + Sync,
 {
-    fn lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        (*self.packet).buffer_right.lock()
-    }
-
-    fn try_lock(&self) -> Result<MutexGuard<'_, BufferWrapper<T>>, TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        (*self.packet).buffer_right.try_lock()
-    }
-
-    fn swap(&mut self) -> Result<(), PoisonError<MutexGuard<'_, BufferWrapper<T>>>> {
-        // ensure we have access to these
-        let mut lock_left = (*self.packet).buffer_left.lock()?;
-        let mut lock_right = (*self.packet).buffer_right.lock()?;
-
-        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-
-        Ok(())
-    }
-
-    fn try_swap(&mut self) -> Result<(), TryLockError<MutexGuard<'_, BufferWrapper<T>>>> {
-        // ensure we have access to these
-        let mut lock_left = (*self.packet).buffer_left.try_lock()?;
-        let mut lock_right = (*self.packet).buffer_right.try_lock()?;
-
-        std::mem::swap(&mut lock_left.0, &mut lock_right.0);
-
-        Ok(())
-    }
-}
-
-pub fn double_buffer<T>(buffer_a: T, buffer_b: T) -> (BufferLeft<T>, BufferRight<T>)
-where
-    T: Send + Sync,
-{
-    let new_packet = Arc::new(DoubleBuffer::new(buffer_a, buffer_b));
-
-    (BufferLeft::new(new_packet.clone()), BufferRight::new(new_packet))
+    DoubleBuffer::new(buffer_a, buffer_b)
 }
 
 #[test]
 fn test_swap_block() {
-    let (left, mut right) = double_buffer(vec![1, 2, 3], vec![4, 5, 6]);
+    let double_buffer = Arc::new(double_buffer(vec![1, 2, 3], vec![4, 5, 6]));
+    let double_buffer_clone = double_buffer.clone();
 
-    let left_lock = left.lock().unwrap();
-    assert_eq!(left_lock.0, vec![1, 2, 3]);
+    let active_lock = (*double_buffer_clone).active.lock().unwrap();
+    let active_lock_ref = active_lock.as_ref();
 
     thread::scope(|s| {
         s.spawn(|| {
-            // make sure we can still access the right buffer
-            assert!(right.try_lock().is_ok());
+            // make sure we can still access the background buffer
+            assert!((*double_buffer).background.try_lock().is_ok());
 
             // now, swapping it should fail
-            assert!(right.try_swap().is_err());
+            // (*double_buffer).try_swap();
+            assert!((*double_buffer).try_swap().is_err());
         });
     });
 
     // keep left lock in scope
-    assert_eq!(left_lock.0, vec![1, 2, 3]);
+    assert_eq!(active_lock_ref, vec![1, 2, 3]);
 }
 
 #[test]
 fn test_swap_lock() {
-    let (mut left, right) = double_buffer(vec![1, 2, 3], vec![4, 5, 6]);
+    let double_buffer = Arc::new(double_buffer(vec![1, 2, 3], vec![4, 5, 6]));
+    let double_buffer_clone = double_buffer.clone();
 
     thread::spawn(move || {
         // lock the right and do something intensive
-        let mut right_lock = right.lock().unwrap();
+        let mut background_lock = (*double_buffer_clone).background.lock().unwrap();
         thread::sleep(Duration::from_millis(100));
 
-        right_lock.0[0] = 7;
-        right_lock.0[1] = 8;
-        right_lock.0[2] = 9;
+        background_lock[0] = 7;
+        background_lock[1] = 8;
+        background_lock[2] = 9;
     });
 
     // give the other thread a second to lock
     thread::sleep(Duration::from_millis(10));
 
     // swapping should block
-    left.swap().unwrap();
+    (*double_buffer).swap();
 
-    assert_eq!(left.lock().unwrap().0, vec![7, 8, 9]);
+    assert_eq!((*double_buffer).active.lock().unwrap().as_ref(), vec![7, 8, 9]);
 }
