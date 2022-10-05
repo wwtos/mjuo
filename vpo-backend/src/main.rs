@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::io::Write;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -19,6 +20,7 @@ use sound_engine::SoundConfig;
 use ipc::ipc_server::IPCServer;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
+use sound_engine::sampling::audio_loader::AudioLoader;
 use vpo_backend::state::GlobalState;
 use vpo_backend::{route, RouteReturn};
 
@@ -107,6 +109,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut engine_state = NodeEngineState::new(sound_config);
     let mut global_state = GlobalState::new();
+    let mut audio_loader = AudioLoader::new();
+
+    audio_loader.load(&PathBuf::from("060-C.wav"))?;
 
     let mut backend = connect_backend()?;
 
