@@ -4,8 +4,11 @@ pub mod midi;
 pub mod node;
 pub mod openal;
 pub mod ringbuffer;
+pub mod sampling;
 pub mod util;
 pub mod wave;
+
+pub type SamplePoint = i16;
 
 #[derive(Clone)]
 pub struct SoundConfig {
