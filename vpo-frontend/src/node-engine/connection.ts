@@ -8,7 +8,7 @@ import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-un
 
 export type MidiSocketType = DiscriminatedUnion<"variant", {
     Default: {},
-    Dynamic: { content: number }
+    Dynamic: { data: number }
 }>;
 
 export type StreamSocketType = DiscriminatedUnion<"variant", {
@@ -16,7 +16,7 @@ export type StreamSocketType = DiscriminatedUnion<"variant", {
     Gate: {},
     Gain: {},
     Detune: {},
-    Dynamic: { content: number },
+    Dynamic: { data: number },
 }>;
 
 export type ValueSocketType = DiscriminatedUnion<"variant", {
@@ -29,50 +29,50 @@ export type ValueSocketType = DiscriminatedUnion<"variant", {
     Decay: {},
     Sustain: {},
     Release: {},
-    Dynamic: { content: number },
+    Dynamic: { data: number },
 }>;
 
 export type NodeRefSocketType = DiscriminatedUnion<"variant", {
     Button: {},
-    Dynamic: { content: number },
+    Dynamic: { data: number },
 }>;
 
 export type Primitive = DiscriminatedUnion<"variant", {
-    Float: { content: number },
-    Int: { content: number },
-    Boolean: { content: boolean },
-    String: { content: string },
+    Float: { data: number },
+    Int: { data: number },
+    Boolean: { data: boolean },
+    String: { data: string },
 }>;
 
 export type SocketType = DiscriminatedUnion<"variant", {
-    Stream: { content: StreamSocketType },
-    Midi: { content: MidiSocketType },
-    Value: { content: ValueSocketType },
-    NodeRef: { content: NodeRefSocketType },
-    MethodCall: { content: Primitive[] },
+    Stream: { data: StreamSocketType },
+    Midi: { data: MidiSocketType },
+    Value: { data: ValueSocketType },
+    NodeRef: { data: NodeRefSocketType },
+    MethodCall: { data: Primitive[] },
 }>;
 
 export const SocketType = {
     toKey(socketType: SocketType) {
         return socketType.variant + "," + match(socketType, {
-            Stream: ({ content: stream }) => matchOrElse(
+            Stream: ({ data: stream }) => matchOrElse(
                 stream, {
-                    Dynamic: ({ content }) => stream.variant + content,
+                    Dynamic: ({ data }) => stream.variant + data,
                 },  () => stream.variant
             ),
-            Midi: ({ content: midi }) => matchOrElse(
+            Midi: ({ data: midi }) => matchOrElse(
                 midi, {
-                    Dynamic: ({ content }) => midi.variant + content,
+                    Dynamic: ({ data }) => midi.variant + data,
                 },  () => midi.variant
             ),
-            Value: ({ content: value }) => matchOrElse(
+            Value: ({ data: value }) => matchOrElse(
                 value, {
-                    Dynamic: ({ content }) => value.variant + content,
+                    Dynamic: ({ data }) => value.variant + data,
                 },  () => value.variant
             ),
-            NodeRef:  ({ content: nodeRef }) => matchOrElse(
+            NodeRef:  ({ data: nodeRef }) => matchOrElse(
                 nodeRef, {
-                    Dynamic: ({ content }) => nodeRef.variant + content,
+                    Dynamic: ({ data }) => nodeRef.variant + data,
                 },  () => nodeRef.variant
             ),
             MethodCall: args => args.toString()
@@ -85,17 +85,17 @@ export const SocketType = {
 
 export function socketToKey(socket: SocketType, direction: SocketDirection) {
     return SocketType.toKey(socket) + ":" + direction + match(socket, {
-        Stream: ({ content: stream }) => matchOrElse(stream, {
-            Dynamic: ({ content: uid }) => ":" + uid,
+        Stream: ({ data: stream }) => matchOrElse(stream, {
+            Dynamic: ({ data: uid }) => ":" + uid,
         },  () => "_"),
-        Midi: ({ content: midi }) => matchOrElse(midi, {
-            Dynamic: ({ content: uid }) => ":" + uid,
+        Midi: ({ data: midi }) => matchOrElse(midi, {
+            Dynamic: ({ data: uid }) => ":" + uid,
         },  () => "_"),
-        Value: ({ content: value }) => matchOrElse(value, {
-            Dynamic: ({ content: uid }) => ":" + uid,
+        Value: ({ data: value }) => matchOrElse(value, {
+            Dynamic: ({ data: uid }) => ":" + uid,
         },  () => "_"),
-        NodeRef: ({ content: nodeRef }) => matchOrElse(nodeRef, {
-            Dynamic: ({ content: uid }) => ":" + uid,
+        NodeRef: ({ data: nodeRef }) => matchOrElse(nodeRef, {
+            Dynamic: ({ data: uid }) => ":" + uid,
         },  () => "_"),
         MethodCall: () => ""
     });
