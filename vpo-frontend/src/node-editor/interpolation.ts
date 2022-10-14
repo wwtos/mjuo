@@ -2,22 +2,23 @@ import { BehaviorSubject, Observable } from "rxjs";
 import { MemberType } from "safety-match";
 import { i18n } from "../i18n";
 import { SocketType } from "../node-engine/connection";
+import { match } from "../util/discriminated-union";
 import { socketRegistry } from "./state";
 
-export function socketTypeToString(socketType: MemberType<typeof SocketType>): BehaviorSubject<string> {
-    let response = socketType.match({
-        Stream: (stream) => stream.match({
+export function socketTypeToString(socketType: SocketType): BehaviorSubject<string> {
+    let response = match(socketType, {
+        Stream: ({ data: stream }): string | Observable<string> => match(stream, {
             Audio: () => i18n.t("socketType.stream.audio"),
             Gate: () => i18n.t("socketType.stream.gate"),
             Gain: () => i18n.t("socketType.stream.gain"),
             Detune: () => i18n.t("socketType.stream.detune"),
-            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
-        Midi: (midi) => midi.match({
+        Midi: ({ data: midi }): string | Observable<string> => match(midi, {
             Default: () => i18n.t("socketType.midi.default"),
-            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
-        Value: (value) => value.match({
+        Value: ({ data: value }): string | Observable<string> => match(value, {
             Default: () => i18n.t("socketType.value.default"),
             Gain: () => i18n.t("socketType.value.gain"),
             Frequency: () => i18n.t("socketType.value.frequency"),
@@ -27,11 +28,11 @@ export function socketTypeToString(socketType: MemberType<typeof SocketType>): B
             Decay: () => i18n.t("socketType.value.decay"),
             Sustain: () => i18n.t("socketType.value.sustain"),
             Release: () => i18n.t("socketType.value.release"),
-            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
-        NodeRef: (nodeRef) => nodeRef.match({
+        NodeRef: ({ data: nodeRef }): string | Observable<string> => match(nodeRef, {
             Button: () => i18n.t("socketType.noderef.button"),
-            Dynamic: (uid) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         MethodCall: () => "Method call",
     });

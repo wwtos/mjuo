@@ -1,4 +1,4 @@
-import type { NodeIndex } from "./node";
+import { NodeIndex } from "./node";
 import { socketRegistry } from "../node-editor/state";
 import { i18n } from '../i18n';
 import { deepEqual } from "fast-equals";
@@ -106,56 +106,30 @@ export enum SocketDirection {
     Output = 1
 };
 
-export class Connection {
-    fromSocketType: SocketType;
-    fromNode: NodeIndex;
-    toSocketType: SocketType;
-    toNode: NodeIndex;
+export interface Connection {
+    from_socket_type: SocketType;
+    from_node: NodeIndex;
+    to_socket_type: SocketType;
+    to_node: NodeIndex;
+}
 
-    constructor(fromSocketType: SocketType, fromNode: NodeIndex, toSocketType: SocketType, toNode: NodeIndex) {
-        this.fromSocketType = fromSocketType;
-        this.fromNode = fromNode;
-        this.toSocketType = toSocketType;
-        this.toNode = toNode;
-    }
-
-    toJSON() {
-        return {
-            from_socket_type: this.fromSocketType,
-            from_node: this.fromNode,
-            to_socket_type: this.toSocketType,
-            to_node: this.toNode
-        }
-    }
-
-    getKey(): string {
-        return SocketType.toKey(this.fromSocketType) + ":" +
-            this.fromNode.toKey() + "->" +
-            SocketType.toKey(this.toSocketType) + ":" +
-            this.toNode.toKey();
+export const Connection = {
+    getKey(connection: Connection): string {
+        return SocketType.toKey(connection.from_socket_type) + ":" +
+            NodeIndex.toKey(connection.from_node) + "->" +
+            SocketType.toKey(connection.to_socket_type) + ":" +
+            NodeIndex.toKey(connection.to_node);
     }
 }
 
-export class InputSideConnection {
-    fromSocketType: SocketType;
-    fromNode: NodeIndex;
-    toSocketType: SocketType;
-
-    constructor(fromSocketType: SocketType, fromNode: NodeIndex, toSocketType: SocketType) {
-        this.fromSocketType = fromSocketType;
-        this.fromNode = fromNode;
-        this.toSocketType = toSocketType;
-    }
+export interface InputSideConnection {
+    from_socket_type: SocketType;
+    from_node: NodeIndex;
+    to_socket_type: SocketType;
 }
 
-export class OutputSideConnection {
-    fromSocketType: SocketType;
-    toNode: NodeIndex;
-    toSocketType: SocketType;
-
-    constructor(fromSocketType: SocketType, toNode: NodeIndex, toSocketType: SocketType) {
-        this.fromSocketType = fromSocketType;
-        this.toNode = toNode;
-        this.toSocketType = toSocketType;
-    }
+export interface OutputSideConnection {
+    from_socket_type: SocketType;
+    to_node: NodeIndex;
+    to_socket_type: SocketType;
 }

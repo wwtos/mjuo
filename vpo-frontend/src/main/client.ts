@@ -46,7 +46,7 @@ client.on("error", () => {
 
 class Client {
     data: number[];
-    messages: MemberType<typeof RawMessage>[];
+    messages: RawMessage[];
     listeners: {
         [key: string]: Function[]
     };

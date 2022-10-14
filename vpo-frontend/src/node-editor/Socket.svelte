@@ -1,83 +1,106 @@
 <script lang="ts">
-    import { MemberType } from "safety-match";
+  import { MemberType } from "safety-match";
+  import { createEventDispatcher } from "svelte";
 
-    import { SocketType, SocketDirection, Primitive } from "../node-engine/connection";
+  import { SocketType, SocketDirection } from "../node-engine/connection";
 
-    export let direction: SocketDirection;
-    export let type: MemberType<typeof SocketType>;
-    export let socketMousedown = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
-    export let socketMouseup = function(event: MouseEvent, socket: MemberType<typeof SocketType>, direction: SocketDirection) {};
+  const dispatch = createEventDispatcher();
 
-    function socketMousedownRaw(event: MouseEvent) {
-        event.preventDefault();
-        event.stopPropagation();
+  export let direction: SocketDirection;
+  export let type: SocketType;
 
-        socketMousedown(event, type, direction);
-    }
+  function socketMousedown(event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
 
-    function socketMouseupRaw(event: MouseEvent) {
-        socketMouseup(event, type, direction);
-    }
+    dispatch("socketMousedown", {
+      event,
+      type,
+      direction,
+    });
+  }
+
+  function socketMouseupRaw(event: MouseEvent) {
+    dispatch("socketMouseup", {
+      event,
+      type,
+      direction,
+    });
+  }
 </script>
 
-<div class:output={direction === SocketDirection.Output} class:input={direction === SocketDirection.Input} class="socket-container">
-    {#if type.variant === "Stream"}
-        <div class="socket stream" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
-    {:else if type.variant === "Midi"}
-        <div class="socket midi" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}></div>
-    {:else if type.variant === "Value"}
-        <div class="socket value" on:mousedown={socketMousedownRaw} on:mouseup={socketMouseupRaw}>
-            <svg viewBox="0 0 26 26">
-                <polygon points="13,1 25,25 1,25" />
-            </svg>
-        </div>
-    {/if}
+<div
+  class:output={direction === SocketDirection.Output}
+  class:input={direction === SocketDirection.Input}
+  class="socket-container"
+>
+  {#if type.variant === "Stream"}
+    <div
+      class="socket stream"
+      on:mousedown={socketMousedown}
+      on:mouseup={socketMouseupRaw}
+    />
+  {:else if type.variant === "Midi"}
+    <div
+      class="socket midi"
+      on:mousedown={socketMousedown}
+      on:mouseup={socketMouseupRaw}
+    />
+  {:else if type.variant === "Value"}
+    <div
+      class="socket value"
+      on:mousedown={socketMousedown}
+      on:mouseup={socketMouseupRaw}
+    >
+      <svg viewBox="0 0 26 26">
+        <polygon points="13,1 25,25 1,25" />
+      </svg>
+    </div>
+  {/if}
 </div>
 
-
 <style>
-.socket-container {
+  .socket-container {
     display: inline-block;
-}
-.input .socket {
+  }
+  .input .socket {
     margin-left: -15px;
-}
+  }
 
-.output .socket {
+  .output .socket {
     margin-right: -15px;
-}
+  }
 
-.socket {
+  .socket {
     width: 26px;
     height: 26px;
     vertical-align: middle;
     display: inline-block;
-}
+  }
 
-.stream {
+  .stream {
     border-radius: 100%;
     background: #96b38a;
     border: 2px solid white;
     width: 22px;
     height: 22px;
-}
+  }
 
-.midi {
+  .midi {
     background: gold;
     border: 2px solid white;
     width: 24px;
     height: 24px;
-}
+  }
 
-.value {
+  .value {
     fill: rgb(255, 166, 0);
     stroke: white;
-}
+  }
 
-.value polygon {
+  .value polygon {
     fill: orange;
     stroke-width: 2;
     stroke: white;
-}
-
+  }
 </style>

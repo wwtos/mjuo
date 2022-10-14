@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Editor from './node-editor/Editor.svelte';
+	import NodeEditor from './node-editor/NodeEditor.svelte';
 	import SideNavbar from './node-editor/SideNavbar.svelte';
 	import SplitView from './layout/SplitView.svelte';
 	import {SplitDirection} from './layout/enums';
@@ -49,7 +49,7 @@
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
 	firstPanel={SideNavbar}
-	secondPanel={Editor}
+	secondPanel={NodeEditor}
 	secondState={{
 		ipcSocket: newIpcSocket,
 		activeGraph: activeGraph
