@@ -1,9 +1,10 @@
-import { GenerationalNode, Node, NodeIndex, NodeWrapper, UiData } from "./node";
-import { InputSideConnection, OutputSideConnection, Connection } from "./connection";
-import { Readable, writable, Writable } from 'svelte/store';
+import { GenerationalNode, NodeIndex, NodeRow, NodeWrapper, SocketValue } from "./node";
+import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";
 import { makeTaggedUnion } from "safety-match";
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, generate, Observable } from "rxjs";
+import { distinctUntilChanged, map } from "rxjs/operators";
+import { deepEqual, shallowEqual } from "fast-equals";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -177,6 +178,92 @@ export class NodeGraph {
 
             this.changedNodes.length = 0;
         }
+    }
+
+    subscribeToNode(nodeIndex: NodeIndex): Observable<NodeWrapper | undefined> {
+        return this.nodeStore.pipe(
+            map(nodes => {
+                if (nodes && nodes[nodeIndex.index] && nodes[nodeIndex.index]?.index.generation === nodeIndex.generation) {
+                    return nodes[nodeIndex.index];
+                } else {
+                    return undefined;
+                }
+            }),
+            distinctUntilChanged(deepEqual)
+        )
+    }
+
+    updateNode(nodeIndex: NodeIndex) {
+        // TODO: naïve
+        this.nodeStore.next(this.nodes);
+    }
+
+    getNodeInputConnection(nodeIndex: NodeIndex, socketType: SocketType): Observable<InputSideConnection | undefined> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node && node.connected_inputs) {
+                    return node.connected_inputs.find(input => SocketType.areEqual(input.to_socket_type, socketType));
+                }
+            }),
+            distinctUntilChanged(shallowEqual)
+        );
+    }
+
+    getNodeOutputConnections(nodeIndex: NodeIndex, socketType: SocketType): Observable<OutputSideConnection[]> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node && node.connected_outputs) {
+                    return node.connected_outputs.filter(output => output.from_socket_type === socketType);
+                } else {
+                    return [];
+                }
+            }),
+            distinctUntilChanged(shallowEqual)
+        );
+    }
+
+    getNodeSocketDefault(nodeIndex: NodeIndex, socketType: SocketType, direction: SocketDirection): Observable<SocketValue> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node) {
+                    const defaultOverride = node.default_overrides.find(defaultOverride => {
+                        const typeAndDirection = NodeRow.getTypeAndDirection(defaultOverride);
+
+                        if (typeAndDirection) {
+                            const {
+                                socketType: overrideSocketType,
+                                direction: overrideDirection
+                            } = typeAndDirection;
+    
+                            return SocketType.areEqual(socketType, overrideSocketType) &&
+                                direction === overrideDirection;
+                        }
+                    });
+
+                    if (defaultOverride && defaultOverride.data) return NodeRow.getDefault(defaultOverride);
+
+                    const defaultNodeRow = node.default_overrides.find(nodeRow => {
+                        const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+
+                        if (typeAndDirection) {
+                            const {
+                                socketType: nodeRowSocketType,
+                                direction: nodeRowDirection
+                            } = typeAndDirection;
+    
+                            return SocketType.areEqual(socketType, nodeRowSocketType) &&
+                                direction === nodeRowDirection;
+                        }
+                    });
+
+                    if (defaultNodeRow && defaultNodeRow.data) return NodeRow.getDefault(defaultNodeRow);
+                    
+                    return { variant: "None" };
+                } else {
+                    return { variant: "None" };
+                }
+            })
+        )
     }
 }
 

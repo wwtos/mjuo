@@ -1,10 +1,6 @@
 import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection,
          Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
-import { Property, PropertyType } from "./property";
-import { BehaviorSubject, combineLatest, Observable } from "rxjs";
-import { distinctUntilChanged, map, mergeMap } from "rxjs/operators";
-import { shallowEqual } from 'fast-equals';
-import { makeTaggedUnion, MemberType, none } from "safety-match";
+import type { Property, PropertyType } from "./property";
 import { MidiData } from "../sound-engine/midi/messages";
 import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
 
@@ -164,24 +160,12 @@ export interface UiData {
     title?: string;
 }
 
-export class Node {
+export interface Node {
     inputSockets: SocketType[];
     outputSockets: SocketType[];
     usableProperties: {
         [prop: string]: PropertyType
-    }; 
-
-    constructor(
-        inputSockets: SocketType[],
-        outputSockets: SocketType[],
-        usableProperties: {
-            [prop: string]: PropertyType
-        }
-    ) {
-        this.inputSockets = inputSockets;
-        this.outputSockets = outputSockets;
-        this.usableProperties = usableProperties;
-    }
+    };
 }
 
 export interface NodeWrapper {

@@ -1,8 +1,5 @@
 import { NodeIndex } from "./node";
-import { socketRegistry } from "../node-editor/state";
-import { i18n } from '../i18n';
 import { deepEqual } from "fast-equals";
-import { makeTaggedUnion, MemberType, none } from "safety-match";
 import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
 
 
