@@ -15,7 +15,7 @@
     export let nodeWrapper: NodeWrapper;
     export let nodes: NodeGraph;
 
-    let shouldDisplayDefaultField =
+    let shouldNotDisplayDefaultField =
         direction === SocketDirection.Input
             ? nodes.getNodeInputConnection(nodeWrapper.index, type)
             : new Observable();
@@ -89,7 +89,7 @@
         } else {
             nodeWrapper.default_overrides = [
                 ...nodeWrapper.default_overrides,
-                NodeRow.fromTypeAndDirection(type, direction, newValueParsed),
+                NodeRow.fromTypeAndDirection(type, direction, (newValueParsed as any).data),
             ];
 
             nodes.updateNode(nodeWrapper.index);
@@ -109,7 +109,7 @@
         <Socket {direction} {type} on:socketMousedown on:socketMouseup />
     {/if}
 
-    {#if direction === SocketDirection.Input && !$shouldDisplayDefaultField}
+    {#if direction === SocketDirection.Input && !$shouldNotDisplayDefaultField}
         {#if $socketDefault.variant === "Primitive"}
             {#if $socketDefault.data.variant === "Float"}
                 <div class="flex">

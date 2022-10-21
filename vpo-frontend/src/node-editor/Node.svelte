@@ -1,16 +1,16 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
-    import { NodeIndex, NodeRow, NodeWrapper, SocketValue } from "../node-engine/node";
+    import { NodeIndex } from "../node-engine/node_index";
+    import { NodeWrapper, SocketValue } from "../node-engine/node";
     import { NodeGraph } from "../node-engine/node_graph";
     import { SocketType, SocketDirection, socketToKey } from "../node-engine/connection";
     import { socketTypeToString } from "./interpolation";
-    import { map } from "rxjs/operators";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { i18n } from "../i18n.js";
     import { Property, PropertyType } from "../node-engine/property";
-    import { IPCSocket } from "../util/socket";
     import { createEventDispatcher } from "svelte";
     import { DiscriminatedUnion, match } from "../util/discriminated-union";
+    import type { SocketEvent } from "./socket";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -99,37 +99,9 @@
     let node: HTMLDivElement;
 
     export let onMousedown = function (index: NodeIndex, e: MouseEvent) {};
-    export let onSocketMousedown = function (
-        event: MouseEvent,
-        socket: SocketType,
-        direction: SocketDirection,
-        index: NodeIndex
-    ) {};
-    export let onSocketMouseup = function (
-        event: MouseEvent,
-        socket: SocketType,
-        direction: SocketDirection,
-        index: NodeIndex
-    ) {};
 
     function onMousedownRaw(e: MouseEvent) {
         onMousedown(wrapper.index, e);
-    }
-
-    function onSocketMousedownRaw(
-        event: MouseEvent,
-        socket: SocketType,
-        direction: SocketDirection
-    ) {
-        onSocketMousedown(event, socket, direction, wrapper.index);
-    }
-
-    function onSocketMouseupRaw(
-        event: MouseEvent,
-        socket: SocketType,
-        direction: SocketDirection
-    ) {
-        onSocketMouseup(event, socket, direction, wrapper.index);
     }
 
     function rowToKey(row: ReducedRowType): string {
@@ -146,6 +118,20 @@
                 graphIndex: wrapper.child_graph_index,
             });
         }
+    }
+
+    function onSocketMousedown(event: CustomEvent<SocketEvent>) {
+        dispatch("socketMousedown", {
+            ...event.detail,
+            nodeIndex: { ...wrapper.index },
+        });
+    }
+
+    function onSocketMouseup(event: CustomEvent<SocketEvent>) {
+        dispatch("socketMouseup", {
+            ...event.detail,
+            nodeIndex: { ...wrapper.index },
+        });
     }
 </script>
 
@@ -170,8 +156,8 @@
                 type={row.socketType}
                 direction={row.socketDirection}
                 label={socketTypeToString(row.socketType)}
-                on:socketMousedown
-                on:socketMouseup
+                on:socketMousedown={onSocketMousedown}
+                on:socketMouseup={onSocketMouseup}
                 nodeWrapper={wrapper}
             />
         {:else if row.variant === "PropertyRow"}
@@ -226,13 +212,5 @@
     .background.selected {
         background-color: rgba(148, 195, 255, 0.8);
         border: solid 2px #84b8e9;
-    }
-
-    .right-align {
-        text-anchor: end;
-    }
-
-    .title {
-        font-size: 18px;
     }
 </style>

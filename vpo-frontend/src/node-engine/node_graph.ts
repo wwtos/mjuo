@@ -1,10 +1,13 @@
-import { GenerationalNode, NodeIndex, NodeRow, NodeWrapper, SocketValue } from "./node";
+import { NodeIndex } from "./node_index";
+import { GenerationalNode, NodeRow, NodeWrapper, NODE_WIDTH, SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
 import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";
 import { makeTaggedUnion } from "safety-match";
 import { BehaviorSubject, generate, Observable } from "rxjs";
 import { distinctUntilChanged, map } from "rxjs/operators";
 import { deepEqual, shallowEqual } from "fast-equals";
+import { match, matchOrElse } from "../util/discriminated-union";
+import { Property } from "./property";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -89,8 +92,6 @@ export class NodeGraph {
 
             this.nodes[i] = node;
         }
-
-        console.log("parsed nodes", this.nodes);
 
         this.update();
     }
@@ -242,7 +243,7 @@ export class NodeGraph {
 
                     if (defaultOverride && defaultOverride.data) return NodeRow.getDefault(defaultOverride);
 
-                    const defaultNodeRow = node.default_overrides.find(nodeRow => {
+                    const defaultNodeRow = node.node_rows.find(nodeRow => {
                         const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
 
                         if (typeAndDirection) {
@@ -264,6 +265,61 @@ export class NodeGraph {
                 }
             })
         )
+    }
+
+    getNodePropertyValue(nodeIndex: NodeIndex, propName: string): Observable<Property | undefined> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node) {
+                    const row = node.node_rows.find(nodeRow => {
+                        return matchOrElse(nodeRow, 
+                            {
+                                Property({ data: [rowName] }) {
+                                    return rowName === propName;
+                                }
+                            },
+                            () => false
+                        );
+                    });
+
+                    if (!row) return undefined;
+
+                    return matchOrElse(row, {
+                            Property: ({ data: [_name, _type, defaultVal ]}) => defaultVal
+                        },
+                        () => { throw new Error("unreachable"); }
+                    );
+                }
+            })
+        );
+    }
+
+    getNodeSocketXY(index: NodeIndex, socketType: SocketType, direction: SocketDirection): { x: number, y: number } {
+        const node = this.nodes[index.index];
+
+        if (!node) return { x: 0, y: 0 };
+
+        const rowIndex = node.node_rows.findIndex(nodeRow => {
+            const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+
+            if (typeAndDirection) {
+                const {
+                    socketType: rowSocketType,
+                    direction: rowDirection
+                 } = typeAndDirection;
+
+                return SocketType.areEqual(socketType, rowSocketType) && rowDirection === direction;
+            }
+
+            return false;
+        });
+
+        if (rowIndex === -1) return { x: 0, y: 0 };
+
+        const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
+        const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
+
+        return { x: node.ui_data.x + relativeX, y: node.ui_data.y + relativeY };
     }
 }
 

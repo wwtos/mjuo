@@ -1,6 +1,6 @@
-import { NodeIndex } from "./node";
 import { deepEqual } from "fast-equals";
 import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
+import { NodeIndex } from "./node_index";
 
 
 export type MidiSocketType = DiscriminatedUnion<"variant", {

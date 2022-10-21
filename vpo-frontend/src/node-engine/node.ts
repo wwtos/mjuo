@@ -3,11 +3,12 @@ import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConne
 import type { Property, PropertyType } from "./property";
 import { MidiData } from "../sound-engine/midi/messages";
 import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
+import { NodeIndex } from "./node_index";
 
-const TITLE_HEIGHT = 30;
-const SOCKET_HEIGHT = 36;
-const SOCKET_OFFSET = 26;
-const NODE_WIDTH = 200;
+export const TITLE_HEIGHT = 30;
+export const SOCKET_HEIGHT = 36;
+export const SOCKET_OFFSET = 26;
+export const NODE_WIDTH = 200;
 
 
 export type NodeRow = DiscriminatedUnion<"variant", {
@@ -67,7 +68,7 @@ export const NodeRow = {
     fromTypeAndDirection: (
         type: SocketType,
         direction: SocketDirection,
-        defaultValue: any
+        defaultValue: any,
     ): NodeRow => {
         if (direction === SocketDirection.Input) {
             return match(type, {
@@ -179,21 +180,6 @@ export interface NodeWrapper {
     ui_data: UiData;
     child_graph_index: number | null;
 }
-
-export interface NodeIndex {
-    index: number;
-    generation: number;
-}
-
-export const NodeIndex = {
-    toKey(index: NodeIndex): string {
-        return index.index + "," + index.generation;
-    },
-    toString(index: NodeIndex): string {
-        return `NodeIndex { index: ${index.index}, generation: ${index.generation} }`;
-    }
-};
-
 export interface GenerationalNode {
     node: NodeWrapper;
     generation: number;
