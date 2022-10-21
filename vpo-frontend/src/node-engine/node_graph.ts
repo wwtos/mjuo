@@ -1,10 +1,13 @@
-import { GenerationalNode, Node, NodeIndex, NodeWrapper, UiData, deserializeNodeRow } from "./node";
-import { InputSideConnection, OutputSideConnection, Connection, deserializeSocketType } from "./connection";
-import { deserializeProperty } from "./property";
-import { Readable, writable, Writable } from 'svelte/store';
+import { NodeIndex } from "./node_index";
+import { GenerationalNode, NodeRow, NodeWrapper, NODE_WIDTH, SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
+import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";
 import { makeTaggedUnion } from "safety-match";
-import { BehaviorSubject } from "rxjs";
+import { BehaviorSubject, generate, Observable } from "rxjs";
+import { distinctUntilChanged, map } from "rxjs/operators";
+import { deepEqual, shallowEqual } from "fast-equals";
+import { match, matchOrElse } from "../util/discriminated-union";
+import { Property } from "./property";
 
 // import {Node, NodeIndex, GenerationalNode} from "./node";
 
@@ -69,14 +72,14 @@ export class NodeGraph {
         this.graphIndex = json.graphIndex;
 
         for (let i = 0; i < json.nodes.length; i++) {
-            let node: any = json.nodes[i];
+            let node: NodeWrapper | null = json.nodes[i];
 
             if (node === null) {
                 this.nodes[i] = undefined;
                 continue;
             }
 
-            const index = new NodeIndex(node.index.index, node.index.generation);
+            const index: NodeIndex = node.index;
 
             // does this node already exist?
             if (this.nodes[i] != undefined) {
@@ -87,65 +90,10 @@ export class NodeGraph {
                 }
             }
 
-            // if it doesn't exist, create a new one
-            if (this.nodes[i] == undefined) {
-                // to be populated later on
-                this.nodes[i] = new NodeWrapper(
-                    new Node([], [], {}),
-                    index,
-                    [], [], [], [], {}, {x: 0, y: 0},
-                    node.inner_graph_index
-                );
-            }
-
-            // apply new properties
-            let newProps = {};
-
-            for (let data in node.properties) {
-                newProps[data] = deserializeProperty(node.properties[data]);
-            }
-
-            this.nodes[i]?.properties.next(newProps);
-
-            // apply new ui data
-            this.nodes[i]?.uiData.next({
-                ...this.nodes[i]?.uiData.getValue(),
-                ...node.ui_data
-            });
-            
-            // apply new input and output connections
-            this.nodes[i]?.connectedInputs.next(node.connected_inputs.map((inputConnection): InputSideConnection => {
-                return new InputSideConnection(
-                    deserializeSocketType(inputConnection.from_socket_type),
-                    new NodeIndex(inputConnection.from_node.index, inputConnection.from_node.generation),
-                    deserializeSocketType(inputConnection.to_socket_type),
-                );
-            }));
-
-            this.nodes[i]?.connectedOutputs.next(node.connected_outputs.map((outputConnection): OutputSideConnection => {
-                return new OutputSideConnection(
-                    deserializeSocketType(outputConnection.from_socket_type),
-                    new NodeIndex(outputConnection.to_node.index, outputConnection.to_node.generation),
-                    deserializeSocketType(outputConnection.to_socket_type),
-                );
-            }));
-
-            // apply node stuff
-            this.nodes[i]?.nodeRows.next(node.node_rows.map(deserializeNodeRow));
-            this.nodes[i]?.defaultOverrides.next(node.default_overrides.map(deserializeNodeRow));
+            this.nodes[i] = node;
         }
 
-        console.log("parsed nodes", this.nodes);
-
         this.update();
-    }
-
-    subscribeToKeyedNodes (): BehaviorSubject<([string, NodeWrapper])[]> {
-        return this.keyedNodeStore;
-    }
-
-    subscribeToKeyedConnections (): BehaviorSubject<([string, Connection][])> {
-        return this.keyedConnectionStore;
     }
 
     // TODO: this is very naïve and inefficient
@@ -155,11 +103,16 @@ export class NodeGraph {
         for (let node of this.nodes) {
             if (!node) continue;
 
-            for (let connection of node.connectedInputs.getValue()) {
-                let newConnection = new Connection(connection.fromSocketType, connection.fromNode, connection.toSocketType, node.index);
+            for (let connection of node.connected_inputs) {
+                let newConnection: Connection = {
+                    "from_socket_type": connection.from_socket_type,
+                    "from_node": connection.from_node,
+                    "to_socket_type": connection.to_socket_type,
+                    "to_node": node.index
+                };
 
                 keyedConnections.push([
-                    this.graphIndex + "-" + newConnection.getKey(),
+                    this.graphIndex + "-" + Connection.getKey(newConnection),
                     newConnection
                 ]);
             }
@@ -226,6 +179,147 @@ export class NodeGraph {
 
             this.changedNodes.length = 0;
         }
+    }
+
+    subscribeToNode(nodeIndex: NodeIndex): Observable<NodeWrapper | undefined> {
+        return this.nodeStore.pipe(
+            map(nodes => {
+                if (nodes && nodes[nodeIndex.index] && nodes[nodeIndex.index]?.index.generation === nodeIndex.generation) {
+                    return nodes[nodeIndex.index];
+                } else {
+                    return undefined;
+                }
+            }),
+            distinctUntilChanged(deepEqual)
+        )
+    }
+
+    updateNode(nodeIndex: NodeIndex) {
+        // TODO: naïve
+        this.nodeStore.next(this.nodes);
+    }
+
+    getNodeInputConnection(nodeIndex: NodeIndex, socketType: SocketType): Observable<InputSideConnection | undefined> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node && node.connected_inputs) {
+                    return node.connected_inputs.find(input => SocketType.areEqual(input.to_socket_type, socketType));
+                }
+            }),
+            distinctUntilChanged(shallowEqual)
+        );
+    }
+
+    getNodeOutputConnections(nodeIndex: NodeIndex, socketType: SocketType): Observable<OutputSideConnection[]> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node && node.connected_outputs) {
+                    return node.connected_outputs.filter(output => output.from_socket_type === socketType);
+                } else {
+                    return [];
+                }
+            }),
+            distinctUntilChanged(shallowEqual)
+        );
+    }
+
+    getNodeSocketDefault(nodeIndex: NodeIndex, socketType: SocketType, direction: SocketDirection): Observable<SocketValue> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node) {
+                    const defaultOverride = node.default_overrides.find(defaultOverride => {
+                        const typeAndDirection = NodeRow.getTypeAndDirection(defaultOverride);
+
+                        if (typeAndDirection) {
+                            const {
+                                socketType: overrideSocketType,
+                                direction: overrideDirection
+                            } = typeAndDirection;
+    
+                            return SocketType.areEqual(socketType, overrideSocketType) &&
+                                direction === overrideDirection;
+                        }
+                    });
+
+                    if (defaultOverride && defaultOverride.data) return NodeRow.getDefault(defaultOverride);
+
+                    const defaultNodeRow = node.node_rows.find(nodeRow => {
+                        const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+
+                        if (typeAndDirection) {
+                            const {
+                                socketType: nodeRowSocketType,
+                                direction: nodeRowDirection
+                            } = typeAndDirection;
+    
+                            return SocketType.areEqual(socketType, nodeRowSocketType) &&
+                                direction === nodeRowDirection;
+                        }
+                    });
+
+                    if (defaultNodeRow && defaultNodeRow.data) return NodeRow.getDefault(defaultNodeRow);
+                    
+                    return { variant: "None" };
+                } else {
+                    return { variant: "None" };
+                }
+            })
+        )
+    }
+
+    getNodePropertyValue(nodeIndex: NodeIndex, propName: string): Observable<Property | undefined> {
+        return this.subscribeToNode(nodeIndex).pipe(
+            map(node => {
+                if (node) {
+                    const row = node.node_rows.find(nodeRow => {
+                        return matchOrElse(nodeRow, 
+                            {
+                                Property({ data: [rowName] }) {
+                                    return rowName === propName;
+                                }
+                            },
+                            () => false
+                        );
+                    });
+
+                    if (!row) return undefined;
+
+                    return matchOrElse(row, {
+                            Property: ({ data: [_name, _type, defaultVal ]}) => defaultVal
+                        },
+                        () => { throw new Error("unreachable"); }
+                    );
+                }
+            })
+        );
+    }
+
+    getNodeSocketXY(index: NodeIndex, socketType: SocketType, direction: SocketDirection): { x: number, y: number } {
+        const node = this.nodes[index.index];
+
+        if (!node) return { x: 0, y: 0 };
+
+        const rowIndex = node.node_rows.findIndex(nodeRow => {
+            const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+
+            if (typeAndDirection) {
+                const {
+                    socketType: rowSocketType,
+                    direction: rowDirection
+                 } = typeAndDirection;
+
+                return SocketType.areEqual(socketType, rowSocketType) && rowDirection === direction;
+            }
+
+            return false;
+        });
+
+        if (rowIndex === -1) return { x: 0, y: 0 };
+
+        const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
+        const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
+
+        return { x: node.ui_data.x + relativeX, y: node.ui_data.y + relativeY };
     }
 }
 

@@ -94,7 +94,7 @@ app.on('activate', () => {
     }
 });
 
-client.on("message", (event: MemberType<typeof RawMessage>) => {
+client.on("message", (event: RawMessage) => {
     event.match({
         Json: (json) => {
             sendToRenderer("receive", json);

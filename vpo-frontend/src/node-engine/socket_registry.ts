@@ -1,19 +1,13 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { MemberType } from "safety-match";
-import { i18n, i18n$ } from "../i18n";
-import { deserializeSocketType, SocketType } from "./connection";
+import { i18n } from "../i18n";
+import type { SocketType } from "./connection";
 import { map } from "rxjs/operators";
+import { matchOrElse } from "../util/discriminated-union";
 
-class RegistryValue {
+interface RegistryValue {
     template: string;
-    socketType: MemberType<typeof SocketType>;
-    associatedData: any;
-
-    constructor (json: any) {
-        this.template = json.template;
-        this.socketType = deserializeSocketType(json.socket_type);
-        this.associatedData = json.associated_data;
-    }
+    socket_type: SocketType;
+    associated_data: any;
 }
 
 export class SocketRegistry {
@@ -25,12 +19,9 @@ export class SocketRegistry {
 
     applyJson (json: any) {
         let newNameToSocketType = {
-            ...this.nameToSocketType$.getValue()
-        }
-
-        for (let key in json.name_to_socket_type) {
-            newNameToSocketType[key] = new RegistryValue(json.name_to_socket_type[key]);
-        }
+            ...this.nameToSocketType$.getValue(),
+            ...json.name_to_socket_type
+        };
 
         this.nameToSocketType$.next(newNameToSocketType);
     }
@@ -45,30 +36,24 @@ export class SocketRegistry {
         return this.nameToSocketType$.pipe(
             map(nameToSocketType => {
                 const entry = Object.values(nameToSocketType).find(entry => {
-                    return entry.socketType.match({
-                        Stream: (stream) => stream.match({
-                            Dynamic: (uid) => uidToLookFor === uid,
-                            _: () => false
-                        }),
-                        Midi: (midi) => {
-                            return midi.match({
-                            Dynamic: (uid) => uidToLookFor === uid,
-                            _: () => false
-                        })},
-                        Value: (stream) => stream.match({
-                            Dynamic: (uid) => uidToLookFor === uid,
-                            _: () => false
-                        }),
-                        NodeRef: (stream) => stream.match({
-                            Dynamic: (uid) => uidToLookFor === uid,
-                            _: () => false
-                        }),
-                        _: () => false
-                    });
+                    return matchOrElse(entry.socket_type, {
+                        Stream: ({ data: stream }) => matchOrElse(stream, {
+                            Dynamic: ({ data: uid }) => uidToLookFor === uid,
+                        },  () => false),
+                        Midi: ({data: midi }) => matchOrElse(midi, {
+                            Dynamic: ({ data: uid }) => uidToLookFor === uid,
+                        },  () => false),
+                        Value: ({ data: value }) => matchOrElse(value, {
+                            Dynamic: ({ data: uid }) => uidToLookFor === uid,
+                        },  () => false),
+                        NodeRef: ({ data: nodeRef }) => matchOrElse(nodeRef, {
+                            Dynamic: ({ data: uid }) => uidToLookFor === uid,
+                        },  () => false),
+                    }, () => false);
                 });
 
                 if (entry) {
-                    return i18n.t("customSockets." + entry.template, entry.associatedData);
+                    return i18n.t("customSockets." + entry.template, entry.associated_data);
                 } else {
                     return "";
                 }
