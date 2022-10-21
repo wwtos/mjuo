@@ -6,8 +6,8 @@ import { matchOrElse } from "../util/discriminated-union";
 
 interface RegistryValue {
     template: string;
-    socketType: SocketType;
-    associatedData: any;
+    socket_type: SocketType;
+    associated_data: any;
 }
 
 export class SocketRegistry {
@@ -19,12 +19,9 @@ export class SocketRegistry {
 
     applyJson (json: any) {
         let newNameToSocketType = {
-            ...this.nameToSocketType$.getValue()
-        }
-
-        for (let key in json.name_to_socket_type) {
-            newNameToSocketType[key] = json.name_to_socket_type[key];
-        }
+            ...this.nameToSocketType$.getValue(),
+            ...json.name_to_socket_type
+        };
 
         this.nameToSocketType$.next(newNameToSocketType);
     }
@@ -38,8 +35,10 @@ export class SocketRegistry {
     getSocketInterpolation (uidToLookFor: number): Observable<string> {
         return this.nameToSocketType$.pipe(
             map(nameToSocketType => {
+                console.log(nameToSocketType);
+
                 const entry = Object.values(nameToSocketType).find(entry => {
-                    return matchOrElse(entry.socketType, {
+                    return matchOrElse(entry.socket_type, {
                         Stream: ({ data: stream }) => matchOrElse(stream, {
                             Dynamic: ({ data: uid }) => uidToLookFor === uid,
                         },  () => false),
@@ -56,7 +55,7 @@ export class SocketRegistry {
                 });
 
                 if (entry) {
-                    return i18n.t("customSockets." + entry.template, entry.associatedData);
+                    return i18n.t("customSockets." + entry.template, entry.associated_data);
                 } else {
                     return "";
                 }
