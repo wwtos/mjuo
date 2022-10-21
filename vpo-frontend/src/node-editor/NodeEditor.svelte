@@ -82,6 +82,20 @@
                         ipcSocket.save();
                         break;
                 }
+            } else {
+                console.log(event.key);
+                switch (event.key) {
+                    case "Delete":
+                        const selected = $activeGraph.nodeStore
+                            .getValue()
+                            .filter((node) => node?.ui_data.selected)
+                            .map((node) => node.index);
+
+                        for (let index of selected) {
+                            ipcSocket.removeNode($activeGraph.graphIndex, index);
+                        }
+                        break;
+                }
             }
         });
 
