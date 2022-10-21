@@ -1,5 +1,5 @@
 import { NodeGraph } from '../node-engine/node_graph';
-import { NodeIndex } from "../node-engine/node";
+import type { NodeIndex } from "../node-engine/node_index";
 
 export function deselectAll (graph: NodeGraph): NodeIndex[] {
     const currentNodes = graph.nodeStore.getValue();
@@ -9,13 +9,15 @@ export function deselectAll (graph: NodeGraph): NodeIndex[] {
     for (let currentNode of currentNodes) {
         if (!currentNode) continue;
 
-        if (currentNode.uiData.getValue().selected) {
+        if (currentNode.ui_data.selected) {
             touchedNodes.push(currentNode.index);
 
-            currentNode.uiData.next({
-                ...currentNode.uiData.getValue(),
+            currentNode.ui_data = {
+                ...currentNode.ui_data,
                 selected: false
-            });
+            };
+
+            graph.updateNode(currentNode.index);
         }
     }
 

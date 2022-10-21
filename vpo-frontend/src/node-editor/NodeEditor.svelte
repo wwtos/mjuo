@@ -83,7 +83,6 @@
                         break;
                 }
             } else {
-                console.log(event.key);
                 switch (event.key) {
                     case "Delete":
                         const selected = $activeGraph.nodeStore

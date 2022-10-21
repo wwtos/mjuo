@@ -35,8 +35,6 @@ export class SocketRegistry {
     getSocketInterpolation (uidToLookFor: number): Observable<string> {
         return this.nameToSocketType$.pipe(
             map(nameToSocketType => {
-                console.log(nameToSocketType);
-
                 const entry = Object.values(nameToSocketType).find(entry => {
                     return matchOrElse(entry.socket_type, {
                         Stream: ({ data: stream }) => matchOrElse(stream, {
