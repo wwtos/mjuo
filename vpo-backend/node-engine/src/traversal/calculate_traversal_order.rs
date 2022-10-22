@@ -14,8 +14,8 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
 
     for (i, original_node) in original_graph.get_nodes().iter().enumerate() {
         match original_node {
-            PossibleNode::Some(wrapper, _) => {
-                graph_lookup.insert(wrapper.get_index().index, graph.add_node(i));
+            PossibleNode::Some(..) => {
+                graph_lookup.insert(i, graph.add_node(i));
             }
             PossibleNode::None(_) => {}
         }
@@ -61,12 +61,16 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
 
     node_order
         .iter()
-        .map(|index| crate::node::NodeIndex {
-            index: index.index(),
-            generation: match &original_graph.get_nodes()[index.index()] {
-                PossibleNode::Some(_, generation) => *generation,
-                PossibleNode::None(_) => unreachable!(),
-            },
+        .map(|index| {
+            let mapped_index = *graph.node_weight(*index).unwrap();
+
+            crate::node::NodeIndex {
+                index: mapped_index,
+                generation: match &original_graph.get_nodes()[mapped_index] {
+                    PossibleNode::Some(_, generation) => *generation,
+                    PossibleNode::None(_) => unreachable!(),
+                },
+            }
         })
         .collect::<Vec<crate::node::NodeIndex>>()
 }
