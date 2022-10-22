@@ -565,6 +565,7 @@ impl NodeEngineState {
                 let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing("node_index".to_string()))?;
 
                 action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
 
                 self.graph_manager
                     .remove_node(&GlobalNodeIndex {
