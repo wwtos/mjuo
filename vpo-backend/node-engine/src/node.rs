@@ -15,7 +15,7 @@ use crate::connection::{
     SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{ErrorsAndWarnings, NodeError};
+use crate::errors::{ErrorsAndWarnings, NodeError, NodeResult};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -97,6 +97,18 @@ impl InitResult {
     }
 }
 
+struct NodeInitState<'a> {
+    props: &'a HashMap<String, Property>,
+    registry: &'a mut SocketRegistry,
+    script_engine: &'a Engine,
+}
+
+struct NodeProcessState<'a> {
+    current_time: i64,
+    scripting_engine: &'a Engine,
+    inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
+}
+
 /// Node trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -110,12 +122,7 @@ impl InitResult {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(
-        &mut self,
-        props: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> InitResult;
+    fn init(&mut self, state: NodeInitState) -> NodeResult<InitResult>;
 
     fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
@@ -124,12 +131,7 @@ pub trait Node: Debug {
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
     /// Process received data.
-    fn process(
-        &mut self,
-        current_time: i64,
-        scripting_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, state: NodeProcessState) -> Result<(), ErrorsAndWarnings> {
         Ok(())
     }
 
