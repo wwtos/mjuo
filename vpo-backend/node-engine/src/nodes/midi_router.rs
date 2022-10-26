@@ -127,6 +127,11 @@ impl Node for MidiRouterNode {
             })
             .collect::<Result<Vec<[NodeRow; 2]>, NodeError>>();
 
+        let additional_rows = match additional_rows {
+            Ok(rows) => todo!(),
+            Err(err) => todo!(),
+        }
+
         InitResult::simple(node_rows)
     }
 }

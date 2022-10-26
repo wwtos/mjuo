@@ -63,6 +63,11 @@ pub struct ErrorsAndWarnings {
     pub warnings: Vec<NodeWarning>,
 }
 
+#[derive(Debug, Default)]
+pub struct NodeOk<T>(T, Option<ErrorsAndWarnings>);
+
+pub type NodeResult<T> = Result<NodeOk<T>, ErrorsAndWarnings>;
+
 impl ErrorsAndWarnings {
     pub fn err(err: NodeError) -> ErrorsAndWarnings {
         ErrorsAndWarnings {
