@@ -64,6 +64,13 @@ pub struct ErrorsAndWarnings {
 }
 
 impl ErrorsAndWarnings {
+    pub fn err(err: NodeError) -> ErrorsAndWarnings {
+        ErrorsAndWarnings {
+            errors: vec![err],
+            warnings: vec![],
+        }
+    }
+
     pub fn merge(mut self, other: Result<(), ErrorsAndWarnings>) -> Result<ErrorsAndWarnings, ErrorsAndWarnings> {
         if let Err(other) = other {
             if other.warnings.len() > 0 {
