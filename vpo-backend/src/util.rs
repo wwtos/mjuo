@@ -1,9 +1,13 @@
 use async_std::{channel::Sender, task::block_on};
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::NodeError, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::NodeEngineState,
+    errors::{JsonParserSnafu, NodeError},
+    graph_manager::GraphIndex,
+    socket_registry::SocketRegistry,
+    state::NodeEngineState,
 };
 use serde_json::json;
+use snafu::ResultExt;
 
 pub fn send_graph_updates(
     state: &mut NodeEngineState,
@@ -38,7 +42,7 @@ pub fn send_graph_updates(
 }
 
 pub fn send_registry_updates(registry: &mut SocketRegistry, to_server: &Sender<IPCMessage>) -> Result<(), NodeError> {
-    let json = serde_json::to_value(registry).map_err(|err| NodeError::JsonParserError(err))?;
+    let json = serde_json::to_value(registry).context(JsonParserSnafu)?;
 
     block_on(async {
         to_server
