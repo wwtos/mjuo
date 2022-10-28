@@ -21,7 +21,7 @@ impl Placeholder {
 /// This holds the place during the deserialization process -- the code later
 /// goes through and converts it into a proper node
 impl Node for Placeholder {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         unreachable!("placeholder node being initialized!")
     }
 }

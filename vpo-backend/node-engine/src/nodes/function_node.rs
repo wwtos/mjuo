@@ -72,12 +72,16 @@ impl Node for FunctionNode {
         let subgraph_input_node = self.local_graph.get_node_mut(&self.inner_input_node).unwrap();
         subgraph_input_node.accept_stream_input(&StreamSocketType::Audio, self.input);
 
-        self.traverser.traverse(
-            &mut self.local_graph,
-            self.is_first_time,
-            state.current_time,
-            state.script_engine,
-        );
+        self.traverser
+            .traverse(
+                &mut self.local_graph,
+                self.is_first_time,
+                state.current_time,
+                state.script_engine,
+            )
+            .map_err(|err| NodeError::InnerGraphErrors {
+                errors_and_warnings: err,
+            })?;
 
         let subgraph_output_node = self.local_graph.get_node_mut(&self.inner_output_node).unwrap();
         self.output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);

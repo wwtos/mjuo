@@ -38,7 +38,7 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {
@@ -74,7 +74,7 @@ impl Node for MidiToValuesNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),

@@ -118,7 +118,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let node_rows = self
             .outputs
             .iter()

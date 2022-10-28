@@ -270,12 +270,16 @@ impl Node for PolyphonicNode {
 
         for voice in self.voices.iter_mut() {
             if voice.info.active {
-                self.traverser.traverse(
-                    &mut voice.graph,
-                    self.is_first_time,
-                    state.current_time,
-                    state.script_engine,
-                );
+                self.traverser
+                    .traverse(
+                        &mut voice.graph,
+                        self.is_first_time,
+                        state.current_time,
+                        state.script_engine,
+                    )
+                    .map_err(|err| NodeError::InnerGraphErrors {
+                        errors_and_warnings: err,
+                    })?;
 
                 let subgraph_output_node = voice.graph.get_node_mut(&self.inner_outputs_node).unwrap();
                 let output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);

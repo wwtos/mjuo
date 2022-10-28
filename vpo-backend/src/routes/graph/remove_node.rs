@@ -1,12 +1,13 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::NodeError,
+    errors::{JsonParserErrorInContextSnafu, NodeError},
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
+use snafu::ResultExt;
 
 use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
@@ -30,12 +31,16 @@ pub fn route(
     state: &mut NodeEngineState,
     _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let node_index: NodeIndex = serde_json::from_value(msg["payload"]["nodeIndex"].clone())
-        .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.nodeIndex".to_string()))?;
+    let node_index: NodeIndex =
+        serde_json::from_value(msg["payload"]["nodeIndex"].clone()).context(JsonParserErrorInContextSnafu {
+            context: "payload.nodeIndex".to_string(),
+        })?;
 
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed("payload.graphIndex".to_string()))?;
+        .ok_or(NodeError::PropertyMissingOrMalformed {
+            property_name: "payload.graphIndex".to_string(),
+        })?;
 
     state.commit(ActionBundle::new(vec![Action::RemoveNode {
         node_type: None,

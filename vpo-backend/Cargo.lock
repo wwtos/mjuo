@@ -1615,6 +1615,7 @@ dependencies = [
  "routerify",
  "serde",
  "serde_json",
+ "snafu",
  "sound-engine",
  "strum",
  "strum_macros",

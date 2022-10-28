@@ -53,7 +53,7 @@ impl Node for OscillatorNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.audio_out = self.oscillator.process_fast();
 
         NodeOk::no_warnings(())

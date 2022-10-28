@@ -14,7 +14,7 @@ impl Default for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0)])
     }
 

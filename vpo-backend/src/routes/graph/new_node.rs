@@ -30,10 +30,14 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_type = msg["payload"]["type"]
         .as_str()
-        .ok_or(NodeError::PropertyMissingOrMalformed("payload.type".to_string()))?;
+        .ok_or(NodeError::PropertyMissingOrMalformed {
+            property_name: "payload.type".to_string(),
+        })?;
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed("payload.graphIndex".to_string()))?;
+        .ok_or(NodeError::PropertyMissingOrMalformed {
+            property_name: "payload.graphIndex".to_string(),
+        })?;
 
     state.commit(ActionBundle::new(vec![Action::CreateNode {
         node_type: node_type.to_string(),
