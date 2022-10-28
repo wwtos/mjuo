@@ -1,15 +1,9 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use serde_json::json;
 
 use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct MixerNode {
@@ -35,29 +29,19 @@ impl Node for MixerNode {
         self.input_sum += value;
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.output_audio = self.input_sum / self.input_count as f32;
         self.input_sum = 0.0;
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
     fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
         self.output_audio
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
-        if let Some(Property::Integer(input_count)) = properties.get("input_count") {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+        if let Some(Property::Integer(input_count)) = state.props.get("input_count") {
             self.input_count = *input_count;
         }
 
@@ -70,7 +54,8 @@ impl Node for MixerNode {
 
         for i in 0..self.input_count {
             node_rows.push(NodeRow::StreamInput(
-                registry
+                state
+                    .registry
                     .register_socket(
                         format!("stream.mixer.{}", i),
                         SocketType::Stream(StreamSocketType::Audio),
@@ -85,11 +70,10 @@ impl Node for MixerNode {
             ));
         }
 
-        InitResult {
+        NodeOk::no_warnings(InitResult {
             did_rows_change,
             node_rows: node_rows,
             changed_properties: None,
-            errors_and_warnings: None,
-        }
+        })
     }
 }

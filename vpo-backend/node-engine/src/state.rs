@@ -5,7 +5,7 @@ use sound_engine::{midi::messages::MidiData, SoundConfig};
 
 use crate::{
     connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
-    errors::NodeError,
+    errors::{NodeError, WarningBuilder},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, NodeGraphWrapper},
     node::{NodeIndex, NodeRow},
     nodes::{midi_input::MidiInNode, output::OutputNode, variants::NodeVariant},
@@ -100,16 +100,22 @@ impl NodeEngineState {
         let (output_node, midi_in_node) = {
             let graph = &mut graph_manager.get_graph_wrapper_mut(root_graph_index).unwrap().graph;
 
-            let output_node = graph.add_node(
-                NodeVariant::OutputNode(OutputNode::default()),
-                &mut socket_registry,
-                &scripting_engine,
-            );
-            let midi_in_node = graph.add_node(
-                NodeVariant::MidiInNode(MidiInNode::default()),
-                &mut socket_registry,
-                &scripting_engine,
-            );
+            let output_node = graph
+                .add_node(
+                    NodeVariant::OutputNode(OutputNode::default()),
+                    &mut socket_registry,
+                    &scripting_engine,
+                )
+                .unwrap()
+                .value;
+            let midi_in_node = graph
+                .add_node(
+                    NodeVariant::MidiInNode(MidiInNode::default()),
+                    &mut socket_registry,
+                    &scripting_engine,
+                )
+                .unwrap()
+                .value;
 
             (output_node, midi_in_node)
         };
@@ -373,7 +379,9 @@ impl NodeEngineState {
             defaults_to_update: None,
         };
 
-        let new_action = match action {
+        let warnings = WarningBuilder::new();
+
+        let new_action: Action = match action {
             Action::CreateNode {
                 node_type,
                 graph_index,
@@ -383,7 +391,7 @@ impl NodeEngineState {
             } => {
                 action_result.graph_operated_on = Some(graph_index);
 
-                self.graph_manager.create_node_at_index(
+                let result = self.graph_manager.create_node_at_index(
                     &node_type,
                     graph_index,
                     node_index,
@@ -392,7 +400,9 @@ impl NodeEngineState {
                     &self.sound_config,
                     &mut self.socket_registry,
                     &self.scripting_engine,
-                )
+                )?;
+
+                resul
             }
             Action::RemoveNode { index, .. } => {
                 let result = self.graph_manager.remove_node(&index)?;

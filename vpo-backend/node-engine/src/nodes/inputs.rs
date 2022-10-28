@@ -1,15 +1,11 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::midi::messages::MidiData;
 
 use crate::{
     connection::{
         MidiSocketType, Primitive, SocketDirection, SocketType, SocketValue, StreamSocketType, ValueSocketType,
     },
-    node::{InitResult, Node, NodeRow},
-    property::Property,
-    socket_registry::SocketRegistry,
+    errors::{NodeError, NodeOk},
+    node::{InitResult, Node, NodeInitState, NodeRow},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -127,23 +123,17 @@ impl Node for InputsNode {
         }
     }
 
-    fn init(
-        &mut self,
-        _properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let node_rows = self
             .inputs
             .iter()
             .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Output))
             .collect::<Vec<NodeRow>>();
 
-        InitResult {
+        NodeOk::no_warnings(InitResult {
             did_rows_change: self.dirty,
             node_rows: node_rows,
             changed_properties: None,
-            errors_and_warnings: None,
-        }
+        })
     }
 }

@@ -1,18 +1,10 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::node::envelope::Envelope;
 use sound_engine::node::AudioNode;
 use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
-
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 #[derive(Debug, Clone)]
 pub struct EnvelopeNode {
     envelope: Envelope,
@@ -62,12 +54,7 @@ impl Node for EnvelopeNode {
         self.envelope.get_gain()
     }
 
-    fn init(
-        &mut self,
-        _properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
             NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
@@ -78,14 +65,9 @@ impl Node for EnvelopeNode {
         ])
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.envelope.process();
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 }

@@ -1,16 +1,11 @@
-use std::collections::HashMap;
-
-use rhai::{Engine, Scope, AST};
+use rhai::{Scope, AST};
 use serde_json::json;
 use smallvec::{smallvec, SmallVec};
 
 use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::{ErrorsAndWarnings, NodeError};
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct StreamExpressionNode {
@@ -51,12 +46,7 @@ impl Node for StreamExpressionNode {
         self.value_out
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         if let Some(ast) = &self.ast {
             // start by rewinding the scope
             self.scope.rewind(0);
@@ -67,7 +57,7 @@ impl Node for StreamExpressionNode {
             }
 
             // now we run the expression!
-            let result = scripting_engine.eval_ast_with_scope::<f32>(&mut self.scope, &ast);
+            let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, &ast);
 
             // convert the output to a usuable form
             match result {
@@ -80,17 +70,11 @@ impl Node for StreamExpressionNode {
             }
         }
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let mut did_rows_change = false;
-        let mut possible_error = None;
 
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
@@ -108,11 +92,11 @@ impl Node for StreamExpressionNode {
         ];
 
         let mut expression = "";
-        if let Some(Property::String(new_expression)) = properties.get("expression") {
+        if let Some(Property::String(new_expression)) = state.props.get("expression") {
             expression = new_expression;
         }
 
-        if let Some(Property::Integer(values_in_count)) = properties.get("values_in_count") {
+        if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
             let values_in_count_usize = *values_in_count as usize;
 
             // is it bigger or smaller than last time?
@@ -120,7 +104,8 @@ impl Node for StreamExpressionNode {
                 // if bigger, add some accordingly
                 for i in self.values_in.len()..values_in_count_usize {
                     // get ID for socket
-                    let new_socket_uid = registry
+                    let new_socket_uid = state
+                        .registry
                         .register_socket(
                             format!("stream.stream_expression.{}", i),
                             SocketType::Stream(StreamSocketType::Audio),
@@ -154,7 +139,8 @@ impl Node for StreamExpressionNode {
         }
 
         for i in 0..self.values_in.len() {
-            let new_socket_type = registry
+            let new_socket_type = state
+                .registry
                 .register_socket(
                     format!("stream.stream_expression.{}", i),
                     SocketType::Stream(StreamSocketType::Audio),
@@ -174,26 +160,22 @@ impl Node for StreamExpressionNode {
             self.ast = None;
         } else {
             // compile the expression and collect any errors
-            let possible_ast = scripting_engine.compile(&expression);
+            let possible_ast = state.script_engine.compile(&expression);
 
             match possible_ast {
                 Ok(ast) => {
                     self.ast = Some(ast);
                 }
                 Err(err) => {
-                    possible_error = Some(ErrorsAndWarnings {
-                        errors: vec![NodeError::RhaiParserError(err)],
-                        warnings: vec![],
-                    });
+                    return Err(NodeError::RhaiParserError(err));
                 }
             }
         }
 
-        InitResult {
+        NodeOk::no_warnings(InitResult {
             did_rows_change,
             node_rows,
             changed_properties: None,
-            errors_and_warnings: possible_error,
-        }
+        })
     }
 }

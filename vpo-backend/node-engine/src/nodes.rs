@@ -6,7 +6,6 @@ pub mod function_node;
 pub mod gain;
 pub mod inputs;
 pub mod midi_input;
-pub mod midi_router;
 pub mod midi_to_values;
 pub mod mixer;
 pub mod oscillator;

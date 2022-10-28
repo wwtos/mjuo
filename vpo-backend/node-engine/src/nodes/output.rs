@@ -1,11 +1,6 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
-
 use crate::connection::StreamSocketType;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeRow};
 
 #[derive(Debug, Clone)]
 pub struct OutputNode {
@@ -19,12 +14,7 @@ impl Default for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn init(
-        &mut self,
-        _properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0)])
     }
 

@@ -272,8 +272,14 @@ impl NodeWrapper {
 
         let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
-        let input_index = inner_graph.add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
-        let output_index = inner_graph.add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
+        let input_index = inner_graph
+            .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine)
+            .unwrap()
+            .value;
+        let output_index = inner_graph
+            .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine)
+            .unwrap()
+            .value;
 
         self.child_graph_io_indexes = Some((input_index, output_index));
     }

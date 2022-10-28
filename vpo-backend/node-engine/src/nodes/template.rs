@@ -7,14 +7,14 @@ use crate::property::{Property, PropertyType};
 #[derive(Debug)]
 pub struct TemplateNode {
     some_stream: f32,
-    some_prop: f32
+    some_prop: f32,
 }
 
 impl Default for TemplateNode {
     fn default() -> Self {
         TemplateNode {
             some_stream: 0.0,
-            some_prop: 1.0
+            some_prop: 1.0,
         }
     }
 }
@@ -34,11 +34,8 @@ impl Node for TemplateNode {
         }
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-    ) -> (bool, Option<HashMap<String, Property>>) {
-        if let Some(some_prop) = properties.get("some_prop") {
+    fn init(&mut self, properties: &HashMap<String, Property>) -> (bool, Option<HashMap<String, Property>>) {
+        if let Some(some_prop) = state.props.get("some_prop") {
             if let Property::Float(some_extracted_prop) = some_prop {
                 self.some_prop = *some_extracted_prop;
             }
@@ -48,15 +45,11 @@ impl Node for TemplateNode {
     }
 
     fn list_input_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio),
-        ]
+        vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 
     fn list_output_sockets(&self) -> Vec<SocketType> {
-        vec![
-            SocketType::Stream(StreamSocketType::Audio),
-        ]
+        vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 
     fn list_properties(&self) -> HashMap<String, PropertyType> {

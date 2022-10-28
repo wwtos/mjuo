@@ -1,13 +1,10 @@
-use std::collections::HashMap;
-
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
-use crate::errors::NodeError;
-use crate::node::{InitResult, NodeIndex, NodeRow};
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, NodeIndex, NodeInitState, NodeRow};
 use crate::nodes::variants::NodeVariant;
-use crate::property::Property;
 use crate::socket_registry::SocketRegistry;
 use crate::{node::Node, node_graph::NodeGraph};
 
@@ -21,12 +18,7 @@ impl Default for TestNode {
 }
 
 impl Node for TestNode {
-    fn init(
-        &mut self,
-        _props: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
@@ -44,7 +36,10 @@ fn graph_node_crud() {
     let scripting_engine = Engine::new();
 
     // add a new node
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let first_node_index = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
 
     // check that the node exists
     assert!(graph.get_node(&first_node_index).is_some());
@@ -68,7 +63,10 @@ fn graph_node_crud() {
     assert!(graph.get_node(&first_node_index).is_none());
 
     // now add a second node
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let second_node_index = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
 
     // it should have taken the place of the first node
     assert_eq!(first_node_index.index, second_node_index.index);
@@ -100,9 +98,18 @@ fn graph_connecting() {
     let scripting_engine = Engine::new();
 
     // add two new nodes
-    let first_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
-    let second_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
-    let third_node_index = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let first_node_index = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
+    let second_node_index = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
+    let third_node_index = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -256,8 +263,14 @@ fn hanging_connections() -> Result<(), NodeError> {
     let scripting_engine = Engine::new();
 
     // set up a simple network
-    let first_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
-    let second_node = graph.add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine);
+    let first_node = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
+    let second_node = graph
+        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .unwrap()
+        .value;
 
     graph.connect(
         &first_node,

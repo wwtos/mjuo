@@ -9,7 +9,7 @@ use sound_engine::SoundConfig;
 use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
-use crate::errors::NodeError;
+use crate::errors::{NodeError, NodeOk, WarningBuilder};
 use crate::node_graph::create_new_node;
 use crate::nodes::variants::new_variant;
 use crate::socket_registry::SocketRegistry;
@@ -177,7 +177,9 @@ impl GraphManager {
         sound_config: &SoundConfig,
         registry: &mut SocketRegistry,
         engine: &Engine,
-    ) -> Result<Action, NodeError> {
+    ) -> Result<NodeOk<Action>, NodeError> {
+        let warnings = WarningBuilder::new();
+
         let new_node_index = {
             let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
 
@@ -190,18 +192,20 @@ impl GraphManager {
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
                 let new_node_wrapper =
-                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine);
+                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine)?;
+                warnings.append_warnings(new_node_wrapper.warnings);
 
-                graph.set_node_unchecked(node_index, new_node_wrapper);
+                graph.set_node_unchecked(node_index, new_node_wrapper.value);
 
                 node_index
             } else {
                 // else, it's happening for the first time
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_index = graph.add_node(new_node, registry, engine);
+                let new_node_index = graph.add_node(new_node, registry, engine)?;
+                warnings.append_warnings(new_node_index.warnings);
 
-                new_node_index
+                new_node_index.value
             }
         };
 
@@ -347,13 +351,16 @@ impl GraphManager {
         let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
         let new_node = graph.get_node_mut(&new_node_index).unwrap();
 
-        Ok(Action::CreateNode {
-            node_type: node_type.to_string(),
-            graph_index: graph_index,
-            node_index: Some(new_node_index),
-            child_graph_index,
-            child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
-        })
+        Ok(NodeOk::new(
+            Action::CreateNode {
+                node_type: node_type.to_string(),
+                graph_index: graph_index,
+                node_index: Some(new_node_index),
+                child_graph_index,
+                child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
+            },
+            warnings.into_warnings(),
+        ))
     }
 
     pub fn remove_node(&mut self, index: &GlobalNodeIndex) -> Result<Action, NodeError> {
