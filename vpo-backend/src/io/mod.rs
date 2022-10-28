@@ -1,7 +1,11 @@
 use std::{fs, path::Path};
 
-use node_engine::{errors::NodeError, state::NodeEngineState};
+use node_engine::{
+    errors::{IOSnafu, JsonParserSnafu, NodeError},
+    state::NodeEngineState,
+};
 use serde_json::{json, Value};
+use snafu::ResultExt;
 
 pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     let state = json!({
@@ -9,14 +13,18 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
         "state": state.to_json()?
     });
 
-    fs::write(path.join("state.json"), serde_json::to_string_pretty(&state)?)?;
+    fs::write(
+        path.join("state.json"),
+        serde_json::to_string_pretty(&state).context(JsonParserSnafu)?,
+    )
+    .context(IOSnafu)?;
 
     Ok(())
 }
 
 pub fn load(state: &mut NodeEngineState, path: &Path) -> Result<(), NodeError> {
-    let json_raw = fs::read_to_string(path.join("state.json"))?;
-    let mut json: Value = serde_json::from_str(&json_raw)?;
+    let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
+    let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     // TODO: version handling and migrations here
 

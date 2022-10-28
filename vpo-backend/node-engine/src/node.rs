@@ -7,6 +7,7 @@ use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
+use snafu::ResultExt;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::SoundConfig;
 
@@ -15,7 +16,7 @@ use crate::connection::{
     SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{ErrorsAndWarnings, NodeError};
+use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -83,18 +84,28 @@ pub struct InitResult {
     pub did_rows_change: bool,
     pub node_rows: Vec<NodeRow>,
     pub changed_properties: Option<HashMap<String, Property>>,
-    pub errors_and_warnings: Option<ErrorsAndWarnings>,
 }
 
 impl InitResult {
-    pub fn simple(node_rows: Vec<NodeRow>) -> InitResult {
-        InitResult {
+    pub fn simple(node_rows: Vec<NodeRow>) -> NodeResult<InitResult> {
+        NodeOk::no_warnings(InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
-            errors_and_warnings: None,
-        }
+        })
     }
+}
+
+pub struct NodeInitState<'a> {
+    pub props: &'a HashMap<String, Property>,
+    pub registry: &'a mut SocketRegistry,
+    pub script_engine: &'a Engine,
+}
+
+pub struct NodeProcessState<'a> {
+    pub current_time: i64,
+    pub script_engine: &'a Engine,
+    pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
 }
 
 /// Node trait
@@ -110,12 +121,7 @@ impl InitResult {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(
-        &mut self,
-        props: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> InitResult;
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
     fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
@@ -124,13 +130,8 @@ pub trait Node: Debug {
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
     /// Process received data.
-    fn process(
-        &mut self,
-        current_time: i64,
-        scripting_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
-        Ok(())
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        NodeOk::no_warnings(())
     }
 
     /// Accept incoming stream data of type `socket_type`
@@ -195,16 +196,21 @@ impl NodeWrapper {
         mut node: NodeVariant,
         index: NodeIndex,
         registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> NodeWrapper {
+        script_engine: &Engine,
+    ) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
-        let init_result = node.init(&HashMap::new(), registry, scripting_engine);
+        let init_result = node.init(NodeInitState {
+            props: &HashMap::new(),
+            registry,
+            script_engine,
+        })?;
         // TODO: check validity of node_rows here (no socket duplicates)
 
         // extract properties from result from `init`
         // this fills the properties with the default values
         let properties = init_result
+            .value
             .node_rows
             .iter()
             .filter_map(|row| match row {
@@ -222,7 +228,7 @@ impl NodeWrapper {
             default_overrides: Vec::new(),
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
-            node_rows: init_result.node_rows,
+            node_rows: init_result.value.node_rows,
             properties,
             ui_data: HashMap::new(),
             child_graph_index: None,
@@ -235,7 +241,10 @@ impl NodeWrapper {
 
         wrapper.ui_data.insert("title".to_string(), json! { name });
 
-        wrapper
+        Ok(NodeOk {
+            value: wrapper,
+            warnings: init_result.warnings,
+        })
     }
 
     pub fn does_need_inner_graph_created(&self) -> bool {
@@ -264,8 +273,14 @@ impl NodeWrapper {
 
         let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
-        let input_index = inner_graph.add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine);
-        let output_index = inner_graph.add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine);
+        let input_index = inner_graph
+            .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine)
+            .unwrap()
+            .value;
+        let output_index = inner_graph
+            .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine)
+            .unwrap()
+            .value;
 
         self.child_graph_io_indexes = Some((input_index, output_index));
     }
@@ -453,11 +468,15 @@ impl NodeWrapper {
     pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
         println!("Applying json: {}", json);
 
-        let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
+        let index: NodeIndex = serde_json::from_value(json["index"].clone()).context(JsonParserSnafu)?;
+        let ui_data: HashMap<String, Value> =
+            serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
 
         if index != self.index {
-            return Err(NodeError::MismatchedNodeIndex(self.index, index));
+            return Err(NodeError::MismatchedNodeIndex {
+                current: self.index,
+                incoming: index,
+            });
         }
 
         self.ui_data = ui_data;
@@ -498,10 +517,14 @@ impl NodeWrapper {
     pub fn process(
         &mut self,
         current_time: i64,
-        scripting_engine: &Engine,
+        script_engine: &Engine,
         inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
-        self.node.process(current_time, scripting_engine, inner_graph)
+    ) -> Result<NodeOk<()>, NodeError> {
+        self.node.process(NodeProcessState {
+            current_time,
+            script_engine,
+            inner_graph: inner_graph,
+        })
     }
 
     pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {

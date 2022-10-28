@@ -17,7 +17,9 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed("graphIndex".to_string()))?;
+        .ok_or(NodeError::PropertyMissingOrMalformed {
+            property_name: "graphIndex".to_string(),
+        })?;
 
     send_graph_updates(state, graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server).unwrap();

@@ -1,15 +1,10 @@
-use std::collections::HashMap;
-
-use rhai::{Dynamic, Engine, Scope, AST};
+use rhai::{Dynamic, Scope, AST};
 use serde_json::json;
 
 use crate::connection::{Primitive, SocketType, ValueSocketType};
-use crate::errors::{ErrorsAndWarnings, NodeError, NodeWarning};
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
+use crate::errors::{NodeError, NodeOk, NodeWarning, WarningBuilder};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct ExpressionNode {
@@ -54,12 +49,9 @@ impl Node for ExpressionNode {
         self.value_out.clone()
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        let mut warnings = WarningBuilder::new();
+
         if let Some(ast) = &self.ast {
             if self.have_values_changed {
                 // add inputs to scope
@@ -68,7 +60,9 @@ impl Node for ExpressionNode {
                 }
 
                 // now we run the expression!
-                let result = scripting_engine.eval_ast_with_scope::<Dynamic>(&mut self.scope, &ast);
+                let result = state
+                    .script_engine
+                    .eval_ast_with_scope::<Dynamic>(&mut self.scope, &ast);
 
                 // convert the output to a usuable form
                 match result {
@@ -83,10 +77,11 @@ impl Node for ExpressionNode {
                                 self.have_values_changed = false;
                                 self.scope.rewind(0);
 
-                                return Err(ErrorsAndWarnings {
-                                    errors: vec![],
-                                    warnings: vec![NodeWarning::RhaiInvalidReturnType(output.type_name().to_string())],
+                                warnings.add_warning(NodeWarning::RhaiInvalidReturnType {
+                                    return_type: output.type_name().to_string(),
                                 });
+
+                                None
                             }
                         }
                     }
@@ -95,10 +90,7 @@ impl Node for ExpressionNode {
                         self.have_values_changed = false;
                         self.scope.rewind(0);
 
-                        return Err(ErrorsAndWarnings {
-                            errors: vec![NodeError::RhaiEvalError(*err)],
-                            warnings: vec![],
-                        });
+                        return Err(NodeError::RhaiEvalError { result: *err });
                     }
                 }
 
@@ -107,16 +99,12 @@ impl Node for ExpressionNode {
             }
         }
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let mut did_rows_change = false;
+        let mut warnings = WarningBuilder::new();
 
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
@@ -134,11 +122,11 @@ impl Node for ExpressionNode {
         ];
 
         let mut expression = "";
-        if let Some(Property::String(new_expression)) = properties.get("expression") {
+        if let Some(Property::String(new_expression)) = state.props.get("expression") {
             expression = new_expression;
         }
 
-        if let Some(Property::Integer(values_in_count)) = properties.get("values_in_count") {
+        if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
             let values_in_count_usize = *values_in_count as usize;
 
             // is it bigger or smaller than last time?
@@ -146,7 +134,8 @@ impl Node for ExpressionNode {
                 // if bigger, add some accordingly
                 for i in self.values_in.len()..values_in_count_usize {
                     // get ID for socket
-                    let new_socket_uid = registry
+                    let new_socket_uid = state
+                        .registry
                         .register_socket(
                             format!("value.expression.{}", i),
                             SocketType::Value(ValueSocketType::Default),
@@ -180,7 +169,8 @@ impl Node for ExpressionNode {
         }
 
         for i in 0..self.values_in.len() {
-            let new_socket_type = registry
+            let new_socket_type = state
+                .registry
                 .register_socket(
                     format!("value.expression.{}", i),
                     SocketType::Value(ValueSocketType::Default),
@@ -196,28 +186,26 @@ impl Node for ExpressionNode {
         }
 
         // compile the expression and collect any errors
-        let possible_ast = scripting_engine.compile(&expression);
-        let mut possible_error = None;
+        let possible_ast = state.script_engine.compile(&expression);
 
         match possible_ast {
             Ok(ast) => {
                 self.ast = Some(ast);
             }
-            Err(err) => {
-                possible_error = Some(ErrorsAndWarnings {
-                    errors: vec![NodeError::RhaiParserError(err)],
-                    warnings: vec![],
-                });
+            Err(parser_error) => {
+                warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error });
             }
         }
 
         self.have_values_changed = true;
 
-        InitResult {
-            did_rows_change,
-            node_rows,
-            changed_properties: None,
-            errors_and_warnings: possible_error,
-        }
+        Ok(NodeOk::new(
+            InitResult {
+                did_rows_change,
+                node_rows,
+                changed_properties: None,
+            },
+            warnings.into_warnings(),
+        ))
     }
 }

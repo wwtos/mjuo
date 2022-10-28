@@ -1,19 +1,16 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::ErrorsAndWarnings;
+use crate::errors::NodeError;
+use crate::errors::NodeOk;
 use crate::node::InitResult;
 use crate::node::Node;
+use crate::node::NodeInitState;
+use crate::node::NodeProcessState;
 use crate::node::NodeRow;
-use crate::node_graph::NodeGraph;
 use crate::property::Property;
 use crate::property::PropertyType;
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct OscillatorNode {
@@ -31,13 +28,8 @@ impl Default for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
-        if let Some(waveform) = properties.get("waveform") {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+        if let Some(waveform) = state.props.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
             self.oscillator =
@@ -61,15 +53,10 @@ impl Node for OscillatorNode {
         ])
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.audio_out = self.oscillator.process_fast();
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
     fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {

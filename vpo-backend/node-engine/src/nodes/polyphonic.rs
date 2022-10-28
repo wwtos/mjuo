@@ -1,12 +1,9 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::constants::SAMPLE_RATE;
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, SocketDirection, SocketType, StreamSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, Node, NodeIndex, NodeRow};
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
 use crate::node_graph::NodeGraph;
 use crate::property::PropertyType;
 use crate::traversal::traverser::Traverser;
@@ -77,13 +74,8 @@ impl Default for PolyphonicNode {
 }
 
 impl Node for PolyphonicNode {
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
-        if let Some(Property::Integer(polyphony)) = properties.get("polyphony") {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+        if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
             self.polyphony = (*polyphony).clamp(1, 255) as u8;
         }
 
@@ -271,26 +263,23 @@ impl Node for PolyphonicNode {
         self.inner_outputs_node = output_node;
     }
 
-    fn process(
-        &mut self,
-        current_time: i64,
-        scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
-        let mut errors_and_warnings = ErrorsAndWarnings::default();
-
-        self.current_time = current_time;
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        self.current_time = state.current_time;
 
         self.output = 0.0;
 
         for voice in self.voices.iter_mut() {
             if voice.info.active {
-                errors_and_warnings = errors_and_warnings.merge(self.traverser.traverse(
-                    &mut voice.graph,
-                    self.is_first_time,
-                    current_time,
-                    scripting_engine,
-                ))?;
+                self.traverser
+                    .traverse(
+                        &mut voice.graph,
+                        self.is_first_time,
+                        state.current_time,
+                        state.script_engine,
+                    )
+                    .map_err(|err| NodeError::InnerGraphErrors {
+                        errors_and_warnings: err,
+                    })?;
 
                 let subgraph_output_node = voice.graph.get_node_mut(&self.inner_outputs_node).unwrap();
                 let output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);
@@ -314,6 +303,6 @@ impl Node for PolyphonicNode {
 
         self.is_first_time = false;
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 }

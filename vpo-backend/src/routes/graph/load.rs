@@ -23,6 +23,8 @@ pub fn route(
 
         Ok(None)
     } else {
-        Err(NodeError::PropertyMissingOrMalformed("payload.path".to_string()))
+        Err(NodeError::PropertyMissingOrMalformed {
+            property_name: "payload.path".to_string(),
+        })
     }
 }

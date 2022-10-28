@@ -1,11 +1,7 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
-
 use crate::connection::StreamSocketType;
-use crate::node::{InitResult, Node, NodeRow};
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeRow};
 use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Clone)]
 pub struct GainGraphNode {
@@ -32,13 +28,8 @@ impl Node for GainGraphNode {
         self.value * self.gain
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
-        if let Some(Property::Float(gain)) = properties.get("default_gain") {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+        if let Some(Property::Float(gain)) = state.props.get("default_gain") {
             self.gain = gain.clamp(0.0, 1.0);
         }
 

@@ -1,16 +1,10 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
 use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct BiquadFilterNode {
@@ -51,30 +45,20 @@ impl Node for BiquadFilterNode {
         };
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.filter.process();
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
     fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
         self.filter.get_output_out()
     }
 
-    fn init(
-        &mut self,
-        properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         self.filter.reset();
 
-        if let Some(Property::MultipleChoice(filter_type)) = properties.get("filter_type") {
+        if let Some(Property::MultipleChoice(filter_type)) = state.props.get("filter_type") {
             self.filter.set_filter_type(match filter_type.as_str() {
                 "lowpass" => BiquadFilterType::Lowpass,
                 "highpass" => BiquadFilterType::Highpass,

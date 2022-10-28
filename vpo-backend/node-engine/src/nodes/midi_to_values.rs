@@ -1,15 +1,8 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::node_graph::NodeGraph;
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 
 #[derive(Debug, PartialEq, Clone)]
 enum ChangedState {
@@ -45,12 +38,7 @@ impl Node for MidiToValuesNode {
         self.state = ChangedState::NewInfo;
     }
 
-    fn process(
-        &mut self,
-        _current_time: i64,
-        _scripting_engine: &Engine,
-        _inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         if self.state == ChangedState::NewInfo {
             for data in &self.midi_in {
                 match data {
@@ -83,15 +71,10 @@ impl Node for MidiToValuesNode {
             ChangedState::NoInfo => ChangedState::NoInfo,
         };
 
-        Ok(())
+        NodeOk::no_warnings(())
     }
 
-    fn init(
-        &mut self,
-        _properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::MidiInput(MidiSocketType::Default, vec![]),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),

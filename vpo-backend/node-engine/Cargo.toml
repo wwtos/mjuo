@@ -1,21 +1,22 @@
 [package]
+edition = "2021"
 name = "node-engine"
 version = "0.1.0"
-edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sound-engine = { path = "../sound-engine" }
-serde = { version = "1.0.133", features = ["derive"] }
-serde_json = "1.0.74"
+async-std = "1.10.0"
+enum_dispatch = "0.3.8"
 lazy_static = "1.4.0"
-thiserror = "1.0.30"
 petgraph = "0.6.0"
+rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
+serde = {version = "1.0.133", features = ["derive"]}
+serde_json = "1.0.74"
+smallvec = "1.9.0"
+snafu = "0.7"
+sound-engine = {path = "../sound-engine"}
 strum = "0.24.0"
 strum_macros = "0.24"
-rhai = { version = "1.7.0", features = ["f32_float", "only_i32"] }
-enum_dispatch = "0.3.8"
-smallvec = "1.9.0"
-async-std = "1.10.0"
+thiserror = "1.0.30"
 twox-hash = "1.6.3"

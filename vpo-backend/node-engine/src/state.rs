@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use serde_json::{json, Value};
+use snafu::ResultExt;
 use sound_engine::{midi::messages::MidiData, SoundConfig};
 
 use crate::{
     connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
-    errors::NodeError,
+    errors::{JsonParserSnafu, NodeError, WarningBuilder},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, NodeGraphWrapper},
     node::{NodeIndex, NodeRow},
     nodes::{midi_input::MidiInNode, output::OutputNode, variants::NodeVariant},
@@ -100,16 +101,22 @@ impl NodeEngineState {
         let (output_node, midi_in_node) = {
             let graph = &mut graph_manager.get_graph_wrapper_mut(root_graph_index).unwrap().graph;
 
-            let output_node = graph.add_node(
-                NodeVariant::OutputNode(OutputNode::default()),
-                &mut socket_registry,
-                &scripting_engine,
-            );
-            let midi_in_node = graph.add_node(
-                NodeVariant::MidiInNode(MidiInNode::default()),
-                &mut socket_registry,
-                &scripting_engine,
-            );
+            let output_node = graph
+                .add_node(
+                    NodeVariant::OutputNode(OutputNode::default()),
+                    &mut socket_registry,
+                    &scripting_engine,
+                )
+                .unwrap()
+                .value;
+            let midi_in_node = graph
+                .add_node(
+                    NodeVariant::MidiInNode(MidiInNode::default()),
+                    &mut socket_registry,
+                    &scripting_engine,
+                )
+                .unwrap()
+                .value;
 
             (output_node, midi_in_node)
         };
@@ -163,17 +170,23 @@ impl NodeEngineState {
                 let parent_node_graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(parent_node_graph)
-                    .ok_or(NodeError::GraphDoesNotExist(*graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: *graph_index,
+                    })?
                     .graph;
                 let subgraph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(*graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(*graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: *graph_index,
+                    })?
                     .graph;
 
                 let node = parent_node_graph
                     .get_node_mut(&parent_node_index)
-                    .ok_or(NodeError::NodeDoesNotExist(parent_node_index))?;
+                    .ok_or(NodeError::NodeDoesNotExist {
+                        node_index: parent_node_index,
+                    })?;
                 node.node_init_graph(subgraph);
             }
         }
@@ -373,7 +386,9 @@ impl NodeEngineState {
             defaults_to_update: None,
         };
 
-        let new_action = match action {
+        let mut warnings = WarningBuilder::new();
+
+        let new_action: Action = match action {
             Action::CreateNode {
                 node_type,
                 graph_index,
@@ -383,7 +398,7 @@ impl NodeEngineState {
             } => {
                 action_result.graph_operated_on = Some(graph_index);
 
-                self.graph_manager.create_node_at_index(
+                let result = self.graph_manager.create_node_at_index(
                     &node_type,
                     graph_index,
                     node_index,
@@ -392,7 +407,11 @@ impl NodeEngineState {
                     &self.sound_config,
                     &mut self.socket_registry,
                     &self.scripting_engine,
-                )
+                )?;
+
+                warnings.append_warnings(result.warnings);
+
+                result.value
             }
             Action::RemoveNode { index, .. } => {
                 let result = self.graph_manager.remove_node(&index)?;
@@ -400,20 +419,23 @@ impl NodeEngineState {
                 action_result.graph_operated_on = Some(index.graph_index);
                 action_result.graph_to_reindex = Some(index.graph_index);
 
-                Ok(result)
+                result
             }
             Action::ChangeNodeProperties {
                 index,
                 before: _,
                 after,
             } => {
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 let before = node.replace_properties(after.clone());
 
@@ -426,24 +448,27 @@ impl NodeEngineState {
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
-                Ok(Action::ChangeNodeProperties {
+                Action::ChangeNodeProperties {
                     index: index,
                     before: Some(before),
                     after: after,
-                })
+                }
             }
             Action::ChangeNodeUiData {
                 index,
                 before: _,
                 after,
             } => {
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 let before = node.replace_ui_data(after.clone());
 
@@ -455,24 +480,27 @@ impl NodeEngineState {
                     action_result.defaults_to_update = Some(vec![index.clone()]);
                 }
 
-                Ok(Action::ChangeNodeUiData {
+                Action::ChangeNodeUiData {
                     index: index,
                     before: Some(before),
                     after: after,
-                })
+                }
             }
             Action::ChangeNodeOverrides {
                 index,
                 before: _,
                 after,
             } => {
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 let before = node.replace_default_overrides(after.clone());
 
@@ -484,11 +512,11 @@ impl NodeEngineState {
                     action_result.defaults_to_update = Some(vec![index.clone()]);
                 }
 
-                Ok(Action::ChangeNodeOverrides {
+                Action::ChangeNodeOverrides {
                     index: index,
                     before: Some(before),
                     after: after,
-                })
+                }
             }
             Action::AddConnection {
                 graph_index,
@@ -497,7 +525,9 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: graph_index,
+                    })?
                     .graph;
 
                 graph.connect(
@@ -510,10 +540,10 @@ impl NodeEngineState {
                 action_result.graph_operated_on = Some(graph_index);
                 action_result.graph_to_reindex = Some(graph_index);
 
-                Ok(Action::AddConnection {
+                Action::AddConnection {
                     graph_index,
                     connection,
-                })
+                }
             }
             Action::RemoveConnection {
                 graph_index,
@@ -522,7 +552,9 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: graph_index,
+                    })?
                     .graph;
 
                 graph.disconnect(
@@ -535,12 +567,12 @@ impl NodeEngineState {
                 action_result.graph_operated_on = Some(graph_index);
                 action_result.graph_to_reindex = Some(graph_index);
 
-                Ok(Action::RemoveConnection {
+                Action::RemoveConnection {
                     graph_index,
                     connection,
-                })
+                }
             }
-        }?;
+        };
 
         Ok((new_action, action_result))
     }
@@ -562,9 +594,12 @@ impl NodeEngineState {
                 child_graph_index,
                 child_graph_io_indexes,
             } => {
-                let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing("node_index".to_string()))?;
+                let node_index = node_index.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "node_index".to_string(),
+                })?;
 
                 action_result.graph_operated_on = Some(graph_index);
+                action_result.graph_to_reindex = Some(graph_index);
 
                 self.graph_manager
                     .remove_node(&GlobalNodeIndex {
@@ -588,10 +623,15 @@ impl NodeEngineState {
                 serialized,
             } => {
                 // unwrap all the Option fields (should be present for a rollback)
-                let node_type = node_type.ok_or(NodeError::ActionRollbackFieldMissing("node_type".to_string()))?;
-                let connections =
-                    connections.ok_or(NodeError::ActionRollbackFieldMissing("connections".to_string()))?;
-                let serialized = serialized.ok_or(NodeError::ActionRollbackFieldMissing("serialized".to_string()))?;
+                let node_type = node_type.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "node_type".to_string(),
+                })?;
+                let connections = connections.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "connections".to_string(),
+                })?;
+                let serialized = serialized.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "serialized".to_string(),
+                })?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -607,10 +647,11 @@ impl NodeEngineState {
                 )?;
 
                 // connect everything back up
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 for connection in connections.iter() {
                     graph.graph.connect(
@@ -623,7 +664,9 @@ impl NodeEngineState {
 
                 // apply the json
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 println!("found node to apply json");
 
@@ -647,15 +690,20 @@ impl NodeEngineState {
                 })
             }
             Action::ChangeNodeProperties { index, before, after } => {
-                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "before".to_string(),
+                })?;
 
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 node.set_properties(before.clone());
 
@@ -675,15 +723,20 @@ impl NodeEngineState {
                 })
             }
             Action::ChangeNodeUiData { index, before, after } => {
-                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "before".to_string(),
+                })?;
 
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 node.set_ui_data(before.clone());
 
@@ -702,15 +755,20 @@ impl NodeEngineState {
                 })
             }
             Action::ChangeNodeOverrides { index, before, after } => {
-                let before = before.ok_or(NodeError::ActionRollbackFieldMissing("before".to_string()))?;
+                let before = before.ok_or(NodeError::ActionRollbackFieldMissing {
+                    missing_field: "before".to_string(),
+                })?;
 
-                let mut graph = self
-                    .graph_manager
-                    .get_graph_wrapper_mut(index.graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(index.graph_index))?;
+                let mut graph = self.graph_manager.get_graph_wrapper_mut(index.graph_index).ok_or(
+                    NodeError::GraphDoesNotExist {
+                        graph_index: index.graph_index,
+                    },
+                )?;
 
                 let node = graph.graph.get_node_mut(&index.node_index);
-                let node = node.ok_or(NodeError::NodeDoesNotExist(index.node_index))?;
+                let node = node.ok_or(NodeError::NodeDoesNotExist {
+                    node_index: index.node_index,
+                })?;
 
                 node.set_default_overrides(before.clone());
 
@@ -735,7 +793,9 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: graph_index,
+                    })?
                     .graph;
 
                 graph.disconnect(
@@ -760,7 +820,9 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist(graph_index))?
+                    .ok_or(NodeError::GraphDoesNotExist {
+                        graph_index: graph_index,
+                    })?
                     .graph;
 
                 graph.connect(
@@ -798,11 +860,11 @@ impl NodeEngineState {
     pub fn apply_json(&mut self, mut json: Value) -> Result<(), NodeError> {
         self.history.clear();
         self.place_in_history = 0;
-        self.graph_manager = serde_json::from_value(json["graph_manager"].take())?;
-        self.socket_registry = serde_json::from_value(json["socket_registry"].take())?;
-        self.root_graph_index = serde_json::from_value(json["root_graph_index"].take())?;
-        self.output_node = serde_json::from_value(json["output_node"].take())?;
-        self.midi_in_node = serde_json::from_value(json["midi_in_node"].take())?;
+        self.graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
+        self.socket_registry = serde_json::from_value(json["socket_registry"].take()).context(JsonParserSnafu)?;
+        self.root_graph_index = serde_json::from_value(json["root_graph_index"].take()).context(JsonParserSnafu)?;
+        self.output_node = serde_json::from_value(json["output_node"].take()).context(JsonParserSnafu)?;
+        self.midi_in_node = serde_json::from_value(json["midi_in_node"].take()).context(JsonParserSnafu)?;
 
         let NodeEngineState {
             graph_manager,

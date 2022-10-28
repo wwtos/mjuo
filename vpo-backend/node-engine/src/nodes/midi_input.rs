@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
-use rhai::Engine;
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::MidiSocketType;
-use crate::node::{InitResult, Node, NodeRow};
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeInitState, NodeRow};
 
 #[derive(Debug, Default, Clone)]
 pub struct MidiInNode {
@@ -22,12 +18,7 @@ impl Node for MidiInNode {
         self.midi_in.clone()
     }
 
-    fn init(
-        &mut self,
-        _properties: &HashMap<String, Property>,
-        _registry: &mut SocketRegistry,
-        _scripting_engine: &Engine,
-    ) -> InitResult {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])])
     }
 }

@@ -9,7 +9,7 @@ use sound_engine::SoundConfig;
 use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
-use crate::errors::NodeError;
+use crate::errors::{NodeError, NodeOk, WarningBuilder};
 use crate::node_graph::create_new_node;
 use crate::nodes::variants::new_variant;
 use crate::socket_registry::SocketRegistry;
@@ -100,7 +100,9 @@ impl GraphManager {
     ) -> Result<(), NodeError> {
         let mut child_graph = self
             .get_graph_wrapper_mut(child_graph)
-            .ok_or(NodeError::GraphDoesNotExist(child_graph))?;
+            .ok_or(NodeError::GraphDoesNotExist {
+                graph_index: child_graph,
+            })?;
 
         let entry = child_graph
             .parent_nodes
@@ -109,7 +111,9 @@ impl GraphManager {
                 potential_parent_node.node_index == parent_node
                     && potential_parent_node.graph_index == graph_of_parent_node
             })
-            .ok_or(NodeError::GraphDoesNotExist(graph_of_parent_node))?;
+            .ok_or(NodeError::GraphDoesNotExist {
+                graph_index: graph_of_parent_node,
+            })?;
 
         child_graph.parent_nodes.remove(entry);
 
@@ -127,7 +131,7 @@ impl GraphManager {
     pub fn recalculate_traversal_for_graph(&self, index: &GraphIndex) -> Result<(), NodeError> {
         let mut graph_wrapper = self
             .get_graph_wrapper_mut(*index)
-            .ok_or(NodeError::GraphDoesNotExist(*index))?;
+            .ok_or(NodeError::GraphDoesNotExist { graph_index: *index })?;
 
         // set the new traverser
         graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
@@ -152,7 +156,9 @@ impl GraphManager {
         let number_of_parent_nodes = {
             let graph = self
                 .get_graph_wrapper_mut(*graph_index)
-                .ok_or(NodeError::GraphDoesNotExist(*graph_index))?;
+                .ok_or(NodeError::GraphDoesNotExist {
+                    graph_index: *graph_index,
+                })?;
             graph.parent_nodes.len()
         };
 
@@ -177,31 +183,35 @@ impl GraphManager {
         sound_config: &SoundConfig,
         registry: &mut SocketRegistry,
         engine: &Engine,
-    ) -> Result<Action, NodeError> {
+    ) -> Result<NodeOk<Action>, NodeError> {
+        let mut warnings = WarningBuilder::new();
+
         let new_node_index = {
             let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
 
             // if it's a redo, it has a specific index it needs to be at
             if let Some(node_index) = node_index {
                 if let Some(_) = graph.get_node(&node_index) {
-                    return Err(NodeError::NodeAlreadyExists(node_index));
+                    return Err(NodeError::NodeAlreadyExists { node_index: node_index });
                 }
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
                 let new_node_wrapper =
-                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine);
+                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine)?;
+                warnings.append_warnings(new_node_wrapper.warnings);
 
-                graph.set_node_unchecked(node_index, new_node_wrapper);
+                graph.set_node_unchecked(node_index, new_node_wrapper.value);
 
                 node_index
             } else {
                 // else, it's happening for the first time
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_index = graph.add_node(new_node, registry, engine);
+                let new_node_index = graph.add_node(new_node, registry, engine)?;
+                warnings.append_warnings(new_node_index.warnings);
 
-                new_node_index
+                new_node_index.value
             }
         };
 
@@ -347,13 +357,16 @@ impl GraphManager {
         let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
         let new_node = graph.get_node_mut(&new_node_index).unwrap();
 
-        Ok(Action::CreateNode {
-            node_type: node_type.to_string(),
-            graph_index: graph_index,
-            node_index: Some(new_node_index),
-            child_graph_index,
-            child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
-        })
+        Ok(NodeOk::new(
+            Action::CreateNode {
+                node_type: node_type.to_string(),
+                graph_index: graph_index,
+                node_index: Some(new_node_index),
+                child_graph_index,
+                child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
+            },
+            warnings.into_warnings(),
+        ))
     }
 
     pub fn remove_node(&mut self, index: &GlobalNodeIndex) -> Result<Action, NodeError> {
@@ -366,11 +379,12 @@ impl GraphManager {
         let possible_child_graph_index = {
             let graph = self
                 .get_graph_wrapper_mut(*graph_index)
-                .ok_or(NodeError::GraphDoesNotExist(*graph_index))?;
-            let node = graph
-                .graph
-                .get_node(node_index)
-                .ok_or(NodeError::NodeDoesNotExist(*node_index))?;
+                .ok_or(NodeError::GraphDoesNotExist {
+                    graph_index: *graph_index,
+                })?;
+            let node = graph.graph.get_node(node_index).ok_or(NodeError::NodeDoesNotExist {
+                node_index: *node_index,
+            })?;
 
             node.get_child_graph_index().clone()
         };

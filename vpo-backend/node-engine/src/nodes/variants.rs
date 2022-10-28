@@ -1,19 +1,13 @@
-use crate::connection::{MidiSocketType, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType};
-use crate::errors::ErrorsAndWarnings;
-use crate::node::{InitResult, NodeIndex};
-use crate::node_graph::NodeGraph;
-use crate::property::Property;
-use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
-
-use rhai::Engine;
-use sound_engine::midi::messages::MidiData;
-use std::collections::HashMap;
-
 use enum_dispatch::enum_dispatch;
+
+use sound_engine::midi::messages::MidiData;
 use sound_engine::SoundConfig;
 
-use crate::{errors::NodeError, node::Node};
+use crate::connection::{MidiSocketType, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType};
+use crate::errors::{NodeError, NodeOk};
+use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState};
+use crate::node_graph::NodeGraph;
+use crate::socket_registry::SocketRegistry;
 
 #[cfg(test)]
 use crate::graph_tests::TestNode;

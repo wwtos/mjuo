@@ -1,10 +1,11 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::NodeError,
+    errors::{JsonParserSnafu, NodeError},
     state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
+use snafu::ResultExt;
 
 use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
 
@@ -16,11 +17,13 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed("graphIndex".to_string()))?;
+        .ok_or(NodeError::PropertyMissingOrMalformed {
+            property_name: "graphIndex".to_string(),
+        })?;
 
     state.commit(ActionBundle::new(vec![Action::AddConnection {
         graph_index: graph_index,
-        connection: serde_json::from_value(msg["payload"]["connection"].clone())?,
+        connection: serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?,
     }]))?;
 
     send_graph_updates(state, graph_index, to_server)?;

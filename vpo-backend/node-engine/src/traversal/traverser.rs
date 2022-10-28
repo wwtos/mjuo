@@ -128,9 +128,15 @@ impl Traverser {
             let process_result = node_wrapper.process(current_time, scripting_engine, None);
 
             // record any errors
-            if let Err(mut errors_and_warnings) = process_result {
-                errors.append(&mut errors_and_warnings.errors);
-                warnings.append(&mut errors_and_warnings.warnings);
+            match process_result {
+                Ok(result) => {
+                    result
+                        .warnings
+                        .map(|new_warnings| warnings.extend(new_warnings.warnings));
+                }
+                Err(err) => {
+                    errors.push(err);
+                }
             }
 
             for output_connection in &data.outputs_to {
