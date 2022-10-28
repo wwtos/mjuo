@@ -15,7 +15,7 @@ use crate::connection::{
     SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{NodeError, NodeOk};
+use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -86,12 +86,12 @@ pub struct InitResult {
 }
 
 impl InitResult {
-    pub fn simple(node_rows: Vec<NodeRow>) -> InitResult {
-        InitResult {
+    pub fn simple(node_rows: Vec<NodeRow>) -> NodeResult<InitResult> {
+        NodeOk::no_warnings(InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
-        }
+        })
     }
 }
 

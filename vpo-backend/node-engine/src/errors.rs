@@ -57,14 +57,10 @@ pub enum NodeWarning {
     RhaiInvalidReturnType(String),
 }
 
+pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
+
 #[derive(Debug)]
 pub struct Warnings {
-    pub warnings: Vec<NodeWarning>,
-}
-
-#[derive(Debug, Default)]
-pub struct ErrorsAndWarnings {
-    pub errors: Vec<NodeError>,
     pub warnings: Vec<NodeWarning>,
 }
 
@@ -78,32 +74,34 @@ impl<T> NodeOk<T> {
     pub fn no_warnings(value: T) -> NodeResult<T> {
         Ok(NodeOk::<T> { value, warnings: None })
     }
+
+    pub fn new(value: T, warnings: Option<Warnings>) -> NodeOk<T> {
+        NodeOk { value, warnings }
+    }
 }
 
-pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
+pub struct WarningBuilder {
+    warnings: Option<Vec<NodeWarning>>,
+}
 
-impl ErrorsAndWarnings {
-    pub fn err(err: NodeError) -> ErrorsAndWarnings {
-        ErrorsAndWarnings {
-            errors: vec![err],
-            warnings: vec![],
-        }
+impl WarningBuilder {
+    pub fn new() -> WarningBuilder {
+        WarningBuilder { warnings: None }
     }
 
-    pub fn merge(mut self, other: Result<(), ErrorsAndWarnings>) -> Result<ErrorsAndWarnings, ErrorsAndWarnings> {
-        if let Err(other) = other {
-            if other.warnings.len() > 0 {
-                self.warnings.extend(other.warnings);
-            }
-
-            if other.errors.len() > 0 {
-                self.errors.extend(other.errors);
-                Err(self)
-            } else {
-                Ok(self)
-            }
-        } else {
-            Ok(self)
+    fn warnings_ref(&mut self) -> &mut Vec<NodeWarning> {
+        if self.warnings.is_none() {
+            self.warnings = Some(Vec::new());
         }
+
+        self.warnings.as_mut().unwrap()
+    }
+
+    pub fn add_warning(&mut self, warning: NodeWarning) {
+        self.warnings_ref().push(warning);
+    }
+
+    pub fn into_warnings(self) -> Option<Vec<NodeWarning>> {
+        self.warnings
     }
 }
