@@ -57,6 +57,11 @@ pub enum NodeWarning {
     RhaiInvalidReturnType(String),
 }
 
+#[derive(Debug)]
+pub struct Warnings {
+    pub warnings: Vec<NodeWarning>,
+}
+
 #[derive(Debug, Default)]
 pub struct ErrorsAndWarnings {
     pub errors: Vec<NodeError>,
@@ -64,9 +69,18 @@ pub struct ErrorsAndWarnings {
 }
 
 #[derive(Debug, Default)]
-pub struct NodeOk<T>(T, Option<ErrorsAndWarnings>);
+pub struct NodeOk<T> {
+    pub value: T,
+    pub warnings: Option<Warnings>,
+}
 
-pub type NodeResult<T> = Result<NodeOk<T>, ErrorsAndWarnings>;
+impl<T> NodeOk<T> {
+    pub fn no_warnings(value: T) -> NodeResult<T> {
+        Ok(NodeOk::<T> { value, warnings: None })
+    }
+}
+
+pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
 
 impl ErrorsAndWarnings {
     pub fn err(err: NodeError) -> ErrorsAndWarnings {

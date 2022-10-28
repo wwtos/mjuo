@@ -15,7 +15,7 @@ use crate::connection::{
     SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{ErrorsAndWarnings, NodeError, NodeResult};
+use crate::errors::{NodeError, NodeOk};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -83,7 +83,6 @@ pub struct InitResult {
     pub did_rows_change: bool,
     pub node_rows: Vec<NodeRow>,
     pub changed_properties: Option<HashMap<String, Property>>,
-    pub errors_and_warnings: Option<ErrorsAndWarnings>,
 }
 
 impl InitResult {
@@ -92,21 +91,20 @@ impl InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
-            errors_and_warnings: None,
         }
     }
 }
 
-struct NodeInitState<'a> {
-    props: &'a HashMap<String, Property>,
-    registry: &'a mut SocketRegistry,
-    script_engine: &'a Engine,
+pub struct NodeInitState<'a> {
+    pub props: &'a HashMap<String, Property>,
+    pub registry: &'a mut SocketRegistry,
+    pub script_engine: &'a Engine,
 }
 
-struct NodeProcessState<'a> {
-    current_time: i64,
-    scripting_engine: &'a Engine,
-    inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
+pub struct NodeProcessState<'a> {
+    pub current_time: i64,
+    pub script_engine: &'a Engine,
+    pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
 }
 
 /// Node trait
@@ -122,7 +120,7 @@ struct NodeProcessState<'a> {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(&mut self, state: NodeInitState) -> NodeResult<InitResult>;
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
     fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
@@ -131,8 +129,8 @@ pub trait Node: Debug {
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
     /// Process received data.
-    fn process(&mut self, state: NodeProcessState) -> Result<(), ErrorsAndWarnings> {
-        Ok(())
+    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        NodeOk::no_warnings(())
     }
 
     /// Accept incoming stream data of type `socket_type`
@@ -197,16 +195,21 @@ impl NodeWrapper {
         mut node: NodeVariant,
         index: NodeIndex,
         registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-    ) -> NodeWrapper {
+        script_engine: &Engine,
+    ) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
-        let init_result = node.init(&HashMap::new(), registry, scripting_engine);
+        let init_result = node.init(NodeInitState {
+            props: &HashMap::new(),
+            registry,
+            script_engine,
+        })?;
         // TODO: check validity of node_rows here (no socket duplicates)
 
         // extract properties from result from `init`
         // this fills the properties with the default values
         let properties = init_result
+            .value
             .node_rows
             .iter()
             .filter_map(|row| match row {
@@ -224,7 +227,7 @@ impl NodeWrapper {
             default_overrides: Vec::new(),
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
-            node_rows: init_result.node_rows,
+            node_rows: init_result.value.node_rows,
             properties,
             ui_data: HashMap::new(),
             child_graph_index: None,
@@ -237,7 +240,10 @@ impl NodeWrapper {
 
         wrapper.ui_data.insert("title".to_string(), json! { name });
 
-        wrapper
+        Ok(NodeOk {
+            value: wrapper,
+            warnings: init_result.warnings,
+        })
     }
 
     pub fn does_need_inner_graph_created(&self) -> bool {
@@ -500,10 +506,14 @@ impl NodeWrapper {
     pub fn process(
         &mut self,
         current_time: i64,
-        scripting_engine: &Engine,
+        script_engine: &Engine,
         inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<(), ErrorsAndWarnings> {
-        self.node.process(current_time, scripting_engine, inner_graph)
+    ) -> Result<NodeOk<()>, NodeError> {
+        self.node.process(NodeProcessState {
+            current_time,
+            script_engine,
+            inner_graph: inner_graph,
+        })
     }
 
     pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
