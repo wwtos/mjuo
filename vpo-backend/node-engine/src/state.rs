@@ -92,7 +92,7 @@ impl NodeEngineState {
         let place_in_history = 0;
         let mut graph_manager = GraphManager::new();
         let mut socket_registry = SocketRegistry::new();
-        let scripting_engine = Engine::new_raw();
+        let scripting_engine = Engine::new();
 
         SocketType::register_defaults(&mut socket_registry);
 
@@ -201,13 +201,8 @@ impl NodeEngineState {
             ..
         } = &mut *self.graph_manager.get_graph_wrapper_mut(self.root_graph_index).unwrap();
 
-        if !midi_in.is_empty() {
-            let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
-            midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
-        } else if is_first_time {
-            let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
-            midi_in_node.accept_midi_input(&MidiSocketType::Default, Vec::new());
-        }
+        let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
+        midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
 
         let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine);
 

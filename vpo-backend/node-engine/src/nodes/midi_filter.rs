@@ -1,4 +1,6 @@
-use rhai::{Scope, AST};
+use std::collections::HashMap;
+
+use rhai::{Dynamic, Scope, AST};
 use sound_engine::midi::messages::MidiData;
 
 use crate::{
@@ -36,12 +38,35 @@ impl MidiFilterNode {
     }
 }
 
+fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
+    match value {
+        serde_json::Value::Null => Dynamic::from(()),
+        serde_json::Value::Bool(value) => Dynamic::from(value),
+        serde_json::Value::Number(value) => {
+            if value.is_i64() {
+                Dynamic::from(value.as_i64().unwrap() as i32)
+            } else {
+                Dynamic::from(value.as_f64().unwrap() as f32)
+            }
+        }
+        serde_json::Value::String(value) => Dynamic::from(value),
+        serde_json::Value::Array(array) => Dynamic::from(array.into_iter().map(|x| value_to_dynamic(x))),
+        serde_json::Value::Object(object) => Dynamic::from(
+            object
+                .into_iter()
+                .map(|(k, v)| (smartstring::SmartString::from(k), value_to_dynamic(v)))
+                .collect::<rhai::Map>(),
+        ),
+    }
+}
+
 impl Node for MidiFilterNode {
     fn init(&mut self, state: NodeInitState) -> NodeResult<InitResult> {
         let mut warnings = WarningBuilder::new();
 
         if let Some(Property::String(expression)) = state.props.get("expression") {
             let possible_ast = state.script_engine.compile(expression);
+            self.filter_raw = expression.clone();
 
             match possible_ast {
                 Ok(ast) => {
@@ -53,11 +78,15 @@ impl Node for MidiFilterNode {
             }
         }
 
-        InitResult::simple(vec![NodeRow::Property(
-            "expression".to_string(),
-            PropertyType::String,
-            Property::String("".to_string()),
-        )])
+        InitResult::simple(vec![
+            NodeRow::MidiInput(MidiSocketType::Default, Vec::new()),
+            NodeRow::Property(
+                "expression".to_string(),
+                PropertyType::String,
+                Property::String("".to_string()),
+            ),
+            NodeRow::MidiOutput(MidiSocketType::Default, Vec::new()),
+        ])
     }
 
     fn process(&mut self, state: NodeProcessState) -> NodeResult<()> {
@@ -69,13 +98,10 @@ impl Node for MidiFilterNode {
                     self.output = midi
                         .iter()
                         .filter_map(|message| {
-                            let rhai_midi = state
-                                .script_engine
-                                .parse_json(serde_json::to_string(&message).unwrap(), false)
-                                .unwrap();
+                            let midi_json = serde_json::to_value(message).unwrap();
 
-                            for (key, value) in rhai_midi.into_iter() {
-                                self.scope.push(key.as_str(), value);
+                            for (key, value) in midi_json.as_object().unwrap() {
+                                self.scope.push(key.as_str(), value_to_dynamic(value.clone()));
                             }
 
                             let result = state.script_engine.eval_ast_with_scope::<bool>(&mut self.scope, filter);

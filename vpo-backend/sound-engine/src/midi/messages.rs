@@ -1,3 +1,6 @@
+use rhai::plugin::*;
+use rhai::{Dynamic, Engine, EvalAltResult};
+
 use serde::{Deserialize, Serialize};
 
 pub type Channel = u8;
@@ -20,6 +23,7 @@ pub struct Timecode {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
 pub enum SystemCommonMessageData {
     SystemExclusive {
         id: ManufacturerID,
@@ -34,6 +38,7 @@ pub enum SystemCommonMessageData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
 pub enum SystemRealtimeMessageData {
     TimingClock,
     Start,
@@ -44,6 +49,7 @@ pub enum SystemRealtimeMessageData {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
 pub enum MidiData {
     NoteOff {
         channel: Channel,

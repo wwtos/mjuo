@@ -48,5 +48,9 @@ export const variants = [
     {
         name: i18n.t("nodes.PolyphonicNode"),
         internal: "PolyphonicNode"
+    },
+    {
+        name: i18n.t("nodes.MidiFilterNode"),
+        internal: "MidiFilterNode"
     }
 ];

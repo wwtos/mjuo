@@ -133,16 +133,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             is_first_time = true;
         }
 
-        let midi = get_midi(&mut midi_backend, &mut parser);
+        let mut midi = get_midi(&mut midi_backend, &mut parser);
 
         let mut buffer = [0_f32; BUFFER_SIZE];
 
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
 
-            let midi_to_input = if is_first_time { midi.clone() } else { Vec::new() };
+            *sample = engine_state.step(current_time, is_first_time, midi.clone());
 
-            *sample = engine_state.step(current_time, is_first_time, midi_to_input);
+            if !midi.is_empty() {
+                midi = Vec::new();
+            }
 
             is_first_time = false;
         }
