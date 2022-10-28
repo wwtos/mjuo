@@ -54,7 +54,7 @@ impl Node for EnvelopeNode {
         self.envelope.get_gain()
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
             NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
@@ -65,7 +65,7 @@ impl Node for EnvelopeNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.envelope.process();
 
         NodeOk::no_warnings(())

@@ -45,7 +45,7 @@ impl Node for BiquadFilterNode {
         };
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.filter.process();
 
         NodeOk::no_warnings(())

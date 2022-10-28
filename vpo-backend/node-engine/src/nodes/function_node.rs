@@ -37,7 +37,7 @@ impl Default for FunctionNode {
 }
 
 impl Node for FunctionNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::InnerGraph,

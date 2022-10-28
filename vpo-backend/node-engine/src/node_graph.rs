@@ -3,11 +3,12 @@ use std::mem;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use snafu::ResultExt;
 use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Connection, InputSideConnection, OutputSideConnection, SocketDirection, SocketType},
-    errors::{NodeError, NodeOk, NodeResult, WarningBuilder},
+    errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult, WarningBuilder},
     node::{Node, NodeIndex, NodeInitState, NodeRow, NodeWrapper},
     nodes::variants::NodeVariant,
     socket_registry::SocketRegistry,
@@ -121,45 +122,53 @@ impl NodeGraph {
         let from = if let Some(from_wrapper) = self.get_node(&from_index) {
             from_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(*from_index));
+            return Err(NodeError::NodeDoesNotExist {
+                node_index: *from_index,
+            });
         };
 
         // does "to" exist?
         let to = if let Some(to_wrapper) = self.get_node(&to_index) {
             to_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(*to_index));
+            return Err(NodeError::NodeDoesNotExist { node_index: *to_index });
         };
 
         // check if "to" is connected from "from"
         if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
             if &to_connection.from_node == from_index {
-                return Err(NodeError::AlreadyConnected(
-                    from_socket_type.clone(),
-                    to_socket_type.clone(),
-                ));
+                return Err(NodeError::AlreadyConnected {
+                    from: from_socket_type.clone(),
+                    to: to_socket_type.clone(),
+                });
             }
 
             // it can't be connected twice by anything
-            return Err(NodeError::InputSocketOccupied(to_socket_type.clone()));
+            return Err(NodeError::InputSocketOccupied {
+                socket_type: to_socket_type.clone(),
+            });
         }
 
         // make sure `from_type` exists in `from's` outputs
         if !from.has_output_socket(&from_socket_type) {
-            return Err(NodeError::SocketDoesNotExist(from_socket_type.clone()));
+            return Err(NodeError::SocketDoesNotExist {
+                socket_type: from_socket_type.clone(),
+            });
         }
 
         // make sure `to_type` exists in `to's` inputs
         if !to.has_input_socket(&to_socket_type) {
-            return Err(NodeError::SocketDoesNotExist(to_socket_type.clone()));
+            return Err(NodeError::SocketDoesNotExist {
+                socket_type: to_socket_type.clone(),
+            });
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
         if mem::discriminant(from_socket_type) != mem::discriminant(to_socket_type) {
-            return Err(NodeError::IncompatibleSocketTypes(
-                from_socket_type.clone(),
-                to_socket_type.clone(),
-            ));
+            return Err(NodeError::IncompatibleSocketTypes {
+                from: from_socket_type.clone(),
+                to: to_socket_type.clone(),
+            });
         }
 
         // unless the graph invariant isn't upheld where every connection is referenced both ways
@@ -201,14 +210,16 @@ impl NodeGraph {
 
         // does "from" exist?
         if self.get_node(&from_index).is_none() {
-            return Err(NodeError::NodeDoesNotExist(*from_index));
+            return Err(NodeError::NodeDoesNotExist {
+                node_index: *from_index,
+            });
         }
 
         // does "to" exist?
         let to = if let Some(to_wrapper) = self.get_node(&to_index) {
             to_wrapper
         } else {
-            return Err(NodeError::NodeDoesNotExist(*to_index));
+            return Err(NodeError::NodeDoesNotExist { node_index: *to_index });
         };
 
         // check if "to" is connected from "from"
@@ -305,7 +316,7 @@ impl NodeGraph {
                 None
             }
         } else {
-            return Err(NodeError::NodeDoesNotExist(*index));
+            return Err(NodeError::NodeDoesNotExist { node_index: *index });
         };
 
         if let Some((removed_rows, new_node_rows)) = possible_rows {
@@ -416,7 +427,7 @@ impl NodeGraph {
     pub fn remove_node(&mut self, index: &NodeIndex) -> Result<(), NodeError> {
         // out of bounds?
         if index.index >= self.nodes.len() {
-            return Err(NodeError::IndexOutOfBounds(index.index));
+            return Err(NodeError::IndexOutOfBounds { index: index.index });
         }
 
         let node = &self.nodes[index.index];
@@ -425,7 +436,7 @@ impl NodeGraph {
         let (input_sockets, output_sockets) = if let PossibleNode::Some(node, generation) = node {
             // make sure it's the same generation
             if generation != &index.generation {
-                return Err(NodeError::NodeDoesNotExist(*index));
+                return Err(NodeError::NodeDoesNotExist { node_index: *index });
             } else {
                 (
                     node.list_connected_input_sockets(),
@@ -433,7 +444,7 @@ impl NodeGraph {
                 )
             }
         } else {
-            return Err(NodeError::NodeDoesNotExist(*index));
+            return Err(NodeError::NodeDoesNotExist { node_index: *index });
         };
 
         // remove any connected node connections
@@ -522,7 +533,7 @@ impl NodeGraph {
 
         let connections = connections
             .into_iter()
-            .map(serde_json::to_value)
+            .map(|x| serde_json::to_value(x).context(JsonParserSnafu))
             .collect::<Result<Vec<serde_json::Value>, _>>()?;
 
         Ok(json!({

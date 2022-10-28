@@ -123,7 +123,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let node_rows = self
             .inputs
             .iter()

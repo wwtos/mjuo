@@ -30,15 +30,16 @@ pub fn route(
             .map_err(|err| NodeError::JsonParserErrorInContext(err, "payload.updatedNodes[x].index".to_string()))?;
 
         if node_json["ui_data"].is_object() {
-            let graph = &mut state
-                .get_graph_manager()
-                .get_graph_wrapper_mut(graph_index)
-                .ok_or(NodeError::GraphDoesNotExist(graph_index))?;
+            let graph = &mut state.get_graph_manager().get_graph_wrapper_mut(graph_index).ok_or(
+                NodeError::GraphDoesNotExist {
+                    graph_index: graph_index,
+                },
+            )?;
 
             let node = graph
                 .graph
                 .get_node_mut(&index)
-                .ok_or(NodeError::NodeDoesNotExist(index))?;
+                .ok_or(NodeError::NodeDoesNotExist { node_index: index })?;
 
             node.apply_json(node_json)?;
         }

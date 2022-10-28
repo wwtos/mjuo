@@ -29,7 +29,7 @@ impl Node for MixerNode {
         self.input_sum += value;
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.output_audio = self.input_sum / self.input_count as f32;
         self.input_sum = 0.0;
 

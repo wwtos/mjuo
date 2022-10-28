@@ -38,7 +38,7 @@ impl SocketRegistry {
     ) -> Result<(SocketType, u64), NodeError> {
         if let Some(registry_value) = self.name_to_socket_type.get(&name) {
             if mem::discriminant(&socket_type) != mem::discriminant(&registry_value.socket_type) {
-                return Err(NodeError::RegistryCollision(name));
+                return Err(NodeError::RegistryCollision { register_string: name });
             }
 
             Ok((registry_value.socket_type.clone(), registry_value.uid))

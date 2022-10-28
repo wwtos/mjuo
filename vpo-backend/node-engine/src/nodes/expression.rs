@@ -77,8 +77,9 @@ impl Node for ExpressionNode {
                                 self.have_values_changed = false;
                                 self.scope.rewind(0);
 
-                                warnings
-                                    .add_warning(NodeWarning::RhaiInvalidReturnType(output.type_name().to_string()));
+                                warnings.add_warning(NodeWarning::RhaiInvalidReturnType {
+                                    return_type: output.type_name().to_string(),
+                                });
 
                                 None
                             }
@@ -89,7 +90,7 @@ impl Node for ExpressionNode {
                         self.have_values_changed = false;
                         self.scope.rewind(0);
 
-                        return Err(NodeError::RhaiEvalError(*err));
+                        return Err(NodeError::RhaiEvalError { result: *err });
                     }
                 }
 
@@ -103,6 +104,7 @@ impl Node for ExpressionNode {
 
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let mut did_rows_change = false;
+        let mut warnings = WarningBuilder::new();
 
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
@@ -190,17 +192,20 @@ impl Node for ExpressionNode {
             Ok(ast) => {
                 self.ast = Some(ast);
             }
-            Err(err) => {
-                return Err(NodeError::RhaiParserError(err));
+            Err(parser_error) => {
+                warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error });
             }
         }
 
         self.have_values_changed = true;
 
-        NodeOk::no_warnings(InitResult {
-            did_rows_change,
-            node_rows,
-            changed_properties: None,
-        })
+        Ok(NodeOk::new(
+            InitResult {
+                did_rows_change,
+                node_rows,
+                changed_properties: None,
+            },
+            warnings.into_warnings(),
+        ))
     }
 }

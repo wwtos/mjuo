@@ -18,7 +18,7 @@ impl Node for MidiInNode {
         self.midi_in.clone()
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![NodeRow::MidiOutput(MidiSocketType::Default, vec![])])
     }
 }

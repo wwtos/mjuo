@@ -3,7 +3,7 @@ use serde_json::json;
 use smallvec::{smallvec, SmallVec};
 
 use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk};
+use crate::errors::{NodeError, NodeOk, NodeWarning, WarningBuilder};
 use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
 
@@ -75,6 +75,7 @@ impl Node for StreamExpressionNode {
 
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let mut did_rows_change = false;
+        let mut warnings = WarningBuilder::new();
 
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
@@ -166,16 +167,20 @@ impl Node for StreamExpressionNode {
                 Ok(ast) => {
                     self.ast = Some(ast);
                 }
-                Err(err) => {
-                    return Err(NodeError::RhaiParserError(err));
+                Err(parser_error) => {
+                    self.ast = None;
+                    warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error });
                 }
             }
         }
 
-        NodeOk::no_warnings(InitResult {
-            did_rows_change,
-            node_rows,
-            changed_properties: None,
-        })
+        Ok(NodeOk::new(
+            InitResult {
+                did_rows_change,
+                node_rows,
+                changed_properties: None,
+            },
+            warnings.into_warnings(),
+        ))
     }
 }

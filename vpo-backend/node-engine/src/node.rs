@@ -7,6 +7,7 @@ use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
+use snafu::ResultExt;
 use sound_engine::midi::messages::MidiData;
 use sound_engine::SoundConfig;
 
@@ -15,7 +16,7 @@ use crate::connection::{
     SocketType, StreamSocketType, ValueSocketType,
 };
 
-use crate::errors::{NodeError, NodeOk, NodeResult};
+use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -467,11 +468,15 @@ impl NodeWrapper {
     pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
         println!("Applying json: {}", json);
 
-        let index: NodeIndex = serde_json::from_value(json["index"].clone())?;
-        let ui_data: HashMap<String, Value> = serde_json::from_value(json["ui_data"].clone())?;
+        let index: NodeIndex = serde_json::from_value(json["index"].clone()).context(JsonParserSnafu)?;
+        let ui_data: HashMap<String, Value> =
+            serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
 
         if index != self.index {
-            return Err(NodeError::MismatchedNodeIndex(self.index, index));
+            return Err(NodeError::MismatchedNodeIndex {
+                current: self.index,
+                incoming: index,
+            });
         }
 
         self.ui_data = ui_data;

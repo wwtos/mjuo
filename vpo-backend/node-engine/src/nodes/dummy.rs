@@ -7,7 +7,7 @@ use crate::{
 pub struct DummyNode {}
 
 impl Node for DummyNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![])
     }
 }

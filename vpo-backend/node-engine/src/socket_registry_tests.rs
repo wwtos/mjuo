@@ -62,7 +62,9 @@ fn test_request_existing_socket_name_different_type() {
         format!("{:?}", res2),
         format!(
             "{:?}",
-            Result::<(), NodeError>::Err(NodeError::RegistryCollision("custom_socket".to_string()))
+            Result::<(), NodeError>::Err(NodeError::RegistryCollision {
+                register_string: "custom_socket".to_string()
+            })
         )
     )
 }
