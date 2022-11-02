@@ -8,6 +8,7 @@ pub enum PropertyType {
     Float,
     Bool,
     MultipleChoice(Vec<String>),
+    Resource(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -18,6 +19,7 @@ pub enum Property {
     Float(f32),
     Bool(bool),
     MultipleChoice(String),
+    Resource(String, String),
 }
 
 impl Property {
