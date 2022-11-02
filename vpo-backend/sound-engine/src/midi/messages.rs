@@ -1,6 +1,3 @@
-use rhai::plugin::*;
-use rhai::{Dynamic, Engine, EvalAltResult};
-
 use serde::{Deserialize, Serialize};
 
 pub type Channel = u8;

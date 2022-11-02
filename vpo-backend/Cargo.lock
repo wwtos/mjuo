@@ -1430,7 +1430,6 @@ dependencies = [
  "lazy_static",
  "libpulse-binding",
  "libpulse-simple-binding",
- "rhai",
  "ringbuf",
  "rodio",
  "serde",

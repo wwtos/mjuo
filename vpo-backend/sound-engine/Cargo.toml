@@ -8,7 +8,6 @@ version = "0.1.0"
 [dependencies]
 cpal = "0.14.0"
 lazy_static = "1.4.0"
-rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
 ringbuf = "0.2.8"
 rodio = "0.16.0"
 serde = {version = "1.0.133", features = ["derive"]}
