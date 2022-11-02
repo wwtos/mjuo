@@ -9,6 +9,7 @@ pub mod midi_filter;
 pub mod midi_input;
 pub mod midi_to_values;
 pub mod mixer;
+pub mod mono_sample_player;
 pub mod oscillator;
 pub mod output;
 pub mod outputs;

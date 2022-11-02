@@ -11,7 +11,7 @@ use serde_json::json;
 
 use ipc::ipc_message::IPCMessage;
 use ipc::ipc_server::IPCServer;
-use node_engine::state::NodeEngineState;
+use node_engine::state::{AssetBundle, NodeEngineState};
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
@@ -113,7 +113,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         sample_rate: SAMPLE_RATE,
     };
 
-    let mut engine_state = NodeEngineState::new(sound_config);
+    let mut engine_state = NodeEngineState::new(
+        sound_config,
+        AssetBundle {
+            samples: &sample_registry,
+        },
+    );
     let mut global_state = GlobalState::new();
     let mut audio_loader = AudioLoader::new();
 

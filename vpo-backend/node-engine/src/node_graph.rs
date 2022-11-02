@@ -30,10 +30,9 @@ pub(crate) fn create_new_node(
     node: NodeVariant,
     index: usize,
     generation: u32,
-    registry: &mut SocketRegistry,
-    scripting_engine: &Engine,
+    state: &NodeInitState,
 ) -> NodeResult<PossibleNode> {
-    let new_node = NodeWrapper::new(node, NodeIndex { index, generation }, registry, scripting_engine)?;
+    let new_node = NodeWrapper::new(node, NodeIndex { index, generation }, state)?;
 
     Ok(NodeOk::new(
         PossibleNode::Some(new_node.value, generation),
@@ -46,17 +45,12 @@ impl NodeGraph {
         NodeGraph { nodes: Vec::new() }
     }
 
-    pub fn add_node(
-        &mut self,
-        node: NodeVariant,
-        registry: &mut SocketRegistry,
-        script_engine: &Engine,
-    ) -> NodeResult<NodeIndex> {
+    pub fn add_node(&mut self, node: NodeVariant, state: &NodeInitState) -> NodeResult<NodeIndex> {
         let index;
         let new_generation;
 
         let warnings = if self.nodes.is_empty() {
-            let new_node = create_new_node(node, 0, 0, registry, script_engine)?;
+            let new_node = create_new_node(node, 0, 0, state)?;
 
             self.nodes.push(new_node.value);
 
@@ -84,7 +78,7 @@ impl NodeGraph {
                     );
                 };
 
-                let new_node = create_new_node(node, index, new_generation, registry, script_engine)?;
+                let new_node = create_new_node(node, index, new_generation, state)?;
                 self.nodes[index] = new_node.value;
 
                 new_node.warnings
@@ -92,7 +86,7 @@ impl NodeGraph {
                 index = self.nodes.len();
                 new_generation = 0;
 
-                let new_node = create_new_node(node, index, new_generation, registry, script_engine)?;
+                let new_node = create_new_node(node, index, new_generation, state)?;
                 self.nodes.push(new_node.value);
 
                 new_node.warnings
@@ -275,7 +269,7 @@ impl NodeGraph {
             let props = node_wrapper.get_properties().clone();
 
             let node = &mut node_wrapper.node;
-            let init_result = node.init(NodeInitState {
+            let init_result = node.init(&NodeInitState {
                 props: &props,
                 registry: socket_registry,
                 script_engine,

@@ -1,14 +1,9 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use crate::error::NodeError;
-use crate::node::{AudioNode, InputType, OutputType};
 use crate::{MonoSample, SoundConfig};
 
+#[derive(Debug)]
 pub struct MonoBufferPlayer {
-    buffer: Rc<RefCell<MonoSample>>,
-    output_out: f32,
     global_sample_rate: u32,
+    buffer_rate: u32,
     playback_rate: f32,
     adjusted_playback_rate: f32,
     audio_position: f32,
@@ -16,14 +11,13 @@ pub struct MonoBufferPlayer {
 }
 
 impl MonoBufferPlayer {
-    pub fn new(config: &SoundConfig, buffer: Rc<RefCell<MonoSample>>) -> MonoBufferPlayer {
-        let buffer_rate = (*buffer).borrow().sample_rate;
-        let sample_length = (*buffer).borrow().audio_raw.len();
+    pub fn new(config: &SoundConfig, buffer: &MonoSample) -> MonoBufferPlayer {
+        let buffer_rate = buffer.sample_rate;
+        let sample_length = buffer.audio_raw.len();
 
         MonoBufferPlayer {
-            buffer,
-            output_out: 0_f32,
             playback_rate: 1.0,
+            buffer_rate: buffer_rate,
             adjusted_playback_rate: buffer_rate as f32 / config.sample_rate as f32,
             global_sample_rate: config.sample_rate,
             audio_position: 0.0,
@@ -36,19 +30,13 @@ impl MonoBufferPlayer {
     }
 
     pub fn set_playback_rate(&mut self, playback_rate: f32) {
-        let buffer_rate = (*self.buffer).borrow().sample_rate;
-
         self.playback_rate = playback_rate;
-        self.adjusted_playback_rate = (buffer_rate as f32 / self.global_sample_rate as f32) * playback_rate;
+        self.adjusted_playback_rate = (self.buffer_rate as f32 / self.global_sample_rate as f32) * playback_rate;
     }
 }
 
 impl MonoBufferPlayer {
-    pub fn get_output_out(&self) -> f32 {
-        self.output_out
-    }
-
-    fn get_next_sample(&mut self) -> f32 {
+    pub fn get_next_sample(&mut self, buffer: &MonoSample) -> f32 {
         let buffer_position_unsafe = self.audio_position as i64;
 
         if buffer_position_unsafe < 1 {
@@ -62,7 +50,7 @@ impl MonoBufferPlayer {
         }
 
         let buffer_position = (buffer_position_unsafe - 1) as usize;
-        let sample = &(*self.buffer).borrow().audio_raw;
+        let sample = &buffer.audio_raw;
 
         self.audio_position += self.adjusted_playback_rate;
 
@@ -74,34 +62,9 @@ impl MonoBufferPlayer {
             self.audio_position % 1.0,
         )
     }
-}
 
-impl AudioNode for MonoBufferPlayer {
-    fn process(&mut self) {
-        self.output_out = self.get_next_sample();
-    }
-
-    fn receive_audio(&mut self, input_type: InputType, _input: f32) -> Result<(), NodeError> {
-        Err(NodeError::UnsupportedInput {
-            unsupported_input_type: input_type,
-        })
-    }
-
-    fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
-        match output_type {
-            OutputType::Out => Ok(self.get_output_out()),
-            _ => Err(NodeError::UnsupportedOutput {
-                unsupported_output_type: output_type,
-            }),
-        }
-    }
-
-    fn list_inputs(&self) -> Vec<InputType> {
-        vec![]
-    }
-
-    fn list_outputs(&self) -> Vec<OutputType> {
-        vec![OutputType::Out]
+    pub fn seek(&mut self, location: f32) {
+        self.audio_position = location;
     }
 }
 

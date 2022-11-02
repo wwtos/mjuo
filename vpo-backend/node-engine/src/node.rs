@@ -10,7 +10,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use sound_engine::midi::messages::MidiData;
-use sound_engine::util::sample_manager::SampleManager;
 use sound_engine::{MonoSample, SoundConfig};
 
 use crate::connection::{
@@ -124,7 +123,7 @@ pub struct NodeProcessState<'a> {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
+    fn init(&mut self, state: &NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
     fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
@@ -198,16 +197,11 @@ impl NodeWrapper {
     pub fn new(
         mut node: NodeVariant,
         index: NodeIndex,
-        registry: &mut SocketRegistry,
-        script_engine: &Engine,
+        state: &NodeInitState,
     ) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
-        let init_result = node.init(NodeInitState {
-            props: &HashMap::new(),
-            registry,
-            script_engine,
-        })?;
+        let init_result = node.init(state)?;
         // TODO: check validity of node_rows here (no socket duplicates)
 
         // extract properties from result from `init`
@@ -263,8 +257,7 @@ impl NodeWrapper {
         graph_manager: &GraphManager,
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
+        state: &NodeInitState,
     ) {
         self.set_inner_graph_index(index.clone());
 
@@ -277,11 +270,11 @@ impl NodeWrapper {
         let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
         let input_index = inner_graph
-            .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine)
+            .add_node(NodeVariant::InputsNode(new_inputs_node), state)
             .unwrap()
             .value;
         let output_index = inner_graph
-            .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine)
+            .add_node(NodeVariant::OutputsNode(new_outputs_node), state)
             .unwrap()
             .value;
 

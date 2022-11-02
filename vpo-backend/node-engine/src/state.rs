@@ -9,7 +9,7 @@ use crate::{
     connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
     errors::{JsonParserSnafu, NodeError, WarningBuilder},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, NodeGraphWrapper},
-    node::{NodeIndex, NodeRow},
+    node::{NodeIndex, NodeInitState, NodeRow},
     nodes::{midi_input::MidiInNode, output::OutputNode, variants::NodeVariant},
     property::Property,
     socket_registry::SocketRegistry,
@@ -75,6 +75,10 @@ impl ActionBundle {
     }
 }
 
+pub struct AssetBundle<'a> {
+    samples: &'a AssetManager<MonoSample>,
+}
+
 pub struct NodeEngineState {
     history: Vec<ActionBundle>,
     place_in_history: usize,
@@ -88,7 +92,7 @@ pub struct NodeEngineState {
 }
 
 impl NodeEngineState {
-    pub fn new(sound_config: SoundConfig) -> NodeEngineState {
+    pub fn new(sound_config: SoundConfig, asset_bundle: AssetBundle) -> NodeEngineState {
         let history = Vec::new();
         let place_in_history = 0;
         let mut graph_manager = GraphManager::new();
@@ -105,16 +109,22 @@ impl NodeEngineState {
             let output_node = graph
                 .add_node(
                     NodeVariant::OutputNode(OutputNode::default()),
-                    &mut socket_registry,
-                    &scripting_engine,
+                    &NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut socket_registry,
+                        script_engine: &scripting_engine,
+                    },
                 )
                 .unwrap()
                 .value;
             let midi_in_node = graph
                 .add_node(
                     NodeVariant::MidiInNode(MidiInNode::default()),
-                    &mut socket_registry,
-                    &scripting_engine,
+                    &NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut socket_registry,
+                        script_engine: &scripting_engine,
+                    },
                 )
                 .unwrap()
                 .value;
@@ -407,8 +417,11 @@ impl NodeEngineState {
                     child_graph_index,
                     child_graph_io_indexes,
                     &self.sound_config,
-                    &mut self.socket_registry,
-                    &self.scripting_engine,
+                    &NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut self.socket_registry,
+                        script_engine: &self.scripting_engine,
+                    },
                 )?;
 
                 warnings.append_warnings(result.warnings);
@@ -644,8 +657,11 @@ impl NodeEngineState {
                     child_graph_index,
                     child_graph_io_indexes,
                     &self.sound_config,
-                    &mut self.socket_registry,
-                    &self.scripting_engine,
+                    &NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut self.socket_registry,
+                        script_engine: &self.scripting_engine,
+                    },
                 )?;
 
                 // connect everything back up
