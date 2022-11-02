@@ -2,7 +2,6 @@ use std::cell::{RefCell, RefMut};
 use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
-use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::SoundConfig;
@@ -13,7 +12,6 @@ use crate::errors::{NodeError, NodeOk, WarningBuilder};
 use crate::node::NodeInitState;
 use crate::node_graph::create_new_node;
 use crate::nodes::variants::new_variant;
-use crate::socket_registry::SocketRegistry;
 use crate::state::Action;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -190,6 +188,7 @@ impl GraphManager {
             props,
             registry,
             script_engine,
+            samples,
         } = state;
 
         let new_node_index = {
@@ -211,6 +210,7 @@ impl GraphManager {
                         props,
                         registry,
                         script_engine,
+                        samples,
                     },
                 )?;
                 warnings.append_warnings(new_node_wrapper.warnings);
@@ -228,6 +228,7 @@ impl GraphManager {
                         props,
                         registry,
                         script_engine,
+                        samples,
                     },
                 )?;
                 warnings.append_warnings(new_node_index.warnings);
@@ -288,6 +289,7 @@ impl GraphManager {
                             props,
                             registry,
                             script_engine,
+                            samples,
                         },
                     );
 
@@ -370,6 +372,7 @@ impl GraphManager {
                             props,
                             registry,
                             script_engine,
+                            samples,
                         },
                     );
 
@@ -500,18 +503,26 @@ impl GraphManager {
         }))
     }
 
-    pub fn post_deserialization(
-        &mut self,
-        socket_registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-        sound_config: &SoundConfig,
-    ) -> Result<(), NodeError> {
+    pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+            samples,
+        } = state;
+
         for (_, graph_wrapper) in self.node_graphs.iter() {
             let mut graph_wrapper = graph_wrapper.borrow_mut();
 
-            graph_wrapper
-                .graph
-                .post_deserialization(socket_registry, scripting_engine, sound_config)?;
+            graph_wrapper.graph.post_deserialization(
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                    samples,
+                },
+                sound_config,
+            )?;
             graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
         }
 

@@ -101,6 +101,7 @@ pub struct NodeInitState<'a> {
     pub props: &'a HashMap<String, Property>,
     pub registry: &'a mut SocketRegistry,
     pub script_engine: &'a Engine,
+    pub samples: &'a AssetManager<MonoSample>,
 }
 
 pub struct NodeProcessState<'a> {
@@ -273,6 +274,7 @@ impl NodeWrapper {
             props,
             registry,
             script_engine,
+            samples,
         } = state;
 
         let input_index = inner_graph
@@ -282,6 +284,7 @@ impl NodeWrapper {
                     props,
                     registry,
                     script_engine,
+                    samples,
                 },
             )
             .unwrap()
@@ -293,6 +296,7 @@ impl NodeWrapper {
                     props,
                     registry,
                     script_engine,
+                    samples,
                 },
             )
             .unwrap()

@@ -75,6 +75,7 @@ impl ActionBundle {
     }
 }
 
+#[derive(Clone)]
 pub struct AssetBundle<'a> {
     pub samples: &'a AssetManager<MonoSample>,
 }
@@ -113,6 +114,7 @@ impl NodeEngineState {
                         props: &HashMap::new(),
                         registry: &mut socket_registry,
                         script_engine: &scripting_engine,
+                        samples: asset_bundle.samples,
                     },
                 )
                 .unwrap()
@@ -124,6 +126,7 @@ impl NodeEngineState {
                         props: &HashMap::new(),
                         registry: &mut socket_registry,
                         script_engine: &scripting_engine,
+                        samples: asset_bundle.samples,
                     },
                 )
                 .unwrap()
@@ -301,13 +304,13 @@ impl NodeEngineState {
         }
     }
 
-    pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn commit(&mut self, actions: ActionBundle, asset_bundle: AssetBundle) -> Result<Vec<GraphIndex>, NodeError> {
         let is_new_bundle_property_related = actions.actions.iter().all(Self::is_action_property_related);
 
         let (mut new_actions, action_results) = actions
             .actions
             .into_iter()
-            .map(|action| self.apply_action(action))
+            .map(|action| self.apply_action(action, asset_bundle.clone()))
             .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
             .into_iter()
             .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
@@ -342,7 +345,7 @@ impl NodeEngineState {
         Ok(graphs_changed)
     }
 
-    pub fn undo(&mut self) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn undo(&mut self, asset_bundle: AssetBundle) -> Result<Vec<GraphIndex>, NodeError> {
         if self.place_in_history > 0 {
             let to_rollback = self.history[self.place_in_history - 1].clone();
 
@@ -351,7 +354,7 @@ impl NodeEngineState {
                 .actions
                 .into_iter()
                 .rev()
-                .map(|action| self.rollback_action(action))
+                .map(|action| self.rollback_action(action, asset_bundle.clone()))
                 .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
                 .into_iter()
                 .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
@@ -366,7 +369,7 @@ impl NodeEngineState {
         }
     }
 
-    pub fn redo(&mut self) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn redo(&mut self, asset_bundle: AssetBundle) -> Result<Vec<GraphIndex>, NodeError> {
         if self.place_in_history < self.history.len() {
             let to_redo = self.history[self.place_in_history].clone();
 
@@ -374,7 +377,7 @@ impl NodeEngineState {
                 .actions
                 .into_iter()
                 .rev()
-                .map(|action| self.apply_action(action))
+                .map(|action| self.apply_action(action, asset_bundle.clone()))
                 .collect::<Result<Vec<(Action, ActionResult)>, NodeError>>()?
                 .into_iter()
                 .unzip::<Action, ActionResult, Vec<Action>, Vec<ActionResult>>();
@@ -389,7 +392,7 @@ impl NodeEngineState {
         }
     }
 
-    fn apply_action(&mut self, action: Action) -> Result<(Action, ActionResult), NodeError> {
+    fn apply_action(&mut self, action: Action, asset_bundle: AssetBundle) -> Result<(Action, ActionResult), NodeError> {
         println!("Applying action: {:?}", action);
 
         let mut action_result = ActionResult {
@@ -421,6 +424,7 @@ impl NodeEngineState {
                         props: &HashMap::new(),
                         registry: &mut self.socket_registry,
                         script_engine: &self.scripting_engine,
+                        samples: asset_bundle.samples,
                     },
                 )?;
 
@@ -456,8 +460,12 @@ impl NodeEngineState {
 
                 graph.graph.init_node(
                     &index.node_index,
-                    &mut self.socket_registry,
-                    &self.scripting_engine,
+                    NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut self.socket_registry,
+                        script_engine: &self.scripting_engine,
+                        samples: asset_bundle.samples,
+                    },
                     false,
                 )?;
 
@@ -592,7 +600,11 @@ impl NodeEngineState {
         Ok((new_action, action_result))
     }
 
-    fn rollback_action(&mut self, action: Action) -> Result<(Action, ActionResult), NodeError> {
+    fn rollback_action(
+        &mut self,
+        action: Action,
+        asset_bundle: AssetBundle,
+    ) -> Result<(Action, ActionResult), NodeError> {
         println!("Rolling back action: {:?}", action);
 
         let mut action_result = ActionResult {
@@ -661,6 +673,7 @@ impl NodeEngineState {
                         props: &HashMap::new(),
                         registry: &mut self.socket_registry,
                         script_engine: &self.scripting_engine,
+                        samples: asset_bundle.samples,
                     },
                 )?;
 
@@ -693,8 +706,12 @@ impl NodeEngineState {
                 // finally, reinit the node
                 graph.graph.init_node(
                     &index.node_index,
-                    &mut self.socket_registry,
-                    &self.scripting_engine,
+                    NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut self.socket_registry,
+                        script_engine: &self.scripting_engine,
+                        samples: asset_bundle.samples,
+                    },
                     false,
                 )?;
 
@@ -727,8 +744,12 @@ impl NodeEngineState {
 
                 graph.graph.init_node(
                     &index.node_index,
-                    &mut self.socket_registry,
-                    &self.scripting_engine,
+                    NodeInitState {
+                        props: &HashMap::new(),
+                        registry: &mut self.socket_registry,
+                        script_engine: &self.scripting_engine,
+                        samples: asset_bundle.samples,
+                    },
                     false,
                 )?;
 
@@ -875,7 +896,7 @@ impl NodeEngineState {
         }))
     }
 
-    pub fn apply_json(&mut self, mut json: Value) -> Result<(), NodeError> {
+    pub fn apply_json(&mut self, mut json: Value, asset_bundle: AssetBundle) -> Result<(), NodeError> {
         self.history.clear();
         self.place_in_history = 0;
         self.graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
@@ -886,13 +907,21 @@ impl NodeEngineState {
 
         let NodeEngineState {
             graph_manager,
-            socket_registry,
+            ref mut socket_registry,
             scripting_engine,
             sound_config,
             ..
         } = self;
 
-        graph_manager.post_deserialization(socket_registry, scripting_engine, sound_config)?;
+        graph_manager.post_deserialization(
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: socket_registry,
+                script_engine: &scripting_engine,
+                samples: asset_bundle.samples,
+            },
+            sound_config,
+        )?;
 
         Ok(())
     }

@@ -1,6 +1,5 @@
 use std::mem;
 
-use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use snafu::ResultExt;
@@ -11,7 +10,6 @@ use crate::{
     errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult, WarningBuilder},
     node::{Node, NodeIndex, NodeInitState, NodeRow, NodeWrapper},
     nodes::variants::NodeVariant,
-    socket_registry::SocketRegistry,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -257,8 +255,7 @@ impl NodeGraph {
     pub fn init_node(
         &mut self,
         index: &NodeIndex,
-        socket_registry: &mut SocketRegistry,
-        script_engine: &Engine,
+        state: NodeInitState,
         force_update: bool,
     ) -> Result<NodeOk<bool>, NodeError> {
         let mut has_changed_self = false;
@@ -266,13 +263,21 @@ impl NodeGraph {
 
         // will return the new node rows, if they changed
         let possible_rows = if let Some(node_wrapper) = self.get_node_mut(index) {
+            let NodeInitState {
+                props: _,
+                registry,
+                script_engine,
+                samples,
+            } = state;
+
             let props = node_wrapper.get_properties().clone();
 
             let node = &mut node_wrapper.node;
             let init_result = node.init(NodeInitState {
                 props: &props,
-                registry: socket_registry,
+                registry,
                 script_engine,
+                samples,
             })?;
 
             warnings.append_warnings(init_result.warnings);
@@ -536,12 +541,14 @@ impl NodeGraph {
         }))
     }
 
-    pub fn post_deserialization(
-        &mut self,
-        socket_registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-        sound_config: &SoundConfig,
-    ) -> Result<(), NodeError> {
+    pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+            samples,
+        } = state;
+
         // go through and run post_deserialization on each node
         // then, initialize all those nodes in the graph here
         self.nodes
@@ -560,7 +567,18 @@ impl NodeGraph {
             })
             .collect::<Result<Vec<NodeIndex>, NodeError>>()?
             .iter()
-            .map(|node_index| self.init_node(node_index, socket_registry, scripting_engine, true))
+            .map(|node_index| {
+                self.init_node(
+                    node_index,
+                    NodeInitState {
+                        props,
+                        registry,
+                        script_engine,
+                        samples,
+                    },
+                    true,
+                )
+            })
             .collect::<Result<Vec<_>, NodeError>>()?;
 
         Ok(())

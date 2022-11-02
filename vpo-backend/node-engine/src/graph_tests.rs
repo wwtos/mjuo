@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use asset_manager::AssetManager;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 
@@ -45,6 +46,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -81,6 +83,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -115,6 +118,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap();
@@ -137,6 +141,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -148,6 +153,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -159,6 +165,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -329,6 +336,7 @@ fn hanging_connections() -> Result<(), NodeError> {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
@@ -340,6 +348,7 @@ fn hanging_connections() -> Result<(), NodeError> {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
+                samples: &AssetManager::new(),
             },
         )
         .unwrap()
