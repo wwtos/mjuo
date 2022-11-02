@@ -5,7 +5,10 @@ use std::{
 
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, state::NodeEngineState};
+use node_engine::{
+    errors::NodeError,
+    state::{AssetBundle, NodeEngineState},
+};
 use serde_json::Value;
 
 use crate::{io::load, state::GlobalState, RouteReturn};
@@ -17,7 +20,13 @@ pub fn route(
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     if let Value::String(path) = &msg["payload"]["path"] {
-        load(state, Path::new(path))?;
+        load(
+            state,
+            Path::new(path),
+            AssetBundle {
+                samples: &global_state.samples,
+            },
+        )?;
 
         global_state.active_project = Some(PathBuf::from_str(path).unwrap());
 

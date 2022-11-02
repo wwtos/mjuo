@@ -15,6 +15,7 @@ use crate::graph_tests::TestNode;
 use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
+use super::mono_sample_player::MonoSamplePlayerNode;
 use super::outputs::OutputsNode;
 use super::polyphonic::PolyphonicNode;
 use super::stream_expression::StreamExpressionNode;
@@ -44,6 +45,7 @@ pub enum NodeVariant {
     PolyphonicNode,
     Placeholder,
     MidiFilterNode,
+    MonoSamplePlayerNode,
     #[cfg(test)]
     TestNode,
 }
@@ -81,6 +83,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "StreamExpressionNode" => Ok(NodeVariant::StreamExpressionNode(StreamExpressionNode::new())),
         "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::default())),
         "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new())),
+        "MonoSamplePlayerNode" => Ok(NodeVariant::MonoSamplePlayerNode(MonoSamplePlayerNode::new(config))),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -105,6 +108,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::StreamExpressionNode(_) => "StreamExpressionNode".to_string(),
         NodeVariant::PolyphonicNode(_) => "PolyphonicNode".to_string(),
         NodeVariant::MidiFilterNode(_) => "MidiFilterNode".to_string(),
+        NodeVariant::MonoSamplePlayerNode(_) => "MonoSamplePlayerNode".to_string(),
         NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),

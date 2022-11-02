@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use rhai::{Dynamic, Scope, AST};
 use sound_engine::midi::messages::MidiData;
 

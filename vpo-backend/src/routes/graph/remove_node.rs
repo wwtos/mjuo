@@ -4,7 +4,7 @@ use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, NodeEngineState},
+    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
@@ -29,7 +29,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    _global_state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_index: NodeIndex =
         serde_json::from_value(msg["payload"]["nodeIndex"].clone()).context(JsonParserErrorInContextSnafu {
@@ -42,17 +42,22 @@ pub fn route(
             property_name: "payload.graphIndex".to_string(),
         })?;
 
-    state.commit(ActionBundle::new(vec![Action::RemoveNode {
-        node_type: None,
-        index: GlobalNodeIndex {
-            node_index: node_index,
-            graph_index: graph_index,
+    state.commit(
+        ActionBundle::new(vec![Action::RemoveNode {
+            node_type: None,
+            index: GlobalNodeIndex {
+                node_index: node_index,
+                graph_index: graph_index,
+            },
+            connections: None,
+            serialized: None,
+            child_graph_index: None,
+            child_graph_io_indexes: None,
+        }]),
+        AssetBundle {
+            samples: &global_state.samples,
         },
-        connections: None,
-        serialized: None,
-        child_graph_index: None,
-        child_graph_io_indexes: None,
-    }]))?;
+    )?;
 
     send_graph_updates(state, graph_index, to_server)?;
 

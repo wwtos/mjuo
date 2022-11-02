@@ -4,7 +4,7 @@ use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, NodeEngineState},
+    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
@@ -19,7 +19,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    _global_state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let nodes_to_update = msg["payload"]["updatedNodes"]
         .as_array()
@@ -92,7 +92,12 @@ pub fn route(
                 Ok(actions)
             })?;
 
-    state.commit(ActionBundle::new(actions))?;
+    state.commit(
+        ActionBundle::new(actions),
+        AssetBundle {
+            samples: &global_state.samples,
+        },
+    )?;
 
     send_graph_updates(state, graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;

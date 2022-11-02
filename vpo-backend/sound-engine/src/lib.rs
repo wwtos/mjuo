@@ -17,7 +17,7 @@ pub mod wave;
 
 pub type SamplePoint = i16;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SoundConfig {
     pub sample_rate: u32,
 }

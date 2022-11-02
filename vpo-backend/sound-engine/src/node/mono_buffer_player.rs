@@ -1,6 +1,6 @@
 use crate::{MonoSample, SoundConfig};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MonoBufferPlayer {
     global_sample_rate: u32,
     buffer_rate: u32,

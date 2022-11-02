@@ -1,10 +1,9 @@
 use std::error::Error;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use asset_manager::AssetManager;
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::task::block_on;
 use serde_json::json;
@@ -19,8 +18,7 @@ use sound_engine::backend::MidiClientBackend;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
-use sound_engine::sampling::audio_loader::AudioLoader;
-use sound_engine::{MonoSample, SoundConfig};
+use sound_engine::SoundConfig;
 
 use vpo_backend::state::GlobalState;
 use vpo_backend::{route, RouteReturn};
@@ -102,27 +100,24 @@ fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiPars
 fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
 
-    let mut sample_registry: AssetManager<MonoSample> = AssetManager::new();
-    let asset_index = sample_registry
-        .request_asset("sample:060-C.wav".into(), Path::new("./060-C.wav"))
-        .unwrap();
-
     // let mut output_file = std::fs::File::create("audio.raw").unwrap();
 
     let sound_config = SoundConfig {
         sample_rate: SAMPLE_RATE,
     };
 
+    let mut global_state = GlobalState::new();
+    let asset_index = global_state
+        .samples
+        .request_asset("sample:060-C.wav".into(), Path::new("./060-C.wav"))
+        .unwrap();
+
     let mut engine_state = NodeEngineState::new(
         sound_config,
         AssetBundle {
-            samples: &sample_registry,
+            samples: &global_state.samples,
         },
     );
-    let mut global_state = GlobalState::new();
-    let mut audio_loader = AudioLoader::new();
-
-    audio_loader.load(&PathBuf::from("060-C.wav"))?;
 
     let mut backend = connect_backend()?;
 
@@ -151,7 +146,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
 
-            *sample = engine_state.step(current_time, is_first_time, midi.clone(), &sample_registry);
+            *sample = engine_state.step(current_time, is_first_time, midi.clone(), &global_state.samples);
 
             if !midi.is_empty() {
                 midi = Vec::new();
