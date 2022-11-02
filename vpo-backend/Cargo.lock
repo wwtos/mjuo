@@ -37,6 +37,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "asset_manager"
+version = "0.1.0"
+
+[[package]]
 name = "async-channel"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

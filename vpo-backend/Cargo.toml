@@ -38,4 +38,5 @@ members = [
   "sound-engine",
   "node-engine",
   "ipc",
+  "asset_manager",
 ]
