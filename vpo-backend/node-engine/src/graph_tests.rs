@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use asset_manager::AssetManager;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::{NodeError, NodeOk};
+use crate::global_state::GlobalState;
 use crate::node::{InitResult, NodeIndex, NodeInitState, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::socket_registry::SocketRegistry;
@@ -37,6 +37,7 @@ fn graph_node_crud() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new();
 
     // add a new node
     let first_node_index = graph
@@ -46,7 +47,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -83,7 +84,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -118,7 +119,7 @@ fn graph_node_crud() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap();
@@ -132,6 +133,7 @@ fn graph_connecting() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new();
 
     // add two new nodes
     let first_node_index = graph
@@ -141,7 +143,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -153,7 +155,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -165,7 +167,7 @@ fn graph_connecting() {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -327,6 +329,7 @@ fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new();
 
     // set up a simple network
     let first_node = graph
@@ -336,7 +339,7 @@ fn hanging_connections() -> Result<(), NodeError> {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()
@@ -348,7 +351,7 @@ fn hanging_connections() -> Result<(), NodeError> {
                 props: &HashMap::new(),
                 registry: &mut registry,
                 script_engine: &scripting_engine,
-                samples: &AssetManager::new(),
+                global_state,
             },
         )
         .unwrap()

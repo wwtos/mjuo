@@ -2,14 +2,15 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
+    global_state::GlobalState,
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
+use crate::{util::send_graph_updates, RouteReturn};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -54,9 +55,7 @@ pub fn route(
             child_graph_index: None,
             child_graph_io_indexes: None,
         }]),
-        AssetBundle {
-            samples: &global_state.samples,
-        },
+        global_state,
     )?;
 
     send_graph_updates(state, graph_index, to_server)?;

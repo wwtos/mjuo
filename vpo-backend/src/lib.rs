@@ -4,16 +4,15 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
+    global_state::GlobalState,
     graph_manager::GraphIndex,
     state::{AssetBundle, NodeEngineState},
 };
 use serde_json::Value;
 use sound_engine::constants::BUFFER_SIZE;
-use state::GlobalState;
 
 pub mod io;
 pub mod routes;
-pub mod state;
 pub mod util;
 
 #[derive(Default)]

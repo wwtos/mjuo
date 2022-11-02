@@ -6,11 +6,12 @@ use std::time::{Duration, Instant};
 
 use async_std::channel::{unbounded, Receiver, Sender};
 use async_std::task::block_on;
+use node_engine::global_state::GlobalState;
 use serde_json::json;
 
 use ipc::ipc_message::IPCMessage;
 use ipc::ipc_server::IPCServer;
-use node_engine::state::{AssetBundle, NodeEngineState};
+use node_engine::state::NodeEngineState;
 use sound_engine::backend::alsa_midi::AlsaMidiClientBackend;
 use sound_engine::backend::pulse::PulseClientBackend;
 use sound_engine::backend::AudioClientBackend;
@@ -20,7 +21,6 @@ use sound_engine::midi::messages::MidiData;
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
 
-use vpo_backend::state::GlobalState;
 use vpo_backend::{route, RouteReturn};
 
 fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
@@ -112,12 +112,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .request_asset("sample:060-C.wav".into(), Path::new("./060-C.wav"))
         .unwrap();
 
-    let mut engine_state = NodeEngineState::new(
-        sound_config,
-        AssetBundle {
-            samples: &global_state.samples,
-        },
-    );
+    let mut engine_state = NodeEngineState::new(sound_config, &global_state);
 
     let mut backend = connect_backend()?;
 

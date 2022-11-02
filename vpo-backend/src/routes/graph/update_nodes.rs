@@ -2,15 +2,15 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
+    global_state::GlobalState,
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
-    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
-    state::GlobalState,
     util::{send_graph_updates, send_registry_updates},
     RouteReturn,
 };
@@ -92,12 +92,7 @@ pub fn route(
                 Ok(actions)
             })?;
 
-    state.commit(
-        ActionBundle::new(actions),
-        AssetBundle {
-            samples: &global_state.samples,
-        },
-    )?;
+    state.commit(ActionBundle::new(actions), global_state)?;
 
     send_graph_updates(state, graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;

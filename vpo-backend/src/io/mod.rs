@@ -2,7 +2,8 @@ use std::{fs, path::Path};
 
 use node_engine::{
     errors::{IOSnafu, JsonParserSnafu, NodeError},
-    state::{AssetBundle, NodeEngineState},
+    global_state::GlobalState,
+    state::NodeEngineState,
 };
 use serde_json::{json, Value};
 use snafu::ResultExt;
@@ -22,13 +23,13 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     Ok(())
 }
 
-pub fn load(state: &mut NodeEngineState, path: &Path, asset_bundle: AssetBundle) -> Result<(), NodeError> {
+pub fn load(state: &mut NodeEngineState, path: &Path, global_state: &GlobalState) -> Result<(), NodeError> {
     let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     // TODO: version handling and migrations here
 
-    state.apply_json(json["state"].take(), asset_bundle)?;
+    state.apply_json(json["state"].take(), global_state)?;
 
     Ok(())
 }

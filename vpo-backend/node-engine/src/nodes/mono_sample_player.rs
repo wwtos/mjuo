@@ -33,10 +33,10 @@ impl MonoSamplePlayerNode {
 
 impl Node for MonoSamplePlayerNode {
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        self.index = state.samples.get_index("sample:060-C.wav").unwrap();
+        self.index = state.global_state.samples.get_index("sample:060-C.wav").unwrap();
 
         if let None = self.player {
-            let buffer = state.samples.borrow_asset(self.index).unwrap();
+            let buffer = state.global_state.samples.borrow_asset(self.index).unwrap();
 
             self.player = Some(MonoBufferPlayer::new(&self.config, buffer));
         }

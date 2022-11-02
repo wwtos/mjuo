@@ -267,7 +267,7 @@ impl NodeGraph {
                 props: _,
                 registry,
                 script_engine,
-                samples,
+                global_state,
             } = state;
 
             let props = node_wrapper.get_properties().clone();
@@ -277,7 +277,7 @@ impl NodeGraph {
                 props: &props,
                 registry,
                 script_engine,
-                samples,
+                global_state,
             })?;
 
             warnings.append_warnings(init_result.warnings);
@@ -546,7 +546,7 @@ impl NodeGraph {
             props,
             registry,
             script_engine,
-            samples,
+            global_state,
         } = state;
 
         // go through and run post_deserialization on each node
@@ -574,7 +574,7 @@ impl NodeGraph {
                         props,
                         registry,
                         script_engine,
-                        samples,
+                        global_state,
                     },
                     true,
                 )

@@ -2,11 +2,12 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
-    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
+    global_state::GlobalState,
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 
-use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
+use crate::{util::send_graph_updates, RouteReturn};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -47,9 +48,7 @@ pub fn route(
             child_graph_index: None,
             child_graph_io_indexes: None,
         }]),
-        AssetBundle {
-            samples: &global_state.samples,
-        },
+        global_state,
     )?;
 
     // if let Value::Object(ui_data) = &message["payload"]["ui_data"] {

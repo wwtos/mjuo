@@ -18,6 +18,7 @@ use crate::connection::{
 };
 
 use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
+use crate::global_state::GlobalState;
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -101,7 +102,7 @@ pub struct NodeInitState<'a> {
     pub props: &'a HashMap<String, Property>,
     pub registry: &'a mut SocketRegistry,
     pub script_engine: &'a Engine,
-    pub samples: &'a AssetManager<MonoSample>,
+    pub global_state: &'a GlobalState,
 }
 
 pub struct NodeProcessState<'a> {
@@ -274,7 +275,7 @@ impl NodeWrapper {
             props,
             registry,
             script_engine,
-            samples,
+            global_state,
         } = state;
 
         let input_index = inner_graph
@@ -284,7 +285,7 @@ impl NodeWrapper {
                     props,
                     registry,
                     script_engine,
-                    samples,
+                    global_state,
                 },
             )
             .unwrap()
@@ -296,7 +297,7 @@ impl NodeWrapper {
                     props,
                     registry,
                     script_engine,
-                    samples,
+                    global_state,
                 },
             )
             .unwrap()

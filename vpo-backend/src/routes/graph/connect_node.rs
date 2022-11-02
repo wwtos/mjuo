@@ -2,12 +2,13 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserSnafu, NodeError},
-    state::{Action, ActionBundle, AssetBundle, NodeEngineState},
+    global_state::GlobalState,
+    state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
+use crate::{util::send_graph_updates, RouteReturn};
 
 pub fn route(
     msg: Value,
@@ -26,9 +27,7 @@ pub fn route(
             graph_index: graph_index,
             connection: serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?,
         }]),
-        AssetBundle {
-            samples: &global_state.samples,
-        },
+        global_state,
     )?;
 
     send_graph_updates(state, graph_index, to_server)?;

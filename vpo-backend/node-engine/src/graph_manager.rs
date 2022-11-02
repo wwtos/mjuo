@@ -188,7 +188,7 @@ impl GraphManager {
             props,
             registry,
             script_engine,
-            samples,
+            global_state,
         } = state;
 
         let new_node_index = {
@@ -210,7 +210,7 @@ impl GraphManager {
                         props,
                         registry,
                         script_engine,
-                        samples,
+                        global_state,
                     },
                 )?;
                 warnings.append_warnings(new_node_wrapper.warnings);
@@ -228,7 +228,7 @@ impl GraphManager {
                         props,
                         registry,
                         script_engine,
-                        samples,
+                        global_state,
                     },
                 )?;
                 warnings.append_warnings(new_node_index.warnings);
@@ -289,7 +289,7 @@ impl GraphManager {
                             props,
                             registry,
                             script_engine,
-                            samples,
+                            global_state,
                         },
                     );
 
@@ -372,7 +372,7 @@ impl GraphManager {
                             props,
                             registry,
                             script_engine,
-                            samples,
+                            global_state,
                         },
                     );
 
@@ -508,7 +508,7 @@ impl GraphManager {
             props,
             registry,
             script_engine,
-            samples,
+            global_state,
         } = state;
 
         for (_, graph_wrapper) in self.node_graphs.iter() {
@@ -519,7 +519,7 @@ impl GraphManager {
                     props,
                     registry,
                     script_engine,
-                    samples,
+                    global_state,
                 },
                 sound_config,
             )?;
