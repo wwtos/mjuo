@@ -78,6 +78,7 @@ impl Node for FunctionNode {
                 self.is_first_time,
                 state.current_time,
                 state.script_engine,
+                state.samples,
             )
             .map_err(|err| NodeError::InnerGraphErrors {
                 errors_and_warnings: err,

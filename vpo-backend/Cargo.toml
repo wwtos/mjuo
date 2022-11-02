@@ -6,6 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+asset-manager = {path = "./asset-manager"}
 async-std = "1.10.0"
 hyper = "0.14.18"
 ipc = {path = "./ipc"}
@@ -33,10 +34,9 @@ inherits = "dev"
 opt-level = 3
 
 [workspace]
-
 members = [
   "sound-engine",
   "node-engine",
   "ipc",
-  "asset_manager",
+  "asset-manager",
 ]

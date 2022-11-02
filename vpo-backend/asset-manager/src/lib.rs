@@ -1,14 +1,20 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io::{self, Read},
-    path::Path,
-};
+use std::{collections::HashMap, io, path::Path};
+
+use snafu::Snafu;
+
+#[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
+pub enum LoadingError {
+    #[snafu(display("IO error: {source}"))]
+    IOError { source: io::Error },
+    #[snafu(display("Unknown error: {source}"))]
+    Other { source: Box<dyn std::error::Error> },
+}
 
 pub trait Asset {
-    type AssetType;
-
-    fn convert_asset<R: Read>(stream: R) -> Self::AssetType;
+    fn load_asset(path: &Path) -> Result<Self, LoadingError>
+    where
+        Self: Sized;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,7 +24,7 @@ pub struct AssetIndex {
 }
 
 pub enum PossibleAsset<A: Asset> {
-    Some(A::AssetType, u32),
+    Some(A, u32),
     None(u32),
 }
 
@@ -35,7 +41,7 @@ impl<A: Asset> AssetManager<A> {
         }
     }
 
-    fn add_asset(&mut self, asset: A::AssetType) -> AssetIndex {
+    fn add_asset(&mut self, asset: A) -> AssetIndex {
         // check if there's an opening
         let possible_opening = self.assets.iter().position(|asset| {
             if let PossibleAsset::Some(..) = asset {
@@ -72,21 +78,36 @@ impl<A: Asset> AssetManager<A> {
         }
     }
 
-    pub fn request_asset(&mut self, key: String, location: &Path) -> Result<AssetIndex, io::Error> {
+    pub fn request_asset(&mut self, key: String, location: &Path) -> Result<AssetIndex, LoadingError> {
         // check if we've loaded this asset already
         if let Some(asset_index) = self.asset_mapping.get(&key) {
             Ok(*asset_index)
         } else {
             // else, load and register it
-            let stream = File::open(location)?;
-
-            let new_asset = A::convert_asset(stream);
+            let new_asset = A::load_asset(location)?;
             let asset_index = self.add_asset(new_asset);
 
             // now add the mapping
             self.asset_mapping.insert(key, asset_index);
 
             Ok(asset_index)
+        }
+    }
+
+    pub fn borrow_asset(&self, index: AssetIndex) -> Option<&A> {
+        if index.index >= self.assets.len() {
+            None
+        } else {
+            match &self.assets[index.index] {
+                PossibleAsset::Some(asset, generation) => {
+                    if index.generation == *generation {
+                        Some(&asset)
+                    } else {
+                        None
+                    }
+                }
+                PossibleAsset::None(_) => None,
+            }
         }
     }
 }

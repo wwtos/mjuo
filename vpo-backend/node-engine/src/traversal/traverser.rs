@@ -1,9 +1,11 @@
+use asset_manager::AssetManager;
 use rhai::Engine;
+use sound_engine::MonoSample;
 
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    node::{NodeIndex, NodeRow},
+    node::{NodeIndex, NodeProcessState, NodeRow},
     node_graph::NodeGraph,
 };
 
@@ -96,7 +98,8 @@ impl Traverser {
         graph: &mut NodeGraph,
         input_defaults: bool,
         current_time: i64,
-        scripting_engine: &Engine,
+        script_engine: &Engine,
+        samples: &AssetManager<MonoSample>,
     ) -> Result<(), ErrorsAndWarnings> {
         let mut errors: Vec<NodeError> = vec![];
         let mut warnings: Vec<NodeWarning> = vec![];
@@ -125,7 +128,12 @@ impl Traverser {
 
             // make de magic happenz
             // TODO: Don't just input 'none' into the graph
-            let process_result = node_wrapper.process(current_time, scripting_engine, None);
+            let process_result = node_wrapper.process(NodeProcessState {
+                current_time,
+                script_engine,
+                inner_graph: None,
+                samples,
+            });
 
             // record any errors
             match process_result {

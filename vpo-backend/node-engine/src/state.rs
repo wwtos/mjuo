@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use asset_manager::AssetManager;
 use serde_json::{json, Value};
 use snafu::ResultExt;
-use sound_engine::{midi::messages::MidiData, SoundConfig};
+use sound_engine::{midi::messages::MidiData, MonoSample, SoundConfig};
 
 use crate::{
     connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
@@ -194,7 +195,13 @@ impl NodeEngineState {
         Ok(())
     }
 
-    pub fn step(&mut self, current_time: i64, is_first_time: bool, midi_in: Vec<MidiData>) -> f32 {
+    pub fn step(
+        &mut self,
+        current_time: i64,
+        is_first_time: bool,
+        midi_in: Vec<MidiData>,
+        samples: &AssetManager<MonoSample>,
+    ) -> f32 {
         let NodeGraphWrapper {
             ref mut graph,
             ref traverser,
@@ -204,7 +211,7 @@ impl NodeEngineState {
         let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
         midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
 
-        let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine);
+        let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine, samples);
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);

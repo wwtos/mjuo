@@ -1,3 +1,10 @@
+use std::{fs::File, io::BufReader, path::Path};
+
+use asset_manager::{Asset, IOSnafu, LoadingError};
+use rodio::{Decoder, Source};
+use snafu::ResultExt;
+use std;
+
 pub mod backend;
 pub mod error;
 pub mod midi;
@@ -18,6 +25,24 @@ pub struct SoundConfig {
 pub struct MonoSample {
     pub audio_raw: Vec<f32>,
     pub sample_rate: u32,
+}
+
+impl Asset for MonoSample {
+    fn load_asset(path: &Path) -> Result<Self, LoadingError>
+    where
+        Self: Sized,
+    {
+        let file = BufReader::new(File::open(path).context(IOSnafu)?);
+        let source = Decoder::new(file).unwrap();
+
+        let sample_rate = source.sample_rate();
+        let buffer: Vec<f32> = source.map(|x| x as f32 / i16::MAX as f32).collect();
+
+        Ok(MonoSample {
+            audio_raw: buffer,
+            sample_rate,
+        })
+    }
 }
 
 #[cfg(test)]

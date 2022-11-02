@@ -3,13 +3,15 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
+use asset_manager::AssetManager;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use sound_engine::midi::messages::MidiData;
-use sound_engine::SoundConfig;
+use sound_engine::util::sample_manager::SampleManager;
+use sound_engine::{MonoSample, SoundConfig};
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -106,6 +108,7 @@ pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub script_engine: &'a Engine,
     pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
+    pub samples: &'a AssetManager<MonoSample>,
 }
 
 /// Node trait
@@ -514,17 +517,8 @@ impl NodeWrapper {
         self.node.get_value_output(socket_type)
     }
 
-    pub fn process(
-        &mut self,
-        current_time: i64,
-        script_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<NodeOk<()>, NodeError> {
-        self.node.process(NodeProcessState {
-            current_time,
-            script_engine,
-            inner_graph: inner_graph,
-        })
+    pub fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        self.node.process(state)
     }
 
     pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {

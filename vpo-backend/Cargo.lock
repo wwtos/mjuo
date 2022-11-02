@@ -37,8 +37,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "asset_manager"
+name = "asset-manager"
 version = "0.1.0"
+dependencies = [
+ "snafu",
+]
 
 [[package]]
 name = "async-channel"
@@ -932,6 +935,7 @@ dependencies = [
 name = "node-engine"
 version = "0.1.0"
 dependencies = [
+ "asset-manager",
  "async-std",
  "enum_dispatch",
  "lazy_static",
@@ -1430,6 +1434,7 @@ name = "sound-engine"
 version = "0.1.0"
 dependencies = [
  "alsa",
+ "asset-manager",
  "cpal",
  "lazy_static",
  "libpulse-binding",
@@ -1612,6 +1617,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vpo-backend"
 version = "0.1.0"
 dependencies = [
+ "asset-manager",
  "async-std",
  "hyper",
  "ipc",
