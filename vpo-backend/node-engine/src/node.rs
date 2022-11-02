@@ -123,7 +123,7 @@ pub struct NodeProcessState<'a> {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug {
-    fn init(&mut self, state: &NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
+    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
     fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
@@ -197,7 +197,7 @@ impl NodeWrapper {
     pub fn new(
         mut node: NodeVariant,
         index: NodeIndex,
-        state: &NodeInitState,
+        state: NodeInitState,
     ) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
@@ -257,7 +257,7 @@ impl NodeWrapper {
         graph_manager: &GraphManager,
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
-        state: &NodeInitState,
+        state: NodeInitState,
     ) {
         self.set_inner_graph_index(index.clone());
 
@@ -269,12 +269,32 @@ impl NodeWrapper {
 
         let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+        } = state;
+
         let input_index = inner_graph
-            .add_node(NodeVariant::InputsNode(new_inputs_node), state)
+            .add_node(
+                NodeVariant::InputsNode(new_inputs_node),
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                },
+            )
             .unwrap()
             .value;
         let output_index = inner_graph
-            .add_node(NodeVariant::OutputsNode(new_outputs_node), state)
+            .add_node(
+                NodeVariant::OutputsNode(new_outputs_node),
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                },
+            )
             .unwrap()
             .value;
 

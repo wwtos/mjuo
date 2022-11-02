@@ -78,6 +78,10 @@ impl<A: Asset> AssetManager<A> {
         }
     }
 
+    pub fn get_index(&self, key: &str) -> Option<AssetIndex> {
+        self.asset_mapping.get(key).map(|x| *x)
+    }
+
     pub fn request_asset(&mut self, key: String, location: &Path) -> Result<AssetIndex, LoadingError> {
         // check if we've loaded this asset already
         if let Some(asset_index) = self.asset_mapping.get(&key) {

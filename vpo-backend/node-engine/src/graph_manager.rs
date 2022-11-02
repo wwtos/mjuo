@@ -182,9 +182,15 @@ impl GraphManager {
         child_graph_index: Option<GraphIndex>,
         child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
         sound_config: &SoundConfig,
-        state: &NodeInitState,
+        state: NodeInitState,
     ) -> Result<NodeOk<Action>, NodeError> {
         let mut warnings = WarningBuilder::new();
+
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+        } = state;
 
         let new_node_index = {
             let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
@@ -197,7 +203,16 @@ impl GraphManager {
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_wrapper = create_new_node(new_node, node_index.index, node_index.generation, state)?;
+                let new_node_wrapper = create_new_node(
+                    new_node,
+                    node_index.index,
+                    node_index.generation,
+                    NodeInitState {
+                        props,
+                        registry,
+                        script_engine,
+                    },
+                )?;
                 warnings.append_warnings(new_node_wrapper.warnings);
 
                 graph.set_node_unchecked(node_index, new_node_wrapper.value);
@@ -207,7 +222,14 @@ impl GraphManager {
                 // else, it's happening for the first time
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_index = graph.add_node(new_node, state)?;
+                let new_node_index = graph.add_node(
+                    new_node,
+                    NodeInitState {
+                        props,
+                        registry,
+                        script_engine,
+                    },
+                )?;
                 warnings.append_warnings(new_node_index.warnings);
 
                 new_node_index.value
@@ -230,7 +252,7 @@ impl GraphManager {
                     // get a list of the input and output nodes in the child graph
                     // (for creating the InputsNode and OutputsNode inside the child graph)
                     let (input_sockets, output_sockets) = {
-                        let inner_sockets = new_node.get_inner_graph_socket_list(state.registry);
+                        let inner_sockets = new_node.get_inner_graph_socket_list(registry);
 
                         (
                             inner_sockets
@@ -257,7 +279,17 @@ impl GraphManager {
                     };
 
                     // let the node's wrapper set up the graph
-                    new_node.init_inner_graph(&child_graph_index, self, input_sockets, output_sockets, state);
+                    new_node.init_inner_graph(
+                        &child_graph_index,
+                        self,
+                        input_sockets,
+                        output_sockets,
+                        NodeInitState {
+                            props,
+                            registry,
+                            script_engine,
+                        },
+                    );
 
                     // run the node's graph init function
                     let new_inner_graph = &mut self.get_graph_wrapper_mut(child_graph_index).unwrap().graph;
@@ -302,7 +334,7 @@ impl GraphManager {
                     // get a list of the input and output nodes in the child graph
                     // (for creating the InputsNode and OutputsNode inside the child graph)
                     let (input_sockets, output_sockets) = {
-                        let inner_sockets = new_node.get_inner_graph_socket_list(state.registry);
+                        let inner_sockets = new_node.get_inner_graph_socket_list(registry);
 
                         (
                             inner_sockets
@@ -329,7 +361,17 @@ impl GraphManager {
                     };
 
                     // let the node's wrapper set up the graph
-                    new_node.init_inner_graph(&new_graph_index, self, input_sockets, output_sockets, state);
+                    new_node.init_inner_graph(
+                        &new_graph_index,
+                        self,
+                        input_sockets,
+                        output_sockets,
+                        NodeInitState {
+                            props,
+                            registry,
+                            script_engine,
+                        },
+                    );
 
                     // run the node's graph init function
                     let new_inner_graph = &mut self.get_graph_wrapper_mut(new_graph_index).unwrap().graph;

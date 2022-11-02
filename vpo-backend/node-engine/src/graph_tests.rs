@@ -20,7 +20,7 @@ impl Default for TestNode {
 }
 
 impl Node for TestNode {
-    fn init(&mut self, _state: &NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
@@ -37,15 +37,16 @@ fn graph_node_crud() {
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
 
-    let init_state = &NodeInitState {
-        props: &HashMap::new(),
-        registry: &mut registry,
-        script_engine: &scripting_engine,
-    };
-
     // add a new node
     let first_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
 
@@ -74,7 +75,14 @@ fn graph_node_crud() {
 
     // now add a second node
     let second_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
 
@@ -100,7 +108,16 @@ fn graph_node_crud() {
     assert!(graph.get_node(&second_node_index).is_some());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node(NodeVariant::TestNode(TestNode {}), init_state).unwrap();
+    graph
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
+        .unwrap();
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph.serialize_to_json());
@@ -112,23 +129,38 @@ fn graph_connecting() {
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
 
-    let init_state = &NodeInitState {
-        props: &HashMap::new(),
-        registry: &mut registry,
-        script_engine: &scripting_engine,
-    };
-
     // add two new nodes
     let first_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
     let second_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
     let third_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
 
@@ -289,19 +321,27 @@ fn hanging_connections() -> Result<(), NodeError> {
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
 
-    let init_state = &NodeInitState {
-        props: &HashMap::new(),
-        registry: &mut registry,
-        script_engine: &scripting_engine,
-    };
-
     // set up a simple network
     let first_node = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
     let second_node = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), init_state)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+            },
+        )
         .unwrap()
         .value;
 

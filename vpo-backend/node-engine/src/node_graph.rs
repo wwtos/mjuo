@@ -30,7 +30,7 @@ pub(crate) fn create_new_node(
     node: NodeVariant,
     index: usize,
     generation: u32,
-    state: &NodeInitState,
+    state: NodeInitState,
 ) -> NodeResult<PossibleNode> {
     let new_node = NodeWrapper::new(node, NodeIndex { index, generation }, state)?;
 
@@ -45,7 +45,7 @@ impl NodeGraph {
         NodeGraph { nodes: Vec::new() }
     }
 
-    pub fn add_node(&mut self, node: NodeVariant, state: &NodeInitState) -> NodeResult<NodeIndex> {
+    pub fn add_node(&mut self, node: NodeVariant, state: NodeInitState) -> NodeResult<NodeIndex> {
         let index;
         let new_generation;
 
@@ -269,7 +269,7 @@ impl NodeGraph {
             let props = node_wrapper.get_properties().clone();
 
             let node = &mut node_wrapper.node;
-            let init_result = node.init(&NodeInitState {
+            let init_result = node.init(NodeInitState {
                 props: &props,
                 registry: socket_registry,
                 script_engine,

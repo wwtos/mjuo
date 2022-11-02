@@ -76,7 +76,7 @@ impl ActionBundle {
 }
 
 pub struct AssetBundle<'a> {
-    samples: &'a AssetManager<MonoSample>,
+    pub samples: &'a AssetManager<MonoSample>,
 }
 
 pub struct NodeEngineState {
@@ -109,7 +109,7 @@ impl NodeEngineState {
             let output_node = graph
                 .add_node(
                     NodeVariant::OutputNode(OutputNode::default()),
-                    &NodeInitState {
+                    NodeInitState {
                         props: &HashMap::new(),
                         registry: &mut socket_registry,
                         script_engine: &scripting_engine,
@@ -120,7 +120,7 @@ impl NodeEngineState {
             let midi_in_node = graph
                 .add_node(
                     NodeVariant::MidiInNode(MidiInNode::default()),
-                    &NodeInitState {
+                    NodeInitState {
                         props: &HashMap::new(),
                         registry: &mut socket_registry,
                         script_engine: &scripting_engine,
@@ -417,7 +417,7 @@ impl NodeEngineState {
                     child_graph_index,
                     child_graph_io_indexes,
                     &self.sound_config,
-                    &NodeInitState {
+                    NodeInitState {
                         props: &HashMap::new(),
                         registry: &mut self.socket_registry,
                         script_engine: &self.scripting_engine,
@@ -657,7 +657,7 @@ impl NodeEngineState {
                     child_graph_index,
                     child_graph_io_indexes,
                     &self.sound_config,
-                    &NodeInitState {
+                    NodeInitState {
                         props: &HashMap::new(),
                         registry: &mut self.socket_registry,
                         script_engine: &self.scripting_engine,

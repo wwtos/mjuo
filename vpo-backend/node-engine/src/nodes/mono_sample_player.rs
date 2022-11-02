@@ -13,7 +13,7 @@ pub struct MonoSamplePlayerNode {
 }
 
 impl Node for MonoSamplePlayerNode {
-    fn init(&mut self, _state: &NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
             NodeRow::ValueInput(ValueSocketType::Default, Primitive::Boolean(false)),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
