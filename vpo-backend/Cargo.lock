@@ -1630,6 +1630,7 @@ dependencies = [
  "sound-engine",
  "strum",
  "strum_macros",
+ "walkdir",
 ]
 
 [[package]]

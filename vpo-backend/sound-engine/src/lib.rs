@@ -27,6 +27,15 @@ pub struct MonoSample {
     pub sample_rate: u32,
 }
 
+impl Default for MonoSample {
+    fn default() -> Self {
+        MonoSample {
+            sample_rate: 44_100,
+            audio_raw: Vec::new(),
+        }
+    }
+}
+
 impl Asset for MonoSample {
     fn load_asset(path: &Path) -> Result<Self, LoadingError>
     where

@@ -15,5 +15,5 @@ export type Property = DiscriminatedUnion<"variant", {
     Integer: { data: number },
     Bool: { data: boolean },
     MultipleChoice: { data: string },
-    Resource: { data: [string, string] }
+    Resource: { data: { namespace: string, resource: string } }
 }>;

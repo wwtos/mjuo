@@ -3,14 +3,13 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
-use asset_manager::AssetManager;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use sound_engine::midi::messages::MidiData;
-use sound_engine::{MonoSample, SoundConfig};
+use sound_engine::SoundConfig;
 
 use crate::connection::{
     InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
@@ -109,7 +108,7 @@ pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub script_engine: &'a Engine,
     pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
-    pub samples: &'a AssetManager<MonoSample>,
+    pub global_state: &'a GlobalState,
 }
 
 /// Node trait

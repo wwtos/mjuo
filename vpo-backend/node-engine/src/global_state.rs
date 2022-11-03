@@ -1,18 +1,25 @@
 use std::path::PathBuf;
 
 use asset_manager::AssetManager;
-use sound_engine::MonoSample;
+use sound_engine::{MonoSample, SoundConfig};
 
-pub struct GlobalState {
-    pub active_project: Option<PathBuf>,
+#[derive(Default)]
+pub struct Assets {
     pub samples: AssetManager<MonoSample>,
 }
 
+pub struct GlobalState {
+    pub active_project: Option<PathBuf>,
+    pub sound_config: SoundConfig,
+    pub assets: Assets,
+}
+
 impl GlobalState {
-    pub fn new() -> GlobalState {
+    pub fn new(sound_config: SoundConfig) -> GlobalState {
         GlobalState {
             active_project: None,
-            samples: AssetManager::new(),
+            assets: Assets::default(),
+            sound_config,
         }
     }
 }

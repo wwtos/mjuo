@@ -28,6 +28,7 @@ pub enum PossibleAsset<A: Asset> {
     None(u32),
 }
 
+#[derive(Default)]
 pub struct AssetManager<A: Asset> {
     assets: Vec<PossibleAsset<A>>,
     asset_mapping: HashMap<String, AssetIndex>,
@@ -45,9 +46,9 @@ impl<A: Asset> AssetManager<A> {
         // check if there's an opening
         let possible_opening = self.assets.iter().position(|asset| {
             if let PossibleAsset::Some(..) = asset {
-                true
-            } else {
                 false
+            } else {
+                true
             }
         });
 
@@ -113,5 +114,10 @@ impl<A: Asset> AssetManager<A> {
                 PossibleAsset::None(_) => None,
             }
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.asset_mapping.clear();
+        self.assets.clear();
     }
 }

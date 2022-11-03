@@ -19,6 +19,7 @@ snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
 strum = "0.24.0"
 strum_macros = "0.24"
+walkdir = "2"
 
 [profile.release-x86_64-pc-windows-gnu]
 inherits = "release"

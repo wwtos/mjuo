@@ -5,6 +5,7 @@
     import { NodeWrapper } from "../node-engine/node";
     import { Property, PropertyType } from "../node-engine/property";
     import { matchOrElse } from "../util/discriminated-union";
+    import { dataset_dev } from "svelte/internal";
 
     export let nodeWrapper: NodeWrapper;
     export let propName: string;
@@ -32,6 +33,19 @@
                 },
                 String: (): Property => {
                     return { variant: "String", data: newValue };
+                },
+                Resource: (): Property => {
+                    let parts = newValue.split(":");
+                    let namespace = parts[0];
+                    let resource = parts.slice(1).join(":");
+
+                    return {
+                        variant: "Resource",
+                        data: {
+                            namespace,
+                            resource,
+                        },
+                    };
                 },
             },
             () => {
@@ -77,6 +91,19 @@
                 <input
                     type="text"
                     value={$value.data}
+                    on:mousedown={(e) => e.stopPropagation()}
+                    on:change={updateProperties}
+                    on:keydown={(event) => event.stopPropagation()}
+                />
+                <span class="input-hover-text">{propName}</span>
+            </label>
+        </div>
+    {:else if propType.variant == "Resource"}
+        <div class="flex">
+            <label>
+                <input
+                    type="text"
+                    value={$value.data.namespace + ":" + $value.data.resource}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}

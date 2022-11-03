@@ -18,7 +18,7 @@ pub fn route(
 ) -> Result<Option<RouteReturn>, NodeError> {
     if let Value::String(path) = &msg["payload"]["path"] {
         state.clear_history();
-        load(state, Path::new(path), global_state)?;
+        load(Path::new(path), state, global_state)?;
 
         global_state.active_project = Some(PathBuf::from_str(path).unwrap());
 

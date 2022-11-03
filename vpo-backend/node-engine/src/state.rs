@@ -94,7 +94,7 @@ pub struct NodeEngineState {
 }
 
 impl NodeEngineState {
-    pub fn new(sound_config: SoundConfig, global_state: &GlobalState) -> NodeEngineState {
+    pub fn new(global_state: &GlobalState) -> NodeEngineState {
         let history = Vec::new();
         let place_in_history = 0;
         let mut graph_manager = GraphManager::new();
@@ -144,7 +144,7 @@ impl NodeEngineState {
             history,
             place_in_history,
             graph_manager,
-            sound_config,
+            sound_config: global_state.sound_config.clone(),
             socket_registry,
             scripting_engine,
             root_graph_index,
@@ -219,7 +219,7 @@ impl NodeEngineState {
         current_time: i64,
         is_first_time: bool,
         midi_in: Vec<MidiData>,
-        samples: &AssetManager<MonoSample>,
+        global_state: &GlobalState,
     ) -> f32 {
         let NodeGraphWrapper {
             ref mut graph,
@@ -230,7 +230,8 @@ impl NodeEngineState {
         let midi_in_node = graph.get_node_mut(&self.midi_in_node).unwrap();
         midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
 
-        let traversal_errors = traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine, samples);
+        let traversal_errors =
+            traverser.traverse(graph, is_first_time, current_time, &self.scripting_engine, global_state);
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);

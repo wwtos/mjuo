@@ -5,6 +5,7 @@ use sound_engine::MonoSample;
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
+    global_state::GlobalState,
     node::{NodeIndex, NodeProcessState, NodeRow},
     node_graph::NodeGraph,
 };
@@ -99,7 +100,7 @@ impl Traverser {
         input_defaults: bool,
         current_time: i64,
         script_engine: &Engine,
-        samples: &AssetManager<MonoSample>,
+        global_state: &GlobalState,
     ) -> Result<(), ErrorsAndWarnings> {
         let mut errors: Vec<NodeError> = vec![];
         let mut warnings: Vec<NodeWarning> = vec![];
@@ -132,7 +133,7 @@ impl Traverser {
                 current_time,
                 script_engine,
                 inner_graph: None,
-                samples,
+                global_state,
             });
 
             // record any errors
