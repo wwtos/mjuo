@@ -1,5 +1,9 @@
 <script lang="ts">
-    import { SocketType, SocketDirection, type Primitive } from "../node-engine/connection";
+    import {
+        SocketType,
+        SocketDirection,
+        type Primitive,
+    } from "../node-engine/connection";
     import { NodeRow, NodeWrapper, SocketValue } from "../node-engine/node";
     import { NodeGraph } from "../node-engine/node_graph";
     import { fixDigits } from "../util/fix-digits";
@@ -20,9 +24,13 @@
             ? nodes.getNodeInputConnection(nodeWrapper.index, type)
             : new Observable();
 
-    let socketDefault: BehaviorSubject<SocketValue> = new BehaviorSubject({ variant: "None" });
+    let socketDefault: BehaviorSubject<SocketValue> = new BehaviorSubject({
+        variant: "None",
+    });
 
-    nodes.getNodeSocketDefault(nodeWrapper.index, type, direction).subscribe(socketDefault);
+    nodes
+        .getNodeSocketDefault(nodeWrapper.index, type, direction)
+        .subscribe(socketDefault);
 
     function updateOverrides(event) {
         const newValue = event.target.value;
@@ -75,8 +83,10 @@
 
         // check if this override is already in there, in which case the value needs to be updated
         let override = nodeWrapper.default_overrides.find((defaultOverride) => {
-            const { socketType: overrideSocketType, direction: overrideDirection } =
-                NodeRow.getTypeAndDirection(defaultOverride);
+            const {
+                socketType: overrideSocketType,
+                direction: overrideDirection,
+            } = NodeRow.getTypeAndDirection(defaultOverride);
 
             return (
                 SocketType.areEqual(type, overrideSocketType) &&
@@ -89,7 +99,11 @@
         } else {
             nodeWrapper.default_overrides = [
                 ...nodeWrapper.default_overrides,
-                NodeRow.fromTypeAndDirection(type, direction, (newValueParsed as any).data),
+                NodeRow.fromTypeAndDirection(
+                    type,
+                    direction,
+                    (newValueParsed as any).data
+                ),
             ];
 
             nodes.updateNode(nodeWrapper.index);
@@ -102,8 +116,8 @@
 
 <div
     class="container"
-    class:output={direction === SocketDirection.Output}
-    class:input={direction === SocketDirection.Input}
+    class:socket-output={direction === SocketDirection.Output}
+    class:socket-input={direction === SocketDirection.Input}
 >
     {#if direction === SocketDirection.Input}
         <Socket {direction} {type} on:socketMousedown on:socketMouseup />
@@ -120,7 +134,9 @@
                             on:change={updateOverrides}
                             on:keydown={(event) => event.stopPropagation()}
                         />
-                        <span class="input-hover-text">{$label}</span>
+                        <div>
+                            <span class="input-hover-text">{$label}</span>
+                        </div>
                     </label>
                 </div>
             {:else if $socketDefault.data.variant === "Boolean"}
@@ -141,7 +157,9 @@
                         on:change={updateOverrides}
                         on:keydown={(event) => event.stopPropagation()}
                     />
-                    <span class="input-hover-text">{$label}</span>
+                    <div>
+                        <span class="input-hover-text">{$label}</span>
+                    </div>
                 </label>
             </div>
         {:else}
@@ -163,17 +181,26 @@
         align-items: center;
         justify-content: center;
         cursor: text;
+        width: calc(100% - 40px);
     }
 
-    label > span,
+    label > div {
+        position: absolute;
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        flex-direction: row;
+    }
+
     label > input {
         position: absolute;
         margin: 0;
+        width: 100%;
     }
 
-    label > span {
+    label > div > span {
         color: #777;
-        margin-right: -80px;
+        margin: 0 12px;
     }
 
     .flex {
@@ -196,11 +223,11 @@
         height: 26px;
     }
 
-    .input {
+    .socket-input {
         text-align: left;
     }
 
-    .output {
+    .socket-output {
         text-align: right;
     }
 

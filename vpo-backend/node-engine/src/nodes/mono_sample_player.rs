@@ -1,5 +1,4 @@
 use asset_manager::AssetIndex;
-use snafu::OptionExt;
 use sound_engine::{node::mono_buffer_player::MonoBufferPlayer, SoundConfig};
 
 use crate::{

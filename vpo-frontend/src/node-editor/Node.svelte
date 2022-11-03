@@ -19,7 +19,7 @@
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
 
-    export let width = 200;
+    export let width = 270;
 
     export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;

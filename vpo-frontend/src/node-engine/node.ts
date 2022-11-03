@@ -8,7 +8,7 @@ import { NodeIndex } from "./node_index";
 export const TITLE_HEIGHT = 30;
 export const SOCKET_HEIGHT = 36;
 export const SOCKET_OFFSET = 26;
-export const NODE_WIDTH = 200;
+export const NODE_WIDTH = 270;
 
 
 export type NodeRow = DiscriminatedUnion<"variant", {
