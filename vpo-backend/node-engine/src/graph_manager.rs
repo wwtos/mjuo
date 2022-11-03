@@ -2,7 +2,6 @@ use std::cell::{RefCell, RefMut};
 use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
 
-use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::SoundConfig;
@@ -10,9 +9,9 @@ use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
 use crate::errors::{NodeError, NodeOk, WarningBuilder};
+use crate::node::NodeInitState;
 use crate::node_graph::create_new_node;
 use crate::nodes::variants::new_variant;
-use crate::socket_registry::SocketRegistry;
 use crate::state::Action;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -181,10 +180,16 @@ impl GraphManager {
         child_graph_index: Option<GraphIndex>,
         child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
         sound_config: &SoundConfig,
-        registry: &mut SocketRegistry,
-        engine: &Engine,
+        state: NodeInitState,
     ) -> Result<NodeOk<Action>, NodeError> {
         let mut warnings = WarningBuilder::new();
+
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+            global_state,
+        } = state;
 
         let new_node_index = {
             let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
@@ -197,8 +202,17 @@ impl GraphManager {
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_wrapper =
-                    create_new_node(new_node, node_index.index, node_index.generation, registry, engine)?;
+                let new_node_wrapper = create_new_node(
+                    new_node,
+                    node_index.index,
+                    node_index.generation,
+                    NodeInitState {
+                        props,
+                        registry,
+                        script_engine,
+                        global_state,
+                    },
+                )?;
                 warnings.append_warnings(new_node_wrapper.warnings);
 
                 graph.set_node_unchecked(node_index, new_node_wrapper.value);
@@ -208,7 +222,15 @@ impl GraphManager {
                 // else, it's happening for the first time
                 let new_node = new_variant(node_type, sound_config).unwrap();
 
-                let new_node_index = graph.add_node(new_node, registry, engine)?;
+                let new_node_index = graph.add_node(
+                    new_node,
+                    NodeInitState {
+                        props,
+                        registry,
+                        script_engine,
+                        global_state,
+                    },
+                )?;
                 warnings.append_warnings(new_node_index.warnings);
 
                 new_node_index.value
@@ -263,8 +285,12 @@ impl GraphManager {
                         self,
                         input_sockets,
                         output_sockets,
-                        registry,
-                        engine,
+                        NodeInitState {
+                            props,
+                            registry,
+                            script_engine,
+                            global_state,
+                        },
                     );
 
                     // run the node's graph init function
@@ -337,7 +363,18 @@ impl GraphManager {
                     };
 
                     // let the node's wrapper set up the graph
-                    new_node.init_inner_graph(&new_graph_index, self, input_sockets, output_sockets, registry, engine);
+                    new_node.init_inner_graph(
+                        &new_graph_index,
+                        self,
+                        input_sockets,
+                        output_sockets,
+                        NodeInitState {
+                            props,
+                            registry,
+                            script_engine,
+                            global_state,
+                        },
+                    );
 
                     // run the node's graph init function
                     let new_inner_graph = &mut self.get_graph_wrapper_mut(new_graph_index).unwrap().graph;
@@ -466,18 +503,26 @@ impl GraphManager {
         }))
     }
 
-    pub fn post_deserialization(
-        &mut self,
-        socket_registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
-        sound_config: &SoundConfig,
-    ) -> Result<(), NodeError> {
+    pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+            global_state,
+        } = state;
+
         for (_, graph_wrapper) in self.node_graphs.iter() {
             let mut graph_wrapper = graph_wrapper.borrow_mut();
 
-            graph_wrapper
-                .graph
-                .post_deserialization(socket_registry, scripting_engine, sound_config)?;
+            graph_wrapper.graph.post_deserialization(
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                    global_state,
+                },
+                sound_config,
+            )?;
             graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
         }
 

@@ -5,6 +5,7 @@ import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
 import { MemberType } from 'safety-match';
+import { match, matchOrElse } from './util/discriminated-union';
 
 let activeWindow: BrowserWindow;
 
@@ -56,6 +57,17 @@ ipcMain.on("action", (event, data) => {
                 "payload": {"path": filePaths[0]}
             });
         });
+    } else if (data?.action === "io/openLoadDialog") {
+        ipcSender = event.sender;
+
+        dialog.showOpenDialog(activeWindow, {
+            properties: [ "openDirectory" ]
+        }).then(({filePaths}) => {
+            client.sendJson({
+                "action": "io/load",
+                "payload": {"path": filePaths[0]}
+            });
+        });
     }
     
     // ipcSender.send("action", );
@@ -95,12 +107,15 @@ app.on('activate', () => {
 });
 
 client.on("message", (event: RawMessage) => {
-    event.match({
-        Json: (json) => {
-            sendToRenderer("receive", json);
+    matchOrElse(
+        event,
+        {
+            Json: ({ data }) => {
+                sendToRenderer("receive", data);
+            }
         },
-        _: () => { throw "unimplemented" }
-    });
+        () => { throw "unimplemented" }
+    );
 });
 
 require('electron-reload')(path.join(__dirname, "../public"), {

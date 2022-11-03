@@ -1,8 +1,12 @@
+use std::collections::HashMap;
+
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
+use sound_engine::SoundConfig;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::{NodeError, NodeOk};
+use crate::global_state::GlobalState;
 use crate::node::{InitResult, NodeIndex, NodeInitState, NodeRow};
 use crate::nodes::variants::NodeVariant;
 use crate::socket_registry::SocketRegistry;
@@ -34,10 +38,19 @@ fn graph_node_crud() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add a new node
     let first_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
 
@@ -66,7 +79,15 @@ fn graph_node_crud() {
 
     // now add a second node
     let second_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
 
@@ -93,7 +114,15 @@ fn graph_node_crud() {
 
     // add another node for good measure to make sure it's growing
     graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap();
     assert_eq!(graph.len(), 2);
 
@@ -105,18 +134,43 @@ fn graph_connecting() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add two new nodes
     let first_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
     let second_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
     let third_node_index = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
 
@@ -276,14 +330,31 @@ fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // set up a simple network
     let first_node = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
     let second_node = graph
-        .add_node(NodeVariant::TestNode(TestNode {}), &mut registry, &scripting_engine)
+        .add_node(
+            NodeVariant::TestNode(TestNode {}),
+            NodeInitState {
+                props: &HashMap::new(),
+                registry: &mut registry,
+                script_engine: &scripting_engine,
+                global_state,
+            },
+        )
         .unwrap()
         .value;
 

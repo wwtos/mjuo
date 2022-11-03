@@ -1,53 +1,95 @@
-use std::{error::Error, io::Write};
+use std::{error::Error, io::Write, thread};
 
-use async_std::channel::Sender;
-use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, graph_manager::GraphIndex, state::NodeEngineState};
-use serde_json::Value;
-use sound_engine::constants::BUFFER_SIZE;
-use state::GlobalState;
+use async_std::{
+    channel::{unbounded, Receiver, Sender},
+    task::block_on,
+};
+use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
+use node_engine::{global_state::GlobalState, state::NodeEngineState};
+use routes::{route, RouteReturn};
+use serde_json::json;
+use sound_engine::{
+    backend::{alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend},
+    constants::BUFFER_SIZE,
+    midi::{messages::MidiData, parse::MidiParser},
+};
 
 pub mod io;
 pub mod routes;
-pub mod state;
 pub mod util;
 
-#[derive(Default)]
-pub struct RouteReturn {
-    pub graph_to_reindex: Option<GraphIndex>,
-    pub graph_operated_on: Option<GraphIndex>,
+pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
+    let (to_server, from_main) = unbounded::<IPCMessage>();
+    let (to_main, from_server) = unbounded::<IPCMessage>();
+
+    let to_server_cloned = to_server.clone();
+
+    thread::spawn(move || {
+        IPCServer::open(to_server_cloned.clone(), from_main, to_main);
+    });
+
+    (to_server, from_server)
 }
 
-pub fn route(
+pub fn handle_msg(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
-    let IPCMessage::Json(json) = msg;
+) {
+    let result = route(msg, to_server, state, global_state);
 
-    if let Value::Object(ref message) = json {
-        let action = &message["action"];
-
-        if let Value::String(action_name) = action {
-            return match action_name.as_str() {
-                "graph/get" => routes::graph::get::route(json, to_server, state, global_state),
-                "graph/newNode" => routes::graph::new_node::route(json, to_server, state, global_state),
-                "graph/removeNode" => routes::graph::remove_node::route(json, to_server, state, global_state),
-                "graph/updateNodes" => routes::graph::update_nodes::route(json, to_server, state, global_state),
-                "graph/updateNodesUi" => routes::graph::update_node_ui::route(json, to_server, state, global_state),
-                "graph/connectNode" => routes::graph::connect_node::route(json, to_server, state, global_state),
-                "graph/disconnectNode" => routes::graph::disconnect_node::route(json, to_server, state, global_state),
-                "graph/undo" => routes::graph::undo::route(json, to_server, state, global_state),
-                "graph/redo" => routes::graph::redo::route(json, to_server, state, global_state),
-                "io/save" => routes::graph::save::route(json, to_server, state, global_state),
-                "io/load" => routes::graph::load::route(json, to_server, state, global_state),
-                _ => Ok(None),
+    match result {
+        Ok(route_result) => {
+            match route_result {
+                Some(route_result) => route_result,
+                None => RouteReturn::default(),
             };
+        }
+        Err(err) => {
+            let err_str = err.to_string();
+
+            block_on(async {
+                to_server
+                    .send(IPCMessage::Json(json! {{
+                        "action": "toast/error",
+                        "payload": err_str
+                    }}))
+                    .await
+            })
+            .unwrap();
+        }
+    }
+}
+
+pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
+    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
+    backend.connect()?;
+
+    Ok(backend)
+}
+
+pub fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Error>> {
+    let mut backend: Box<dyn MidiClientBackend> = Box::new(AlsaMidiClientBackend::new());
+    backend.connect()?;
+
+    Ok(backend)
+}
+
+pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiParser) -> Vec<MidiData> {
+    let midi_in = midi_backend.read().unwrap();
+    let mut messages: Vec<MidiData> = Vec::new();
+
+    if !midi_in.is_empty() {
+        parser.write_all(midi_in.as_slice()).unwrap();
+
+        while !parser.parsed.is_empty() {
+            let message = parser.parsed.pop().unwrap();
+            messages.push(message);
         }
     }
 
-    Ok(None)
+    messages
 }
 
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {

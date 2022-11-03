@@ -8,6 +8,13 @@ pub enum PropertyType {
     Float,
     Bool,
     MultipleChoice(Vec<String>),
+    Resource(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Resource {
+    pub namespace: String,
+    pub resource: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -18,6 +25,7 @@ pub enum Property {
     Float(f32),
     Bool(bool),
     MultipleChoice(String),
+    Resource(Resource),
 }
 
 impl Property {
@@ -31,6 +39,13 @@ impl Property {
     pub fn as_float(self) -> Option<f32> {
         match self {
             Property::Float(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn as_resource(self) -> Option<Resource> {
+        match self {
+            Property::Resource(resource) => Some(resource),
             _ => None,
         }
     }

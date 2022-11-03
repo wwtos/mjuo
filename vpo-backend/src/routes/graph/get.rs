@@ -1,12 +1,11 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, state::NodeEngineState};
+use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
 use serde_json::Value;
 
 use crate::{
-    state::GlobalState,
+    routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
-    RouteReturn,
 };
 
 pub fn route(

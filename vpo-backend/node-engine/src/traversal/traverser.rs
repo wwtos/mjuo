@@ -3,7 +3,8 @@ use rhai::Engine;
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    node::{NodeIndex, NodeRow},
+    global_state::GlobalState,
+    node::{NodeIndex, NodeProcessState, NodeRow},
     node_graph::NodeGraph,
 };
 
@@ -96,7 +97,8 @@ impl Traverser {
         graph: &mut NodeGraph,
         input_defaults: bool,
         current_time: i64,
-        scripting_engine: &Engine,
+        script_engine: &Engine,
+        global_state: &GlobalState,
     ) -> Result<(), ErrorsAndWarnings> {
         let mut errors: Vec<NodeError> = vec![];
         let mut warnings: Vec<NodeWarning> = vec![];
@@ -125,7 +127,12 @@ impl Traverser {
 
             // make de magic happenz
             // TODO: Don't just input 'none' into the graph
-            let process_result = node_wrapper.process(current_time, scripting_engine, None);
+            let process_result = node_wrapper.process(NodeProcessState {
+                current_time,
+                script_engine,
+                inner_graph: None,
+                global_state,
+            });
 
             // record any errors
             match process_result {

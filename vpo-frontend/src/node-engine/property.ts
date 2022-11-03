@@ -6,7 +6,8 @@ export type PropertyType = DiscriminatedUnion<"variant", {
     Integer: {},
     Float: {},
     Bool: {},
-    MultipleChoice: { data: string[] }
+    MultipleChoice: { data: string[] },
+    Resource: { data: string }
 }>;
 
 export type Property = DiscriminatedUnion<"variant", {
@@ -14,4 +15,5 @@ export type Property = DiscriminatedUnion<"variant", {
     Integer: { data: number },
     Bool: { data: boolean },
     MultipleChoice: { data: string },
+    Resource: { data: { namespace: string, resource: string } }
 }>;

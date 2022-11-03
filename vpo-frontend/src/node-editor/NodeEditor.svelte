@@ -15,7 +15,10 @@
     } from "../node-engine/connection";
     import { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
-    import { transformMouse, transformMouseRelativeToEditor } from "../util/mouse-transforms";
+    import {
+        transformMouse,
+        transformMouseRelativeToEditor,
+    } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
     import { i18nStore } from "../i18n.js";
     import { get } from "svelte/store";
@@ -78,9 +81,6 @@
                     case "y":
                         ipcSocket.redo();
                         break;
-                    case "s":
-                        ipcSocket.save();
-                        break;
                 }
             } else {
                 switch (event.key) {
@@ -91,7 +91,10 @@
                             .map((node) => node.index);
 
                         for (let index of selected) {
-                            ipcSocket.removeNode($activeGraph.graphIndex, index);
+                            ipcSocket.removeNode(
+                                $activeGraph.graphIndex,
+                                index
+                            );
                         }
                         break;
                 }
@@ -166,9 +169,11 @@
             $activeGraph.keyedNodeStore.subscribe((newKeyedNodes) => {
                 keyedNodes = newKeyedNodes;
             }),
-            $activeGraph.keyedConnectionStore.subscribe((newKeyedConnections) => {
-                keyedConnections = newKeyedConnections;
-            }),
+            $activeGraph.keyedConnectionStore.subscribe(
+                (newKeyedConnections) => {
+                    keyedConnections = newKeyedConnections;
+                }
+            ),
         ];
     }
 
@@ -237,12 +242,14 @@
             // see if it's already connected, in which case we're disconnecting it
             const disconnectingFrom = $activeGraph.getNode(e.nodeIndex);
 
-            let connection = disconnectingFrom.connected_inputs.find((inputSocket) => {
-                return (
-                    socketToKey(inputSocket.to_socket_type, e.direction) ===
-                    socketToKey(e.type, e.direction)
-                );
-            });
+            let connection = disconnectingFrom.connected_inputs.find(
+                (inputSocket) => {
+                    return (
+                        socketToKey(inputSocket.to_socket_type, e.direction) ===
+                        socketToKey(e.type, e.direction)
+                    );
+                }
+            );
 
             // check if we are already connected
             if (connection) {
@@ -253,7 +260,10 @@
                     to_node: e.nodeIndex,
                 };
 
-                ipcSocket.disconnectNode($activeGraph.graphIndex, fullConnection);
+                ipcSocket.disconnectNode(
+                    $activeGraph.graphIndex,
+                    fullConnection
+                );
 
                 // add the connection line back for connecting to something else
                 connectionBeingCreatedFrom = {
@@ -298,7 +308,8 @@
         let e = event.detail;
 
         // can't connect one node to the same node
-        if (e.nodeIndex.index === connectionBeingCreatedFrom.index.index) return;
+        if (e.nodeIndex.index === connectionBeingCreatedFrom.index.index)
+            return;
 
         // can't connect input to output
         if (e.direction === connectionBeingCreatedFrom.direction) return;
@@ -366,7 +377,11 @@
     }
 </script>
 
-<div class="editor" style="width: {width}px; height: {height}px" bind:this={editor}>
+<div
+    class="editor"
+    style="width: {width}px; height: {height}px"
+    bind:this={editor}
+>
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
         <div style="position: absolute; height: 0px; z-index: -10">
             {#each keyedConnections as [key, connection] (key)}
@@ -401,7 +416,10 @@
 
     <div class="new-node" style="width: {width - 9}px">
         {$i18nStore.t("editor.newNodeType")}
-        <select bind:value={nodeTypeToCreate} on:mousedown={(e) => e.stopPropagation()}>
+        <select
+            bind:value={nodeTypeToCreate}
+            on:mousedown={(e) => e.stopPropagation()}
+        >
             {#each variants as { name, internal }}
                 <option value={internal}>{name}</option>
             {/each}

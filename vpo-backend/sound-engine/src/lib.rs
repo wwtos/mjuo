@@ -1,3 +1,10 @@
+use std::{fs::File, io::BufReader, path::Path};
+
+use resource_manager::{IOSnafu, LoadingError, Resource};
+use rodio::{Decoder, Source};
+use snafu::ResultExt;
+use std;
+
 pub mod backend;
 pub mod error;
 pub mod midi;
@@ -10,14 +17,47 @@ pub mod wave;
 
 pub type SamplePoint = i16;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SoundConfig {
     pub sample_rate: u32,
+}
+
+impl Default for SoundConfig {
+    fn default() -> Self {
+        SoundConfig { sample_rate: 200 }
+    }
 }
 
 pub struct MonoSample {
     pub audio_raw: Vec<f32>,
     pub sample_rate: u32,
+}
+
+impl Default for MonoSample {
+    fn default() -> Self {
+        MonoSample {
+            sample_rate: 44_100,
+            audio_raw: Vec::new(),
+        }
+    }
+}
+
+impl Resource for MonoSample {
+    fn load_resource(path: &Path) -> Result<Self, LoadingError>
+    where
+        Self: Sized,
+    {
+        let file = BufReader::new(File::open(path).context(IOSnafu)?);
+        let source = Decoder::new(file).unwrap();
+
+        let sample_rate = source.sample_rate();
+        let buffer: Vec<f32> = source.map(|x| x as f32 / i16::MAX as f32).collect();
+
+        Ok(MonoSample {
+            audio_raw: buffer,
+            sample_rate,
+        })
+    }
 }
 
 #[cfg(test)]

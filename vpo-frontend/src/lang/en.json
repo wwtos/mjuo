@@ -48,7 +48,9 @@
             "InputsNode": "Inputs Node",
             "OutputsNode": "Outputs Node",
             "StreamExpressionNode": "Stream Expression Node",
-            "PolyphonicNode": "Polyphonic Node"
+            "PolyphonicNode": "Polyphonic Node",
+            "MidiFilterNode": "Midi Filter Node",
+            "MonoSamplePlayerNode": "Mono Sample Player Node"
         },
         "editor": {
             "create": "Create!",

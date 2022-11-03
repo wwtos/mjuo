@@ -1,24 +1,44 @@
 <script lang="ts">
-	import NodeEditor from './node-editor/NodeEditor.svelte';
-	import SideNavbar from './node-editor/SideNavbar.svelte';
-	import SplitView from './layout/SplitView.svelte';
-	import {SplitDirection} from './layout/enums';
-	import {windowDimensions} from './util/window-size';
-	import {IPCSocket} from './util/socket';
-	import {NodeGraph} from './node-engine/node_graph';
-	import Toasts from './ui/Toasts.svelte';
-	import { graphManager, ipcSocket, socketRegistry } from './node-editor/state';
-	import { BehaviorSubject } from 'rxjs';
-	
-	const ipc = (window as any).ipcRenderer;
-	let newIpcSocket: any = new IPCSocket(ipc);
+    import NodeEditor from "./node-editor/NodeEditor.svelte";
+    import SideNavbar from "./node-editor/SideNavbar.svelte";
+    import SplitView from "./layout/SplitView.svelte";
+    import { SplitDirection } from "./layout/enums";
+    import { windowDimensions } from "./util/window-size";
+    import { IPCSocket } from "./util/socket";
+    import { NodeGraph } from "./node-engine/node_graph";
+    import Toasts from "./ui/Toasts.svelte";
+    import {
+        graphManager,
+        ipcSocket,
+        socketRegistry,
+    } from "./node-editor/state";
+    import { BehaviorSubject } from "rxjs";
+    import { onMount } from "svelte";
 
-	ipcSocket.next(newIpcSocket);
-	graphManager.setIpcSocket(newIpcSocket);
+    const ipc = (window as any).ipcRenderer;
+    let newIpcSocket: any = new IPCSocket(ipc);
 
-	window["graphManager"] = graphManager;
+    ipcSocket.next(newIpcSocket);
+    graphManager.setIpcSocket(newIpcSocket);
 
-	newIpcSocket.onMessage(([message]) => {
+    window["graphManager"] = graphManager;
+
+    onMount(async () => {
+        window.addEventListener("keydown", (event) => {
+            if (event.ctrlKey) {
+                switch (event.key) {
+                    case "s":
+                        $ipcSocket.save();
+                        break;
+                    case "o":
+                        $ipcSocket.load();
+                        break;
+                }
+            }
+        });
+    });
+
+    newIpcSocket.onMessage(([message]) => {
         console.log("received", message);
 
         if (message.action === "graph/updateGraph") {
@@ -28,34 +48,39 @@
         }
     });
 
-	let width = 0;
-	let height = 0;
+    let width = 0;
+    let height = 0;
 
-	windowDimensions.subscribe(([windowWidth, windowHeight]) => {
-		width = windowWidth - 1;
-		height = windowHeight - 3;
-	});
+    windowDimensions.subscribe(([windowWidth, windowHeight]) => {
+        width = windowWidth - 1;
+        height = windowHeight - 3;
+    });
 
-	let activeGraph = new BehaviorSubject<NodeGraph>(graphManager.getRootGraph());
+    let activeGraph = new BehaviorSubject<NodeGraph>(
+        graphManager.getRootGraph()
+    );
 </script>
 
 <main>
-	<!-- <div id="main-flex">
+    <!-- <div id="main-flex">
 		<SideNavbar />
 		<Editor />
 	</div> -->
-	<SplitView 
-	direction={SplitDirection.VERTICAL}
-	{width} {height}
-	hasFixedWidth={true} fixedWidth={48}
-	firstPanel={SideNavbar}
-	secondPanel={NodeEditor}
-	secondState={{
-		ipcSocket: newIpcSocket,
-		activeGraph: activeGraph
-	}} />
-	<Toasts ipcSocket={newIpcSocket} />
-	<!-- <SplitView 
+    <SplitView
+        direction={SplitDirection.VERTICAL}
+        {width}
+        {height}
+        hasFixedWidth={true}
+        fixedWidth={48}
+        firstPanel={SideNavbar}
+        secondPanel={NodeEditor}
+        secondState={{
+            ipcSocket: newIpcSocket,
+            activeGraph: activeGraph,
+        }}
+    />
+    <Toasts ipcSocket={newIpcSocket} />
+    <!-- <SplitView 
 	direction={SplitDirection.VERTICAL}
 	{width} {height}
 	hasFixedWidth={true} fixedWidth={48}
@@ -68,30 +93,30 @@
 </main>
 
 <style>
-:global(input) {
-    height: 26px;
-    border: none;
-    outline: none;
-    border-radius: 0;
-    box-shadow: none;
-    resize: none;
-}
+    :global(input) {
+        height: 26px;
+        border: none;
+        outline: none;
+        border-radius: 0;
+        box-shadow: none;
+        resize: none;
+    }
 
-:global(input:focus-visible) {
-    outline: 1px solid blue;
-    border-radius: 0;
-}
+    :global(input:focus-visible) {
+        outline: 1px solid blue;
+        border-radius: 0;
+    }
 
-:global(select) {
-    border: none;
-    outline: none;
-    border-radius: 0;
-    box-shadow: none;
-    resize: none;
-}
+    :global(select) {
+        border: none;
+        outline: none;
+        border-radius: 0;
+        box-shadow: none;
+        resize: none;
+    }
 
-:global(select:focus-visible) {
-    outline: 1px solid blue;
-    border-radius: 0;
-}
+    :global(select:focus-visible) {
+        outline: 1px solid blue;
+        border-radius: 0;
+    }
 </style>

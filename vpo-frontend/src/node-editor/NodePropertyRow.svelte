@@ -5,6 +5,8 @@
     import { NodeWrapper } from "../node-engine/node";
     import { Property, PropertyType } from "../node-engine/property";
     import { matchOrElse } from "../util/discriminated-union";
+    import { dataset_dev } from "svelte/internal";
+    import { deepEqual } from "fast-equals";
 
     export let nodeWrapper: NodeWrapper;
     export let propName: string;
@@ -15,6 +17,7 @@
 
     function updateProperties(event) {
         const newValue = event.target.value;
+        console.log(newValue);
 
         const newValueParsed = matchOrElse(
             propType,
@@ -33,18 +36,38 @@
                 String: (): Property => {
                     return { variant: "String", data: newValue };
                 },
+                Resource: (): Property => {
+                    let parts = newValue.split(":");
+                    let namespace = parts[0];
+                    let resource = parts.slice(1).join(":");
+
+                    return {
+                        variant: "Resource",
+                        data: {
+                            namespace,
+                            resource,
+                        },
+                    };
+                },
             },
             () => {
                 throw new Error("unimplemened");
             }
         );
 
-        nodeWrapper.properties[propName] = newValueParsed;
+        console.log(nodeWrapper.properties[propName], newValueParsed);
 
-        nodes.updateNode(nodeWrapper.index);
-        nodes.markNodeAsUpdated(nodeWrapper.index);
-        nodes.writeChangedNodesToServer();
+        // only send updates if it's changed
+        if (!deepEqual(nodeWrapper.properties[propName], newValueParsed)) {
+            nodeWrapper.properties[propName] = newValueParsed;
+
+            nodes.updateNode(nodeWrapper.index);
+            nodes.markNodeAsUpdated(nodeWrapper.index);
+            nodes.writeChangedNodesToServer();
+        }
     }
+
+    $: dataAsResource = $value.data as { namespace: string; resource: string };
 </script>
 
 <div class="container">
@@ -68,7 +91,9 @@
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
                 />
-                <span class="input-hover-text">{propName}</span>
+                <div>
+                    <span class="input-hover-text">{propName}</span>
+                </div>
             </label>
         </div>
     {:else if propType.variant == "String"}
@@ -81,7 +106,26 @@
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
                 />
-                <span class="input-hover-text">{propName}</span>
+                <div>
+                    <span class="input-hover-text">{propName}</span>
+                </div>
+            </label>
+        </div>
+    {:else if propType.variant == "Resource"}
+        <div class="flex">
+            <label>
+                <input
+                    type="text"
+                    value={dataAsResource.namespace +
+                        ":" +
+                        dataAsResource.resource}
+                    on:mousedown={(e) => e.stopPropagation()}
+                    on:change={updateProperties}
+                    on:keydown={(event) => event.stopPropagation()}
+                />
+                <div>
+                    <span class="input-hover-text">{propName}</span>
+                </div>
             </label>
         </div>
     {/if}
@@ -91,25 +135,34 @@
     label {
         position: relative;
         display: flex;
+        align-items: center;
         justify-content: center;
         cursor: text;
-    }
-    label > span,
-    label > input {
-        position: absolute;
-        margin: 0;
+        width: calc(100% - 40px);
     }
 
-    label > span {
+    label > div {
+        position: absolute;
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        flex-direction: row;
+    }
+
+    label > input {
+        margin: 0;
+        width: 100%;
+    }
+
+    label > div > span {
         color: #777;
-        margin-right: -80px;
-        margin-top: 5px;
+        margin: 0 12px;
     }
 
     .flex {
         display: flex;
         flex-flow: column;
-        height: 26px;
+        align-items: center;
     }
 
     input {

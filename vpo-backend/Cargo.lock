@@ -932,10 +932,12 @@ dependencies = [
  "enum_dispatch",
  "lazy_static",
  "petgraph",
+ "resource-manager",
  "rhai",
  "serde",
  "serde_json",
  "smallvec",
+ "smartstring",
  "snafu",
  "sound-engine",
  "strum",
@@ -1215,6 +1217,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 
 [[package]]
+name = "resource-manager"
+version = "0.1.0"
+dependencies = [
+ "snafu",
+]
+
+[[package]]
 name = "rhai"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1429,6 +1438,7 @@ dependencies = [
  "lazy_static",
  "libpulse-binding",
  "libpulse-simple-binding",
+ "resource-manager",
  "ringbuf",
  "rodio",
  "serde",
@@ -1611,6 +1621,7 @@ dependencies = [
  "hyper",
  "ipc",
  "node-engine",
+ "resource-manager",
  "rhai",
  "routerify",
  "serde",
@@ -1619,6 +1630,7 @@ dependencies = [
  "sound-engine",
  "strum",
  "strum_macros",
+ "walkdir",
 ]
 
 [[package]]

@@ -17,6 +17,7 @@ use crate::connection::{
 };
 
 use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
+use crate::global_state::GlobalState;
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
@@ -100,12 +101,14 @@ pub struct NodeInitState<'a> {
     pub props: &'a HashMap<String, Property>,
     pub registry: &'a mut SocketRegistry,
     pub script_engine: &'a Engine,
+    pub global_state: &'a GlobalState,
 }
 
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub script_engine: &'a Engine,
     pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
+    pub global_state: &'a GlobalState,
 }
 
 /// Node trait
@@ -195,16 +198,11 @@ impl NodeWrapper {
     pub fn new(
         mut node: NodeVariant,
         index: NodeIndex,
-        registry: &mut SocketRegistry,
-        script_engine: &Engine,
+        state: NodeInitState,
     ) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
-        let init_result = node.init(NodeInitState {
-            props: &HashMap::new(),
-            registry,
-            script_engine,
-        })?;
+        let init_result = node.init(state)?;
         // TODO: check validity of node_rows here (no socket duplicates)
 
         // extract properties from result from `init`
@@ -260,8 +258,7 @@ impl NodeWrapper {
         graph_manager: &GraphManager,
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
-        registry: &mut SocketRegistry,
-        scripting_engine: &Engine,
+        state: NodeInitState,
     ) {
         self.set_inner_graph_index(index.clone());
 
@@ -273,12 +270,35 @@ impl NodeWrapper {
 
         let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
+        let NodeInitState {
+            props,
+            registry,
+            script_engine,
+            global_state,
+        } = state;
+
         let input_index = inner_graph
-            .add_node(NodeVariant::InputsNode(new_inputs_node), registry, scripting_engine)
+            .add_node(
+                NodeVariant::InputsNode(new_inputs_node),
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                    global_state,
+                },
+            )
             .unwrap()
             .value;
         let output_index = inner_graph
-            .add_node(NodeVariant::OutputsNode(new_outputs_node), registry, scripting_engine)
+            .add_node(
+                NodeVariant::OutputsNode(new_outputs_node),
+                NodeInitState {
+                    props,
+                    registry,
+                    script_engine,
+                    global_state,
+                },
+            )
             .unwrap()
             .value;
 
@@ -514,17 +534,8 @@ impl NodeWrapper {
         self.node.get_value_output(socket_type)
     }
 
-    pub fn process(
-        &mut self,
-        current_time: i64,
-        script_engine: &Engine,
-        inner_graph: Option<(&mut NodeGraph, &Traverser)>,
-    ) -> Result<NodeOk<()>, NodeError> {
-        self.node.process(NodeProcessState {
-            current_time,
-            script_engine,
-            inner_graph: inner_graph,
-        })
+    pub fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        self.node.process(state)
     }
 
     pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {

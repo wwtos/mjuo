@@ -271,6 +271,8 @@ export class NodeGraph {
         return this.subscribeToNode(nodeIndex).pipe(
             map(node => {
                 if (node) {
+                    if (node.properties[propName]) return node.properties[propName];
+
                     const row = node.node_rows.find(nodeRow => {
                         return matchOrElse(nodeRow, 
                             {

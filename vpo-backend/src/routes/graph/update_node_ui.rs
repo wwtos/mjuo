@@ -2,6 +2,7 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
+    global_state::GlobalState,
     node::NodeIndex,
     state::NodeEngineState,
 };
@@ -9,9 +10,8 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
-    state::GlobalState,
+    routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
-    RouteReturn,
 };
 
 pub fn route(

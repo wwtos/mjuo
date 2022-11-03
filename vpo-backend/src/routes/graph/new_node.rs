@@ -2,11 +2,12 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::NodeError,
+    global_state::GlobalState,
     state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
 
-use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
+use crate::{routes::RouteReturn, util::send_graph_updates};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -26,7 +27,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    _global_state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_type = msg["payload"]["type"]
         .as_str()
@@ -39,13 +40,16 @@ pub fn route(
             property_name: "payload.graphIndex".to_string(),
         })?;
 
-    state.commit(ActionBundle::new(vec![Action::CreateNode {
-        node_type: node_type.to_string(),
-        graph_index: graph_index,
-        node_index: None,
-        child_graph_index: None,
-        child_graph_io_indexes: None,
-    }]))?;
+    state.commit(
+        ActionBundle::new(vec![Action::CreateNode {
+            node_type: node_type.to_string(),
+            graph_index: graph_index,
+            node_index: None,
+            child_graph_index: None,
+            child_graph_io_indexes: None,
+        }]),
+        global_state,
+    )?;
 
     // if let Value::Object(ui_data) = &message["payload"]["ui_data"] {
     //     let node = graph.get_node_mut(&index).unwrap();

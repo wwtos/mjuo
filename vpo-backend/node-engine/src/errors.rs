@@ -6,6 +6,7 @@ use serde_json;
 use crate::connection::{SocketDirection, SocketType};
 use crate::graph_manager::GraphIndex;
 use crate::node::{NodeIndex, NodeRow};
+use crate::property::Resource;
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -53,6 +54,8 @@ pub enum NodeError {
     IOError { source: std::io::Error },
     #[snafu(display("Inner graph errors: {errors_and_warnings:?}"))]
     InnerGraphErrors { errors_and_warnings: ErrorsAndWarnings },
+    #[snafu(display("Missing resource: {resource:?}"))]
+    MissingResource { resource: Resource },
 }
 
 impl NodeError {
@@ -74,6 +77,8 @@ impl From<ErrorInContext> for NodeError {
 pub enum NodeWarning {
     #[snafu(display("Value of type `{return_type}` was returned, ignoring"))]
     RhaiInvalidReturnType { return_type: String },
+    #[snafu(display("Rhai execution failed: {err} (script: `{script}`)"))]
+    RhaiExecutionFailure { err: EvalAltResult, script: String },
     #[snafu(display("Rhai parser failure: {parser_error}"))]
     RhaiParserFailure { parser_error: ParseError },
 }
@@ -108,6 +113,14 @@ pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
 #[derive(Debug)]
 pub struct Warnings {
     pub warnings: Vec<NodeWarning>,
+}
+
+impl Warnings {
+    pub fn warning(warning: NodeWarning) -> Warnings {
+        Warnings {
+            warnings: vec![warning],
+        }
+    }
 }
 
 #[derive(Debug, Default)]

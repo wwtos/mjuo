@@ -2,6 +2,7 @@ use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserErrorInContextSnafu, NodeError},
+    global_state::GlobalState,
     graph_manager::GlobalNodeIndex,
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
@@ -9,7 +10,7 @@ use node_engine::{
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{state::GlobalState, util::send_graph_updates, RouteReturn};
+use crate::{routes::RouteReturn, util::send_graph_updates};
 
 /// this function creates a new node in the graph based on the provided data
 ///
@@ -29,7 +30,7 @@ pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    _global_state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_index: NodeIndex =
         serde_json::from_value(msg["payload"]["nodeIndex"].clone()).context(JsonParserErrorInContextSnafu {
@@ -42,17 +43,20 @@ pub fn route(
             property_name: "payload.graphIndex".to_string(),
         })?;
 
-    state.commit(ActionBundle::new(vec![Action::RemoveNode {
-        node_type: None,
-        index: GlobalNodeIndex {
-            node_index: node_index,
-            graph_index: graph_index,
-        },
-        connections: None,
-        serialized: None,
-        child_graph_index: None,
-        child_graph_io_indexes: None,
-    }]))?;
+    state.commit(
+        ActionBundle::new(vec![Action::RemoveNode {
+            node_type: None,
+            index: GlobalNodeIndex {
+                node_index: node_index,
+                graph_index: graph_index,
+            },
+            connections: None,
+            serialized: None,
+            child_graph_index: None,
+            child_graph_io_indexes: None,
+        }]),
+        global_state,
+    )?;
 
     send_graph_updates(state, graph_index, to_server)?;
 

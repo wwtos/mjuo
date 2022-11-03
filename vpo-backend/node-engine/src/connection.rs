@@ -139,6 +139,7 @@ impl Primitive {
     #[inline]
     pub fn as_int(self) -> Option<i32> {
         match self {
+            Primitive::Float(float) => Some(float as i32),
             Primitive::Int(int) => Some(int),
             Primitive::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
             _ => None,
@@ -148,6 +149,8 @@ impl Primitive {
     #[inline]
     pub fn as_boolean(self) -> Option<bool> {
         match self {
+            Primitive::Float(float) => Some(float > 0.01),
+            Primitive::Int(int) => Some(int > 0),
             Primitive::Boolean(boolean) => Some(boolean),
             _ => None,
         }
