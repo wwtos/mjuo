@@ -3,7 +3,11 @@
     import { NodeIndex } from "../node-engine/node_index";
     import { NodeWrapper, SocketValue } from "../node-engine/node";
     import { NodeGraph } from "../node-engine/node_graph";
-    import { SocketType, SocketDirection, socketToKey } from "../node-engine/connection";
+    import {
+        SocketType,
+        SocketDirection,
+        socketToKey,
+    } from "../node-engine/connection";
     import { socketTypeToString } from "./interpolation";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { i18n } from "../i18n.js";
@@ -30,7 +34,11 @@
                 socketDirection: SocketDirection;
                 value: SocketValue;
             };
-            PropertyRow: { propName: string; propType: PropertyType; defaultValue: Property };
+            PropertyRow: {
+                propName: string;
+                propType: PropertyType;
+                defaultValue: Property;
+            };
             InnerGraphRow: {};
         }
     >;
@@ -38,7 +46,9 @@
     let sockets: ReducedRowType[] = [];
     $: sockets = wrapper.node_rows.map((nodeRow) =>
         match(nodeRow, {
-            StreamInput: ({ data: [streamInput, defaultValue] }): ReducedRowType => ({
+            StreamInput: ({
+                data: [streamInput, defaultValue],
+            }): ReducedRowType => ({
                 variant: "SocketRow",
                 socketType: { variant: "Stream", data: streamInput },
                 socketDirection: SocketDirection.Input,
