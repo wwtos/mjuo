@@ -10,7 +10,7 @@ use node_engine::{
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{routes::RouteReturn, util::send_graph_updates};
 
 /// this function creates a new node in the graph based on the provided data
 ///

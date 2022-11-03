@@ -8,7 +8,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
 use serde_json::{json, Value};
 
-use crate::{io::load, RouteReturn};
+use crate::{io::load, routes::RouteReturn};
 
 pub fn route(
     msg: Value,

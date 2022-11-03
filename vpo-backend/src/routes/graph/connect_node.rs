@@ -8,7 +8,7 @@ use node_engine::{
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{routes::RouteReturn, util::send_graph_updates};
 
 pub fn route(
     msg: Value,

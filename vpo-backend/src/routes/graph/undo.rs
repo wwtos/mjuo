@@ -3,7 +3,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
 use serde_json::Value;
 
-use crate::{util::send_graph_updates, RouteReturn};
+use crate::{routes::RouteReturn, util::send_graph_updates};
 
 pub fn route(
     _msg: Value,

@@ -10,8 +10,8 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
+    routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
-    RouteReturn,
 };
 
 pub fn route(

@@ -4,8 +4,8 @@ use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngin
 use serde_json::Value;
 
 use crate::{
+    routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
-    RouteReturn,
 };
 
 pub fn route(
