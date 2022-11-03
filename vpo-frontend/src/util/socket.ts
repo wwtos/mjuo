@@ -14,6 +14,8 @@ export class IPCSocket {
                     title: "Select a folder to put your project files in",
                     action: "io/openSaveDialog"
                 });
+            } else if (message?.action === "io/loaded") {
+                location.reload();
             }
         })
     }
@@ -130,12 +132,19 @@ export class IPCSocket {
         }
     }
 
-    load (path: string) {
-        this.send({
-            "action": "io/load",
-            "payload": {
-                "path": path
-            }
-        });
+    load (path?: string) {
+        if (path) {
+            this.send({
+                "action": "io/load",
+                "payload": {
+                    "path": path
+                }
+            });
+        } else {
+            this.ipcRenderer.send("action", {
+                title: "Please select a project",
+                action: "io/openLoadDialog"
+            });
+        }        
     }
 }

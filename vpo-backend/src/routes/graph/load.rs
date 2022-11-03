@@ -3,23 +3,33 @@ use std::{
     str::FromStr,
 };
 
-use async_std::channel::Sender;
+use async_std::{channel::Sender, task::block_on};
 use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::{io::load, RouteReturn};
 
 pub fn route(
     msg: Value,
-    _to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     if let Value::String(path) = &msg["payload"]["path"] {
+        state.clear_history();
         load(state, Path::new(path), global_state)?;
 
         global_state.active_project = Some(PathBuf::from_str(path).unwrap());
+
+        block_on(async {
+            to_server
+                .send(IPCMessage::Json(json! {{
+                    "action": "io/loaded",
+                }}))
+                .await
+        })
+        .unwrap();
 
         Ok(None)
     } else {

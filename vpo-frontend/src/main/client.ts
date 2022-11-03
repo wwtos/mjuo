@@ -1,13 +1,13 @@
 // @ts-ignore
 import Net from 'net';
-import { makeTaggedUnion, MemberType, none } from 'safety-match';
+import { DiscriminatedUnion } from '../util/discriminated-union';
 
-var RawMessage = makeTaggedUnion({
-    "Ping": none,
-    "Pong": none,
-    "Data": (data: number[]) => data,
-    "Json": (json: object) => json
-});
+type RawMessage = DiscriminatedUnion<"variant", {
+    "Ping": {},
+    "Pong": {},
+    "Data": { data: number[] },
+    "Json": { data: object }
+}>;
 
 const port = 26642;
 const host = '127.0.0.1';
@@ -40,8 +40,14 @@ function buildMessage(protocol: MessageType, message: Uint8Array) {
     return final_message;
 }
 
+let first_time = true;
+
 client.on("error", () => {
-    console.error("unable to connect to server");
+    if (first_time) {
+        console.error("unable to connect to server");
+
+        first_time = false;
+    }
 });
 
 class Client {
@@ -80,12 +86,22 @@ class Client {
                     if (this.data.length === this.dataToRead) {
                         switch (this.dataReadingType) {
                             case MessageType.DATA_BINARY:
-                                this.messages.push(RawMessage.Data(this.data.slice()));
-                                this.trigger("message", RawMessage.Data(this.data.slice()));
+                                this.messages.push({ "variant": "Data", data: this.data.slice() });
+                                this.trigger("message", { "variant": "Data", data: this.data.slice() });
                             break;
                             case MessageType.DATA_JSON:
-                                this.messages.push(RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))]));
-                                this.trigger("message", RawMessage.Json([JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))]));
+                                this.messages.push({
+                                    "variant": "Json",
+                                    data: [
+                                        JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))
+                                    ]
+                                });
+                                this.trigger("message", {
+                                    "variant": "Json",
+                                    data: [
+                                        JSON.parse(textDecoder.decode(Uint8Array.from(this.data)))
+                                    ]
+                                });
                             break;
                         }
         
@@ -102,11 +118,11 @@ class Client {
         
                 switch (messageType) {
                     case MessageType.PING:
-                        this.trigger("message", RawMessage.Ping);
+                        this.trigger("message", {"variant": "Ping" });
                         pointer++;
                         continue;
                     case MessageType.PONG:
-                        this.trigger("message", RawMessage.Pong);
+                        this.trigger("message", {"variant": "Pong" });
                         pointer++;
                         continue;
                     case MessageType.DATA_BINARY:

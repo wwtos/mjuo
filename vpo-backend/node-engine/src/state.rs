@@ -153,6 +153,11 @@ impl NodeEngineState {
         }
     }
 
+    pub fn clear_history(&mut self) {
+        self.history.clear();
+        self.place_in_history = 0;
+    }
+
     pub fn get_graph_manager(&mut self) -> &mut GraphManager {
         &mut self.graph_manager
     }

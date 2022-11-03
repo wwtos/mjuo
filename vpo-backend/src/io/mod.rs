@@ -28,7 +28,7 @@ pub fn load(state: &mut NodeEngineState, path: &Path, global_state: &GlobalState
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     // TODO: version handling and migrations here
-
+    state.clear_history();
     state.apply_json(json["state"].take(), global_state)?;
 
     Ok(())
