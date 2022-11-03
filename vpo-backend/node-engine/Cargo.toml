@@ -6,11 +6,11 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-asset-manager = {path = "../asset-manager"}
 async-std = "1.10.0"
 enum_dispatch = "0.3.8"
 lazy_static = "1.4.0"
 petgraph = "0.6.0"
+resource-manager = {path = "../resource-manager"}
 rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"

@@ -37,13 +37,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "asset-manager"
-version = "0.1.0"
-dependencies = [
- "snafu",
-]
-
-[[package]]
 name = "async-channel"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -935,11 +928,11 @@ dependencies = [
 name = "node-engine"
 version = "0.1.0"
 dependencies = [
- "asset-manager",
  "async-std",
  "enum_dispatch",
  "lazy_static",
  "petgraph",
+ "resource-manager",
  "rhai",
  "serde",
  "serde_json",
@@ -1224,6 +1217,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a3f87b73ce11b1619a3c6332f45341e0047173771e8b8b73f87bfeefb7b56244"
 
 [[package]]
+name = "resource-manager"
+version = "0.1.0"
+dependencies = [
+ "snafu",
+]
+
+[[package]]
 name = "rhai"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1434,11 +1434,11 @@ name = "sound-engine"
 version = "0.1.0"
 dependencies = [
  "alsa",
- "asset-manager",
  "cpal",
  "lazy_static",
  "libpulse-binding",
  "libpulse-simple-binding",
+ "resource-manager",
  "ringbuf",
  "rodio",
  "serde",
@@ -1617,11 +1617,11 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vpo-backend"
 version = "0.1.0"
 dependencies = [
- "asset-manager",
  "async-std",
  "hyper",
  "ipc",
  "node-engine",
+ "resource-manager",
  "rhai",
  "routerify",
  "serde",

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
+use sound_engine::SoundConfig;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
 use crate::errors::{NodeError, NodeOk};
@@ -37,7 +38,7 @@ fn graph_node_crud() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add a new node
     let first_node_index = graph
@@ -133,7 +134,7 @@ fn graph_connecting() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add two new nodes
     let first_node_index = graph
@@ -329,7 +330,7 @@ fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
     let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new();
+    let global_state = &GlobalState::new(SoundConfig::default());
 
     // set up a simple network
     let first_node = graph

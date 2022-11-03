@@ -1,6 +1,6 @@
 use std::{fs::File, io::BufReader, path::Path};
 
-use asset_manager::{Asset, IOSnafu, LoadingError};
+use resource_manager::{IOSnafu, LoadingError, Resource};
 use rodio::{Decoder, Source};
 use snafu::ResultExt;
 use std;
@@ -22,6 +22,12 @@ pub struct SoundConfig {
     pub sample_rate: u32,
 }
 
+impl Default for SoundConfig {
+    fn default() -> Self {
+        SoundConfig { sample_rate: 200 }
+    }
+}
+
 pub struct MonoSample {
     pub audio_raw: Vec<f32>,
     pub sample_rate: u32,
@@ -36,8 +42,8 @@ impl Default for MonoSample {
     }
 }
 
-impl Asset for MonoSample {
-    fn load_asset(path: &Path) -> Result<Self, LoadingError>
+impl Resource for MonoSample {
+    fn load_resource(path: &Path) -> Result<Self, LoadingError>
     where
         Self: Sized,
     {

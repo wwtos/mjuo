@@ -3,12 +3,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use asset_manager::{Asset, AssetManager};
 use node_engine::{
     errors::{IOSnafu, JsonParserSnafu, NodeError},
     global_state::GlobalState,
     state::NodeEngineState,
 };
+use resource_manager::{Resource, ResourceManager};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use walkdir::WalkDir;
@@ -28,7 +28,7 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     Ok(())
 }
 
-fn load_assets<T: Asset>(path: &Path, assets: &mut AssetManager<T>) {
+fn load_assets<T: Resource>(path: &Path, assets: &mut ResourceManager<T>) {
     let asset_list: Vec<(PathBuf, String)> = WalkDir::new(path)
         .follow_links(true)
         .into_iter()

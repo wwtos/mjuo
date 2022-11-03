@@ -11,41 +11,41 @@ pub enum LoadingError {
     Other { source: Box<dyn std::error::Error> },
 }
 
-pub trait Asset {
-    fn load_asset(path: &Path) -> Result<Self, LoadingError>
+pub trait Resource {
+    fn load_resource(path: &Path) -> Result<Self, LoadingError>
     where
         Self: Sized;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct AssetIndex {
+pub struct ResourceIndex {
     pub index: usize,
     pub generation: u32,
 }
 
-pub enum PossibleAsset<A: Asset> {
+pub enum PossibleResource<A: Resource> {
     Some(A, u32),
     None(u32),
 }
 
 #[derive(Default)]
-pub struct AssetManager<A: Asset> {
-    assets: Vec<PossibleAsset<A>>,
-    asset_mapping: HashMap<String, AssetIndex>,
+pub struct ResourceManager<A: Resource> {
+    assets: Vec<PossibleResource<A>>,
+    asset_mapping: HashMap<String, ResourceIndex>,
 }
 
-impl<A: Asset> AssetManager<A> {
-    pub fn new() -> AssetManager<A> {
-        AssetManager {
+impl<A: Resource> ResourceManager<A> {
+    pub fn new() -> ResourceManager<A> {
+        ResourceManager {
             assets: Vec::new(),
             asset_mapping: HashMap::new(),
         }
     }
 
-    fn add_asset(&mut self, asset: A) -> AssetIndex {
+    fn add_asset(&mut self, asset: A) -> ResourceIndex {
         // check if there's an opening
         let possible_opening = self.assets.iter().position(|asset| {
-            if let PossibleAsset::Some(..) = asset {
+            if let PossibleResource::Some(..) = asset {
                 false
             } else {
                 true
@@ -55,13 +55,13 @@ impl<A: Asset> AssetManager<A> {
         // put the new asset in the opening
         if let Some(opening) = possible_opening {
             let new_generation = match self.assets[opening] {
-                PossibleAsset::Some(..) => unreachable!(),
-                PossibleAsset::None(generation) => generation + 1,
+                PossibleResource::Some(..) => unreachable!(),
+                PossibleResource::None(generation) => generation + 1,
             };
 
-            self.assets[opening] = PossibleAsset::Some(asset, new_generation);
+            self.assets[opening] = PossibleResource::Some(asset, new_generation);
 
-            AssetIndex {
+            ResourceIndex {
                 index: opening,
                 generation: new_generation,
             }
@@ -70,26 +70,26 @@ impl<A: Asset> AssetManager<A> {
             let index = self.assets.len();
             let new_generation = 0;
 
-            self.assets.push(PossibleAsset::Some(asset, new_generation));
+            self.assets.push(PossibleResource::Some(asset, new_generation));
 
-            AssetIndex {
+            ResourceIndex {
                 index,
                 generation: new_generation,
             }
         }
     }
 
-    pub fn get_index(&self, key: &str) -> Option<AssetIndex> {
+    pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {
         self.asset_mapping.get(key).map(|x| *x)
     }
 
-    pub fn request_asset(&mut self, key: String, location: &Path) -> Result<AssetIndex, LoadingError> {
+    pub fn request_asset(&mut self, key: String, location: &Path) -> Result<ResourceIndex, LoadingError> {
         // check if we've loaded this asset already
         if let Some(asset_index) = self.asset_mapping.get(&key) {
             Ok(*asset_index)
         } else {
             // else, load and register it
-            let new_asset = A::load_asset(location)?;
+            let new_asset = A::load_resource(location)?;
             let asset_index = self.add_asset(new_asset);
 
             // now add the mapping
@@ -99,19 +99,19 @@ impl<A: Asset> AssetManager<A> {
         }
     }
 
-    pub fn borrow_asset(&self, index: AssetIndex) -> Option<&A> {
+    pub fn borrow_asset(&self, index: ResourceIndex) -> Option<&A> {
         if index.index >= self.assets.len() {
             None
         } else {
             match &self.assets[index.index] {
-                PossibleAsset::Some(asset, generation) => {
+                PossibleResource::Some(asset, generation) => {
                     if index.generation == *generation {
                         Some(&asset)
                     } else {
                         None
                     }
                 }
-                PossibleAsset::None(_) => None,
+                PossibleResource::None(_) => None,
             }
         }
     }

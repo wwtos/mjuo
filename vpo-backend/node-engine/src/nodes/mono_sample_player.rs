@@ -1,4 +1,4 @@
-use asset_manager::AssetIndex;
+use resource_manager::ResourceIndex;
 use sound_engine::{node::mono_buffer_player::MonoBufferPlayer, SoundConfig};
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
 pub struct MonoSamplePlayerNode {
     player: Option<MonoBufferPlayer>,
     playing: bool,
-    index: AssetIndex,
+    index: ResourceIndex,
     config: SoundConfig,
     output: f32,
 }
@@ -22,7 +22,7 @@ impl MonoSamplePlayerNode {
         MonoSamplePlayerNode {
             player: None,
             playing: false,
-            index: AssetIndex {
+            index: ResourceIndex {
                 index: 0,
                 generation: 0,
             },
