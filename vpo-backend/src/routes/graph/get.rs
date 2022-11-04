@@ -5,14 +5,14 @@ use serde_json::Value;
 
 use crate::{
     routes::RouteReturn,
-    util::{send_graph_updates, send_registry_updates},
+    util::{send_global_state_updates, send_graph_updates, send_registry_updates},
 };
 
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
-    _global_state: &mut GlobalState,
+    global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let graph_index = msg["payload"]["graphIndex"]
         .as_u64()
@@ -22,6 +22,7 @@ pub fn route(
 
     send_graph_updates(state, graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server).unwrap();
+    send_global_state_updates(global_state, to_server)?;
 
     Ok(None)
 }

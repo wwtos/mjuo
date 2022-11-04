@@ -52,7 +52,7 @@ impl Resource for Sample {
     where
         Self: Sized,
     {
-        // first, get the sample metadata (if it exists)
+        // next, get the sample metadata (if it exists)
         let mut sample: Sample = Sample::default();
         let metadata_path = path.with_extension("json");
         if let Ok(does_exist) = path.with_extension("json").try_exists() {

@@ -8,6 +8,7 @@ use std::{
     thread::available_parallelism,
 };
 
+use serde::{ser::SerializeSeq, Serialize};
 use serde_json;
 use snafu::Snafu;
 use threadpool::ThreadPool;
@@ -44,6 +45,24 @@ pub enum PossibleResource<A: Resource> {
 pub struct ResourceManager<A: Resource> {
     resources: Vec<PossibleResource<A>>,
     resource_mapping: HashMap<String, ResourceIndex>,
+}
+
+impl<A> Serialize for ResourceManager<A>
+where
+    A: Resource + Debug + Send + Sync + 'static,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+
+        for resource in self.as_keys() {
+            seq.serialize_element(&resource)?;
+        }
+
+        seq.end()
+    }
 }
 
 impl<A> ResourceManager<A>

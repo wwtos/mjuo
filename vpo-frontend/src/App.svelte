@@ -12,6 +12,7 @@
         ipcSocket,
         socketRegistry,
         activeEditor,
+        globalState,
     } from "./node-editor/state";
     import { BehaviorSubject } from "rxjs";
     import { onMount } from "svelte";
@@ -47,6 +48,8 @@
             graphManager.applyJson(message);
         } else if (message.action === "registry/updateRegistry") {
             $socketRegistry.applyJson(message.payload);
+        } else if (message.action === "state/updateGlobalState") {
+            globalState.next(message.payload);
         }
     });
 

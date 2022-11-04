@@ -38,13 +38,15 @@ where
         .filter_map(|e| {
             if let Ok(res) = e {
                 if res.metadata().unwrap().is_file() {
-                    Some(res)
-                } else {
-                    None
+                    if let Some(extension) = res.path().extension() {
+                        if let Some("mp3" | "ogg" | "wav" | "flac") = extension.to_str() {
+                            return Some(res);
+                        }
+                    }
                 }
-            } else {
-                None
             }
+
+            None
         })
         .map(|asset| {
             let asset_key = asset.path().strip_prefix(path).unwrap().to_string_lossy().to_string();
