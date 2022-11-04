@@ -32,7 +32,7 @@ fn load_assets<T>(path: &Path, assets: &mut ResourceManager<T>) -> Result<(), Lo
 where
     T: Resource + Send + Sync + Debug + 'static,
 {
-    let asset_list: Vec<(String, PathBuf)> = WalkDir::new(path)
+    let asset_list = WalkDir::new(path)
         .follow_links(true)
         .into_iter()
         .filter_map(|e| {
@@ -49,8 +49,7 @@ where
         .map(|asset| {
             let asset_key = asset.path().strip_prefix(path).unwrap().to_string_lossy().to_string();
             (asset_key, PathBuf::from(asset.path()))
-        })
-        .collect();
+        });
 
     assets.request_resources_parallel(asset_list)
 }

@@ -98,10 +98,10 @@ where
         self.resource_mapping.get(key).map(|x| *x)
     }
 
-    pub fn request_resources_parallel(
-        &mut self,
-        resources_to_load: Vec<(String, PathBuf)>,
-    ) -> Result<(), LoadingError> {
+    pub fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    where
+        I: Iterator<Item = (String, PathBuf)>,
+    {
         // create the structures to populate
         let resources: Arc<Mutex<HashMap<String, A>>> = Arc::new(Mutex::new(HashMap::new()));
 
