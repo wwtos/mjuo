@@ -57,6 +57,14 @@ where
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.resource_mapping.len()
+    }
+
+    pub fn as_keys(&self) -> Vec<String> {
+        self.resource_mapping.keys().cloned().collect()
+    }
+
     fn add_resource(&mut self, resource: A) -> ResourceIndex {
         // check if there's an opening
         let possible_opening = self.resources.iter().position(|resource| {

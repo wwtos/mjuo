@@ -56,9 +56,9 @@ where
 
 pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), NodeError> {
     *state = NodeEngineState::new(&global_state);
-    global_state.assets.samples.clear();
+    global_state.resources.samples.clear();
 
-    load_assets(&path.join("samples"), &mut global_state.assets.samples).context(LoadingSnafu)?;
+    load_assets(&path.join("samples"), &mut global_state.resources.samples).context(LoadingSnafu)?;
 
     let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;

@@ -1,6 +1,8 @@
 use std;
 use std::fmt::Debug;
 
+use serde::Serialize;
+
 pub mod backend;
 pub mod error;
 pub mod midi;
@@ -13,7 +15,7 @@ pub mod wave;
 
 pub type SamplePoint = i16;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SoundConfig {
     pub sample_rate: u32,
 }

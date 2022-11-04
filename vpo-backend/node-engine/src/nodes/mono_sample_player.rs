@@ -39,7 +39,7 @@ impl Node for MonoSamplePlayerNode {
         if let Some(Some(resource)) = state.props.get("sample").map(|sample| sample.clone().as_resource()) {
             let new_index = state
                 .global_state
-                .assets
+                .resources
                 .samples
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource: resource })?;
@@ -51,7 +51,12 @@ impl Node for MonoSamplePlayerNode {
         }
 
         if self.player.is_none() || did_index_change {
-            let sample = state.global_state.assets.samples.borrow_resource(self.index).unwrap();
+            let sample = state
+                .global_state
+                .resources
+                .samples
+                .borrow_resource(self.index)
+                .unwrap();
 
             self.player = Some(MonoBufferPlayer::new(&self.config, &sample.buffer));
         }
@@ -73,7 +78,12 @@ impl Node for MonoSamplePlayerNode {
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         if let Some(player) = &mut self.player {
             if self.playing {
-                let buffer = state.global_state.assets.samples.borrow_resource(self.index).unwrap();
+                let buffer = state
+                    .global_state
+                    .resources
+                    .samples
+                    .borrow_resource(self.index)
+                    .unwrap();
                 self.output = player.get_next_sample(&buffer.buffer);
             } else {
                 self.output = 0.0;
