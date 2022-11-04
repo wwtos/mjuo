@@ -7,7 +7,6 @@
     import { NodeGraph, PossibleNode } from "../node-engine/node_graph";
     import { NodeWrapper } from "../node-engine/node";
     import {
-        MidiSocketType,
         SocketDirection,
         socketToKey,
         Connection,
@@ -21,8 +20,6 @@
     } from "../util/mouse-transforms";
     import { variants } from "../node-engine/variants";
     import { i18nStore } from "../i18n.js";
-    import { get } from "svelte/store";
-    import { MemberType } from "safety-match";
     import { BehaviorSubject, Subject, Subscription } from "rxjs";
     import type { SocketEvent } from "./socket";
 
@@ -67,86 +64,79 @@
 
     let selectedNodes: NodeIndex[] = [];
 
-    onMount(async () => {
-        editor.addEventListener("keydown", (event) => {
-            if (event.ctrlKey) {
-                switch (event.key) {
-                    case "z":
-                        if (event.shiftKey) {
-                            ipcSocket.redo();
-                        } else {
-                            ipcSocket.undo();
-                        }
-                        break;
-                    case "y":
+    const onKeydown = (event) => {
+        if (event.ctrlKey) {
+            switch (event.key) {
+                case "z":
+                    if (event.shiftKey) {
                         ipcSocket.redo();
-                        break;
-                }
-            } else {
-                switch (event.key) {
-                    case "Delete":
-                        const selected = $activeGraph.nodeStore
-                            .getValue()
-                            .filter((node) => node?.ui_data.selected)
-                            .map((node) => node.index);
-
-                        for (let index of selected) {
-                            ipcSocket.removeNode(
-                                $activeGraph.graphIndex,
-                                index
-                            );
-                        }
-                        break;
-                }
+                    } else {
+                        ipcSocket.undo();
+                    }
+                    break;
+                case "y":
+                    ipcSocket.redo();
+                    break;
             }
-        });
+        } else {
+            switch (event.key) {
+                case "Delete":
+                    const selected = $activeGraph.nodeStore
+                        .getValue()
+                        .filter((node) => node?.ui_data.selected)
+                        .map((node) => node.index);
 
-        window.addEventListener("mousemove", ({ clientX, clientY }) => {
-            // convert window coordinates to editor coordinates
-            let [mouseX, mouseY] = transformMouseRelativeToEditor(
-                editor,
-                zoomer,
-                clientX,
-                clientY
-            );
-
-            // if the mouse was moved and we are dragging a node, update that node's position
-            if (draggedNode) {
-                let node = $activeGraph.getNode(draggedNode);
-
-                draggedNodeWasDragged = true;
-
-                node.ui_data = {
-                    ...node.ui_data,
-                    x: mouseX - draggedOffset[0],
-                    y: mouseY - draggedOffset[1],
-                };
-
-                $activeGraph.updateNode(node.index);
-                $activeGraph.update();
-            } else if (connectionBeingCreated) {
-                connectionBeingCreated.x2 = mouseX;
-                connectionBeingCreated.y2 = mouseY;
+                    for (let index of selected) {
+                        ipcSocket.removeNode($activeGraph.graphIndex, index);
+                    }
+                    break;
             }
-        });
+        }
+    };
 
-        window.addEventListener("mouseup", function () {
-            if (draggedNode && draggedNodeWasDragged) {
-                $activeGraph.markNodeAsUpdated(draggedNode);
-                $activeGraph.update();
+    const onMousemove = ({ clientX, clientY }) => {
+        // convert window coordinates to editor coordinates
+        let [mouseX, mouseY] = transformMouseRelativeToEditor(
+            editor,
+            zoomer,
+            clientX,
+            clientY
+        );
 
-                draggedNodeWasDragged = false;
-            }
+        // if the mouse was moved and we are dragging a node, update that node's position
+        if (draggedNode) {
+            let node = $activeGraph.getNode(draggedNode);
 
-            $activeGraph.writeChangedNodesToServer();
+            draggedNodeWasDragged = true;
 
-            zoomer.resume();
-            draggedNode = null;
-            connectionBeingCreated = null;
-        });
+            node.ui_data = {
+                ...node.ui_data,
+                x: mouseX - draggedOffset[0],
+                y: mouseY - draggedOffset[1],
+            };
 
-        zoomer = panzoom(nodeContainer);
-    });
+            $activeGraph.updateNode(node.index);
+            $activeGraph.update();
+        } else if (connectionBeingCreated) {
+            connectionBeingCreated.x2 = mouseX;
+            connectionBeingCreated.y2 = mouseY;
+        }
+    };
+
+    const onMouseup = () => {
+        if (draggedNode && draggedNodeWasDragged) {
+            $activeGraph.markNodeAsUpdated(draggedNode);
+            $activeGraph.update();
+
+            draggedNodeWasDragged = false;
+        }
+
+        $activeGraph.writeChangedNodesToServer();
+
+        zoomer.resume();
+        draggedNode = null;
+        connectionBeingCreated = null;
+    };
 
     function createNode(e: MouseEvent) {
         e.stopPropagation();
@@ -375,12 +365,24 @@
 
         changeGraphTo(graphIndex);
     }
+
+    onMount(async () => {
+        editor.addEventListener("keydown", onKeydown);
+
+        window.addEventListener("mousemove", onMousemove);
+        window.addEventListener("mouseup", onMouseup);
+
+        zoomer = panzoom(nodeContainer);
+    });
 </script>
+
+<svelte:window on:mousemove={onMousemove} on:mouseup={onMouseup} />
 
 <div
     class="editor"
     style="width: {width}px; height: {height}px"
     bind:this={editor}
+    on:keydown={onKeydown}
 >
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
         <div style="position: absolute; height: 0px; z-index: -10">

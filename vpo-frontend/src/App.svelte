@@ -11,9 +11,11 @@
         graphManager,
         ipcSocket,
         socketRegistry,
+        activeEditor,
     } from "./node-editor/state";
     import { BehaviorSubject } from "rxjs";
     import { onMount } from "svelte";
+    import FileEditor from "./file-editor/FileEditor.svelte";
 
     const ipc = (window as any).ipcRenderer;
     let newIpcSocket: any = new IPCSocket(ipc);
@@ -59,6 +61,21 @@
     let activeGraph = new BehaviorSubject<NodeGraph>(
         graphManager.getRootGraph()
     );
+
+    let editorState = {
+        nodes: {
+            ipcSocket: newIpcSocket,
+            activeGraph,
+        },
+        files: {
+            ipcSocket: newIpcSocket,
+        },
+    };
+
+    let editorMapping = {
+        nodes: NodeEditor,
+        files: FileEditor,
+    };
 </script>
 
 <main>
@@ -73,11 +90,8 @@
         hasFixedWidth={true}
         fixedWidth={48}
         firstPanel={SideNavbar}
-        secondPanel={NodeEditor}
-        secondState={{
-            ipcSocket: newIpcSocket,
-            activeGraph: activeGraph,
-        }}
+        secondPanel={editorMapping[$activeEditor]}
+        secondState={editorState[$activeEditor]}
     />
     <Toasts ipcSocket={newIpcSocket} />
     <!-- <SplitView 

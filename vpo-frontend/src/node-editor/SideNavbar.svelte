@@ -5,22 +5,31 @@
         LayersIcon,
     } from "svelte-feather-icons";
 
-    let active = 0;
+    import { activeEditor } from "./state";
 </script>
 
 <nav>
     <ul>
-        <li class:active={active === 0} on:click={() => (active = 0)}>
+        <li
+            class:active={$activeEditor === "nodes"}
+            on:click={() => activeEditor.next("nodes")}
+        >
             <span style="padding-left: 2px">
                 <GitPullRequestIcon size="30" strokeWidth="1.5" />
             </span>
         </li>
-        <li class:active={active === 1} on:click={() => (active = 1)}>
+        <li
+            class:active={$activeEditor === "ui"}
+            on:click={() => activeEditor.next("ui")}
+        >
             <span style="padding-left: 2px">
                 <LayersIcon size="30" strokeWidth="1.5" />
             </span>
         </li>
-        <li class:active={active === 2} on:click={() => (active = 2)}>
+        <li
+            class:active={$activeEditor === "files"}
+            on:click={() => activeEditor.next("files")}
+        >
             <span style="padding-left: 2px">
                 <FolderIcon size="30" strokeWidth="1.5" />
             </span>
