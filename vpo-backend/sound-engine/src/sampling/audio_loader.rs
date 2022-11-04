@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::{self, File},
     io::{BufReader, Read},
     path::Path,
 };
@@ -9,13 +9,15 @@ use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
-use crate::MonoSample;
+use crate::{midi::messages::Note, MonoSample};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
     pub loop_start: Option<usize>,
     pub loop_end: Option<usize>,
     pub release: Option<usize>,
+    pub note: Option<Note>,
+    pub cents: Option<i16>,
     #[serde(skip)]
     pub buffer: MonoSample,
 }
@@ -26,6 +28,8 @@ impl Default for Sample {
             loop_start: Some(0),
             loop_end: Some(100),
             release: Some(100),
+            note: Some(69),
+            cents: Some(0),
             buffer: MonoSample::default(),
         }
     }
@@ -39,6 +43,10 @@ fn load_sample(path: &Path) -> Result<Sample, LoadingError> {
     serde_json::from_str(&data).context(ParserSnafu)
 }
 
+fn save_sample_metadata(path: &Path, metadata: &Sample) -> Result<(), LoadingError> {
+    fs::write(path, serde_json::to_string_pretty(metadata).context(ParserSnafu)?).context(IOSnafu)
+}
+
 impl Resource for Sample {
     fn load_resource(path: &Path) -> Result<Self, LoadingError>
     where
@@ -46,9 +54,12 @@ impl Resource for Sample {
     {
         // first, get the sample metadata (if it exists)
         let mut sample: Sample = Sample::default();
+        let metadata_path = path.with_extension("json");
         if let Ok(does_exist) = path.with_extension("json").try_exists() {
             if does_exist {
-                sample = load_sample(&path.with_extension("json"))?;
+                sample = load_sample(&metadata_path)?;
+            } else {
+                save_sample_metadata(&metadata_path, &sample)?;
             }
         }
 
