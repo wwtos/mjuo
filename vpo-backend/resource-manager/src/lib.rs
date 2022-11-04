@@ -1,6 +1,15 @@
-use std::{collections::HashMap, io, path::Path};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    io,
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+    thread::available_parallelism,
+};
 
 use snafu::Snafu;
+use threadpool::ThreadPool;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -30,47 +39,50 @@ pub enum PossibleResource<A: Resource> {
 
 #[derive(Default)]
 pub struct ResourceManager<A: Resource> {
-    assets: Vec<PossibleResource<A>>,
-    asset_mapping: HashMap<String, ResourceIndex>,
+    resources: Vec<PossibleResource<A>>,
+    resource_mapping: HashMap<String, ResourceIndex>,
 }
 
-impl<A: Resource> ResourceManager<A> {
+impl<A> ResourceManager<A>
+where
+    A: Resource + Debug + Send + Sync + 'static,
+{
     pub fn new() -> ResourceManager<A> {
         ResourceManager {
-            assets: Vec::new(),
-            asset_mapping: HashMap::new(),
+            resources: Vec::new(),
+            resource_mapping: HashMap::new(),
         }
     }
 
-    fn add_asset(&mut self, asset: A) -> ResourceIndex {
+    fn add_resource(&mut self, resource: A) -> ResourceIndex {
         // check if there's an opening
-        let possible_opening = self.assets.iter().position(|asset| {
-            if let PossibleResource::Some(..) = asset {
+        let possible_opening = self.resources.iter().position(|resource| {
+            if let PossibleResource::Some(..) = resource {
                 false
             } else {
                 true
             }
         });
 
-        // put the new asset in the opening
+        // put the new resource in the opening
         if let Some(opening) = possible_opening {
-            let new_generation = match self.assets[opening] {
+            let new_generation = match self.resources[opening] {
                 PossibleResource::Some(..) => unreachable!(),
                 PossibleResource::None(generation) => generation + 1,
             };
 
-            self.assets[opening] = PossibleResource::Some(asset, new_generation);
+            self.resources[opening] = PossibleResource::Some(resource, new_generation);
 
             ResourceIndex {
                 index: opening,
                 generation: new_generation,
             }
         } else {
-            // else, expand the asset length
-            let index = self.assets.len();
+            // else, expand the resource length
+            let index = self.resources.len();
             let new_generation = 0;
 
-            self.assets.push(PossibleResource::Some(asset, new_generation));
+            self.resources.push(PossibleResource::Some(resource, new_generation));
 
             ResourceIndex {
                 index,
@@ -80,33 +92,62 @@ impl<A: Resource> ResourceManager<A> {
     }
 
     pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {
-        self.asset_mapping.get(key).map(|x| *x)
+        self.resource_mapping.get(key).map(|x| *x)
     }
 
-    pub fn request_asset(&mut self, key: String, location: &Path) -> Result<ResourceIndex, LoadingError> {
-        // check if we've loaded this asset already
-        if let Some(asset_index) = self.asset_mapping.get(&key) {
-            Ok(*asset_index)
-        } else {
-            // else, load and register it
-            let new_asset = A::load_resource(location)?;
-            let asset_index = self.add_asset(new_asset);
+    pub fn request_resources_parallel(
+        &mut self,
+        resources_to_load: Vec<(String, PathBuf)>,
+    ) -> Result<(), LoadingError> {
+        // create the structures to populate
+        let resources: Arc<Mutex<HashMap<String, A>>> = Arc::new(Mutex::new(HashMap::new()));
 
-            // now add the mapping
-            self.asset_mapping.insert(key, asset_index);
+        let pool = ThreadPool::new(available_parallelism().unwrap_or(NonZeroUsize::new(4).unwrap()).into());
 
-            Ok(asset_index)
+        let existing_resources: Arc<Mutex<Vec<String>>> =
+            Arc::new(Mutex::new(self.resource_mapping.keys().cloned().collect()));
+
+        for resource_to_load in resources_to_load {
+            let resources_cloned = Arc::clone(&resources);
+            let existing_resources_cloned = Arc::clone(&existing_resources);
+            let (key, location) = resource_to_load.clone();
+
+            pool.execute(move || {
+                // check if we've already loaded this resource
+                let existing_resources = existing_resources_cloned.lock().unwrap();
+
+                if let Some(_) = existing_resources.iter().find(|&x| x == &key) {
+                    return;
+                }
+
+                // else, load and register it
+                let new_resource = A::load_resource(&location).unwrap();
+                println!("Loaded: {}", location.to_string_lossy());
+
+                resources_cloned.lock().unwrap().insert(key, new_resource);
+            });
         }
+
+        pool.join();
+
+        let new_resources = Arc::try_unwrap(resources).unwrap().into_inner().unwrap();
+
+        for (key, resource) in new_resources.into_iter() {
+            let resource_index = self.add_resource(resource);
+            self.resource_mapping.insert(key, resource_index);
+        }
+
+        Ok(())
     }
 
-    pub fn borrow_asset(&self, index: ResourceIndex) -> Option<&A> {
-        if index.index >= self.assets.len() {
+    pub fn borrow_resource(&self, index: ResourceIndex) -> Option<&A> {
+        if index.index >= self.resources.len() {
             None
         } else {
-            match &self.assets[index.index] {
-                PossibleResource::Some(asset, generation) => {
+            match &self.resources[index.index] {
+                PossibleResource::Some(resource, generation) => {
                     if index.generation == *generation {
-                        Some(&asset)
+                        Some(&resource)
                     } else {
                         None
                     }
@@ -117,7 +158,7 @@ impl<A: Resource> ResourceManager<A> {
     }
 
     pub fn clear(&mut self) {
-        self.asset_mapping.clear();
-        self.assets.clear();
+        self.resource_mapping.clear();
+        self.resources.clear();
     }
 }
