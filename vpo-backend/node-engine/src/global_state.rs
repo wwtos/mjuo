@@ -1,11 +1,11 @@
 use std::path::PathBuf;
 
 use resource_manager::ResourceManager;
-use sound_engine::{MonoSample, SoundConfig};
+use sound_engine::{sampling::audio_loader::Sample, SoundConfig};
 
 #[derive(Default)]
 pub struct Assets {
-    pub samples: ResourceManager<MonoSample>,
+    pub samples: ResourceManager<Sample>,
 }
 
 pub struct GlobalState {

@@ -1,9 +1,5 @@
-use std::{fs::File, io::BufReader, path::Path};
-
-use resource_manager::{IOSnafu, LoadingError, Resource};
-use rodio::{Decoder, Source};
-use snafu::ResultExt;
 use std;
+use std::fmt::Debug;
 
 pub mod backend;
 pub mod error;
@@ -33,30 +29,18 @@ pub struct MonoSample {
     pub sample_rate: u32,
 }
 
+impl Debug for MonoSample {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[Mono audio sample]")
+    }
+}
+
 impl Default for MonoSample {
     fn default() -> Self {
         MonoSample {
             sample_rate: 44_100,
             audio_raw: Vec::new(),
         }
-    }
-}
-
-impl Resource for MonoSample {
-    fn load_resource(path: &Path) -> Result<Self, LoadingError>
-    where
-        Self: Sized,
-    {
-        let file = BufReader::new(File::open(path).context(IOSnafu)?);
-        let source = Decoder::new(file).unwrap();
-
-        let sample_rate = source.sample_rate();
-        let buffer: Vec<f32> = source.map(|x| x as f32 / i16::MAX as f32).collect();
-
-        Ok(MonoSample {
-            audio_raw: buffer,
-            sample_rate,
-        })
     }
 }
 

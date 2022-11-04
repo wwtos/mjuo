@@ -51,9 +51,9 @@ impl Node for MonoSamplePlayerNode {
         }
 
         if self.player.is_none() || did_index_change {
-            let buffer = state.global_state.assets.samples.borrow_asset(self.index).unwrap();
+            let sample = state.global_state.assets.samples.borrow_resource(self.index).unwrap();
 
-            self.player = Some(MonoBufferPlayer::new(&self.config, buffer));
+            self.player = Some(MonoBufferPlayer::new(&self.config, &sample.buffer));
         }
 
         InitResult::simple(vec![
@@ -73,8 +73,8 @@ impl Node for MonoSamplePlayerNode {
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         if let Some(player) = &mut self.player {
             if self.playing {
-                let buffer = state.global_state.assets.samples.borrow_asset(self.index).unwrap();
-                self.output = player.get_next_sample(buffer);
+                let buffer = state.global_state.assets.samples.borrow_resource(self.index).unwrap();
+                self.output = player.get_next_sample(&buffer.buffer);
             } else {
                 self.output = 0.0;
             }

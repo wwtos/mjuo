@@ -8,6 +8,7 @@ use std::{
     thread::available_parallelism,
 };
 
+use serde_json;
 use snafu::Snafu;
 use threadpool::ThreadPool;
 
@@ -16,6 +17,8 @@ use threadpool::ThreadPool;
 pub enum LoadingError {
     #[snafu(display("IO error: {source}"))]
     IOError { source: io::Error },
+    #[snafu(display("Parser error: {source}"))]
+    ParserError { source: serde_json::Error },
     #[snafu(display("Unknown error: {source}"))]
     Other { source: Box<dyn std::error::Error> },
 }

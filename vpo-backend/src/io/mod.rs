@@ -1,14 +1,14 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::fmt::Debug;
+use std::fs;
+use std::path::{Path, PathBuf};
 
+use node_engine::errors::LoadingSnafu;
 use node_engine::{
     errors::{IOSnafu, JsonParserSnafu, NodeError},
     global_state::GlobalState,
     state::NodeEngineState,
 };
-use resource_manager::{Resource, ResourceManager};
+use resource_manager::{LoadingError, Resource, ResourceManager};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use walkdir::WalkDir;
@@ -28,8 +28,11 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     Ok(())
 }
 
-fn load_assets<T: Resource>(path: &Path, assets: &mut ResourceManager<T>) {
-    let asset_list: Vec<(PathBuf, String)> = WalkDir::new(path)
+fn load_assets<T>(path: &Path, assets: &mut ResourceManager<T>) -> Result<(), LoadingError>
+where
+    T: Resource + Send + Sync + Debug + 'static,
+{
+    let asset_list: Vec<(String, PathBuf)> = WalkDir::new(path)
         .follow_links(true)
         .into_iter()
         .filter_map(|e| {
@@ -45,21 +48,18 @@ fn load_assets<T: Resource>(path: &Path, assets: &mut ResourceManager<T>) {
         })
         .map(|asset| {
             let asset_key = asset.path().strip_prefix(path).unwrap().to_string_lossy().to_string();
-            (PathBuf::from(asset.path()), asset_key)
+            (asset_key, PathBuf::from(asset.path()))
         })
         .collect();
 
-    for (asset_src, asset_key) in asset_list {
-        println!("Loading: {:?}", asset_key);
-        assets.request_asset(asset_key, &asset_src).unwrap();
-    }
+    assets.request_resources_parallel(asset_list)
 }
 
 pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), NodeError> {
     *state = NodeEngineState::new(&global_state);
     global_state.assets.samples.clear();
 
-    load_assets(&path.join("samples"), &mut global_state.assets.samples);
+    load_assets(&path.join("samples"), &mut global_state.assets.samples).context(LoadingSnafu)?;
 
     let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use resource_manager::ResourceManager;
 use serde_json::{json, Value};
 use snafu::ResultExt;
-use sound_engine::{midi::messages::MidiData, MonoSample, SoundConfig};
+use sound_engine::{midi::messages::MidiData, sampling::audio_loader::Sample, SoundConfig};
 
 use crate::{
     connection::{Connection, MidiSocketType, SocketType, StreamSocketType},
@@ -78,7 +78,7 @@ impl ActionBundle {
 
 #[derive(Clone)]
 pub struct AssetBundle<'a> {
-    pub samples: &'a ResourceManager<MonoSample>,
+    pub samples: &'a ResourceManager<Sample>,
 }
 
 pub struct NodeEngineState {

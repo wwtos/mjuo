@@ -1,3 +1,4 @@
+use resource_manager::LoadingError;
 use rhai::{EvalAltResult, ParseError};
 use snafu::Snafu;
 
@@ -56,6 +57,8 @@ pub enum NodeError {
     InnerGraphErrors { errors_and_warnings: ErrorsAndWarnings },
     #[snafu(display("Missing resource: {resource:?}"))]
     MissingResource { resource: Resource },
+    #[snafu(display("Loading error: {source:?}"))]
+    LoadingError { source: LoadingError },
 }
 
 impl NodeError {

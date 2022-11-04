@@ -1,64 +1,72 @@
 use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{self, BufReader},
-    path::{Path, PathBuf},
+    fs::File,
+    io::{BufReader, Read},
+    path::Path,
 };
 
+use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource};
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
+use snafu::ResultExt;
 
-use crate::SamplePoint;
+use crate::MonoSample;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
     pub loop_start: Option<usize>,
     pub loop_end: Option<usize>,
     pub release: Option<usize>,
     #[serde(skip)]
-    pub buffer: Vec<SamplePoint>,
-    #[serde(skip)]
-    pub sample_rate: u32,
+    pub buffer: MonoSample,
 }
 
-pub struct AudioLoader {
-    loaded_samples: Vec<Option<Sample>>,
-    registry: HashMap<PathBuf, usize>,
+impl Default for Sample {
+    fn default() -> Self {
+        Self {
+            loop_start: Some(0),
+            loop_end: Some(100),
+            release: Some(100),
+            buffer: MonoSample::default(),
+        }
+    }
 }
 
-impl AudioLoader {
-    pub fn new() -> AudioLoader {
-        AudioLoader {
-            loaded_samples: Vec::new(),
-            registry: HashMap::new(),
+fn load_sample(path: &Path) -> Result<Sample, LoadingError> {
+    let mut file = File::open(path).context(IOSnafu)?;
+    let mut data = String::new();
+    file.read_to_string(&mut data).context(IOSnafu)?;
+
+    serde_json::from_str(&data).context(ParserSnafu)
+}
+
+impl Resource for Sample {
+    fn load_resource(path: &Path) -> Result<Self, LoadingError>
+    where
+        Self: Sized,
+    {
+        // first, get the sample metadata (if it exists)
+        let mut sample: Sample = Sample::default();
+        if let Ok(does_exist) = path.with_extension("json").try_exists() {
+            if does_exist {
+                sample = load_sample(&path.with_extension("json"))?;
+            }
         }
-    }
 
-    pub fn load(&mut self, path: &Path) -> Result<usize, io::Error> {
-        if let Some(index) = self.registry.get(&PathBuf::from(fs::canonicalize(path)?)) {
-            Ok(*index)
-        } else {
-            let file = BufReader::new(File::open(path)?);
-            let source = Decoder::new(file).unwrap();
+        let file = BufReader::new(File::open(path).context(IOSnafu)?);
+        let source = Decoder::new(file).unwrap();
 
-            let sample_rate = source.sample_rate();
-            let buffer: Vec<SamplePoint> = source.collect();
+        let sample_rate = source.sample_rate();
+        let channels = source.channels();
+        let length = source.size_hint().0;
 
-            let sample_info_path = path.with_extension("json");
-            let sample_info_raw = fs::read_to_string(sample_info_path)?;
-            let mut sample: Sample = serde_json::from_str(&sample_info_raw)?;
+        let mut buffer: Vec<f32> = Vec::with_capacity(length);
+        buffer.extend(source.map(|x| x as f32 / i16::MAX as f32).step_by(channels as usize));
 
-            sample.buffer = buffer;
-            sample.sample_rate = sample_rate;
+        sample.buffer = MonoSample {
+            audio_raw: buffer,
+            sample_rate,
+        };
 
-            self.loaded_samples.push(Some(sample));
-            self.registry.insert(path.into(), self.loaded_samples.len() - 1);
-
-            Ok(self.loaded_samples.len() - 1)
-        }
-    }
-
-    pub fn get_sample(&self, index: usize) -> Option<&Sample> {
-        self.loaded_samples[index].as_ref()
+        Ok(sample)
     }
 }
