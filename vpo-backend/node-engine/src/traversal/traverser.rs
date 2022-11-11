@@ -130,7 +130,7 @@ impl Traverser {
             let process_result = node_wrapper.process(NodeProcessState {
                 current_time,
                 script_engine,
-                inner_graph: None,
+                child_graph: None,
                 global_state,
             });
 

@@ -107,7 +107,7 @@ pub struct NodeInitState<'a> {
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub script_engine: &'a Engine,
-    pub inner_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
+    pub child_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
     pub global_state: &'a GlobalState,
 }
 
@@ -126,7 +126,7 @@ pub struct NodeProcessState<'a> {
 pub trait Node: Debug {
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
-    fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
+    fn get_child_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
         vec![]
     }
 
@@ -245,14 +245,14 @@ impl NodeWrapper {
         })
     }
 
-    pub fn does_need_inner_graph_created(&self) -> bool {
+    pub fn does_need_child_graph_created(&self) -> bool {
         self.node_rows
             .iter()
             .any(|row| if let NodeRow::InnerGraph = row { true } else { false })
             && self.child_graph_index.is_none()
     }
 
-    pub fn init_inner_graph(
+    pub fn init_child_graph(
         &mut self,
         index: &GraphIndex,
         graph_manager: &GraphManager,
@@ -268,7 +268,7 @@ impl NodeWrapper {
         new_inputs_node.set_inputs(inputs);
         new_outputs_node.set_outputs(outputs);
 
-        let inner_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
+        let child_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
 
         let NodeInitState {
             props,
@@ -277,7 +277,7 @@ impl NodeWrapper {
             global_state,
         } = state;
 
-        let input_index = inner_graph
+        let input_index = child_graph
             .add_node(
                 NodeVariant::InputsNode(new_inputs_node),
                 NodeInitState {
@@ -289,7 +289,7 @@ impl NodeWrapper {
             )
             .unwrap()
             .value;
-        let output_index = inner_graph
+        let output_index = child_graph
             .add_node(
                 NodeVariant::OutputsNode(new_outputs_node),
                 NodeInitState {
@@ -538,8 +538,8 @@ impl NodeWrapper {
         self.node.process(state)
     }
 
-    pub fn get_inner_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
-        self.node.get_inner_graph_socket_list(registry)
+    pub fn get_child_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
+        self.node.get_child_graph_socket_list(registry)
     }
 
     pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {

@@ -254,24 +254,24 @@ impl GraphManager {
                     // get a list of the input and output nodes in the child graph
                     // (for creating the InputsNode and OutputsNode inside the child graph)
                     let (input_sockets, output_sockets) = {
-                        let inner_sockets = new_node.get_inner_graph_socket_list(registry);
+                        let child_sockets = new_node.get_child_graph_socket_list(registry);
 
                         (
-                            inner_sockets
+                            child_sockets
                                 .iter()
-                                .filter_map(|inner_socket| {
-                                    if inner_socket.1 == SocketDirection::Input {
-                                        Some(inner_socket.0.clone())
+                                .filter_map(|child_socket| {
+                                    if child_socket.1 == SocketDirection::Input {
+                                        Some(child_socket.0.clone())
                                     } else {
                                         None
                                     }
                                 })
                                 .collect::<Vec<SocketType>>(),
-                            inner_sockets
+                            child_sockets
                                 .iter()
-                                .filter_map(|inner_socket| {
-                                    if inner_socket.1 == SocketDirection::Output {
-                                        Some(inner_socket.0.clone())
+                                .filter_map(|child_socket| {
+                                    if child_socket.1 == SocketDirection::Output {
+                                        Some(child_socket.0.clone())
                                     } else {
                                         None
                                     }
@@ -281,7 +281,7 @@ impl GraphManager {
                     };
 
                     // let the node's wrapper set up the graph
-                    new_node.init_inner_graph(
+                    new_node.init_child_graph(
                         &child_graph_index,
                         self,
                         input_sockets,
@@ -295,8 +295,8 @@ impl GraphManager {
                     );
 
                     // run the node's graph init function
-                    let new_inner_graph = &mut self.get_graph_wrapper_mut(child_graph_index).unwrap().graph;
-                    new_node.node_init_graph(new_inner_graph);
+                    let new_child_graph = &mut self.get_graph_wrapper_mut(child_graph_index).unwrap().graph;
+                    new_node.node_init_graph(new_child_graph);
                 } else {
                     let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
                     let new_node = graph.get_node_mut(&new_node_index).unwrap();
@@ -319,14 +319,14 @@ impl GraphManager {
             }
         } else {
             // does this node need a child graph?
-            let does_need_inner_graph_created = {
+            let does_need_child_graph_created = {
                 let graph = &mut self.get_graph_wrapper_mut(graph_index).unwrap().graph;
                 let new_node_wrapper = graph.get_node(&new_node_index).unwrap();
 
-                new_node_wrapper.does_need_inner_graph_created()
+                new_node_wrapper.does_need_child_graph_created()
             };
 
-            if does_need_inner_graph_created {
+            if does_need_child_graph_created {
                 let new_graph_index = {
                     // create a graph for it
                     let new_graph_index = self.new_graph();
@@ -337,24 +337,24 @@ impl GraphManager {
                     // get a list of the input and output nodes in the child graph
                     // (for creating the InputsNode and OutputsNode inside the child graph)
                     let (input_sockets, output_sockets) = {
-                        let inner_sockets = new_node.get_inner_graph_socket_list(registry);
+                        let child_sockets = new_node.get_child_graph_socket_list(registry);
 
                         (
-                            inner_sockets
+                            child_sockets
                                 .iter()
-                                .filter_map(|inner_socket| {
-                                    if inner_socket.1 == SocketDirection::Input {
-                                        Some(inner_socket.0.clone())
+                                .filter_map(|child_socket| {
+                                    if child_socket.1 == SocketDirection::Input {
+                                        Some(child_socket.0.clone())
                                     } else {
                                         None
                                     }
                                 })
                                 .collect::<Vec<SocketType>>(),
-                            inner_sockets
+                            child_sockets
                                 .iter()
-                                .filter_map(|inner_socket| {
-                                    if inner_socket.1 == SocketDirection::Output {
-                                        Some(inner_socket.0.clone())
+                                .filter_map(|child_socket| {
+                                    if child_socket.1 == SocketDirection::Output {
+                                        Some(child_socket.0.clone())
                                     } else {
                                         None
                                     }
@@ -364,7 +364,7 @@ impl GraphManager {
                     };
 
                     // let the node's wrapper set up the graph
-                    new_node.init_inner_graph(
+                    new_node.init_child_graph(
                         &new_graph_index,
                         self,
                         input_sockets,
@@ -378,8 +378,8 @@ impl GraphManager {
                     );
 
                     // run the node's graph init function
-                    let new_inner_graph = &mut self.get_graph_wrapper_mut(new_graph_index).unwrap().graph;
-                    new_node.node_init_graph(new_inner_graph);
+                    let new_child_graph = &mut self.get_graph_wrapper_mut(new_graph_index).unwrap().graph;
+                    new_node.node_init_graph(new_child_graph);
 
                     new_graph_index
                 };
@@ -533,16 +533,16 @@ impl GraphManager {
 
             for node in graph_wrapper.graph.get_nodes_mut() {
                 if let PossibleNode::Some(node, _) = node {
-                    let socket_list = node.get_inner_graph_socket_list(registry);
+                    let socket_list = node.get_child_graph_socket_list(registry);
 
                     if let Some(index) = node.get_child_graph_index() {
                         let mut child_graph = self.node_graphs[index].borrow_mut();
 
                         let input_sockets = socket_list
                             .iter()
-                            .filter_map(|inner_socket| {
-                                if inner_socket.1 == SocketDirection::Input {
-                                    Some(inner_socket.0.clone())
+                            .filter_map(|child_socket| {
+                                if child_socket.1 == SocketDirection::Input {
+                                    Some(child_socket.0.clone())
                                 } else {
                                     None
                                 }
@@ -551,9 +551,9 @@ impl GraphManager {
 
                         let output_sockets = socket_list
                             .iter()
-                            .filter_map(|inner_socket| {
-                                if inner_socket.1 == SocketDirection::Output {
-                                    Some(inner_socket.0.clone())
+                            .filter_map(|child_socket| {
+                                if child_socket.1 == SocketDirection::Output {
+                                    Some(child_socket.0.clone())
                                 } else {
                                     None
                                 }
