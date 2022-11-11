@@ -38,6 +38,7 @@ impl PolyphonicInfo {
 struct Voice {
     graph: NodeGraph,
     info: PolyphonicInfo,
+    is_first_time: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -46,7 +47,6 @@ pub struct PolyphonicNode {
     polyphony: u8,
     traverser: Traverser,
     output: f32,
-    is_first_time: bool,
     inner_inputs_node: NodeIndex,
     inner_outputs_node: NodeIndex,
     current_time: i64,
@@ -59,7 +59,6 @@ impl Default for PolyphonicNode {
             traverser: Traverser::default(),
             polyphony: 1,
             output: 0_f32,
-            is_first_time: true,
             inner_inputs_node: NodeIndex {
                 index: 0,
                 generation: 0,
@@ -86,11 +85,13 @@ impl Node for PolyphonicNode {
                     self.voices.push(Voice {
                         graph: self.voices[0].graph.clone(),
                         info: PolyphonicInfo::new(self.current_time),
+                        is_first_time: true,
                     });
                 } else {
                     self.voices[i as usize] = Voice {
                         graph: self.voices[0].graph.clone(),
                         info: PolyphonicInfo::new(self.current_time),
+                        is_first_time: true,
                     };
                 }
             }
@@ -116,86 +117,38 @@ impl Node for PolyphonicNode {
     }
 
     fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
-        // go through all the messages and send them to all the appropriate locations
-        for message in value {
-            let message_to_pass_to_all = match message {
-                MidiData::NoteOff { note, .. } => {
-                    // look to see if there's a note on for this one, send it the turn off
-                    // message if so
-                    for voice in self.voices.iter_mut() {
-                        if voice.info.active && voice.info.note == note {
-                            let subgraph_input_node = voice.graph.get_node_mut(&self.inner_inputs_node).unwrap();
-                            subgraph_input_node.accept_midi_input(&MidiSocketType::Default, vec![message]);
+        if self.voices.len() > 0 {
+            // go through all the messages and send them to all the appropriate locations
+            for message in value {
+                let message_to_pass_to_all = match message {
+                    MidiData::NoteOff { note, .. } => {
+                        // look to see if there's a note on for this one, send it the turn off
+                        // message if so
+                        for voice in self.voices.iter_mut() {
+                            if voice.info.active && voice.info.note == note {
+                                let subgraph_input_node = voice.graph.get_node_mut(&self.inner_inputs_node).unwrap();
+                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, vec![message]);
 
-                            voice.info.active = true;
-                            voice.info.note = note;
-                            break;
+                                voice.info.active = true;
+                                voice.info.note = note;
+                                break;
+                            }
                         }
+
+                        None
                     }
+                    MidiData::NoteOn { note, channel, .. } => {
+                        println!("note on: {}", note);
 
-                    None
-                }
-                MidiData::NoteOn { note, channel, .. } => {
-                    println!("note on: {}", note);
+                        // search through for a open voice
 
-                    // search through for a open voice
-
-                    // first, check if there's already one on for this note
-                    let already_on = self
-                        .voices
-                        .iter_mut()
-                        .find(|voice| voice.info.active && voice.info.note == note);
-                    if let Some(already_on) = already_on {
-                        let subgraph_input_node = already_on.graph.get_node_mut(&self.inner_inputs_node).unwrap();
-
-                        // be sure to send a note off message first
-                        subgraph_input_node.accept_midi_input(
-                            &MidiSocketType::Default,
-                            vec![
-                                MidiData::NoteOff {
-                                    channel: channel,
-                                    note,
-                                    velocity: 0,
-                                },
-                                message,
-                            ],
-                        );
-
-                        already_on.info.active = true;
-                        already_on.info.note = note;
-                        already_on.info.started_at = self.current_time;
-                    } else {
-                        // if not, check if one is available
-                        let available = self.voices.iter_mut().find(|voice| !voice.info.active);
-
-                        if let Some(available) = available {
-                            let subgraph_input_node = available.graph.get_node_mut(&self.inner_inputs_node).unwrap();
-
-                            // TODO: test code here VV
-                            subgraph_input_node.accept_midi_input(
-                                &MidiSocketType::Default,
-                                vec![
-                                    MidiData::NoteOff {
-                                        channel: channel,
-                                        note: available.info.note,
-                                        velocity: 0,
-                                    },
-                                    message,
-                                ],
-                            );
-
-                            available.info.active = true;
-                            available.info.note = note;
-                            available.info.started_at = self.current_time;
-                        } else {
-                            // just pick the oldest played note
-                            let oldest = self
-                                .voices
-                                .iter_mut()
-                                .min_by(|x, y| x.info.started_at.cmp(&y.info.started_at))
-                                .unwrap();
-
-                            let subgraph_input_node = oldest.graph.get_node_mut(&self.inner_inputs_node).unwrap();
+                        // first, check if there's already one on for this note
+                        let already_on = self
+                            .voices
+                            .iter_mut()
+                            .find(|voice| voice.info.active && voice.info.note == note);
+                        if let Some(already_on) = already_on {
+                            let subgraph_input_node = already_on.graph.get_node_mut(&self.inner_inputs_node).unwrap();
 
                             // be sure to send a note off message first
                             subgraph_input_node.accept_midi_input(
@@ -203,31 +156,82 @@ impl Node for PolyphonicNode {
                                 vec![
                                     MidiData::NoteOff {
                                         channel: channel,
-                                        note: oldest.info.note,
+                                        note,
                                         velocity: 0,
                                     },
                                     message,
                                 ],
                             );
 
-                            oldest.info.active = true;
-                            oldest.info.note = note;
-                            oldest.info.started_at = self.current_time;
+                            already_on.info.active = true;
+                            already_on.info.note = note;
+                            already_on.info.started_at = self.current_time;
+                        } else {
+                            // if not, check if one is available
+                            let available = self.voices.iter_mut().find(|voice| !voice.info.active);
+
+                            if let Some(available) = available {
+                                let subgraph_input_node =
+                                    available.graph.get_node_mut(&self.inner_inputs_node).unwrap();
+
+                                // TODO: test code here VV
+                                subgraph_input_node.accept_midi_input(
+                                    &MidiSocketType::Default,
+                                    vec![
+                                        MidiData::NoteOff {
+                                            channel: channel,
+                                            note: available.info.note,
+                                            velocity: 0,
+                                        },
+                                        message,
+                                    ],
+                                );
+
+                                available.info.active = true;
+                                available.info.note = note;
+                                available.info.started_at = self.current_time;
+                            } else {
+                                // just pick the oldest played note
+                                let oldest = self
+                                    .voices
+                                    .iter_mut()
+                                    .min_by(|x, y| x.info.started_at.cmp(&y.info.started_at))
+                                    .unwrap();
+
+                                let subgraph_input_node = oldest.graph.get_node_mut(&self.inner_inputs_node).unwrap();
+
+                                // be sure to send a note off message first
+                                subgraph_input_node.accept_midi_input(
+                                    &MidiSocketType::Default,
+                                    vec![
+                                        MidiData::NoteOff {
+                                            channel: channel,
+                                            note: oldest.info.note,
+                                            velocity: 0,
+                                        },
+                                        message,
+                                    ],
+                                );
+
+                                oldest.info.active = true;
+                                oldest.info.note = note;
+                                oldest.info.started_at = self.current_time;
+                            }
                         }
+
+                        None
                     }
+                    _ => Some(message),
+                };
 
-                    None
-                }
-                _ => Some(message),
-            };
-
-            // it wasn't note on or note off, so we better make sure all the voices get it
-            if let Some(message_to_pass_to_all) = message_to_pass_to_all {
-                for voice in self.voices.iter_mut() {
-                    if voice.info.active {
-                        let subgraph_input_node = voice.graph.get_node_mut(&self.inner_inputs_node).unwrap();
-                        subgraph_input_node
-                            .accept_midi_input(&MidiSocketType::Default, vec![message_to_pass_to_all.clone()]);
+                // it wasn't note on or note off, so we better make sure all the voices get it
+                if let Some(message_to_pass_to_all) = message_to_pass_to_all {
+                    for voice in self.voices.iter_mut() {
+                        if voice.info.active {
+                            let subgraph_input_node = voice.graph.get_node_mut(&self.inner_inputs_node).unwrap();
+                            subgraph_input_node
+                                .accept_midi_input(&MidiSocketType::Default, vec![message_to_pass_to_all.clone()]);
+                        }
                     }
                 }
             }
@@ -244,11 +248,13 @@ impl Node for PolyphonicNode {
                 self.voices.push(Voice {
                     graph: graph.clone(),
                     info: PolyphonicInfo::new(self.current_time),
+                    is_first_time: true,
                 });
             } else {
                 self.voices[i as usize] = Voice {
                     graph: graph.clone(),
                     info: PolyphonicInfo::new(self.current_time),
+                    is_first_time: true,
                 };
             }
         }
@@ -258,7 +264,6 @@ impl Node for PolyphonicNode {
         }
 
         self.traverser = Traverser::get_traverser(graph);
-        self.is_first_time = true;
         self.inner_inputs_node = input_node;
         self.inner_outputs_node = output_node;
     }
@@ -268,12 +273,14 @@ impl Node for PolyphonicNode {
 
         self.output = 0.0;
 
+        // loop through voices
         for voice in self.voices.iter_mut() {
             if voice.info.active {
+                // if it's active, process it
                 self.traverser
                     .traverse(
                         &mut voice.graph,
-                        self.is_first_time,
+                        voice.is_first_time,
                         state.current_time,
                         state.script_engine,
                         state.global_state,
@@ -299,10 +306,10 @@ impl Node for PolyphonicNode {
                     voice.info.duration_of_same_output = 0;
                     voice.info.last_output_value = output;
                 }
+
+                voice.is_first_time = false;
             }
         }
-
-        self.is_first_time = false;
 
         NodeOk::no_warnings(())
     }

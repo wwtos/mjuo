@@ -260,7 +260,7 @@ impl NodeWrapper {
         outputs: Vec<SocketType>,
         state: NodeInitState,
     ) {
-        self.set_inner_graph_index(index.clone());
+        self.set_child_graph_index(index.clone());
 
         let mut new_inputs_node = InputsNode::default();
         let mut new_outputs_node = OutputsNode::default();
@@ -305,7 +305,7 @@ impl NodeWrapper {
         self.child_graph_io_indexes = Some((input_index, output_index));
     }
 
-    pub fn set_inner_graph_index(&mut self, index: GraphIndex) {
+    pub fn set_child_graph_index(&mut self, index: GraphIndex) {
         self.child_graph_index = Some(index);
     }
 
@@ -480,7 +480,7 @@ impl NodeWrapper {
             "connected_outputs": self.connected_outputs,
             "properties": self.properties,
             "ui_data": self.ui_data,
-            "inner_graph_index": self.child_graph_index,
+            "child_graph_index": self.child_graph_index,
         }})
     }
 

@@ -480,6 +480,10 @@ impl NodeGraph {
         &self.nodes
     }
 
+    pub fn get_nodes_mut(&mut self) -> &mut Vec<PossibleNode> {
+        &mut self.nodes
+    }
+
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
@@ -576,7 +580,7 @@ impl NodeGraph {
                         script_engine,
                         global_state,
                     },
-                    true,
+                    false,
                 )
             })
             .collect::<Result<Vec<_>, NodeError>>()?;

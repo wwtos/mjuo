@@ -8,18 +8,13 @@ use crate::{
     property::{Property, PropertyType},
 };
 
-#[derive(Debug, Clone)]
-enum MidiState {
-    Unprocessed(Vec<MidiData>),
-    Processed,
-    None,
-}
+use super::util::ProcessState;
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
     filter: Option<AST>,
     filter_raw: String,
-    midi_state: MidiState,
+    midi_state: ProcessState<Vec<MidiData>>,
     scope: Scope<'static>,
     output: Vec<MidiData>,
 }
@@ -29,7 +24,7 @@ impl MidiFilterNode {
         MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
-            midi_state: MidiState::None,
+            midi_state: ProcessState::None,
             scope: Scope::new(),
             output: Vec::new(),
         }
@@ -92,7 +87,7 @@ impl Node for MidiFilterNode {
 
         if let Some(filter) = &self.filter {
             self.midi_state = match &self.midi_state {
-                MidiState::Unprocessed(midi) => {
+                ProcessState::Unprocessed(midi) => {
                     self.output = midi
                         .iter()
                         .filter_map(|message| {
@@ -126,14 +121,14 @@ impl Node for MidiFilterNode {
                         })
                         .collect::<Vec<MidiData>>();
 
-                    MidiState::Processed
+                    ProcessState::Processed
                 }
-                MidiState::Processed => {
+                ProcessState::Processed => {
                     self.output = vec![];
 
-                    MidiState::None
+                    ProcessState::None
                 }
-                MidiState::None => MidiState::None,
+                ProcessState::None => ProcessState::None,
             };
         }
 
@@ -141,7 +136,7 @@ impl Node for MidiFilterNode {
     }
 
     fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
-        self.midi_state = MidiState::Unprocessed(value);
+        self.midi_state = ProcessState::Unprocessed(value);
     }
 
     fn get_midi_output(&self, _socket_type: &MidiSocketType) -> Vec<MidiData> {

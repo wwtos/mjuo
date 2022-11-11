@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::cell::{RefCell, RefMut};
 use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
@@ -9,9 +10,9 @@ use twox_hash::XxHash64;
 
 use crate::connection::{Connection, SocketDirection, SocketType};
 use crate::errors::{NodeError, NodeOk, WarningBuilder};
-use crate::node::NodeInitState;
-use crate::node_graph::create_new_node;
-use crate::nodes::variants::new_variant;
+use crate::node::{NodeInitState, NodeRow};
+use crate::node_graph::{create_new_node, PossibleNode};
+use crate::nodes::variants::{new_variant, NodeVariant};
 use crate::state::Action;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -310,7 +311,7 @@ impl GraphManager {
                 graph
                     .get_node_mut(&node_index)
                     .unwrap()
-                    .set_inner_graph_index(child_graph_index);
+                    .set_child_graph_index(child_graph_index);
 
                 Some(child_graph_index)
             } else {
@@ -524,6 +525,81 @@ impl GraphManager {
                 sound_config,
             )?;
             graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph);
+        }
+
+        // next, init child graph inputs and outputs nodes
+        for (_, graph_wrapper) in self.node_graphs.iter() {
+            let mut graph_wrapper = graph_wrapper.borrow_mut();
+
+            for node in graph_wrapper.graph.get_nodes_mut() {
+                if let PossibleNode::Some(node, _) = node {
+                    let socket_list = node.get_inner_graph_socket_list(registry);
+
+                    if let Some(index) = node.get_child_graph_index() {
+                        let mut child_graph = self.node_graphs[index].borrow_mut();
+
+                        let input_sockets = socket_list
+                            .iter()
+                            .filter_map(|inner_socket| {
+                                if inner_socket.1 == SocketDirection::Input {
+                                    Some(inner_socket.0.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<SocketType>>();
+
+                        let output_sockets = socket_list
+                            .iter()
+                            .filter_map(|inner_socket| {
+                                if inner_socket.1 == SocketDirection::Output {
+                                    Some(inner_socket.0.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<SocketType>>();
+
+                        let (input_index, output_index) = node.get_child_graph_io_indexes().unwrap();
+
+                        if let Some(node) = child_graph.graph.get_node_mut(&input_index) {
+                            if let NodeVariant::InputsNode(inputs_node) = &mut node.node {
+                                println!("\n\nsetting inputs: {:?}\n\n", input_sockets);
+                                inputs_node.set_inputs(input_sockets.clone());
+                            } else {
+                                unreachable!("Child graph input index is not input node!");
+                            }
+
+                            node.set_node_rows(
+                                input_sockets
+                                    .into_iter()
+                                    .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Output))
+                                    .collect(),
+                            );
+                        } else {
+                            unreachable!("IO node doesn't exist!");
+                        }
+
+                        if let Some(node) = child_graph.graph.get_node_mut(&output_index) {
+                            if let NodeVariant::OutputsNode(outputs_node) = &mut node.node {
+                                println!("\n\nsetting outputs: {:?}\n\n", output_sockets);
+                                outputs_node.set_outputs(output_sockets.clone());
+                            } else {
+                                unreachable!("Child graph output index is not output node!");
+                            }
+
+                            node.set_node_rows(
+                                output_sockets
+                                    .into_iter()
+                                    .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Input))
+                                    .collect(),
+                            );
+                        } else {
+                            unreachable!("IO node doesn't exist!");
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

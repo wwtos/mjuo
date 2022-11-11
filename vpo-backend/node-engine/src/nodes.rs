@@ -16,4 +16,5 @@ pub mod outputs;
 pub mod placeholder;
 pub mod polyphonic;
 pub mod stream_expression;
+pub mod util;
 pub mod variants;
