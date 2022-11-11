@@ -44,7 +44,7 @@ impl MidiParser {
                     self.expected_message_length = Some(3);
                 }
                 // system exclusive TODO: this'll go forever if it's not 0b11110000, like if it's song position
-                (0x0F, _) => {
+                (0xF0, _) => {
                     self.expected_message_length = None;
                 }
                 _ => {
