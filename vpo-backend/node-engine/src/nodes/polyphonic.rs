@@ -138,8 +138,6 @@ impl Node for PolyphonicNode {
                         None
                     }
                     MidiData::NoteOn { note, channel, .. } => {
-                        println!("note on: {}", note);
-
                         // search through for a open voice
 
                         // first, check if there's already one on for this note
