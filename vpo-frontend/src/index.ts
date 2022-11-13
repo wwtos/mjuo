@@ -49,7 +49,7 @@ ipcMain.on("action", (event, data) => {
     if (data?.action === "io/openSaveDialog") {
         ipcSender = event.sender;
 
-        dialog.showOpenDialog(activeWindow, {
+        dialog.showOpenDialog(BrowserWindow.getFocusedWindow() as BrowserWindow, {
             properties: [ "openDirectory" ]
         }).then(({filePaths}) => {
             client.sendJson({
@@ -60,7 +60,7 @@ ipcMain.on("action", (event, data) => {
     } else if (data?.action === "io/openLoadDialog") {
         ipcSender = event.sender;
 
-        dialog.showOpenDialog(activeWindow, {
+        dialog.showOpenDialog(BrowserWindow.getFocusedWindow() as BrowserWindow, {
             properties: [ "openDirectory" ]
         }).then(({filePaths}) => {
             client.sendJson({

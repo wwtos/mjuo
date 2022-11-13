@@ -6,40 +6,43 @@
     } from "svelte-feather-icons";
 
     import { activeEditor } from "./state";
+
+    export let width = 48;
 </script>
 
-<nav>
-    <ul>
-        <li
-            class:active={$activeEditor === "nodes"}
-            on:click={() => activeEditor.next("nodes")}
-        >
-            <span style="padding-left: 2px">
-                <GitPullRequestIcon size="30" strokeWidth="1.5" />
-            </span>
-        </li>
-        <li
-            class:active={$activeEditor === "ui"}
-            on:click={() => activeEditor.next("ui")}
-        >
-            <span style="padding-left: 2px">
-                <LayersIcon size="30" strokeWidth="1.5" />
-            </span>
-        </li>
-        <li
-            class:active={$activeEditor === "files"}
-            on:click={() => activeEditor.next("files")}
-        >
-            <span style="padding-left: 2px">
-                <FolderIcon size="30" strokeWidth="1.5" />
-            </span>
-        </li>
-    </ul>
+<nav style="min-width: {width}px">
+    <div>
+        <ul>
+            <li
+                class:active={$activeEditor === "nodes"}
+                on:click={() => activeEditor.next("nodes")}
+            >
+                <span style="padding-left: 2px">
+                    <GitPullRequestIcon size="30" strokeWidth="1.5" />
+                </span>
+            </li>
+            <li
+                class:active={$activeEditor === "ui"}
+                on:click={() => activeEditor.next("ui")}
+            >
+                <span style="padding-left: 2px">
+                    <LayersIcon size="30" strokeWidth="1.5" />
+                </span>
+            </li>
+            <li
+                class:active={$activeEditor === "files"}
+                on:click={() => activeEditor.next("files")}
+            >
+                <span style="padding-left: 2px">
+                    <FolderIcon size="30" strokeWidth="1.5" />
+                </span>
+            </li>
+        </ul>
+    </div>
 </nav>
 
 <style>
     nav {
-        width: 48px !important;
         height: 100vh;
         background-color: #333333;
     }
