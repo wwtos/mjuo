@@ -7,13 +7,13 @@ use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
+use smallvec::SmallVec;
 use snafu::ResultExt;
-use sound_engine::midi::messages::MidiData;
 use sound_engine::SoundConfig;
 
 use crate::connection::{
-    InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive, SocketDirection,
-    SocketType, StreamSocketType, ValueSocketType,
+    InputSideConnection, MidiBundle, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive,
+    SocketDirection, SocketType, StreamSocketType, ValueSocketType,
 };
 
 use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
@@ -32,11 +32,11 @@ use crate::traversal::traverser::Traverser;
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRow {
     StreamInput(StreamSocketType, f32),
-    MidiInput(MidiSocketType, Vec<MidiData>),
+    MidiInput(MidiSocketType, MidiBundle),
     ValueInput(ValueSocketType, Primitive),
     NodeRefInput(NodeRefSocketType),
     StreamOutput(StreamSocketType, f32),
-    MidiOutput(MidiSocketType, Vec<MidiData>),
+    MidiOutput(MidiSocketType, MidiBundle),
     ValueOutput(ValueSocketType, Primitive),
     NodeRefOutput(NodeRefSocketType),
     Property(String, PropertyType, Property),
@@ -65,14 +65,14 @@ impl NodeRow {
         match direction {
             SocketDirection::Input => match socket_type {
                 SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0),
-                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, vec![]),
+                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new()),
                 SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0)),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type),
                 SocketType::MethodCall(_) => unimplemented!(),
             },
             SocketDirection::Output => match socket_type {
                 SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0),
-                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, vec![]),
+                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new()),
                 SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0)),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type),
                 SocketType::MethodCall(_) => unimplemented!(),
@@ -146,11 +146,11 @@ pub trait Node: Debug {
     }
 
     /// Accept incoming midi data of type `socket_type`
-    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {}
+    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {}
 
     /// Return outgoing midi data of type `socket_type`
-    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
-        vec![]
+    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+        Some(SmallVec::new())
     }
 
     /// Accept incoming value data of type `socket_type`
@@ -515,11 +515,11 @@ impl NodeWrapper {
         self.node.get_stream_output(socket_type)
     }
 
-    pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {
+    pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {
         self.node.accept_midi_input(socket_type, value);
     }
 
-    pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
+    pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
         self.node.get_midi_output(socket_type)
     }
 

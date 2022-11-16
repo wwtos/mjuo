@@ -1,8 +1,9 @@
-use sound_engine::midi::messages::MidiData;
+use smallvec::SmallVec;
 
 use crate::{
     connection::{
-        MidiSocketType, Primitive, SocketDirection, SocketType, SocketValue, StreamSocketType, ValueSocketType,
+        MidiBundle, MidiSocketType, Primitive, SocketDirection, SocketType, SocketValue, StreamSocketType,
+        ValueSocketType,
     },
     errors::{NodeError, NodeOk},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
@@ -26,7 +27,7 @@ impl OutputsNode {
         for i in 0..self.values_in.len().min(self.outputs.len()) {
             self.values_in[i] = ProcessState::Unprocessed(match self.outputs[i] {
                 SocketType::Stream(_) => SocketValue::Stream(0.0),
-                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
                 SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
                 SocketType::MethodCall(_) => todo!(),
@@ -36,7 +37,7 @@ impl OutputsNode {
         for i in self.values_in.len()..self.outputs.len() {
             self.values_in.push(ProcessState::Unprocessed(match self.outputs[i] {
                 SocketType::Stream(_) => SocketValue::Stream(0.0),
-                SocketType::Midi(_) => SocketValue::Midi(vec![]),
+                SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
                 SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
                 SocketType::MethodCall(_) => todo!(),
@@ -86,7 +87,7 @@ impl Node for OutputsNode {
         self.values_in[index] = ProcessState::Unprocessed(SocketValue::Stream(value));
     }
 
-    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: Vec<MidiData>) {
+    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {
         let index = self
             .outputs
             .iter()
@@ -116,7 +117,7 @@ impl Node for OutputsNode {
         self.values_out[index].clone().unwrap().as_stream().unwrap()
     }
 
-    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Vec<MidiData> {
+    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
         let index = self
             .outputs
             .iter()
@@ -124,9 +125,9 @@ impl Node for OutputsNode {
             .unwrap();
 
         if let Some(midi_out) = &self.values_out[index] {
-            midi_out.clone().as_midi().unwrap()
+            Some(midi_out.clone().as_midi().unwrap())
         } else {
-            vec![]
+            None
         }
     }
 

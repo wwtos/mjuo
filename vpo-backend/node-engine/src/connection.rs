@@ -1,11 +1,15 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
 use crate::{node::NodeIndex, socket_registry::SocketRegistry};
+
+pub type MidiBundle = SmallVec<[MidiData; 2]>;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Connection {
     pub from_socket_type: SocketType,
@@ -97,7 +101,7 @@ pub enum Primitive {
 #[serde(tag = "variant", content = "data")]
 pub enum SocketValue {
     Stream(f32),
-    Midi(Vec<MidiData>),
+    Midi(MidiBundle),
     Value(Primitive),
     NodeRef,
 }
@@ -110,7 +114,7 @@ impl SocketValue {
         }
     }
 
-    pub fn as_midi(self) -> Option<Vec<MidiData>> {
+    pub fn as_midi(self) -> Option<MidiBundle> {
         match self {
             SocketValue::Midi(value) => Some(value),
             _ => None,

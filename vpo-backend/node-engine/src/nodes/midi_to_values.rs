@@ -1,6 +1,7 @@
+use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiSocketType, Primitive, ValueSocketType};
+use crate::connection::{MidiBundle, MidiSocketType, Primitive, ValueSocketType};
 use crate::errors::{NodeError, NodeOk};
 use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 
@@ -13,7 +14,7 @@ enum ChangedState {
 
 #[derive(Debug, Clone)]
 pub struct MidiToValuesNode {
-    midi_in: Vec<MidiData>,
+    midi_in: MidiBundle,
     frequency: f32,
     gate: bool,
     velocity: f32,
@@ -23,7 +24,7 @@ pub struct MidiToValuesNode {
 impl Default for MidiToValuesNode {
     fn default() -> Self {
         MidiToValuesNode {
-            midi_in: Vec::new(),
+            midi_in: SmallVec::new(),
             frequency: 440.0,
             gate: false,
             velocity: 0.0,
@@ -33,7 +34,7 @@ impl Default for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
-    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
+    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: MidiBundle) {
         self.midi_in = value;
         self.state = ChangedState::NewInfo;
     }
@@ -76,7 +77,7 @@ impl Node for MidiToValuesNode {
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, vec![]),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
             NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),
             NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false)),
         ])

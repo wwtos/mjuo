@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 use node_engine::global_state::GlobalState;
 
 use node_engine::state::NodeEngineState;
+use smallvec::SmallVec;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
@@ -48,7 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
 
-            *sample = engine_state.step(current_time, is_first_time, midi.clone(), &global_state);
+            *sample = engine_state.step(current_time, is_first_time, SmallVec::from(midi.clone()), &global_state);
 
             if !midi.is_empty() {
                 midi = Vec::new();

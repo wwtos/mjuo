@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
@@ -26,7 +27,7 @@ impl Node for TestNode {
         InitResult::simple(vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
-            NodeRow::MidiInput(MidiSocketType::Default, vec![]),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
             NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0)),
         ])

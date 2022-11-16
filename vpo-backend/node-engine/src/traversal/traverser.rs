@@ -167,7 +167,7 @@ impl Traverser {
                         let midi = node_wrapper.get_midi_output(midi_type);
 
                         let other_node_wrapper = graph.get_node_mut(&output_connection.to_node).unwrap();
-                        if !midi.is_empty() {
+                        if let Some(midi) = midi {
                             other_node_wrapper
                                 .accept_midi_input(&output_connection.to_socket_type.clone().as_midi().unwrap(), midi);
                         }

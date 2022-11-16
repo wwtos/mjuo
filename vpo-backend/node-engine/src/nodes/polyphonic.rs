@@ -1,7 +1,8 @@
+use smallvec::{smallvec, SmallVec};
 use sound_engine::constants::SAMPLE_RATE;
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiSocketType, SocketDirection, SocketType, StreamSocketType};
+use crate::connection::{MidiBundle, MidiSocketType, SocketDirection, SocketType, StreamSocketType};
 use crate::errors::{NodeError, NodeOk};
 use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
 use crate::node_graph::NodeGraph;
@@ -102,7 +103,7 @@ impl Node for PolyphonicNode {
         }
 
         InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, vec![]),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
             NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
             NodeRow::InnerGraph,
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
@@ -116,7 +117,7 @@ impl Node for PolyphonicNode {
         ]
     }
 
-    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
+    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: MidiBundle) {
         if !self.voices.is_empty() {
             // go through all the messages and send them to all the appropriate locations
             for message in value {
@@ -127,7 +128,7 @@ impl Node for PolyphonicNode {
                         for voice in self.voices.iter_mut() {
                             if voice.info.active && voice.info.note == note {
                                 let subgraph_input_node = voice.graph.get_node_mut(&self.child_inputs_node).unwrap();
-                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, vec![message]);
+                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, SmallVec::new());
 
                                 voice.info.active = true;
                                 voice.info.note = note;
@@ -151,7 +152,7 @@ impl Node for PolyphonicNode {
                             // be sure to send a note off message first
                             subgraph_input_node.accept_midi_input(
                                 &MidiSocketType::Default,
-                                vec![
+                                smallvec![
                                     MidiData::NoteOff {
                                         channel,
                                         note,
@@ -175,7 +176,7 @@ impl Node for PolyphonicNode {
                                 // TODO: test code here VV
                                 subgraph_input_node.accept_midi_input(
                                     &MidiSocketType::Default,
-                                    vec![
+                                    smallvec![
                                         MidiData::NoteOff {
                                             channel,
                                             note: available.info.note,
@@ -201,7 +202,7 @@ impl Node for PolyphonicNode {
                                 // be sure to send a note off message first
                                 subgraph_input_node.accept_midi_input(
                                     &MidiSocketType::Default,
-                                    vec![
+                                    smallvec![
                                         MidiData::NoteOff {
                                             channel,
                                             note: oldest.info.note,
@@ -228,7 +229,7 @@ impl Node for PolyphonicNode {
                         if voice.info.active {
                             let subgraph_input_node = voice.graph.get_node_mut(&self.child_inputs_node).unwrap();
                             subgraph_input_node
-                                .accept_midi_input(&MidiSocketType::Default, vec![message_to_pass_to_all.clone()]);
+                                .accept_midi_input(&MidiSocketType::Default, smallvec![message_to_pass_to_all.clone()]);
                         }
                     }
                 }
