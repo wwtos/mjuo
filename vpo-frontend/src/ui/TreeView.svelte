@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { access } from "original-fs";
     import { children } from "svelte/internal";
     import { globalState } from "../node-editor/state";
     import type { TreeItem } from "./tree-types";

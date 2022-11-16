@@ -5,7 +5,7 @@ use crate::constants::SAMPLE_RATE;
 
 use crate::error::NodeError;
 use crate::node::{AudioNode, InputType, OutputType};
-use crate::wave::interpolate::interpolate;
+use crate::wave::interpolate::interpolate_osc;
 use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
@@ -89,7 +89,7 @@ impl Oscillator {
         self.phase += phase_advance;
         self.phase -= self.phase.floor();
 
-        interpolate(self.waveform, self.frequency, self.phase)
+        interpolate_osc(self.waveform, self.frequency, self.phase)
     }
 }
 

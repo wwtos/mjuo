@@ -13,6 +13,8 @@ use serde_json::{json, Value};
 use snafu::ResultExt;
 use walkdir::WalkDir;
 
+const AUDIO_EXTENSIONS: &'static [&'static str] = &["ogg", "wav", "mp3", "flac"];
+
 pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     let state = json!({
         "version": "0.3",
@@ -28,7 +30,7 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     Ok(())
 }
 
-fn load_assets<T>(path: &Path, assets: &mut ResourceManager<T>) -> Result<(), LoadingError>
+fn load_assets<T>(path: &Path, assets: &mut ResourceManager<T>, valid_extensions: &[&str]) -> Result<(), LoadingError>
 where
     T: Resource + Send + Sync + Debug + 'static,
 {
@@ -39,8 +41,10 @@ where
             if let Ok(res) = e {
                 if res.metadata().unwrap().is_file() {
                     if let Some(extension) = res.path().extension() {
-                        if let Some("mp3" | "ogg" | "wav" | "flac") = extension.to_str() {
-                            return Some(res);
+                        if let Some(extension) = extension.to_str() {
+                            if valid_extensions.contains(&extension) {
+                                return Some(res);
+                            }
                         }
                     }
                 }
@@ -60,7 +64,18 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     *state = NodeEngineState::new(global_state);
     global_state.resources.samples.clear();
 
-    load_assets(&path.join("samples"), &mut global_state.resources.samples).context(LoadingSnafu)?;
+    load_assets(
+        &path.join("samples"),
+        &mut global_state.resources.samples,
+        AUDIO_EXTENSIONS,
+    )
+    .context(LoadingSnafu)?;
+    load_assets(
+        &path.join("wavetables"),
+        &mut global_state.resources.wavetables,
+        AUDIO_EXTENSIONS,
+    )
+    .context(LoadingSnafu)?;
 
     let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;

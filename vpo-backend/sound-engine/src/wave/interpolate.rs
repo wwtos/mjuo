@@ -1,9 +1,12 @@
-use crate::util::lerp;
+use crate::{node::biquad_filter::BiquadFilter, util::lerp};
 
-use super::tables::{BASE_FREQUENCY, WAVETABLE_MASK, WAVETABLE_SIZE};
+use super::{
+    tables::{BASE_FREQUENCY, WAVETABLE_MASK, WAVETABLE_SIZE},
+    wavetable::Wavetable,
+};
 
 #[inline]
-pub fn interpolate(wavetable: &[[f32; WAVETABLE_SIZE]], frequency: f32, phase: f32) -> f32 {
+pub fn interpolate_osc(wavetable: &[[f32; WAVETABLE_SIZE]], frequency: f32, phase: f32) -> f32 {
     let phase = phase - phase.floor(); // make phase bound
 
     let wavetable_index = (frequency / BASE_FREQUENCY) as usize; // which wavetable to use (rounded down)
@@ -25,4 +28,25 @@ pub fn interpolate(wavetable: &[[f32; WAVETABLE_SIZE]], frequency: f32, phase: f
         sample_higher,
         (frequency - (BASE_FREQUENCY * (wavetable_index) as f32)) / BASE_FREQUENCY,
     )
+}
+
+#[inline]
+pub fn interpolate(wavetable: &Wavetable, filter: &mut BiquadFilter, phase: f32) -> f32 {
+    filter.reset_history();
+
+    let phase = phase - phase.floor(); // make phase bound
+
+    let wavetable_width = wavetable.wavetable.len();
+
+    let sample_index = (phase * wavetable_width as f32) as i32; // which sample
+
+    let sample_offset = phase * wavetable_width as f32; // interpolate between samples
+    let sample_offset = sample_offset - sample_offset.floor(); // fast % 1
+
+    filter.filter_audio(wavetable.wavetable[(sample_index - 2).rem_euclid(wavetable_width as i32) as usize]);
+    filter.filter_audio(wavetable.wavetable[(sample_index - 1).rem_euclid(wavetable_width as i32) as usize]);
+    let here = filter.filter_audio(wavetable.wavetable[sample_index as usize]);
+    let next = filter.filter_audio(wavetable.wavetable[(sample_index + 1).rem_euclid(wavetable_width as i32) as usize]);
+
+    lerp(here, next, sample_offset)
 }

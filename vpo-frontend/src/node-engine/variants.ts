@@ -56,5 +56,9 @@ export const variants = [
     {
         name: i18n.t("nodes.MonoSamplePlayerNode"),
         internal: "MonoSamplePlayerNode"
+    },
+    {
+        name: i18n.t("nodes.WavetableNode"),
+        internal: "WavetableNode"
     }
 ];

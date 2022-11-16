@@ -57,6 +57,7 @@ impl Node for ExpressionNode {
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         let mut warnings = WarningBuilder::new();
 
+        self.value_out = None;
         if let Some(ast) = &self.ast {
             if self.have_values_changed {
                 // add inputs to scope

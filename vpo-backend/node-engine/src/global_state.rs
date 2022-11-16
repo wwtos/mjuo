@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use resource_manager::ResourceManager;
 use serde::Serialize;
-use sound_engine::{sampling::audio_loader::Sample, SoundConfig};
+use sound_engine::{sampling::sample::Sample, wave::wavetable::Wavetable, SoundConfig};
 
 #[derive(Default, Serialize)]
 pub struct Resources {
     pub samples: ResourceManager<Sample>,
+    pub wavetables: ResourceManager<Wavetable>,
 }
 
 #[derive(Serialize)]

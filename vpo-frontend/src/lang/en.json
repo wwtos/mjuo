@@ -50,7 +50,8 @@
             "StreamExpressionNode": "Stream Expression Node",
             "PolyphonicNode": "Polyphonic Node",
             "MidiFilterNode": "Midi Filter Node",
-            "MonoSamplePlayerNode": "Mono Sample Player Node"
+            "MonoSamplePlayerNode": "Mono Sample Player Node",
+            "WavetableNode": "Wavetable Oscillator Node"
         },
         "editor": {
             "create": "Create!",

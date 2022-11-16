@@ -18,3 +18,4 @@ pub mod polyphonic;
 pub mod stream_expression;
 pub mod util;
 pub mod variants;
+pub mod wavetable;

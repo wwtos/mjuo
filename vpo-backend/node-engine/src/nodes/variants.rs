@@ -20,6 +20,7 @@ use super::mono_sample_player::MonoSamplePlayerNode;
 use super::outputs::OutputsNode;
 use super::polyphonic::PolyphonicNode;
 use super::stream_expression::StreamExpressionNode;
+use super::wavetable::WavetableNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
     gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
@@ -47,6 +48,7 @@ pub enum NodeVariant {
     Placeholder,
     MidiFilterNode,
     MonoSamplePlayerNode,
+    WavetableNode,
     #[cfg(test)]
     TestNode,
 }
@@ -85,6 +87,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::default())),
         "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new())),
         "MonoSamplePlayerNode" => Ok(NodeVariant::MonoSamplePlayerNode(MonoSamplePlayerNode::new(config))),
+        "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -110,6 +113,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::PolyphonicNode(_) => "PolyphonicNode".to_string(),
         NodeVariant::MidiFilterNode(_) => "MidiFilterNode".to_string(),
         NodeVariant::MonoSamplePlayerNode(_) => "MonoSamplePlayerNode".to_string(),
+        NodeVariant::WavetableNode(_) => "WavetableNode".to_string(),
         NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),
