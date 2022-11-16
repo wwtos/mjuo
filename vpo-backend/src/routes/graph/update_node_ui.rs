@@ -41,11 +41,10 @@ pub fn route(
             })?;
 
         if node_json["ui_data"].is_object() {
-            let graph = &mut state.get_graph_manager().get_graph_wrapper_mut(graph_index).ok_or(
-                NodeError::GraphDoesNotExist {
-                    graph_index: graph_index,
-                },
-            )?;
+            let graph = &mut state
+                .get_graph_manager()
+                .get_graph_wrapper_mut(graph_index)
+                .ok_or(NodeError::GraphDoesNotExist { graph_index })?;
 
             let node = graph
                 .graph

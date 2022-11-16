@@ -48,7 +48,7 @@ pub fn route(
                     actions.push(Action::ChangeNodeProperties {
                         index: GlobalNodeIndex {
                             node_index: index,
-                            graph_index: graph_index,
+                            graph_index,
                         },
                         before: None,
                         after: serde_json::from_value(node_json["properties"].clone()).context(
@@ -63,7 +63,7 @@ pub fn route(
                     actions.push(Action::ChangeNodeUiData {
                         index: GlobalNodeIndex {
                             node_index: index,
-                            graph_index: graph_index,
+                            graph_index,
                         },
                         before: None,
                         after: serde_json::from_value(node_json["ui_data"].clone()).context(
@@ -78,7 +78,7 @@ pub fn route(
                     actions.push(Action::ChangeNodeOverrides {
                         index: GlobalNodeIndex {
                             node_index: index,
-                            graph_index: graph_index,
+                            graph_index,
                         },
                         before: None,
                         after: serde_json::from_value(node_json["default_overrides"].clone()).context(

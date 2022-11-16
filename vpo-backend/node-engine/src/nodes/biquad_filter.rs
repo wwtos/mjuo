@@ -36,13 +36,8 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
-        match socket_type {
-            StreamSocketType::Audio => {
-                self.filter.set_audio_in(value);
-            }
-            _ => {}
-        };
+    fn accept_stream_input(&mut self, _socket_type: &StreamSocketType, value: f32) {
+        self.filter.set_audio_in(value);
     }
 
     fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {

@@ -2,7 +2,7 @@ use snafu::prelude::*;
 
 use crate::node::{InputType, OutputType};
 
-#[derive(Clone, Debug, PartialEq, Snafu)]
+#[derive(Clone, Debug, PartialEq, Eq, Snafu)]
 pub enum NodeError {
     #[snafu(display("Input not supported: {unsupported_input_type}"))]
     UnsupportedInput { unsupported_input_type: InputType },

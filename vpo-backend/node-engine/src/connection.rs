@@ -38,21 +38,21 @@ pub enum SocketType {
     MethodCall(Vec<Primitive>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketDirection {
     Input,
     Output,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Eq)]
 #[serde(tag = "variant", content = "data")]
 pub enum MidiSocketType {
     Default,
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum StreamSocketType {
     Audio,
@@ -62,7 +62,7 @@ pub enum StreamSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum ValueSocketType {
     Default,
@@ -77,7 +77,7 @@ pub enum ValueSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRefSocketType {
     Button,
@@ -141,7 +141,7 @@ impl Primitive {
         match self {
             Primitive::Float(float) => Some(float as i32),
             Primitive::Int(int) => Some(int),
-            Primitive::Boolean(boolean) => Some(if boolean { 1 } else { 0 }),
+            Primitive::Boolean(boolean) => Some(i32::from(boolean)),
             _ => None,
         }
     }

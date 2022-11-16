@@ -22,7 +22,7 @@ pub trait MidiNode {
     fn receive_midi(&mut self, input: &[MidiData]) -> Result<(), SimpleError>;
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InputType {
     In,
     Gate,
@@ -31,7 +31,7 @@ pub enum InputType {
     Dynamic(u64),
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputType {
     Out,
     Gate,

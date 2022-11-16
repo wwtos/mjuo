@@ -43,7 +43,7 @@ pub fn route(
     state.commit(
         ActionBundle::new(vec![Action::CreateNode {
             node_type: node_type.to_string(),
-            graph_index: graph_index,
+            graph_index,
             node_index: None,
             child_graph_index: None,
             child_graph_io_indexes: None,

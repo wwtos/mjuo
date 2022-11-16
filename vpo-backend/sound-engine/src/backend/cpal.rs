@@ -94,7 +94,7 @@ impl AudioClientBackend for CpalBackend {
         let producer = self.producer.as_mut().unwrap();
 
         for elem in data.iter() {
-            producer.push(*elem);
+            producer.push(*elem).unwrap();
         }
 
         Ok(())

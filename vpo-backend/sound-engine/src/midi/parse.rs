@@ -71,7 +71,7 @@ impl MidiParser {
         } else if Some(self.buffer_len) == self.expected_message_length {
             // reached desired buffer length
             true
-        } else if self.expected_message_length == None {
+        } else if self.expected_message_length.is_none() {
             // custom midi message
             self.buffer[self.buffer_len - 1] == 0b11110111
         } else {

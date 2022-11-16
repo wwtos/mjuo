@@ -24,7 +24,7 @@ pub fn route(
 
     state.commit(
         ActionBundle::new(vec![Action::RemoveConnection {
-            graph_index: graph_index,
+            graph_index,
             connection: serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?,
         }]),
         global_state,

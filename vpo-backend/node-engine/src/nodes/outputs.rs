@@ -137,11 +137,9 @@ impl Node for OutputsNode {
             .position(|x| x == &SocketType::Value(socket_type.clone()))
             .unwrap();
 
-        if let Some(value_out) = &self.values_out[index] {
-            Some(value_out.clone().as_value().unwrap())
-        } else {
-            None
-        }
+        self.values_out[index]
+            .as_ref()
+            .map(|value_out| value_out.clone().as_value().unwrap())
     }
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
@@ -153,7 +151,7 @@ impl Node for OutputsNode {
 
         NodeOk::no_warnings(InitResult {
             did_rows_change: self.dirty,
-            node_rows: node_rows,
+            node_rows,
             changed_properties: None,
         })
     }

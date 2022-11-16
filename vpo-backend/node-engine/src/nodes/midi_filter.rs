@@ -31,6 +31,12 @@ impl MidiFilterNode {
     }
 }
 
+impl Default for MidiFilterNode {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     match value {
         serde_json::Value::Null => Dynamic::from(()),
@@ -43,7 +49,7 @@ fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
             }
         }
         serde_json::Value::String(value) => Dynamic::from(value),
-        serde_json::Value::Array(array) => Dynamic::from(array.into_iter().map(|x| value_to_dynamic(x))),
+        serde_json::Value::Array(array) => Dynamic::from(array.into_iter().map(value_to_dynamic)),
         serde_json::Value::Object(object) => Dynamic::from(
             object
                 .into_iter()

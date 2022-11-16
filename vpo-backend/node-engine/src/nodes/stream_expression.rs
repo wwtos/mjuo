@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use rhai::{Scope, AST};
 use serde_json::json;
 use smallvec::{smallvec, SmallVec};
@@ -9,17 +11,23 @@ use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Clone)]
 pub struct StreamExpressionNode {
-    ast: Option<AST>,
-    scope: Scope<'static>,
-    values_in: SmallVec<[f32; 8]>,
-    values_in_mapping: SmallVec<[(u64, usize); 8]>,
+    ast: Option<Box<AST>>,
+    scope: Box<Scope<'static>>,
+    values_in: SmallVec<[f32; 4]>,
+    values_in_mapping: SmallVec<[(u64, usize); 4]>,
     value_out: f32,
+}
+
+impl Default for StreamExpressionNode {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StreamExpressionNode {
     pub fn new() -> StreamExpressionNode {
         StreamExpressionNode {
-            scope: Scope::new(),
+            scope: Box::new(Scope::new()),
             ast: None,
             values_in: smallvec![],
             values_in_mapping: smallvec![],
@@ -30,15 +38,12 @@ impl StreamExpressionNode {
 
 impl Node for StreamExpressionNode {
     fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
-        match socket_type {
-            &StreamSocketType::Dynamic(uid) => {
-                let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
+        if let &StreamSocketType::Dynamic(uid) = socket_type {
+            let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
 
-                if let Some(local_index) = local_index {
-                    self.values_in[local_index.1] = value;
-                }
+            if let Some(local_index) = local_index {
+                self.values_in[local_index.1] = value;
             }
-            _ => {}
         }
     }
 
@@ -57,7 +62,7 @@ impl Node for StreamExpressionNode {
             }
 
             // now we run the expression!
-            let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, &ast);
+            let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
 
             // convert the output to a usuable form
             match result {
@@ -100,40 +105,44 @@ impl Node for StreamExpressionNode {
         if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
             let values_in_count_usize = *values_in_count as usize;
 
-            // is it bigger or smaller than last time?
-            if values_in_count_usize > self.values_in.len() {
-                // if bigger, add some accordingly
-                for i in self.values_in.len()..values_in_count_usize {
-                    // get ID for socket
-                    let new_socket_uid = state
-                        .registry
-                        .register_socket(
-                            format!("stream.stream_expression.{}", i),
-                            SocketType::Stream(StreamSocketType::Audio),
-                            "stream.stream_expression".to_string(),
-                            Some(json! {{ "input_number": i + 1 }}),
-                        )
-                        .unwrap()
-                        .1;
+            match values_in_count_usize.cmp(&self.values_in.len()) {
+                Ordering::Less => {
+                    // if smaller, see how many we need to remove
+                    let to_remove = self.values_in.len() - values_in_count_usize;
 
-                    // add a socket -> local index mapping
-                    self.values_in_mapping.push((new_socket_uid, i));
-                    self.values_in.push(0.0);
+                    for _ in 0..to_remove {
+                        self.values_in.pop();
+                        self.values_in_mapping.pop();
+                    }
+
+                    did_rows_change = true;
                 }
-
-                did_rows_change = true;
-            } else if values_in_count_usize < self.values_in.len() {
-                // if smaller, see how many we need to remove
-                let to_remove = self.values_in.len() - values_in_count_usize;
-
-                for _ in 0..to_remove {
-                    self.values_in.pop();
-                    self.values_in_mapping.pop();
+                Ordering::Equal => {
+                    // if it's the same, we don't need to do anything
                 }
+                Ordering::Greater => {
+                    // if bigger, add some accordingly
+                    for i in self.values_in.len()..values_in_count_usize {
+                        // get ID for socket
+                        let new_socket_uid = state
+                            .registry
+                            .register_socket(
+                                format!("stream.stream_expression.{}", i),
+                                SocketType::Stream(StreamSocketType::Audio),
+                                "stream.stream_expression".to_string(),
+                                Some(json! {{ "input_number": i + 1 }}),
+                            )
+                            .unwrap()
+                            .1;
 
-                did_rows_change = true;
+                        // add a socket -> local index mapping
+                        self.values_in_mapping.push((new_socket_uid, i));
+                        self.values_in.push(0.0);
+                    }
+
+                    did_rows_change = true;
+                }
             }
-            // if it's the same, we don't need to do anything
         } else {
             self.values_in.clear();
             self.values_in_mapping.clear();
@@ -161,11 +170,11 @@ impl Node for StreamExpressionNode {
             self.ast = None;
         } else {
             // compile the expression and collect any errors
-            let possible_ast = state.script_engine.compile(&expression);
+            let possible_ast = state.script_engine.compile(expression);
 
             match possible_ast {
                 Ok(ast) => {
-                    self.ast = Some(ast);
+                    self.ast = Some(Box::new(ast));
                 }
                 Err(parser_error) => {
                     self.ast = None;

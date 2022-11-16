@@ -72,7 +72,7 @@ pub struct ActionBundle {
 
 impl ActionBundle {
     pub fn new(actions: Vec<Action>) -> ActionBundle {
-        ActionBundle { actions: actions }
+        ActionBundle { actions }
     }
 }
 
@@ -238,9 +238,8 @@ impl NodeEngineState {
         }
 
         let output_node = graph.get_node_mut(&self.output_node).unwrap();
-        let audio = output_node.get_stream_output(&StreamSocketType::Audio);
 
-        audio
+        output_node.get_stream_output(&StreamSocketType::Audio)
     }
 }
 
@@ -303,12 +302,10 @@ impl NodeEngineState {
     }
 
     pub fn is_action_property_related(action: &Action) -> bool {
-        match action {
-            Action::ChangeNodeProperties { .. } => true,
-            Action::ChangeNodeUiData { .. } => true,
-            Action::ChangeNodeOverrides { .. } => true,
-            _ => false,
-        }
+        matches!(
+            action,
+            Action::ChangeNodeProperties { .. } | Action::ChangeNodeUiData { .. } | Action::ChangeNodeOverrides { .. }
+        )
     }
 
     pub fn commit(&mut self, actions: ActionBundle, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {
@@ -483,9 +480,9 @@ impl NodeEngineState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 Action::ChangeNodeProperties {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 }
             }
             Action::ChangeNodeUiData {
@@ -515,9 +512,9 @@ impl NodeEngineState {
                 }
 
                 Action::ChangeNodeUiData {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 }
             }
             Action::ChangeNodeOverrides {
@@ -547,9 +544,9 @@ impl NodeEngineState {
                 }
 
                 Action::ChangeNodeOverrides {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 }
             }
             Action::AddConnection {
@@ -559,9 +556,7 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist {
-                        graph_index: graph_index,
-                    })?
+                    .ok_or(NodeError::GraphDoesNotExist { graph_index })?
                     .graph;
 
                 graph.connect(
@@ -586,9 +581,7 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist {
-                        graph_index: graph_index,
-                    })?
+                    .ok_or(NodeError::GraphDoesNotExist { graph_index })?
                     .graph;
 
                 graph.disconnect(
@@ -641,15 +634,15 @@ impl NodeEngineState {
 
                 self.graph_manager
                     .remove_node(&GlobalNodeIndex {
-                        graph_index: graph_index,
-                        node_index: node_index.clone(),
+                        graph_index,
+                        node_index,
                     })
                     .map(|_| Action::CreateNode {
-                        node_type: node_type.clone(),
-                        graph_index: graph_index.clone(),
+                        node_type,
+                        graph_index,
                         node_index: Some(node_index),
-                        child_graph_index: child_graph_index.clone(),
-                        child_graph_io_indexes: child_graph_io_indexes.clone(),
+                        child_graph_index,
+                        child_graph_io_indexes,
                     })
             }
             Action::RemoveNode {
@@ -767,9 +760,9 @@ impl NodeEngineState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 Ok(Action::ChangeNodeProperties {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 })
             }
             Action::ChangeNodeUiData { index, before, after } => {
@@ -799,9 +792,9 @@ impl NodeEngineState {
                 }
 
                 Ok(Action::ChangeNodeUiData {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 })
             }
             Action::ChangeNodeOverrides { index, before, after } => {
@@ -831,9 +824,9 @@ impl NodeEngineState {
                 }
 
                 Ok(Action::ChangeNodeOverrides {
-                    index: index,
+                    index,
                     before: Some(before),
-                    after: after,
+                    after,
                 })
             }
             Action::AddConnection {
@@ -843,9 +836,7 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist {
-                        graph_index: graph_index,
-                    })?
+                    .ok_or(NodeError::GraphDoesNotExist { graph_index })?
                     .graph;
 
                 graph.disconnect(
@@ -870,9 +861,7 @@ impl NodeEngineState {
                 let graph = &mut self
                     .graph_manager
                     .get_graph_wrapper_mut(graph_index)
-                    .ok_or(NodeError::GraphDoesNotExist {
-                        graph_index: graph_index,
-                    })?
+                    .ok_or(NodeError::GraphDoesNotExist { graph_index })?
                     .graph;
 
                 graph.connect(
@@ -928,7 +917,7 @@ impl NodeEngineState {
             NodeInitState {
                 props: &HashMap::new(),
                 registry: socket_registry,
-                script_engine: &scripting_engine,
+                script_engine: scripting_engine,
                 global_state,
             },
             sound_config,

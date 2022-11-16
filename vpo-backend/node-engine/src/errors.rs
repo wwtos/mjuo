@@ -63,10 +63,7 @@ pub enum NodeError {
 
 impl NodeError {
     pub fn in_context(self, context: NodeErrorContext) -> ErrorInContext {
-        ErrorInContext {
-            error: self,
-            context: context,
-        }
+        ErrorInContext { error: self, context }
     }
 }
 
@@ -142,11 +139,11 @@ impl ErrorsAndWarnings {
 
     pub fn merge(mut self, other: Result<(), ErrorsAndWarnings>) -> Result<ErrorsAndWarnings, ErrorsAndWarnings> {
         if let Err(other) = other {
-            if other.warnings.len() > 0 {
+            if !other.warnings.is_empty() {
                 self.warnings.extend(other.warnings);
             }
 
-            if other.errors.len() > 0 {
+            if !other.errors.is_empty() {
                 self.errors.extend(other.errors);
                 Err(self)
             } else {
@@ -176,6 +173,12 @@ impl<T> NodeOk<T> {
 
 pub struct WarningBuilder {
     warnings: Option<Vec<NodeWarning>>,
+}
+
+impl Default for WarningBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl WarningBuilder {

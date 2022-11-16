@@ -17,7 +17,7 @@ impl MonoBufferPlayer {
 
         MonoBufferPlayer {
             playback_rate: 1.0,
-            buffer_rate: buffer_rate,
+            buffer_rate,
             adjusted_playback_rate: buffer_rate as f32 / config.sample_rate as f32,
             global_sample_rate: config.sample_rate,
             audio_position: 0.0,

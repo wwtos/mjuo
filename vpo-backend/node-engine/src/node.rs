@@ -175,7 +175,7 @@ where
 {
     let variant_name: String = serde::Deserialize::deserialize(deserializer)?;
 
-    Ok(NodeVariant::Placeholder(Placeholder::new(variant_name.to_string())))
+    Ok(NodeVariant::Placeholder(Placeholder::new(variant_name)))
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -246,10 +246,7 @@ impl NodeWrapper {
     }
 
     pub fn does_need_child_graph_created(&self) -> bool {
-        self.node_rows
-            .iter()
-            .any(|row| if let NodeRow::InnerGraph = row { true } else { false })
-            && self.child_graph_index.is_none()
+        self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph)) && self.child_graph_index.is_none()
     }
 
     pub fn init_child_graph(
@@ -260,7 +257,7 @@ impl NodeWrapper {
         outputs: Vec<SocketType>,
         state: NodeInitState,
     ) {
-        self.set_child_graph_index(index.clone());
+        self.set_child_graph_index(*index);
 
         let mut new_inputs_node = InputsNode::default();
         let mut new_outputs_node = OutputsNode::default();
@@ -439,7 +436,7 @@ impl NodeWrapper {
 
     pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
         // if it's connected to something, it doesn't have a default
-        if let Some(_) = self.get_input_connection_by_type(socket_type) {
+        if self.get_input_connection_by_type(socket_type).is_some() {
             return None;
         }
 
@@ -468,7 +465,7 @@ impl NodeWrapper {
                     false
                 }
             })
-            .map(|row| row.clone())
+            .cloned()
     }
 
     pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
@@ -545,7 +542,7 @@ impl NodeWrapper {
     pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
         let (input_node, output_node) = &self.child_graph_io_indexes.unwrap();
 
-        self.node.init_graph(graph, input_node.clone(), output_node.clone());
+        self.node.init_graph(graph, *input_node, *output_node);
     }
 
     pub fn get_node_type(&self) -> String {
@@ -642,7 +639,7 @@ impl NodeWrapper {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub struct NodeIndex {
     pub index: usize,
     pub generation: u32,

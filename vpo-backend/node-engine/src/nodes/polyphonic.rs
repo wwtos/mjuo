@@ -27,7 +27,7 @@ impl PolyphonicInfo {
         PolyphonicInfo {
             duration_of_same_output: 0,
             last_output_value: 0.0,
-            started_at: started_at,
+            started_at,
             active: false,
             note: 255,
         }
@@ -79,7 +79,7 @@ impl Node for PolyphonicNode {
         }
 
         // TODO: this is pretty hacky
-        if self.voices.len() > 0 {
+        if !self.voices.is_empty() {
             for i in 0..self.polyphony {
                 if i as usize >= self.voices.len() {
                     self.voices.push(Voice {
@@ -117,7 +117,7 @@ impl Node for PolyphonicNode {
     }
 
     fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: Vec<MidiData>) {
-        if self.voices.len() > 0 {
+        if !self.voices.is_empty() {
             // go through all the messages and send them to all the appropriate locations
             for message in value {
                 let message_to_pass_to_all = match message {
@@ -153,7 +153,7 @@ impl Node for PolyphonicNode {
                                 &MidiSocketType::Default,
                                 vec![
                                     MidiData::NoteOff {
-                                        channel: channel,
+                                        channel,
                                         note,
                                         velocity: 0,
                                     },
@@ -177,7 +177,7 @@ impl Node for PolyphonicNode {
                                     &MidiSocketType::Default,
                                     vec![
                                         MidiData::NoteOff {
-                                            channel: channel,
+                                            channel,
                                             note: available.info.note,
                                             velocity: 0,
                                         },
@@ -203,7 +203,7 @@ impl Node for PolyphonicNode {
                                     &MidiSocketType::Default,
                                     vec![
                                         MidiData::NoteOff {
-                                            channel: channel,
+                                            channel,
                                             note: oldest.info.note,
                                             velocity: 0,
                                         },

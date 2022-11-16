@@ -42,7 +42,7 @@ impl Node for MonoSamplePlayerNode {
                 .resources
                 .samples
                 .get_index(&resource.resource)
-                .ok_or(NodeError::MissingResource { resource: resource })?;
+                .ok_or(NodeError::MissingResource { resource })?;
 
             did_index_change = new_index != self.index;
             self.index = new_index;

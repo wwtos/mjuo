@@ -9,7 +9,6 @@ use std::{
 };
 
 use serde::{ser::SerializeSeq, Serialize};
-use serde_json;
 use snafu::Snafu;
 use threadpool::ThreadPool;
 
@@ -30,7 +29,7 @@ pub trait Resource {
         Self: Sized;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceIndex {
     pub index: usize,
     pub generation: u32,
@@ -80,19 +79,20 @@ where
         self.resource_mapping.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.resource_mapping.is_empty()
+    }
+
     pub fn as_keys(&self) -> Vec<String> {
         self.resource_mapping.keys().cloned().collect()
     }
 
     fn add_resource(&mut self, resource: A) -> ResourceIndex {
         // check if there's an opening
-        let possible_opening = self.resources.iter().position(|resource| {
-            if let PossibleResource::Some(..) = resource {
-                false
-            } else {
-                true
-            }
-        });
+        let possible_opening = self
+            .resources
+            .iter()
+            .position(|resource| !matches!(resource, PossibleResource::Some(..)));
 
         // put the new resource in the opening
         if let Some(opening) = possible_opening {
@@ -122,7 +122,7 @@ where
     }
 
     pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {
-        self.resource_mapping.get(key).map(|x| *x)
+        self.resource_mapping.get(key).copied()
     }
 
     pub fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
@@ -146,7 +146,7 @@ where
                 // check if we've already loaded this resource
                 let existing_resources = existing_resources_cloned.lock().unwrap();
 
-                if let Some(_) = existing_resources.iter().find(|&x| x == &key) {
+                if existing_resources.iter().any(|x| x == &key) {
                     return;
                 }
 
@@ -177,7 +177,7 @@ where
             match &self.resources[index.index] {
                 PossibleResource::Some(resource, generation) => {
                     if index.generation == *generation {
-                        Some(&resource)
+                        Some(resource)
                     } else {
                         None
                     }

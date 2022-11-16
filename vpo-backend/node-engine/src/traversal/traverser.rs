@@ -23,11 +23,15 @@ pub struct Traverser {
 
 impl Default for Traverser {
     fn default() -> Self {
-        Traverser { nodes: vec![] }
+        Self::new()
     }
 }
 
 impl Traverser {
+    pub fn new() -> Self {
+        Traverser { nodes: vec![] }
+    }
+
     pub fn get_traverser(graph: &NodeGraph) -> Traverser {
         // first, get traversal order
         let traversal_order = calculate_graph_traverse_order(graph);
@@ -61,7 +65,7 @@ impl Traverser {
                 outputs_to: output_connections,
             };
 
-            nodes.push((node_index.clone(), node_traverse_data));
+            nodes.push((*node_index, node_traverse_data));
         }
 
         Traverser { nodes }
@@ -137,9 +141,9 @@ impl Traverser {
             // record any errors
             match process_result {
                 Ok(result) => {
-                    result
-                        .warnings
-                        .map(|new_warnings| warnings.extend(new_warnings.warnings));
+                    if let Some(new_warnings) = result.warnings {
+                        warnings.extend(new_warnings.warnings)
+                    }
                 }
                 Err(err) => {
                     errors.push(err);

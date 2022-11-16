@@ -132,7 +132,7 @@ impl Node for InputsNode {
 
         NodeOk::no_warnings(InitResult {
             did_rows_change: self.dirty,
-            node_rows: node_rows,
+            node_rows,
             changed_properties: None,
         })
     }

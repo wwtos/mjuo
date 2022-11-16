@@ -1,4 +1,3 @@
-use std::borrow::BorrowMut;
 use std::cell::{RefCell, RefMut};
 use std::hash::BuildHasherDefault;
 use std::{cell::Ref, collections::HashMap};
@@ -19,7 +18,7 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 pub type GraphIndex = u64;
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
     pub node_index: NodeIndex,
@@ -197,8 +196,8 @@ impl GraphManager {
 
             // if it's a redo, it has a specific index it needs to be at
             if let Some(node_index) = node_index {
-                if let Some(_) = graph.get_node(&node_index) {
-                    return Err(NodeError::NodeAlreadyExists { node_index: node_index });
+                if graph.get_node(&node_index).is_some() {
+                    return Err(NodeError::NodeAlreadyExists { node_index });
                 }
 
                 let new_node = new_variant(node_type, sound_config).unwrap();
@@ -398,10 +397,10 @@ impl GraphManager {
         Ok(NodeOk::new(
             Action::CreateNode {
                 node_type: node_type.to_string(),
-                graph_index: graph_index,
+                graph_index,
                 node_index: Some(new_node_index),
                 child_graph_index,
-                child_graph_io_indexes: new_node.get_child_graph_io_indexes().clone(),
+                child_graph_io_indexes: *new_node.get_child_graph_io_indexes(),
             },
             warnings.into_warnings(),
         ))
@@ -424,7 +423,7 @@ impl GraphManager {
                 node_index: *node_index,
             })?;
 
-            node.get_child_graph_index().clone()
+            *node.get_child_graph_index()
         };
 
         if let Some(child_graph_index) = possible_child_graph_index {
@@ -466,7 +465,7 @@ impl GraphManager {
         ]
         .concat();
 
-        let node_ios = node.get_child_graph_io_indexes().clone();
+        let node_ios = *node.get_child_graph_io_indexes();
 
         // also, save the properties, value overrides, etc
         let node_state = node.serialize_to_json()?;

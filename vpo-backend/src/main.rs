@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::path::Path;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -20,7 +19,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         sample_rate: SAMPLE_RATE,
     };
 
-    let mut global_state = GlobalState::new(sound_config.clone());
+    let mut global_state = GlobalState::new(sound_config);
     let mut engine_state = NodeEngineState::new(&global_state);
 
     let mut backend = connect_backend()?;

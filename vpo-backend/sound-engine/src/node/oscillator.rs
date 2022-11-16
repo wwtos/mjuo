@@ -86,10 +86,10 @@ impl Oscillator {
     pub fn process_fast(&mut self) -> f32 {
         let phase_advance = self.frequency / (SAMPLE_RATE as f32);
 
-        self.phase = self.phase + phase_advance;
+        self.phase += phase_advance;
         self.phase -= self.phase.floor();
 
-        interpolate(&self.waveform, self.frequency, self.phase)
+        interpolate(self.waveform, self.frequency, self.phase)
     }
 }
 

@@ -72,7 +72,7 @@ impl Node for MixerNode {
 
         NodeOk::no_warnings(InitResult {
             did_rows_change,
-            node_rows: node_rows,
+            node_rows,
             changed_properties: None,
         })
     }

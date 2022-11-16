@@ -47,8 +47,8 @@ pub fn route(
         ActionBundle::new(vec![Action::RemoveNode {
             node_type: None,
             index: GlobalNodeIndex {
-                node_index: node_index,
-                graph_index: graph_index,
+                node_index,
+                graph_index,
             },
             connections: None,
             serialized: None,

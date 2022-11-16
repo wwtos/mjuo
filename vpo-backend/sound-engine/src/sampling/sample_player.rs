@@ -9,3 +9,9 @@ impl SamplePlayer {
         SamplePlayer {}
     }
 }
+
+impl Default for SamplePlayer {
+    fn default() -> Self {
+        Self::new()
+    }
+}

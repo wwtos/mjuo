@@ -111,7 +111,7 @@ impl NodeGraph {
         // (one output can be connected to many imputs, one to many)
 
         // does "from" exist?
-        let from = if let Some(from_wrapper) = self.get_node(&from_index) {
+        let from = if let Some(from_wrapper) = self.get_node(from_index) {
             from_wrapper
         } else {
             return Err(NodeError::NodeDoesNotExist {
@@ -120,14 +120,14 @@ impl NodeGraph {
         };
 
         // does "to" exist?
-        let to = if let Some(to_wrapper) = self.get_node(&to_index) {
+        let to = if let Some(to_wrapper) = self.get_node(to_index) {
             to_wrapper
         } else {
             return Err(NodeError::NodeDoesNotExist { node_index: *to_index });
         };
 
         // check if "to" is connected from "from"
-        if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
+        if let Some(to_connection) = to.get_input_connection_by_type(to_socket_type) {
             if &to_connection.from_node == from_index {
                 return Err(NodeError::AlreadyConnected {
                     from: from_socket_type.clone(),
@@ -142,14 +142,14 @@ impl NodeGraph {
         }
 
         // make sure `from_type` exists in `from's` outputs
-        if !from.has_output_socket(&from_socket_type) {
+        if !from.has_output_socket(from_socket_type) {
             return Err(NodeError::SocketDoesNotExist {
                 socket_type: from_socket_type.clone(),
             });
         }
 
         // make sure `to_type` exists in `to's` inputs
-        if !to.has_input_socket(&to_socket_type) {
+        if !to.has_input_socket(to_socket_type) {
             return Err(NodeError::SocketDoesNotExist {
                 socket_type: to_socket_type.clone(),
             });
@@ -167,7 +167,7 @@ impl NodeGraph {
         // (from both connected nodes), we should be good here
 
         // now we'll create the connection (two-way)
-        self.get_node_mut(&to_index)
+        self.get_node_mut(to_index)
             .unwrap()
             .add_input_connection_unchecked(InputSideConnection {
                 from_socket_type: from_socket_type.clone(),
@@ -175,7 +175,7 @@ impl NodeGraph {
                 to_socket_type: to_socket_type.clone(),
             });
 
-        self.get_node_mut(&from_index)
+        self.get_node_mut(from_index)
             .unwrap()
             .add_output_connection_unchecked(OutputSideConnection {
                 from_socket_type: from_socket_type.clone(),
@@ -201,21 +201,21 @@ impl NodeGraph {
         // check that the connection exists
 
         // does "from" exist?
-        if self.get_node(&from_index).is_none() {
+        if self.get_node(from_index).is_none() {
             return Err(NodeError::NodeDoesNotExist {
                 node_index: *from_index,
             });
         }
 
         // does "to" exist?
-        let to = if let Some(to_wrapper) = self.get_node(&to_index) {
+        let to = if let Some(to_wrapper) = self.get_node(to_index) {
             to_wrapper
         } else {
             return Err(NodeError::NodeDoesNotExist { node_index: *to_index });
         };
 
         // check if "to" is connected from "from"
-        let already_connected = if let Some(to_connection) = to.get_input_connection_by_type(&to_socket_type) {
+        let already_connected = if let Some(to_connection) = to.get_input_connection_by_type(to_socket_type) {
             &to_connection.from_node == from_index
         } else {
             false
@@ -229,11 +229,11 @@ impl NodeGraph {
         // (from both connected nodes), we should be good here
 
         // now we'll remove the connection on both nodes
-        self.get_node_mut(&to_index)
+        self.get_node_mut(to_index)
             .unwrap()
-            .remove_input_socket_connection_unchecked(&to_socket_type)?;
+            .remove_input_socket_connection_unchecked(to_socket_type)?;
 
-        self.get_node_mut(&from_index)
+        self.get_node_mut(from_index)
             .unwrap()
             .remove_output_socket_connection_unchecked(&OutputSideConnection {
                 from_socket_type: from_socket_type.clone(),
