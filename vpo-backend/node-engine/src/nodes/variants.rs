@@ -19,6 +19,7 @@ use super::midi_filter::MidiFilterNode;
 use super::mono_sample_player::MonoSamplePlayerNode;
 use super::outputs::OutputsNode;
 use super::polyphonic::PolyphonicNode;
+use super::portamento::PortamentoNode;
 use super::stream_expression::StreamExpressionNode;
 use super::wavetable::WavetableNode;
 use super::{
@@ -49,6 +50,7 @@ pub enum NodeVariant {
     MidiFilterNode,
     MonoSamplePlayerNode,
     WavetableNode,
+    PortamentoNode,
     #[cfg(test)]
     TestNode,
 }
@@ -88,6 +90,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new())),
         "MonoSamplePlayerNode" => Ok(NodeVariant::MonoSamplePlayerNode(MonoSamplePlayerNode::new(config))),
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
+        "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -114,6 +117,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::MidiFilterNode(_) => "MidiFilterNode".to_string(),
         NodeVariant::MonoSamplePlayerNode(_) => "MonoSamplePlayerNode".to_string(),
         NodeVariant::WavetableNode(_) => "WavetableNode".to_string(),
+        NodeVariant::PortamentoNode(_) => "PortamentoNode".to_string(),
         NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),

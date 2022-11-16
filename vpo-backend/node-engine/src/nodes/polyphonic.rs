@@ -128,7 +128,7 @@ impl Node for PolyphonicNode {
                         for voice in self.voices.iter_mut() {
                             if voice.info.active && voice.info.note == note {
                                 let subgraph_input_node = voice.graph.get_node_mut(&self.child_inputs_node).unwrap();
-                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, SmallVec::new());
+                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, smallvec![message]);
 
                                 voice.info.active = true;
                                 voice.info.note = note;

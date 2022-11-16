@@ -167,6 +167,10 @@ impl NodeEngineState {
         &self.sound_config
     }
 
+    pub fn get_root_graph_index(&self) -> GraphIndex {
+        self.root_graph_index
+    }
+
     pub fn get_registry(&mut self) -> &mut SocketRegistry {
         &mut self.socket_registry
     }

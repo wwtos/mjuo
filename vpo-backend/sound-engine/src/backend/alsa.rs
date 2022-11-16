@@ -34,7 +34,7 @@ impl AudioClientBackend for AlsaAudioBackend {
                 // Set hardware parameters: 48000 Hz / Mono / 16 bit
                 let hwp = HwParams::any(&pcm).unwrap();
                 hwp.set_channels(1).unwrap();
-                hwp.set_rate(SAMPLE_RATE, ValueOr::Nearest).unwrap();
+                hwp.set_rate(SAMPLE_RATE, ValueOr::Greater).unwrap();
                 hwp.set_format(Format::float()).unwrap();
                 hwp.set_access(Access::RWInterleaved).unwrap();
 

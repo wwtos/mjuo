@@ -6,14 +6,16 @@ use crate::{
         ValueSocketType,
     },
     errors::{NodeError, NodeOk},
-    node::{InitResult, Node, NodeInitState, NodeRow},
+    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
 };
+
+use super::util::ProcessState;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
     inputs: Vec<SocketType>,
     values: Vec<SocketValue>,
-    value_changed: Vec<bool>,
+    value_changed: Vec<ProcessState<()>>,
     dirty: bool,
 }
 
@@ -31,7 +33,7 @@ impl InputsNode {
                 SocketType::MethodCall(_) => todo!(),
             };
 
-            self.value_changed[i] = true;
+            self.value_changed[i] = ProcessState::Unprocessed(());
         }
 
         for i in self.values.len()..self.inputs.len() {
@@ -43,7 +45,7 @@ impl InputsNode {
                 SocketType::MethodCall(_) => todo!(),
             });
 
-            self.value_changed.push(true);
+            self.value_changed.push(ProcessState::Unprocessed(()));
         }
 
         if self.values.len() > self.inputs.len() {
@@ -54,6 +56,22 @@ impl InputsNode {
 }
 
 impl Node for InputsNode {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        for value_changed in self.value_changed.iter_mut() {
+            match value_changed {
+                ProcessState::Unprocessed(_) => {
+                    *value_changed = ProcessState::Processed;
+                }
+                ProcessState::Processed => {
+                    *value_changed = ProcessState::None;
+                }
+                ProcessState::None => {}
+            }
+        }
+
+        NodeOk::no_warnings(())
+    }
+
     fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
         let index = self
             .inputs
@@ -71,8 +89,12 @@ impl Node for InputsNode {
             .position(|x| x == &SocketType::Midi(socket_type.clone()))
             .unwrap();
 
-        self.values[index] = SocketValue::Midi(value);
-        self.value_changed[index] = true;
+        if !value.is_empty() {
+            self.values[index] = SocketValue::Midi(value);
+            self.value_changed[index] = ProcessState::Unprocessed(());
+        } else {
+            self.value_changed[index] = ProcessState::None;
+        }
     }
 
     fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
@@ -83,7 +105,7 @@ impl Node for InputsNode {
             .unwrap();
 
         self.values[index] = SocketValue::Value(value);
-        self.value_changed[index] = true;
+        self.value_changed[index] = ProcessState::Unprocessed(());
     }
 
     fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
@@ -103,7 +125,7 @@ impl Node for InputsNode {
             .position(|x| x == &SocketType::Midi(socket_type.clone()))
             .unwrap();
 
-        if self.value_changed[index] {
+        if matches!(self.value_changed[index], ProcessState::Processed) {
             Some(self.values[index].clone().as_midi().unwrap())
         } else {
             None
@@ -117,7 +139,7 @@ impl Node for InputsNode {
             .position(|x| x == &SocketType::Value(socket_type.clone()))
             .unwrap();
 
-        if self.value_changed[index] {
+        if matches!(self.value_changed[index], ProcessState::Processed) {
             Some(self.values[index].clone().as_value().unwrap())
         } else {
             None

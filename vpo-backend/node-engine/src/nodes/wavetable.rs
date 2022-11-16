@@ -92,7 +92,7 @@ impl Node for WavetableNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, _socket_type: &ValueSocketType, value: Primitive) {
         if let Some(oscillator) = &mut self.oscillator {
             oscillator.set_frequency(value.as_float().unwrap());
         }

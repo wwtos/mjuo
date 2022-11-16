@@ -22,6 +22,12 @@ strum = "0.24.0"
 strum_macros = "0.24"
 walkdir = "2"
 
+[target.x86_64-unknown-linux-gnu]
+rustflags = [
+  "-C",
+  "link-arg=-fuse-ld=lld",
+]
+
 [profile.release-x86_64-pc-windows-gnu]
 inherits = "release"
 opt-level = 3

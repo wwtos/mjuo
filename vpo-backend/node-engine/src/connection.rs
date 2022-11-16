@@ -78,6 +78,7 @@ pub enum ValueSocketType {
     Decay,
     Sustain,
     Release,
+    Speed,
     Dynamic(u64),
 }
 

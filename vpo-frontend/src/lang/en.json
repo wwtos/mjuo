@@ -22,6 +22,7 @@
                 "decay": "Decay",
                 "sustain": "Sustain",
                 "release": "Release",
+                "speed": "Speed",
                 "dynamic": "Dynamic({{uid}})"
             }
         },
@@ -51,7 +52,8 @@
             "PolyphonicNode": "Polyphonic Node",
             "MidiFilterNode": "Midi Filter Node",
             "MonoSamplePlayerNode": "Mono Sample Player Node",
-            "WavetableNode": "Wavetable Oscillator Node"
+            "WavetableNode": "Wavetable Oscillator Node",
+            "PortamentoNode": "Portamento Node"
         },
         "editor": {
             "create": "Create!",

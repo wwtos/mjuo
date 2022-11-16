@@ -601,6 +601,25 @@ impl GraphManager {
             }
         }
 
+        // finally go through and run init_child_graph for all the nodes in the root graph
+        let mut root_graph = self
+            .get_graph_wrapper_mut(0)
+            .ok_or(NodeError::GraphDoesNotExist { graph_index: 0 })?;
+
+        for node in root_graph.graph.get_nodes_mut() {
+            if let PossibleNode::Some(node, _) = node {
+                if let Some(child_graph_index) = node.get_child_graph_index() {
+                    let mut child_graph =
+                        self.get_graph_wrapper_mut(*child_graph_index)
+                            .ok_or(NodeError::GraphDoesNotExist {
+                                graph_index: *child_graph_index,
+                            })?;
+
+                    node.node_init_graph(&mut child_graph.graph);
+                }
+            }
+        }
+
         Ok(())
     }
 }

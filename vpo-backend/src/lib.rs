@@ -9,7 +9,10 @@ use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 use sound_engine::{
-    backend::{alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend},
+    backend::{
+        alsa::AlsaAudioBackend, alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend,
+        MidiClientBackend,
+    },
     constants::BUFFER_SIZE,
     midi::{messages::MidiData, parse::MidiParser},
 };
@@ -63,7 +66,7 @@ pub fn handle_msg(
 }
 
 pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
+    let mut backend: Box<dyn AudioClientBackend> = Box::new(AlsaAudioBackend::new());
     backend.connect()?;
 
     Ok(backend)

@@ -26,6 +26,7 @@ export type ValueSocketType = DiscriminatedUnion<"variant", {
     Decay: {},
     Sustain: {},
     Release: {},
+    Speed: {},
     Dynamic: { data: number },
 }>;
 
