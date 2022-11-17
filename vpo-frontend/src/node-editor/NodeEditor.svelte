@@ -22,6 +22,7 @@
     import { i18nStore } from "../i18n.js";
     import { BehaviorSubject, Subject, Subscription } from "rxjs";
     import type { SocketEvent } from "./socket";
+    import NodeCreationMenu from "./NodeCreationMenu.svelte";
 
     export let width = 400;
     export let height = 400;
@@ -48,6 +49,11 @@
     let draggedNode: null | NodeIndex = null;
     let draggedNodeWasDragged = false;
     let draggedOffset: null | [number, number] = null;
+    let createNodeMenu = {
+        visible: false,
+        x: 0,
+        y: 0,
+    };
 
     // the points of the connection being created
     let connectionBeingCreated: null | {
@@ -123,6 +129,18 @@
         }
     };
 
+    const onContextMenu = (event: MouseEvent) => {
+        createNodeMenu.visible = true;
+        createNodeMenu.x = event.clientX - 125;
+        createNodeMenu.y = event.clientY;
+
+        return false;
+    };
+
+    const onWindowMousedown = (event: MouseEvent) => {
+        createNodeMenu.visible = false;
+    };
+
     const onMouseup = () => {
         if (draggedNode && draggedNodeWasDragged) {
             $activeGraph.markNodeAsUpdated(draggedNode);
@@ -138,13 +156,26 @@
         connectionBeingCreated = null;
     };
 
-    function createNode(e: MouseEvent) {
-        e.stopPropagation();
+    function createNode(
+        nodeType: CustomEvent<{
+            value: string;
+            clientX: number;
+            clientY: number;
+        }>
+    ) {
+        let boundingRect = editor.getBoundingClientRect();
 
-        ipcSocket.createNode($activeGraph.graphIndex, nodeTypeToCreate, {
-            x: 0,
-            y: 0,
+        let relativeX = nodeType.detail.clientX - boundingRect.x;
+        let relativeY = nodeType.detail.clientY - boundingRect.y;
+
+        let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+
+        ipcSocket.createNode($activeGraph.graphIndex, nodeType.detail.value, {
+            x: mouseX,
+            y: mouseY,
         });
+
+        createNodeMenu.visible = false;
     }
 
     let keyedNodes: [string, NodeWrapper][];
@@ -367,22 +398,22 @@
     }
 
     onMount(async () => {
-        editor.addEventListener("keydown", onKeydown);
-
-        window.addEventListener("mousemove", onMousemove);
-        window.addEventListener("mouseup", onMouseup);
-
         zoomer = panzoom(nodeContainer);
     });
 </script>
 
-<svelte:window on:mousemove={onMousemove} on:mouseup={onMouseup} />
+<svelte:window
+    on:mousedown={onWindowMousedown}
+    on:mousemove={onMousemove}
+    on:mouseup={onMouseup}
+/>
 
 <div
     class="editor"
     style="width: {width}px; height: {height}px"
     bind:this={editor}
     on:keydown={onKeydown}
+    on:contextmenu={onContextMenu}
 >
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
         <div style="position: absolute; height: 0px; z-index: -10">
@@ -416,18 +447,13 @@
         </div>
     </div>
 
-    <div class="new-node" style="width: {width - 9}px">
-        {$i18nStore.t("editor.newNodeType")}
-        <select
-            bind:value={nodeTypeToCreate}
-            on:mousedown={(e) => e.stopPropagation()}
+    {#if createNodeMenu.visible}
+        <div
+            style="position: absolute; left: {createNodeMenu.x}px; top: {createNodeMenu.y}px;"
         >
-            {#each variants as { name, internal }}
-                <option value={internal}>{name}</option>
-            {/each}
-        </select>
-        <button on:click={createNode}>{$i18nStore.t("editor.create")}</button>
-    </div>
+            <NodeCreationMenu on:selected={createNode} />
+        </div>
+    {/if}
 </div>
 
 <style>
@@ -443,7 +469,6 @@
     }
 
     .editor {
-        border: 1px solid black;
         overflow: hidden;
         background-color: #fafafa;
     }

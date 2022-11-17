@@ -7,7 +7,7 @@ import { type GlobalState } from "../node-engine/global_state";
 export const socketRegistry: BehaviorSubject<SocketRegistry> = new BehaviorSubject(new SocketRegistry());
 export const ipcSocket: BehaviorSubject<IPCSocket | undefined> = new BehaviorSubject<IPCSocket | undefined>(undefined);
 export const graphManager = new GraphManager();
-export const activeEditor = new BehaviorSubject<"nodes" | "ui" | "files">("files");
+export const activeEditor = new BehaviorSubject<"nodes" | "ui" | "files">("nodes");
 export const globalState = new BehaviorSubject<GlobalState>({
     active_project: null,
     sound_config: {sample_rate: 0},

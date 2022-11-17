@@ -67,7 +67,7 @@ pub struct ActionResult {
 
 #[derive(Clone)]
 pub struct ActionBundle {
-    actions: Vec<Action>,
+    pub actions: Vec<Action>,
 }
 
 impl ActionBundle {
@@ -311,6 +311,10 @@ impl NodeEngineState {
             action,
             Action::ChangeNodeProperties { .. } | Action::ChangeNodeUiData { .. } | Action::ChangeNodeOverrides { .. }
         )
+    }
+
+    pub fn get_history_ref(&self) -> &Vec<ActionBundle> {
+        &self.history
     }
 
     pub fn commit(&mut self, actions: ActionBundle, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {

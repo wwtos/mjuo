@@ -1,0 +1,93 @@
+<script lang="ts">
+    import { NodeVariant, variants } from "../node-engine/variants";
+    import { createEventDispatcher } from "svelte";
+
+    const dispatch = createEventDispatcher();
+
+    export let menuWidth = 250;
+    let openCategory: null | string = null;
+
+    let categories: { [key: string]: NodeVariant[] } = variants.reduce(
+        (acc, val) => {
+            return {
+                ...acc,
+                [val.category]: [],
+            };
+        },
+        {}
+    );
+
+    for (let node of variants) {
+        categories[node.category].push(node);
+    }
+
+    for (let category in categories) {
+        categories[category].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    let categoryNames = Object.keys(categories);
+    categoryNames.sort();
+
+    const selectCategory = (category) => {
+        openCategory = category;
+    };
+
+    const valueSelected = (value: string, event: MouseEvent) => {
+        dispatch("selected", {
+            value,
+            clientX: event.clientX,
+            clientY: event.clientY,
+        });
+    };
+</script>
+
+<div class="menu" style="width: {menuWidth}px">
+    {#each categoryNames as category (category)}
+        <div
+            class="category item"
+            on:mouseenter={() => selectCategory(category)}
+            on:mousedown|stopPropagation
+        >
+            {#if openCategory === category}
+                <div
+                    style="position: absolute; left: {menuWidth}px; width: {menuWidth}px;"
+                >
+                    <div class="menu" style="width: {menuWidth}px">
+                        {#each categories[category] as nodeType (nodeType.internal)}
+                            <div
+                                class="item"
+                                on:click={(event) =>
+                                    valueSelected(nodeType.internal, event)}
+                            >
+                                {nodeType.name}
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
+            {category}
+            <span style="float: right; margin-left: 4px">▸</span>
+        </div>
+    {/each}
+</div>
+
+<style>
+    .menu {
+        border: solid 1px black;
+        background-color: white;
+        font-size: 1.2rem;
+    }
+
+    span,
+    div {
+        user-select: none;
+    }
+
+    .item {
+        padding: 4px;
+    }
+
+    .item:hover {
+        background-color: #ddd;
+    }
+</style>

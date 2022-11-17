@@ -1,68 +1,80 @@
 import { i18n } from '../i18n.js';
 
-export const variants = [
+export interface NodeVariant {
+    name: string,
+    internal: string,
+    category: string
+}
+
+export const variants: NodeVariant[] = [
     {
         name: i18n.t("nodes.GainGraphNode"),
-        internal: "GainGraphNode"
+        internal: "GainGraphNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.OscillatorNode"),
-        internal: "OscillatorNode"
+        internal: "OscillatorNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.MidiToValuesNode"),
-        internal: "MidiToValuesNode"
+        internal: "MidiToValuesNode",
+        category: "midi"
     },
     {
         name: i18n.t("nodes.EnvelopeNode"),
-        internal: "EnvelopeNode"
+        internal: "EnvelopeNode",
+        category: "base"
     },
     {
         name: i18n.t("nodes.BiquadFilterNode"),
-        internal: "BiquadFilterNode"
+        internal: "BiquadFilterNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.MixerNode"),
-        internal: "MixerNode"
+        internal: "MixerNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.ExpressionNode"),
-        internal: "ExpressionNode"
+        internal: "ExpressionNode",
+        category: "scripting"
     },
     {
         name: i18n.t("nodes.FunctionNode"),
-        internal: "FunctionNode"
-    },
-    {
-        name: i18n.t("nodes.InputsNode"),
-        internal: "InputsNode"
-    },
-    {
-        name: i18n.t("nodes.OutputsNode"),
-        internal: "OutputsNode"
+        internal: "FunctionNode",
+        category: "base"
     },
     {
         name: i18n.t("nodes.StreamExpressionNode"),
-        internal: "StreamExpressionNode"
+        internal: "StreamExpressionNode",
+        category: "scripting"
     },
     {
         name: i18n.t("nodes.PolyphonicNode"),
-        internal: "PolyphonicNode"
+        internal: "PolyphonicNode",
+        category: "base"
     },
     {
         name: i18n.t("nodes.MidiFilterNode"),
-        internal: "MidiFilterNode"
+        internal: "MidiFilterNode",
+        category: "midi"
     },
     {
         name: i18n.t("nodes.MonoSamplePlayerNode"),
-        internal: "MonoSamplePlayerNode"
+        internal: "MonoSamplePlayerNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.WavetableNode"),
-        internal: "WavetableNode"
+        internal: "WavetableNode",
+        category: "audio"
     },
     {
         name: i18n.t("nodes.PortamentoNode"),
-        internal: "PortamentoNode"
+        internal: "PortamentoNode",
+        category: "base"
     }
 ];
