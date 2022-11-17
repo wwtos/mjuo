@@ -5,7 +5,7 @@
     import { onMount } from "svelte";
     import { NodeIndex } from "../node-engine/node_index";
     import { NodeGraph, PossibleNode } from "../node-engine/node_graph";
-    import { NodeWrapper } from "../node-engine/node";
+    import { NodeWrapper, NODE_WIDTH } from "../node-engine/node";
     import {
         SocketDirection,
         socketToKey,
@@ -178,8 +178,8 @@
         let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
 
         ipcSocket.createNode($activeGraph.graphIndex, nodeType.detail.value, {
-            x: mouseX,
-            y: mouseY,
+            x: mouseX - NODE_WIDTH / 2,
+            y: mouseY - 30,
         });
 
         createNodeMenu.visible = false;

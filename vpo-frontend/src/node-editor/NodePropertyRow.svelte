@@ -68,6 +68,7 @@
     }
 
     $: dataAsResource = $value.data as { namespace: string; resource: string };
+    $: dataAsAny = $value.data as any;
 </script>
 
 <div class="container">
@@ -102,13 +103,16 @@
                 <input
                     type="text"
                     value={$value.data}
+                    title={propName}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
                 />
-                <div>
-                    <span class="input-hover-text">{propName}</span>
-                </div>
+                {#if dataAsAny.length < 15}
+                    <div>
+                        <span class="input-hover-text">{propName}</span>
+                    </div>
+                {/if}
             </label>
         </div>
     {:else if propType.variant == "Resource"}
@@ -119,13 +123,16 @@
                     value={dataAsResource.namespace +
                         ":" +
                         dataAsResource.resource}
+                    title={propName}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
                 />
-                <div>
-                    <span class="input-hover-text">{propName}</span>
-                </div>
+                {#if (dataAsResource.namespace + ":" + dataAsResource.resource).length < 15}
+                    <div>
+                        <span class="input-hover-text">{propName}</span>
+                    </div>
+                {/if}
             </label>
         </div>
     {/if}
