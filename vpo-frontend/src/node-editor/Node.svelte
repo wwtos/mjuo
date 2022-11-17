@@ -126,6 +126,10 @@
         if (wrapper.child_graph_index !== null) {
             dispatch("changeGraph", {
                 graphIndex: wrapper.child_graph_index,
+                nodeTitle:
+                    wrapper.ui_data.title && wrapper.ui_data.title.length > 0
+                        ? i18n.t("nodes." + wrapper.ui_data.title)
+                        : " ",
             });
         }
     }

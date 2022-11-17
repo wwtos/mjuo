@@ -23,6 +23,7 @@
     import { BehaviorSubject, Subject, Subscription } from "rxjs";
     import type { SocketEvent } from "./socket";
     import NodeCreationMenu from "./NodeCreationMenu.svelte";
+    import Breadcrumb from "./Breadcrumb.svelte";
 
     export let width = 400;
     export let height = 400;
@@ -67,6 +68,12 @@
         direction: SocketDirection;
         socket: SocketType;
     };
+    let path = [
+        {
+            name: "root",
+            index: 0,
+        },
+    ];
 
     let selectedNodes: NodeIndex[] = [];
 
@@ -383,18 +390,42 @@
         };
     }
 
-    async function changeGraphTo(graphIndex: number) {
+    async function breadcrumbChangeGraph(
+        event: CustomEvent<{ index: number }>
+    ) {
+        while (
+            path.length > 1 &&
+            path[path.length - 1].index !== event.detail.index
+        ) {
+            path.pop();
+        }
+
+        let graph = await graphManager.getGraph(event.detail.index);
+        activeGraph.next(graph);
+
+        path = path;
+    }
+
+    async function changeGraphTo(graphIndex: number, nodeTitle: string) {
         let graph = await graphManager.getGraph(graphIndex);
 
         activeGraph.next(graph);
+        path = [
+            ...path,
+            {
+                name: nodeTitle,
+                index: graphIndex,
+            },
+        ];
     }
 
     window["changeGraphTo"] = changeGraphTo;
 
     function changeGraph(e: CustomEvent<any>) {
         const graphIndex = e.detail.graphIndex;
+        const nodeTitle = e.detail.nodeTitle;
 
-        changeGraphTo(graphIndex);
+        changeGraphTo(graphIndex, nodeTitle);
     }
 
     onMount(async () => {
@@ -446,7 +477,9 @@
             {/each}
         </div>
     </div>
-
+    <div class="breadcrumb-container" style="width: {width - 16}px">
+        <Breadcrumb on:click={breadcrumbChangeGraph} {path} />
+    </div>
     {#if createNodeMenu.visible}
         <div
             style="position: absolute; left: {createNodeMenu.x}px; top: {createNodeMenu.y}px;"
@@ -471,5 +504,13 @@
     .editor {
         overflow: hidden;
         background-color: #fafafa;
+    }
+
+    .breadcrumb-container {
+        position: absolute;
+        padding: 8px;
+        margin: 0;
+        background-color: #ddd;
+        z-index: 20;
     }
 </style>
