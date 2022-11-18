@@ -9,6 +9,7 @@ pub mod property;
 pub mod socket_registry;
 pub mod state;
 pub mod traversal;
+pub mod ui;
 
 #[cfg(test)]
 pub mod connection_tests;

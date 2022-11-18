@@ -51,14 +51,11 @@ impl Node for MonoSamplePlayerNode {
         }
 
         if self.player.is_none() || did_index_change {
-            let sample = state
-                .global_state
-                .resources
-                .samples
-                .borrow_resource(self.index)
-                .unwrap();
+            let sample = state.global_state.resources.samples.borrow_resource(self.index);
 
-            self.player = Some(MonoBufferPlayer::new(&self.config, &sample.buffer));
+            if let Some(sample) = sample {
+                self.player = Some(MonoBufferPlayer::new(&self.config, &sample.buffer));
+            }
         }
 
         InitResult::simple(vec![

@@ -114,7 +114,10 @@ impl Node for OutputsNode {
             .position(|x| x == &SocketType::Stream(socket_type.clone()))
             .unwrap();
 
-        self.values_out[index].clone().unwrap().as_stream().unwrap()
+        self.values_out[index]
+            .clone()
+            .and_then(|x| x.as_stream())
+            .unwrap_or(0.0)
     }
 
     fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {

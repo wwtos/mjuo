@@ -47,7 +47,11 @@
             on:mouseup={socketMouseupRaw}
         />
     {:else if type.variant === "Value"}
-        <div class="socket value" on:mousedown={socketMousedown} on:mouseup={socketMouseupRaw}>
+        <div
+            class="socket value"
+            on:mousedown={socketMousedown}
+            on:mouseup={socketMouseupRaw}
+        >
             <svg viewBox="0 0 26 26">
                 <polygon points="13,1 25,25 1,25" />
             </svg>
@@ -83,7 +87,7 @@
     }
 
     .midi {
-        background: gold;
+        background: rgb(231, 200, 59);
         border: 2px solid white;
         width: 24px;
         height: 24px;

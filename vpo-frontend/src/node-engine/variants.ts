@@ -76,5 +76,10 @@ export const variants: NodeVariant[] = [
         name: i18n.t("nodes.PortamentoNode"),
         internal: "PortamentoNode",
         category: "base"
+    },
+    {
+        name: i18n.t("nodes.ButtonNode"),
+        internal: "ButtonNode",
+        category: "ui"
     }
 ];

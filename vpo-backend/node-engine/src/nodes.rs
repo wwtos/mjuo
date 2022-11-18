@@ -1,4 +1,5 @@
 pub mod biquad_filter;
+pub mod button;
 pub mod dummy;
 pub mod envelope;
 pub mod expression;
@@ -15,8 +16,8 @@ pub mod output;
 pub mod outputs;
 pub mod placeholder;
 pub mod polyphonic;
+pub mod portamento;
 pub mod stream_expression;
 pub mod util;
 pub mod variants;
 pub mod wavetable;
-pub mod portamento;

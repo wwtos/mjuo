@@ -53,14 +53,11 @@ impl Node for WavetableNode {
         }
 
         if self.oscillator.is_none() || did_index_change {
-            let wavetable = state
-                .global_state
-                .resources
-                .wavetables
-                .borrow_resource(self.index)
-                .unwrap();
+            let wavetable = state.global_state.resources.wavetables.borrow_resource(self.index);
 
-            self.oscillator = Some(WavetableOscillator::new(self.config.clone(), &wavetable));
+            if let Some(wavetable) = wavetable {
+                self.oscillator = Some(WavetableOscillator::new(self.config.clone(), &wavetable));
+            }
         }
 
         InitResult::simple(vec![

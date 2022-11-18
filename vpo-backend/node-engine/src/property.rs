@@ -36,6 +36,13 @@ impl Property {
         }
     }
 
+    pub fn as_boolean(self) -> Option<bool> {
+        match self {
+            Property::Bool(value) => Some(value),
+            _ => None,
+        }
+    }
+
     pub fn as_float(self) -> Option<f32> {
         match self {
             Property::Float(value) => Some(value),

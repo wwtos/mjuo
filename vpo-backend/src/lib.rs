@@ -66,7 +66,7 @@ pub fn handle_msg(
 }
 
 pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(AlsaAudioBackend::new());
+    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
     backend.connect()?;
 
     Ok(backend)

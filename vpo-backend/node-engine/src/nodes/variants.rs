@@ -13,6 +13,7 @@ use crate::socket_registry::SocketRegistry;
 #[cfg(test)]
 use crate::graph_tests::TestNode;
 
+use super::button::ButtonNode;
 use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
@@ -51,6 +52,7 @@ pub enum NodeVariant {
     MonoSamplePlayerNode,
     WavetableNode,
     PortamentoNode,
+    ButtonNode,
     #[cfg(test)]
     TestNode,
 }
@@ -91,6 +93,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MonoSamplePlayerNode" => Ok(NodeVariant::MonoSamplePlayerNode(MonoSamplePlayerNode::new(config))),
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
+        "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new())),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -118,6 +121,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::MonoSamplePlayerNode(_) => "MonoSamplePlayerNode".to_string(),
         NodeVariant::WavetableNode(_) => "WavetableNode".to_string(),
         NodeVariant::PortamentoNode(_) => "PortamentoNode".to_string(),
+        NodeVariant::ButtonNode(_) => "ButtonNode".to_string(),
         NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),

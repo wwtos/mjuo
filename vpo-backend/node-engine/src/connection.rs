@@ -79,6 +79,7 @@ pub enum ValueSocketType {
     Sustain,
     Release,
     Speed,
+    State,
     Dynamic(u64),
 }
 
@@ -242,6 +243,8 @@ impl SocketType {
             ("value.decay", SocketType::Value(ValueSocketType::Decay)),
             ("value.sustain", SocketType::Value(ValueSocketType::Sustain)),
             ("value.release", SocketType::Value(ValueSocketType::Release)),
+            ("value.speed", SocketType::Value(ValueSocketType::Speed)),
+            ("value.state", SocketType::Value(ValueSocketType::State)),
         ];
 
         for socket in socket_list {

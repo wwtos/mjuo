@@ -132,6 +132,10 @@ pub trait Node: Debug {
 
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
+    fn linked_to_ui(&self) -> bool {
+        false
+    }
+
     /// Process received data.
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         NodeOk::no_warnings(())

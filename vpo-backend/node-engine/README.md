@@ -2,6 +2,8 @@
 
 # Node lifecycle
 
+See `NODE_LIFECYCLD.md`.
+
 # Design notes
 
 One thing I wanted to explore the possibility of was per-sample traversal. There are no buffers, just a method accepting in a single value. At most, there will be a delay of one sample. I'm not sure how long I can continue in this way, but it isn't really far enough along to accurately judge whether I'll need to change to buffered audio later on. Due to this, I don't know if I can do much with multi-threading. I do plan on having a few nodes running on different threads -- namely the VST host node, and the sample playback node. They'll periodically stream the next buffer to the node. Due to this I need _fast_ nodes. I've opted to enable static-analysis as much as possible. Enums are statically dispatched, socket types are keyed, and most of them are statically-named enums (with the option for dynamic sockets).
