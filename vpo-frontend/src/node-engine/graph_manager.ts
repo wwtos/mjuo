@@ -1,4 +1,4 @@
-import { IPCSocket } from "../util/socket";
+import type { IPCSocket } from "../util/socket";
 import { NodeGraph } from "./node_graph";
 
 export class GraphManager {

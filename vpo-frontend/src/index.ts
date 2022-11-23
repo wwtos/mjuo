@@ -4,7 +4,6 @@ import path from 'path';
 import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
-import { MemberType } from 'safety-match';
 import { match, matchOrElse } from './util/discriminated-union';
 
 let activeWindow: BrowserWindow;

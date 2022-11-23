@@ -56,12 +56,12 @@ impl Node for EnvelopeNode {
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
-            NodeRow::StreamOutput(StreamSocketType::Gain, 0.0),
-            NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01)),
-            NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3)),
-            NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8)),
-            NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5)),
+            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false), false),
+            NodeRow::StreamOutput(StreamSocketType::Gain, 0.0, false),
+            NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01), false),
+            NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3), false),
+            NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8), false),
+            NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5), false),
         ])
     }
 

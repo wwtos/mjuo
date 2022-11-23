@@ -1,8 +1,8 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex } from "../node-engine/node_index";
-    import { NodeWrapper, SocketValue } from "../node-engine/node";
-    import { NodeGraph } from "../node-engine/node_graph";
+    import type { NodeWrapper, SocketValue } from "../node-engine/node";
+    import type { NodeGraph } from "../node-engine/node_graph";
     import {
         SocketType,
         SocketDirection,
@@ -33,6 +33,7 @@
                 socketType: SocketType;
                 socketDirection: SocketDirection;
                 value: SocketValue;
+                hidden: boolean;
             };
             PropertyRow: {
                 propName: string;
@@ -47,54 +48,62 @@
     $: sockets = wrapper.node_rows.map((nodeRow) =>
         match(nodeRow, {
             StreamInput: ({
-                data: [streamInput, defaultValue],
+                data: [streamInput, defaultValue, hidden],
             }): ReducedRowType => ({
                 variant: "SocketRow",
                 socketType: { variant: "Stream", data: streamInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Stream", data: defaultValue },
+                hidden,
             }),
-            MidiInput: ({ data: [midiInput, defaultValue] }) => ({
+            MidiInput: ({ data: [midiInput, defaultValue, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Midi", data: midiInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Midi", data: defaultValue },
+                hidden,
             }),
-            ValueInput: ({ data: [valueInput, defaultValue] }) => ({
+            ValueInput: ({ data: [valueInput, defaultValue, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Value", data: valueInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Primitive", data: defaultValue },
+                hidden,
             }),
-            NodeRefInput: ({ data: nodeRefInput }) => ({
+            NodeRefInput: ({ data: [nodeRefInput, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "NodeRef", data: nodeRefInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "None" },
+                hidden,
             }),
-            StreamOutput: ({ data: [streamOutput, defaultValue] }) => ({
+            StreamOutput: ({ data: [streamOutput, defaultValue, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Stream", data: streamOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Stream", data: defaultValue },
+                hidden,
             }),
-            MidiOutput: ({ data: [midiOutput, defaultValue] }) => ({
+            MidiOutput: ({ data: [midiOutput, defaultValue, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Midi", data: midiOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Midi", data: defaultValue },
+                hidden,
             }),
-            ValueOutput: ({ data: [valueOutput, defaultValue] }) => ({
+            ValueOutput: ({ data: [valueOutput, defaultValue, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Value", data: valueOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Primitive", data: defaultValue },
+                hidden,
             }),
-            NodeRefOutput: ({ data: nodeRefOutput }) => ({
+            NodeRefOutput: ({ data: [nodeRefOutput, hidden] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "NodeRef", data: nodeRefOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "None" },
+                hidden,
             }),
             Property: ({ data: [propName, propType, defaultValue] }) => ({
                 variant: "PropertyRow",
@@ -170,6 +179,7 @@
                 type={row.socketType}
                 direction={row.socketDirection}
                 label={socketTypeToString(row.socketType)}
+                hidden={row.hidden}
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}
                 nodeWrapper={wrapper}

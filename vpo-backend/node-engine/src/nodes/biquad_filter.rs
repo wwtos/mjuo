@@ -78,10 +78,10 @@ impl Node for BiquadFilterNode {
                 ]),
                 Property::MultipleChoice("lowpass".to_string()),
             ),
-            NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(20000.0)),
-            NodeRow::ValueInput(ValueSocketType::Resonance, Primitive::Float(0.707)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
+            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(20000.0), false),
+            NodeRow::ValueInput(ValueSocketType::Resonance, Primitive::Float(0.707), false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
     }
 }

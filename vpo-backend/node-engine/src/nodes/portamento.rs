@@ -49,10 +49,10 @@ impl Node for PortamentoNode {
                 PropertyType::MultipleChoice(vec!["exponential".into(), "linear".into()]),
                 Property::MultipleChoice("exponential".into()),
             ),
-            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false)),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::ValueInput(ValueSocketType::Speed, Primitive::Float(0.2)),
-            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),
+            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false), false),
+            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
+            NodeRow::ValueInput(ValueSocketType::Speed, Primitive::Float(0.2), false),
+            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
         ])
     }
 

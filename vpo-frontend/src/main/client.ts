@@ -1,6 +1,6 @@
 // @ts-ignore
 import Net from 'net';
-import { DiscriminatedUnion } from '../util/discriminated-union';
+import type { DiscriminatedUnion } from '../util/discriminated-union';
 
 type RawMessage = DiscriminatedUnion<"variant", {
     "Ping": {},

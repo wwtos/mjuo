@@ -1,4 +1,4 @@
-import { NodeIndex } from "./node_index";
+import type { NodeIndex } from "./node_index";
 import { GenerationalNode, NodeRow, NodeWrapper, NODE_WIDTH, SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
 import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";

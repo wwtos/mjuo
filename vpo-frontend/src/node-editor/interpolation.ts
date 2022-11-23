@@ -1,7 +1,6 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { MemberType } from "safety-match";
 import { i18n } from "../i18n";
-import { SocketType } from "../node-engine/connection";
+import type { SocketType } from "../node-engine/connection";
 import { match } from "../util/discriminated-union";
 import { socketRegistry } from "./state";
 

@@ -38,8 +38,8 @@ impl Node for OscillatorNode {
         }
 
         InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
             NodeRow::Property(
                 "waveform".to_string(),
                 PropertyType::MultipleChoice(vec![

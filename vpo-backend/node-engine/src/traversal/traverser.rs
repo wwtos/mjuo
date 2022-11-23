@@ -114,16 +114,16 @@ impl Traverser {
                 for default in &data.defaults_in {
                     // println!("\n\nsending default: {:?}\n", default);
                     match default {
-                        NodeRow::StreamInput(socket_type, default) => {
+                        NodeRow::StreamInput(socket_type, default, _) => {
                             node_wrapper.accept_stream_input(socket_type, *default);
                         }
-                        NodeRow::MidiInput(socket_type, default) => {
+                        NodeRow::MidiInput(socket_type, default, _) => {
                             node_wrapper.accept_midi_input(socket_type, default.clone());
                         }
-                        NodeRow::ValueInput(socket_type, default) => {
+                        NodeRow::ValueInput(socket_type, default, _) => {
                             node_wrapper.accept_value_input(socket_type, default.clone());
                         }
-                        NodeRow::NodeRefInput(_) => {}
+                        NodeRow::NodeRefInput(..) => {}
                         _ => unreachable!(),
                     }
                 }

@@ -45,8 +45,8 @@ impl UiNode for ButtonNode {
 impl Node for ButtonNode {
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::State, Primitive::Boolean(false)),
-            NodeRow::ValueOutput(ValueSocketType::State, Primitive::Boolean(false)),
+            NodeRow::ValueInput(ValueSocketType::State, Primitive::Boolean(false), false),
+            NodeRow::ValueOutput(ValueSocketType::State, Primitive::Boolean(false), false),
         ])
     }
 

@@ -1,8 +1,8 @@
 import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection,
          Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import type { Property, PropertyType } from "./property";
-import { MidiData } from "../sound-engine/midi/messages";
-import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
+import type { MidiData } from "../sound-engine/midi/messages";
+import { type DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
 import { NodeIndex } from "./node_index";
 
 export const TITLE_HEIGHT = 30;
@@ -12,14 +12,14 @@ export const NODE_WIDTH = 270;
 
 
 export type NodeRow = DiscriminatedUnion<"variant", {
-    StreamInput: { data: [StreamSocketType, number] },
-    MidiInput: { data: [MidiSocketType, MidiData[]] },
-    ValueInput: { data: [ValueSocketType, Primitive] },
-    NodeRefInput: { data: NodeRefSocketType },
-    StreamOutput: { data: [StreamSocketType, number] },
-    MidiOutput: { data: [MidiSocketType, MidiData[]] },
-    ValueOutput: { data: [ValueSocketType, Primitive] },
-    NodeRefOutput: { data: NodeRefSocketType },
+    StreamInput: { data: [StreamSocketType, number, boolean] },
+    MidiInput: { data: [MidiSocketType, MidiData[], boolean] },
+    ValueInput: { data: [ValueSocketType, Primitive, boolean] },
+    NodeRefInput: { data: [NodeRefSocketType, boolean] },
+    StreamOutput: { data: [StreamSocketType, number, boolean] },
+    MidiOutput: { data: [MidiSocketType, MidiData[], boolean] },
+    ValueOutput: { data: [ValueSocketType, Primitive, boolean] },
+    NodeRefOutput: { data: [NodeRefSocketType, boolean] },
     Property: { data: [string, PropertyType, Property] },
     InnerGraph: { data: undefined },
 }>;
@@ -43,7 +43,7 @@ export const NodeRow = {
                 socketType: { variant: "Value", data: type },
                 direction: SocketDirection.Input
             }),
-            NodeRefInput: ({ data: type }): SocketTypeAndDirection => ({
+            NodeRefInput: ({ data: [type, _] }): SocketTypeAndDirection => ({
                 socketType: { variant: "NodeRef", data: type },
                 direction: SocketDirection.Input
             }),
@@ -59,7 +59,7 @@ export const NodeRow = {
                 socketType: { variant: "Value", data: type },
                 direction: SocketDirection.Output
             }),
-            NodeRefOutput: ({ data: type }): SocketTypeAndDirection => ({
+            NodeRefOutput: ({ data: [type, _] }): SocketTypeAndDirection => ({
                 socketType: { variant: "NodeRef", data: type },
                 direction: SocketDirection.Output
             }),
@@ -69,24 +69,25 @@ export const NodeRow = {
         type: SocketType,
         direction: SocketDirection,
         defaultValue: any,
+        hidden: boolean,
     ): NodeRow => {
         if (direction === SocketDirection.Input) {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue]
+                    data: [streamSocketType, defaultValue, hidden]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue]
+                    data: [midiSocketType, defaultValue, hidden]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue]
+                    data: [valueSocketType, defaultValue, hidden]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: nodeRefSocketType
+                    data: [nodeRefSocketType, hidden]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")
@@ -96,19 +97,19 @@ export const NodeRow = {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue]
+                    data: [streamSocketType, defaultValue, hidden]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue]
+                    data: [midiSocketType, defaultValue, hidden]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue]
+                    data: [valueSocketType, defaultValue, hidden]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: nodeRefSocketType
+                    data: [nodeRefSocketType, hidden]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")

@@ -78,13 +78,13 @@ impl Node for MidiFilterNode {
         }
 
         InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            NodeRow::MidiOutput(MidiSocketType::Default, SmallVec::new()),
+            NodeRow::MidiOutput(MidiSocketType::Default, SmallVec::new(), false),
         ])
     }
 

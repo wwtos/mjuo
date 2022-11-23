@@ -150,7 +150,7 @@ impl Node for OutputsNode {
         let node_rows = self
             .outputs
             .iter()
-            .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input))
+            .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input, false))
             .collect::<Vec<NodeRow>>();
 
         NodeOk::no_warnings(InitResult {

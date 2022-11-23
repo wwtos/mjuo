@@ -1,4 +1,4 @@
-import { PanZoom } from "panzoom";
+import type { PanZoom } from "panzoom";
 
 export function transformMouse(panzoom: PanZoom, mouseX: number, mouseY: number): [number, number] {
     const transform = panzoom.getTransform();

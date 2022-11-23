@@ -1,5 +1,5 @@
-import { SocketDirection, SocketType } from "../node-engine/connection";
-import { NodeIndex } from "../node-engine/node_index";
+import type { SocketDirection, SocketType } from "../node-engine/connection";
+import type { NodeIndex } from "../node-engine/node_index";
 
 export interface SocketEvent {
     event: MouseEvent;

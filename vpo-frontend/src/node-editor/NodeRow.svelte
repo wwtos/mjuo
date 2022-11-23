@@ -5,7 +5,7 @@
         type Primitive,
     } from "../node-engine/connection";
     import { NodeRow, NodeWrapper, SocketValue } from "../node-engine/node";
-    import { NodeGraph } from "../node-engine/node_graph";
+    import type { NodeGraph } from "../node-engine/node_graph";
     import { fixDigits } from "../util/fix-digits";
     import { BehaviorSubject, Observable } from "rxjs";
 
@@ -16,6 +16,7 @@
     export let type: SocketType;
     export let label: BehaviorSubject<string>;
     export let direction: SocketDirection;
+    export let hidden: boolean;
     export let nodeWrapper: NodeWrapper;
     export let nodes: NodeGraph;
 
@@ -102,7 +103,8 @@
                 NodeRow.fromTypeAndDirection(
                     type,
                     direction,
-                    (newValueParsed as any).data
+                    (newValueParsed as any).data,
+                    hidden
                 ),
             ];
 

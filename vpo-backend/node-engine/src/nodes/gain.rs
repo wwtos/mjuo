@@ -34,9 +34,9 @@ impl Node for GainGraphNode {
         }
 
         InitResult::simple(vec![
-            NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
-            NodeRow::StreamInput(StreamSocketType::Gain, 0.0),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
+            NodeRow::StreamInput(StreamSocketType::Gain, 0.0, false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
     }
 }

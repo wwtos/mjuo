@@ -1,5 +1,4 @@
-import { makeTaggedUnion, MemberType, none } from "safety-match";
-import { DiscriminatedUnion } from "../util/discriminated-union";
+import type { DiscriminatedUnion } from "../util/discriminated-union";
 
 export type PropertyType = DiscriminatedUnion<"variant", {
     String: {},

@@ -67,8 +67,8 @@ impl Node for MonoSamplePlayerNode {
                     resource: "".into(),
                 }),
             ),
-            NodeRow::ValueInput(ValueSocketType::Default, Primitive::Boolean(false)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::ValueInput(ValueSocketType::Default, Primitive::Boolean(false), false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
     }
 

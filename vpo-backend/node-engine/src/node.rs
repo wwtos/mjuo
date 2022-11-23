@@ -31,14 +31,15 @@ use crate::traversal::traverser::Traverser;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRow {
-    StreamInput(StreamSocketType, f32),
-    MidiInput(MidiSocketType, MidiBundle),
-    ValueInput(ValueSocketType, Primitive),
-    NodeRefInput(NodeRefSocketType),
-    StreamOutput(StreamSocketType, f32),
-    MidiOutput(MidiSocketType, MidiBundle),
-    ValueOutput(ValueSocketType, Primitive),
-    NodeRefOutput(NodeRefSocketType),
+    // type, value, hidden?
+    StreamInput(StreamSocketType, f32, bool),
+    MidiInput(MidiSocketType, MidiBundle, bool),
+    ValueInput(ValueSocketType, Primitive, bool),
+    NodeRefInput(NodeRefSocketType, bool),
+    StreamOutput(StreamSocketType, f32, bool),
+    MidiOutput(MidiSocketType, MidiBundle, bool),
+    ValueOutput(ValueSocketType, Primitive, bool),
+    NodeRefOutput(NodeRefSocketType, bool),
     Property(String, PropertyType, Property),
     InnerGraph,
 }
@@ -46,14 +47,16 @@ pub enum NodeRow {
 impl NodeRow {
     pub fn to_type_and_direction(self) -> Option<(SocketType, SocketDirection)> {
         match self {
-            NodeRow::StreamInput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
-            NodeRow::MidiInput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
-            NodeRow::ValueInput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Input)),
-            NodeRow::NodeRefInput(node_ref_type) => Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input)),
-            NodeRow::StreamOutput(stream_type, _) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
-            NodeRow::MidiOutput(midi_type, _) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
-            NodeRow::ValueOutput(value_type, _) => Some((SocketType::Value(value_type), SocketDirection::Output)),
-            NodeRow::NodeRefOutput(node_ref_type) => {
+            NodeRow::StreamInput(stream_type, ..) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
+            NodeRow::MidiInput(midi_type, ..) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
+            NodeRow::ValueInput(value_type, ..) => Some((SocketType::Value(value_type), SocketDirection::Input)),
+            NodeRow::NodeRefInput(node_ref_type, ..) => {
+                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input))
+            }
+            NodeRow::StreamOutput(stream_type, ..) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
+            NodeRow::MidiOutput(midi_type, ..) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
+            NodeRow::ValueOutput(value_type, ..) => Some((SocketType::Value(value_type), SocketDirection::Output)),
+            NodeRow::NodeRefOutput(node_ref_type, ..) => {
                 Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output))
             }
             NodeRow::Property(..) => None,
@@ -61,20 +64,20 @@ impl NodeRow {
         }
     }
 
-    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection) -> Self {
+    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection, hidden: bool) -> Self {
         match direction {
             SocketDirection::Input => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0),
-                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new()),
-                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0)),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type),
+                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0, hidden),
+                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), hidden),
+                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), hidden),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, hidden),
                 SocketType::MethodCall(_) => unimplemented!(),
             },
             SocketDirection::Output => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0),
-                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new()),
-                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0)),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type),
+                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, hidden),
+                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), hidden),
+                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), hidden),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, hidden),
                 SocketType::MethodCall(_) => unimplemented!(),
             },
         }
@@ -374,14 +377,16 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .filter_map(|row| match row {
-                NodeRow::StreamInput(stream_input_type, _) => Some(SocketType::Stream(stream_input_type.clone())),
-                NodeRow::MidiInput(midi_input_type, _) => Some(SocketType::Midi(midi_input_type.clone())),
-                NodeRow::ValueInput(value_input_type, _) => Some(SocketType::Value(value_input_type.clone())),
-                NodeRow::NodeRefInput(node_ref_input_type) => Some(SocketType::NodeRef(node_ref_input_type.clone())),
-                NodeRow::StreamOutput(_, _) => None,
-                NodeRow::MidiOutput(_, _) => None,
-                NodeRow::ValueOutput(_, _) => None,
-                NodeRow::NodeRefOutput(_) => None,
+                NodeRow::StreamInput(stream_input_type, ..) => Some(SocketType::Stream(stream_input_type.clone())),
+                NodeRow::MidiInput(midi_input_type, ..) => Some(SocketType::Midi(midi_input_type.clone())),
+                NodeRow::ValueInput(value_input_type, ..) => Some(SocketType::Value(value_input_type.clone())),
+                NodeRow::NodeRefInput(node_ref_input_type, ..) => {
+                    Some(SocketType::NodeRef(node_ref_input_type.clone()))
+                }
+                NodeRow::StreamOutput(..) => None,
+                NodeRow::MidiOutput(..) => None,
+                NodeRow::ValueOutput(..) => None,
+                NodeRow::NodeRefOutput(..) => None,
                 NodeRow::Property(..) => None,
                 NodeRow::InnerGraph => None,
             })
@@ -392,14 +397,16 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .filter_map(|row| match row {
-                NodeRow::StreamInput(_, _) => None,
-                NodeRow::MidiInput(_, _) => None,
-                NodeRow::ValueInput(_, _) => None,
-                NodeRow::NodeRefInput(_) => None,
-                NodeRow::StreamOutput(stream_output_type, _) => Some(SocketType::Stream(stream_output_type.clone())),
-                NodeRow::MidiOutput(midi_output_type, _) => Some(SocketType::Midi(midi_output_type.clone())),
-                NodeRow::ValueOutput(value_output_type, _) => Some(SocketType::Value(value_output_type.clone())),
-                NodeRow::NodeRefOutput(node_ref_output_type) => Some(SocketType::NodeRef(node_ref_output_type.clone())),
+                NodeRow::StreamInput(..) => None,
+                NodeRow::MidiInput(..) => None,
+                NodeRow::ValueInput(..) => None,
+                NodeRow::NodeRefInput(..) => None,
+                NodeRow::StreamOutput(stream_output_type, ..) => Some(SocketType::Stream(stream_output_type.clone())),
+                NodeRow::MidiOutput(midi_output_type, ..) => Some(SocketType::Midi(midi_output_type.clone())),
+                NodeRow::ValueOutput(value_output_type, ..) => Some(SocketType::Value(value_output_type.clone())),
+                NodeRow::NodeRefOutput(node_ref_output_type, ..) => {
+                    Some(SocketType::NodeRef(node_ref_output_type.clone()))
+                }
                 NodeRow::Property(..) => None,
                 NodeRow::InnerGraph => None,
             })

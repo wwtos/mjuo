@@ -69,8 +69,8 @@ impl Node for WavetableNode {
                     resource: "".into(),
                 }),
             ),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
     }
 
