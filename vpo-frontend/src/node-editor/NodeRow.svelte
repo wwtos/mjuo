@@ -16,7 +16,7 @@
     export let type: SocketType;
     export let label: BehaviorSubject<string>;
     export let direction: SocketDirection;
-    export let hidden: boolean;
+    export let polyphonic: boolean;
     export let nodeWrapper: NodeWrapper;
     export let nodes: NodeGraph;
 
@@ -104,7 +104,7 @@
                     type,
                     direction,
                     (newValueParsed as any).data,
-                    hidden
+                    polyphonic
                 ),
             ];
 

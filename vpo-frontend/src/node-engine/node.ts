@@ -24,52 +24,52 @@ export type NodeRow = DiscriminatedUnion<"variant", {
     InnerGraph: { data: undefined },
 }>;
 
-type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection, hidden: boolean};
+type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection, polyphonic: boolean};
 
 export const NodeRow = {
     getTypeAndDirection: (
         nodeRow: NodeRow
     ): SocketTypeAndDirection | undefined => {
         return matchOrElse(nodeRow, {
-            StreamInput: ({ data: [type, _, hidden] }): SocketTypeAndDirection => ({
+            StreamInput: ({ data: [type, _, polyphonic] }): SocketTypeAndDirection => ({
                 socketType: { variant: "Stream", data: type },
                 direction: SocketDirection.Input,
-                hidden
+                polyphonic
             }),
-            MidiInput: ({ data: [type, _, hidden] }) => ({
+            MidiInput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Midi", data: type },
                 direction: SocketDirection.Input,
-                hidden
+                polyphonic
             }),
-            ValueInput: ({ data: [type, _, hidden] }) => ({
+            ValueInput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Value", data: type },
                 direction: SocketDirection.Input,
-                hidden
+                polyphonic
             }),
-            NodeRefInput: ({ data: [type, hidden] }) => ({
+            NodeRefInput: ({ data: [type, polyphonic] }) => ({
                 socketType: { variant: "NodeRef", data: type },
                 direction: SocketDirection.Input,
-                hidden
+                polyphonic
             }),
-            StreamOutput: ({ data: [type, _, hidden] }) => ({
+            StreamOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Stream", data: type },
                 direction: SocketDirection.Output,
-                hidden
+                polyphonic
             }),
-            MidiOutput: ({ data: [type, _, hidden] }) => ({
+            MidiOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Midi", data: type },
                 direction: SocketDirection.Output,
-                hidden
+                polyphonic
             }),
-            ValueOutput: ({ data: [type, _, hidden] }) => ({
+            ValueOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Value", data: type },
                 direction: SocketDirection.Output,
-                hidden
+                polyphonic
             }),
-            NodeRefOutput: ({ data: [type, hidden] }) => ({
+            NodeRefOutput: ({ data: [type, polyphonic] }) => ({
                 socketType: { variant: "NodeRef", data: type },
                 direction: SocketDirection.Output,
-                hidden
+                polyphonic
             }),
         },  () => undefined);
     },
@@ -77,25 +77,25 @@ export const NodeRow = {
         type: SocketType,
         direction: SocketDirection,
         defaultValue: any,
-        hidden: boolean,
+        polyphonic: boolean,
     ): NodeRow => {
         if (direction === SocketDirection.Input) {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue, hidden]
+                    data: [streamSocketType, defaultValue, polyphonic]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue, hidden]
+                    data: [midiSocketType, defaultValue, polyphonic]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue, hidden]
+                    data: [valueSocketType, defaultValue, polyphonic]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: [nodeRefSocketType, hidden]
+                    data: [nodeRefSocketType, polyphonic]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")
@@ -105,19 +105,19 @@ export const NodeRow = {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue, hidden]
+                    data: [streamSocketType, defaultValue, polyphonic]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue, hidden]
+                    data: [midiSocketType, defaultValue, polyphonic]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue, hidden]
+                    data: [valueSocketType, defaultValue, polyphonic]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: [nodeRefSocketType, hidden]
+                    data: [nodeRefSocketType, polyphonic]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")
@@ -138,12 +138,6 @@ export const NodeRow = {
         },  () => ({ variant: "None" }));
     },
     getHeight(nodeRow: NodeRow): number {
-        const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
-
-        if (typeAndDirection) {
-            return typeAndDirection.hidden ? 0 : SOCKET_HEIGHT;
-        }
-
         return SOCKET_HEIGHT;
     }
 };

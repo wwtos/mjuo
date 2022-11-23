@@ -31,7 +31,7 @@ use crate::traversal::traverser::Traverser;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRow {
-    // type, value, hidden?
+    // type, value, polyphonic?
     StreamInput(StreamSocketType, f32, bool),
     MidiInput(MidiSocketType, MidiBundle, bool),
     ValueInput(ValueSocketType, Primitive, bool),
@@ -64,20 +64,20 @@ impl NodeRow {
         }
     }
 
-    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection, hidden: bool) -> Self {
+    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection, polyphonic: bool) -> Self {
         match direction {
             SocketDirection::Input => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0, hidden),
-                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), hidden),
-                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), hidden),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, hidden),
+                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0, polyphonic),
+                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), polyphonic),
+                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), polyphonic),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, polyphonic),
                 SocketType::MethodCall(_) => unimplemented!(),
             },
             SocketDirection::Output => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, hidden),
-                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), hidden),
-                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), hidden),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, hidden),
+                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, polyphonic),
+                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), polyphonic),
+                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), polyphonic),
+                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, polyphonic),
                 SocketType::MethodCall(_) => unimplemented!(),
             },
         }
