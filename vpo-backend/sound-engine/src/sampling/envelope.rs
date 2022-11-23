@@ -65,7 +65,7 @@ pub fn calc_amp(signal: &[f64], dmax: usize, sample_rate: u32) -> Vec<f64> {
         .collect();
     let interp_smoothed = savgol_filter(&interp, sample_rate / 1500, 5, 2);
 
-    resample_to(&interp_smoothed, signal.len())
+    resample_to(&interp, signal.len())
 }
 
 struct SearchSettings {
@@ -130,48 +130,43 @@ fn search_for_release(envelope: &[f64], envelope_deriv: &[f64], settings: &Searc
     let env_deriv_median = median(envelope_deriv);
     let env_deriv_std = std(envelope_deriv);
 
-    let window = hann(*search_width);
+    let window = &hann(*search_width * 2)[*search_width..(search_width * 2)];
 
     println!("std: {}", env_deriv_std);
 
-    let release_index = (search_start..search_end)
+    let mut release_indexes = (search_start..search_end)
         .step_by(*search_step)
         .map(|i| {
-            let env_slice = &mult(&envelope_deriv[i..(i + search_width)], &window);
+            let env_slice = &mult(&envelope_deriv[i..(i + search_width)], window);
             let env_slice_mean = mean(env_slice);
 
             let median_dist = (env_slice_mean - env_deriv_median).abs() / env_deriv_std;
 
             let beginning_penalty = 0.3 * sq(1.0 - ((i - search_start) as f64) / search_span as f64);
 
-            if i > search_end - search_step * 50 {
-                println!(
-                    "{}, {}, {}, sum: {}, slice mean: {}",
-                    i,
-                    median_dist,
-                    beginning_penalty,
-                    median_dist + beginning_penalty,
-                    env_slice_mean
-                );
-            }
-
-            (median_dist + beginning_penalty, i + search_width / 2)
+            (median_dist + beginning_penalty, i + search_width)
         })
-        .min_by(|x, y| x.0.total_cmp(&y.0))
-        .unwrap()
-        .1;
+        .collect::<Vec<(f64, usize)>>();
 
-    release_index
+    release_indexes.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+    println!("top picks: {:?}", &release_indexes[0..5]);
+
+    release_indexes[0].1
 }
 
 pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> EnvelopePoints*/
 {
     let (sample_norm, sample_min, sample_max) = norm_signal(&DVector::from_row_slice(sample));
 
-    let envelope = calc_amp(sample_norm.as_slice(), (sample_rate / 160) as usize, sample_rate);
+    let envelope = calc_amp(
+        sample_norm.as_slice(),
+        ((sample_rate as f64 / freq) * 2.0) as usize,
+        sample_rate,
+    );
 
     // find min envelope value and shift values, so we don't get NaN from log10
-    let envelope_min = -envelope.clone().into_iter().reduce(f64::min).unwrap() + 0.01;
+    let envelope_min = -envelope.clone().into_iter().reduce(f64::min).unwrap() + 0.2;
     let envelope_db: Vec<f64> = envelope.iter().map(|x| (x + envelope_min).log10() * 20.0).collect();
 
     let envelope_deriv = gradient(&envelope_db);
@@ -184,7 +179,7 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let peak_release = argmin(&envelope_deriv).unwrap();
 
     let search_settings = SearchSettings {
-        search_width: 10000,
+        search_width: 5000,
         search_step: 50,
         peak_attack,
         peak_release,
@@ -198,12 +193,11 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let env_deriv_median = median(&envelope_deriv);
 
     println!(
-        "attack index: {}, release_index: {}, release_deriv: {}, median: {}, peak_release: {}",
+        "attack index: {}, release_index: {}, release_deriv: {}, median: {}",
         attack_index,
         release_index,
         (envelope_deriv[release_index] - env_deriv_median).abs(),
         env_deriv_median,
-        peak_release
     );
 }
 

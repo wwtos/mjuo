@@ -26,6 +26,16 @@ pub fn mult(x: &[f64], y: &[f64]) -> Vec<f64> {
     x.iter().zip(y).map(|(x, y)| x * y).collect()
 }
 
+#[test]
+fn test_mult() {
+    let a = vec![1.0, 2.0, 3.0];
+    let b = vec![2.0, 4.0, 8.0];
+
+    let c = mult(&a, &b);
+
+    assert_eq!(format!("{:?}", c), format!("{:?}", vec![2.0, 8.0, 24.0]));
+}
+
 pub fn abs(x: &[f64]) -> Vec<f64> {
     x.iter().map(|x| x.abs()).collect()
 }
