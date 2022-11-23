@@ -132,8 +132,6 @@ fn search_for_release(envelope: &[f64], envelope_deriv: &[f64], settings: &Searc
 
     let window = &hann(*search_width * 2)[*search_width..(search_width * 2)];
 
-    println!("std: {}", env_deriv_std);
-
     let mut release_indexes = (search_start..search_end)
         .step_by(*search_step)
         .map(|i| {
@@ -170,7 +168,7 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let envelope_db: Vec<f64> = envelope.iter().map(|x| (x + envelope_min).log10() * 20.0).collect();
 
     let envelope_deriv = gradient(&envelope_db);
-    println!("deriv: {:?}", &resample_to_lin(&envelope_deriv, 400));
+    println!("deriv: {:?}", &resample_to_lin(&gradient(&envelope), 400));
 
     let env_deriv_mean = mean(&envelope_deriv);
     let env_deriv_std = std(&envelope_deriv);
@@ -188,7 +186,7 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     };
 
     let attack_index = search_for_attack(&envelope, &envelope_deriv, &search_settings);
-    let release_index = search_for_release(&envelope, &envelope_deriv, &search_settings);
+    let release_index = search_for_release(&envelope, &gradient(&envelope), &search_settings);
 
     let env_deriv_median = median(&envelope_deriv);
 
@@ -203,12 +201,12 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
 
 #[test]
 fn envelopes_idx_test() {
-    let foo = Sample::load_resource(&PathBuf::from("/home/mason/rust/mjuo/vpo-backend/060-C.wav")).unwrap();
+    let foo = Sample::load_resource(&PathBuf::from("/home/mason/python/dsp/sample-analysis/069-A-nt.wav")).unwrap();
 
     let audio = foo.buffer.audio_raw;
 
     let audio_f64: Vec<f64> = audio.iter().map(|x| *x as f64).collect();
-    let amp = find_envelope(&audio_f64, 261.63, foo.buffer.sample_rate);
+    let amp = find_envelope(&audio_f64, 440.0, foo.buffer.sample_rate);
 
     // println!("{:?}", resample_to(&amp, 400));
 
