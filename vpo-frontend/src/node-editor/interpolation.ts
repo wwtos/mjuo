@@ -29,6 +29,7 @@ export function socketTypeToString(socketType: SocketType): BehaviorSubject<stri
             Release: () => i18n.t("socketType.value.release"),
             Speed: () => i18n.t("socketType.value.speed"),
             State: () => i18n.t("socketType.value.state"),
+            UiState: () => i18n.t("socketType.value.uiState"),
             Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         NodeRef: ({ data: nodeRef }): string | Observable<string> => match(nodeRef, {

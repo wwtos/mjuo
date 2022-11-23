@@ -80,6 +80,7 @@ pub enum ValueSocketType {
     Release,
     Speed,
     State,
+    UiState,
     Dynamic(u64),
 }
 

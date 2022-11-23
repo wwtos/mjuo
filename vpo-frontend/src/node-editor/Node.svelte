@@ -174,16 +174,18 @@
 
     {#each sockets as row (rowToKey(row))}
         {#if row.variant === "SocketRow"}
-            <NodeRowUI
-                {nodes}
-                type={row.socketType}
-                direction={row.socketDirection}
-                label={socketTypeToString(row.socketType)}
-                hidden={row.hidden}
-                on:socketMousedown={onSocketMousedown}
-                on:socketMouseup={onSocketMouseup}
-                nodeWrapper={wrapper}
-            />
+            {#if !row.hidden}
+                <NodeRowUI
+                    {nodes}
+                    type={row.socketType}
+                    direction={row.socketDirection}
+                    label={socketTypeToString(row.socketType)}
+                    hidden={row.hidden}
+                    on:socketMousedown={onSocketMousedown}
+                    on:socketMouseup={onSocketMouseup}
+                    nodeWrapper={wrapper}
+                />
+            {/if}
         {:else if row.variant === "PropertyRow"}
             <NodePropertyRow
                 {nodes}

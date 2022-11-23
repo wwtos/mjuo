@@ -24,44 +24,52 @@ export type NodeRow = DiscriminatedUnion<"variant", {
     InnerGraph: { data: undefined },
 }>;
 
-type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection};
+type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection, hidden: boolean};
 
 export const NodeRow = {
     getTypeAndDirection: (
         nodeRow: NodeRow
-    ): {socketType: SocketType, direction: SocketDirection} | undefined => {
+    ): SocketTypeAndDirection | undefined => {
         return matchOrElse(nodeRow, {
-            StreamInput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            StreamInput: ({ data: [type, _, hidden] }): SocketTypeAndDirection => ({
                 socketType: { variant: "Stream", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                hidden
             }),
-            MidiInput: ({ data: [type, _] }) => ({
+            MidiInput: ({ data: [type, _, hidden] }) => ({
                 socketType: { variant: "Midi", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                hidden
             }),
-            ValueInput: ({ data: [type, _] }) => ({
+            ValueInput: ({ data: [type, _, hidden] }) => ({
                 socketType: { variant: "Value", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                hidden
             }),
-            NodeRefInput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            NodeRefInput: ({ data: [type, hidden] }) => ({
                 socketType: { variant: "NodeRef", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                hidden
             }),
-            StreamOutput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            StreamOutput: ({ data: [type, _, hidden] }) => ({
                 socketType: { variant: "Stream", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                hidden
             }),
-            MidiOutput: ({ data: [type, _] }) => ({
+            MidiOutput: ({ data: [type, _, hidden] }) => ({
                 socketType: { variant: "Midi", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                hidden
             }),
-            ValueOutput: ({ data: [type, _] }) => ({
+            ValueOutput: ({ data: [type, _, hidden] }) => ({
                 socketType: { variant: "Value", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                hidden
             }),
-            NodeRefOutput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            NodeRefOutput: ({ data: [type, hidden] }) => ({
                 socketType: { variant: "NodeRef", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                hidden
             }),
         },  () => undefined);
     },
@@ -128,6 +136,15 @@ export const NodeRow = {
             ValueOutput: ({ data: [_, defaultValue ] }): SocketValue => ({ variant: "Primitive", data: defaultValue }),
             NodeRefOutput: ({ data: _ }): SocketValue => ({ variant: "None" })
         },  () => ({ variant: "None" }));
+    },
+    getHeight(nodeRow: NodeRow): number {
+        const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+
+        if (typeAndDirection) {
+            return typeAndDirection.hidden ? 0 : SOCKET_HEIGHT;
+        }
+
+        return SOCKET_HEIGHT;
     }
 };
 

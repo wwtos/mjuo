@@ -23,6 +23,8 @@
                 "sustain": "Sustain",
                 "release": "Release",
                 "speed": "Speed",
+                "state": "State",
+                "uiState": "UiState",
                 "dynamic": "Dynamic({{uid}})"
             }
         },

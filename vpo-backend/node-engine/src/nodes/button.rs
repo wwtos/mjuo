@@ -25,23 +25,6 @@ impl ButtonNode {
     }
 }
 
-impl UiNode for ButtonNode {
-    fn has_new_state(&self) -> bool {
-        matches!(self.input, ProcessState::Processed)
-    }
-
-    fn get_new_state(&self) -> HashMap<String, Property> {
-        let mut new_state = HashMap::new();
-        new_state.insert("state".to_string(), Property::Bool(self.state));
-
-        new_state
-    }
-
-    fn apply_state(&mut self, state: HashMap<String, Property>) {
-        // if let Some(state) = state.get("state").and_then(|x| x.as_boolean()) {}
-    }
-}
-
 impl Node for ButtonNode {
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
@@ -73,5 +56,9 @@ impl Node for ButtonNode {
         } else {
             None
         }
+    }
+
+    fn linked_to_ui(&self) -> bool {
+        true
     }
 }
