@@ -16,6 +16,7 @@ pub struct Sample {
     pub loop_start: Option<usize>,
     pub loop_end: Option<usize>,
     pub release: Option<usize>,
+    pub crossfade: usize,
     pub note: Option<Note>,
     pub cents: Option<i16>,
     #[serde(skip)]
@@ -28,6 +29,7 @@ impl Default for Sample {
             loop_start: Some(0),
             loop_end: Some(100),
             release: Some(100),
+            crossfade: 0,
             note: Some(69),
             cents: Some(0),
             buffer: MonoSample::default(),

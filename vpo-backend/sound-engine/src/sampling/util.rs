@@ -1,4 +1,45 @@
+use std::f64::consts::PI;
+
 use nalgebra::DVector;
+
+pub fn lerp(start: f64, end: f64, amount: f64) -> f64 {
+    (end - start) * amount + start
+}
+
+pub fn s_add(x: &[f64], y: f64) -> Vec<f64> {
+    x.iter().map(|x| x + y).collect()
+}
+
+pub fn s_sub(x: &[f64], y: f64) -> Vec<f64> {
+    x.iter().map(|x| x - y).collect()
+}
+
+pub fn s_mult(x: &[f64], y: f64) -> Vec<f64> {
+    x.iter().map(|x| x * y).collect()
+}
+
+pub fn s_div(x: &[f64], y: f64) -> Vec<f64> {
+    x.iter().map(|x| x / y).collect()
+}
+
+pub fn mult(x: &[f64], y: &[f64]) -> Vec<f64> {
+    x.iter().zip(y).map(|(x, y)| x * y).collect()
+}
+
+pub fn abs(x: &[f64]) -> Vec<f64> {
+    x.iter().map(|x| x.abs()).collect()
+}
+
+// https://github.com/klangner/dsp.rs/blob/master/src/window.rs
+pub fn hann(width: usize) -> Vec<f64> {
+    let mut samples = vec![0.0; width];
+    for i in 0..width {
+        let n = i as f64;
+        samples[i] = (PI * n / (width - 1) as f64).sin().powi(2);
+    }
+
+    samples
+}
 
 pub fn sign(num: f64) -> f64 {
     if num > 0.0 {
@@ -16,6 +57,15 @@ pub fn sq(x: f64) -> f64 {
 
 pub fn mean(x: &[f64]) -> f64 {
     x.iter().sum::<f64>() / x.len() as f64
+}
+
+pub fn median(numbers: &[f64]) -> f64 {
+    let mut numbers = Vec::from(numbers);
+
+    numbers.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let mid = numbers.len() / 2;
+
+    numbers[mid]
 }
 
 pub fn std(x: &[f64]) -> f64 {
@@ -60,10 +110,9 @@ pub fn argmax(x: &[f64]) -> Option<usize> {
 
 pub fn gradient(func: &[f64]) -> Vec<f64> {
     let mut res = Vec::with_capacity(func.len());
-    res.push(0.0);
 
     for i in 1..(func.len() - 1) {
-        res.push((func[i + 1] - func[i - 1]) / 2.0);
+        res.push(func[i + 1] - func[i]);
     }
 
     res.push(0.0);
@@ -105,6 +154,29 @@ pub fn resample_to(sig: &[f64], new_length: usize) -> Vec<f64> {
             sig[pos_in_sig_slice + 3],
             pos_in_sig % 1.0,
         ));
+    }
+
+    new_sig
+}
+
+pub fn resample_to_lin(sig: &[f64], new_length: usize) -> Vec<f64> {
+    // figure out the difference in length
+    let step_by = sig.len() as f64 / new_length as f64;
+
+    let mut new_sig = Vec::with_capacity(new_length);
+
+    for i in 0..new_length {
+        let pos_in_sig = i as f64 * step_by;
+        let pos_in_sig_slice = pos_in_sig as i64;
+
+        if pos_in_sig_slice == 0 || pos_in_sig_slice >= sig.len() as i64 - 1 {
+            new_sig.push(sig[pos_in_sig as usize]);
+            continue;
+        }
+
+        let pos_in_sig_slice = (pos_in_sig_slice - 1) as usize;
+
+        new_sig.push(lerp(sig[pos_in_sig_slice], sig[pos_in_sig_slice + 1], pos_in_sig % 1.0));
     }
 
     new_sig
