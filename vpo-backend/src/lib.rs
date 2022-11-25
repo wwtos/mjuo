@@ -18,6 +18,7 @@ use sound_engine::{
 };
 
 pub mod io;
+pub mod migrations;
 pub mod routes;
 pub mod util;
 

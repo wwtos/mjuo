@@ -9,10 +9,12 @@ version = "0.1.0"
 async-std = "1.10.0"
 hyper = "0.14.18"
 ipc = {path = "./ipc"}
+lazy_static = "1.4.0"
 node-engine = {path = "./node-engine"}
 resource-manager = {path = "./resource-manager"}
 rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
 routerify = "3.0.0"
+semver = "1.0.14"
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"
 smallvec = {version = "1.10", features = ["serde"]}

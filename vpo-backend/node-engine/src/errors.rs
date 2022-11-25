@@ -1,5 +1,6 @@
 use resource_manager::LoadingError;
 use rhai::{EvalAltResult, ParseError};
+use semver::Version;
 use snafu::Snafu;
 
 use serde_json;
@@ -59,6 +60,8 @@ pub enum NodeError {
     MissingResource { resource: Resource },
     #[snafu(display("Loading error: {source:?}"))]
     LoadingError { source: LoadingError },
+    #[snafu(display("Version doesn't exist: {version}"))]
+    VersionError { version: Version },
 }
 
 impl NodeError {
