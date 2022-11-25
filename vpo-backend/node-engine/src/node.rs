@@ -560,6 +560,10 @@ impl NodeWrapper {
         variant_to_name(&self.node)
     }
 
+    pub fn linked_to_ui(&self) -> bool {
+        self.node.linked_to_ui()
+    }
+
     pub(crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
         self.child_graph_io_indexes = ios;
     }

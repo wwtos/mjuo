@@ -44,6 +44,7 @@ pub enum PossibleResource<A: Resource> {
 pub struct ResourceManager<A: Resource> {
     resources: Vec<PossibleResource<A>>,
     resource_mapping: HashMap<String, ResourceIndex>,
+    resources_to_watch: Vec<(String, PathBuf)>,
 }
 
 impl<A> Serialize for ResourceManager<A>
@@ -72,6 +73,7 @@ where
         ResourceManager {
             resources: Vec::new(),
             resource_mapping: HashMap::new(),
+            resources_to_watch: Vec::new(),
         }
     }
 
@@ -125,7 +127,7 @@ where
         self.resource_mapping.get(key).copied()
     }
 
-    pub fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
     where
         I: Iterator<Item = (String, PathBuf)>,
     {
@@ -166,6 +168,23 @@ where
             let resource_index = self.add_resource(resource);
             self.resource_mapping.insert(key, resource_index);
         }
+
+        Ok(())
+    }
+
+    pub fn watch_resources<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    where
+        I: Iterator<Item = (String, PathBuf)>,
+    {
+        let mut resources_to_watch = Vec::new();
+
+        self.request_resources_parallel(resources_to_load.map(|resource| {
+            resources_to_watch.push(resource.clone());
+
+            resource
+        }))?;
+
+        self.resources_to_watch.extend(resources_to_watch);
 
         Ok(())
     }
