@@ -43,8 +43,7 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                         .iter_mut()
                         .enumerate()
                         .map(|(row_i, row)| {
-                            let row_variant = row["variant"].as_str().ok_or(NodeError::PropertyMissingOrMalformed {
-                                property_name: format!(
+                            let row_variant = row["variant"].as_str().ok_or(NodeError::PropertyMissingOrMalformed { property_name: format!(
                                     "state.graph_manager.node_graphs.{}.graph.nodes[{}].data.node_rows[{}]",
                                     k, node_i, row_i
                                 ),
@@ -55,7 +54,8 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                                     // if it's not an array, the migration needs to be applied
                                     row["data"] = Value::Array(vec![row["data"].take(), Value::Bool(false)]);
                                 }
-                            } else {
+                            } else if let "StreamInput" | "MidiInput" | "ValueInput" |
+                                          "StreamOutput" | "MidiOutput" | "ValueOutput" = row_variant {
                                 if let Value::Array(ref mut row_data) = row["data"] {
                                     if row_data.len() == 2 {
                                         // migration needs to be applied
