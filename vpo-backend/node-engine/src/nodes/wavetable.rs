@@ -1,11 +1,11 @@
-use resource_manager::ResourceIndex;
+use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
 
 use crate::{
     connection::{Primitive, StreamSocketType, ValueSocketType},
     errors::{NodeError, NodeOk},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType, Resource},
+    property::{Property, PropertyType},
 };
 
 #[derive(Debug, Clone)]
@@ -64,7 +64,7 @@ impl Node for WavetableNode {
             NodeRow::Property(
                 "wavetable".into(),
                 PropertyType::Resource("wavetables".into()),
-                Property::Resource(Resource {
+                Property::Resource(ResourceId {
                     namespace: "wavetables".into(),
                     resource: "".into(),
                 }),

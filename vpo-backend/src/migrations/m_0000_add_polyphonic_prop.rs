@@ -43,52 +43,6 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                         .iter_mut()
                         .enumerate()
                         .map(|(row_i, row)| {
-                            let row_variant = row["variant"].as_str().ok_or(NodeError::PropertyMissingOrMalformed { property_name: format!(
-                                    "state.graph_manager.node_graphs.{}.graph.nodes[{}].data.node_rows[{}]",
-                                    k, node_i, row_i
-                                ),
-                            })?;
-
-                            if row_variant == "NodeRowInput" || row_variant == "NodeRowOutput" {
-                                if !matches!(row["data"], Value::Array(_)) {
-                                    // if it's not an array, the migration needs to be applied
-                                    row["data"] = Value::Array(vec![row["data"].take(), Value::Bool(false)]);
-                                }
-                            } else if let "StreamInput" | "MidiInput" | "ValueInput" |
-                                          "StreamOutput" | "MidiOutput" | "ValueOutput" = row_variant {
-                                if let Value::Array(ref mut row_data) = row["data"] {
-                                    if row_data.len() == 2 {
-                                        // migration needs to be applied
-                                        row_data.push(Value::Bool(false));
-                                    }
-                                } else {
-                                    return Err(NodeError::PropertyMissingOrMalformed {
-                                        property_name: format!(
-                                            "state.graph_manager.node_graphs.{}.graph.nodes[{}].data.node_rows[{}]",
-                                            k, node_i, row_i
-                                        ),
-                                    });
-                                }
-                            }
-
-                            Ok(())
-                        })
-                        .collect::<Result<(), NodeError>>()?;
-
-                    let node_rows =
-                        node["data"][0]["node_rows"]
-                            .as_array_mut()
-                            .ok_or(NodeError::PropertyMissingOrMalformed {
-                                property_name: format!(
-                                    "state.graph_manager.node_graphs.{}.graph.nodes[{}].data[0].node_rows",
-                                    k, node_i
-                                ),
-                            })?;
-
-                    node_rows
-                        .iter_mut()
-                        .enumerate()
-                        .map(|(row_i, row)| {
                             let row_variant = row["variant"].as_str().ok_or(NodeError::PropertyMissingOrMalformed {
                                 property_name: format!(
                                     "state.graph_manager.node_graphs.{}.graph.nodes[{}].data.node_rows[{}]",
@@ -101,7 +55,9 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                                     // if it's not an array, the migration needs to be applied
                                     row["data"] = Value::Array(vec![row["data"].take(), Value::Bool(false)]);
                                 }
-                            } else {
+                            } else if let "StreamInput" | "MidiInput" | "ValueInput" | "StreamOutput" | "MidiOutput"
+                            | "ValueOutput" = row_variant
+                            {
                                 if let Value::Array(ref mut row_data) = row["data"] {
                                     if row_data.len() == 2 {
                                         // migration needs to be applied
@@ -121,15 +77,14 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                         })
                         .collect::<Result<(), NodeError>>()?;
 
-                        let default_overrides =
-                        node["data"][0]["default_overrides"]
-                            .as_array_mut()
-                            .ok_or(NodeError::PropertyMissingOrMalformed {
-                                property_name: format!(
-                                    "state.graph_manager.node_graphs.{}.graph.nodes[{}].data[0].default_overrides",
-                                    k, node_i
-                                ),
-                            })?;
+                    let default_overrides = node["data"][0]["default_overrides"].as_array_mut().ok_or(
+                        NodeError::PropertyMissingOrMalformed {
+                            property_name: format!(
+                                "state.graph_manager.node_graphs.{}.graph.nodes[{}].data[0].default_overrides",
+                                k, node_i
+                            ),
+                        },
+                    )?;
 
                     default_overrides
                         .iter_mut()
@@ -147,7 +102,9 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                                     // if it's not an array, the migration needs to be applied
                                     row["data"] = Value::Array(vec![row["data"].take(), Value::Bool(false)]);
                                 }
-                            } else {
+                            } else if let "StreamInput" | "MidiInput" | "ValueInput" | "StreamOutput" | "MidiOutput"
+                            | "ValueOutput" = row_variant
+                            {
                                 if let Value::Array(ref mut row_data) = row["data"] {
                                     if row_data.len() == 2 {
                                         // migration needs to be applied
@@ -156,7 +113,8 @@ pub fn migrate(project: PathBuf) -> Result<(), NodeError> {
                                 } else {
                                     return Err(NodeError::PropertyMissingOrMalformed {
                                         property_name: format!(
-                                            "state.graph_manager.node_graphs.{}.graph.nodes[{}].data.default_overrides[{}]",
+                                            "state.graph_manager.node_graphs.{} \
+                                            .graph.nodes[{}].data.default_overrides[{}]",
                                             k, node_i, row_i
                                         ),
                                     });

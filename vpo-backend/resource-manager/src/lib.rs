@@ -8,7 +8,7 @@ use std::{
     thread::available_parallelism,
 };
 
-use serde::{ser::SerializeSeq, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::Snafu;
 use threadpool::ThreadPool;
 
@@ -33,6 +33,47 @@ pub trait Resource {
 pub struct ResourceIndex {
     pub index: usize,
     pub generation: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ResourceId {
+    pub namespace: String,
+    pub resource: String,
+}
+
+impl ResourceId {
+    pub fn from_str(id: &str) -> Option<ResourceId> {
+        let foo: Vec<&str> = id.split(":").take(2).collect();
+
+        if foo.len() != 2 {
+            None
+        } else {
+            Some(ResourceId {
+                namespace: foo[0].to_string(),
+                resource: foo[1].to_string(),
+            })
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("{}:{}", self.namespace, self.resource)
+    }
+}
+
+pub fn serialize_resource_id<S>(resource_id: &ResourceId, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&resource_id.to_string())
+}
+
+pub fn deserialize_resource_id<'de, D>(deserializer: D) -> Result<ResourceId, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let resource_id: String = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(ResourceId::from_str(&resource_id).unwrap())
 }
 
 pub enum PossibleResource<A: Resource> {

@@ -1,11 +1,11 @@
-use resource_manager::ResourceIndex;
+use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::{node::mono_buffer_player::MonoBufferPlayer, SoundConfig};
 
 use crate::{
     connection::{Primitive, StreamSocketType, ValueSocketType},
     errors::{NodeError, NodeOk},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType, Resource},
+    property::{Property, PropertyType},
 };
 
 #[derive(Debug, Clone)]
@@ -62,7 +62,7 @@ impl Node for MonoSamplePlayerNode {
             NodeRow::Property(
                 "sample".into(),
                 PropertyType::Resource("samples".into()),
-                Property::Resource(Resource {
+                Property::Resource(ResourceId {
                     namespace: "samples".into(),
                     resource: "".into(),
                 }),

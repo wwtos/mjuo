@@ -21,6 +21,8 @@ pub struct Sample {
     pub cents: Option<i16>,
     #[serde(skip)]
     pub buffer: MonoSample,
+    #[serde(skip)]
+    pub crossfade_buffer: MonoSample,
 }
 
 impl Default for Sample {
@@ -33,6 +35,7 @@ impl Default for Sample {
             note: Some(69),
             cents: Some(0),
             buffer: MonoSample::default(),
+            crossfade_buffer: MonoSample::default(),
         }
     }
 }
