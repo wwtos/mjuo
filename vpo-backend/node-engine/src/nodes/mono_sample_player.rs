@@ -1,5 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{node::mono_buffer_player::MonoBufferPlayer, SoundConfig};
+use sound_engine::{sampling::sample_player::SamplePlayer, SoundConfig};
 
 use crate::{
     connection::{Primitive, StreamSocketType, ValueSocketType},
@@ -10,7 +10,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct MonoSamplePlayerNode {
-    player: Option<MonoBufferPlayer>,
+    player: Option<SamplePlayer>,
+    released: bool,
     playing: bool,
     index: ResourceIndex,
     config: SoundConfig,
@@ -21,6 +22,7 @@ impl MonoSamplePlayerNode {
     pub fn new(config: &SoundConfig) -> Self {
         MonoSamplePlayerNode {
             player: None,
+            released: false,
             playing: false,
             index: ResourceIndex {
                 index: 0,
@@ -54,7 +56,7 @@ impl Node for MonoSamplePlayerNode {
             let sample = state.global_state.resources.samples.borrow_resource(self.index);
 
             if let Some(sample) = sample {
-                self.player = Some(MonoBufferPlayer::new(&self.config, &sample.buffer));
+                self.player = Some(SamplePlayer::new(&self.config, &sample));
             }
         }
 
@@ -73,17 +75,22 @@ impl Node for MonoSamplePlayerNode {
     }
 
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        if let Some(player) = &mut self.player {
-            if self.playing {
-                let buffer = state
+        if self.playing {
+            if let Some(player) = &mut self.player {
+                let sample = state
                     .global_state
                     .resources
                     .samples
                     .borrow_resource(self.index)
                     .unwrap();
-                self.output = player.get_next_sample(&buffer.buffer);
-            } else {
-                self.output = 0.0;
+
+                if self.released && self.playing {
+                    println!("releasing");
+                    player.release(sample);
+                    self.released = false;
+                }
+
+                self.output = player.next_sample(&sample);
             }
         }
 
@@ -94,10 +101,10 @@ impl Node for MonoSamplePlayerNode {
         if let Some(player) = &mut self.player {
             if let Some(engaged) = value.as_boolean() {
                 if engaged {
-                    player.seek(0.0);
+                    player.seek(0);
                     self.playing = true;
                 } else {
-                    self.playing = false;
+                    self.released = true;
                 }
             }
         }

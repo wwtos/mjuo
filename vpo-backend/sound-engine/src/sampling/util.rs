@@ -65,6 +65,10 @@ pub fn sq(x: f64) -> f64 {
     x * x
 }
 
+pub fn sq32(x: f32) -> f32 {
+    x * x
+}
+
 pub fn mean(x: &[f64]) -> f64 {
     x.iter().sum::<f64>() / x.len() as f64
 }
@@ -90,6 +94,12 @@ pub fn rms(x: &[f64]) -> f64 {
     let squared_diff: f64 = x.iter().map(|x| sq(*x)).sum();
 
     f64::sqrt(squared_diff / (x.len() - 1) as f64)
+}
+
+pub fn rms32(x: &[f32]) -> f32 {
+    let squared_diff: f32 = x.iter().map(|x| sq32(*x)).sum();
+
+    f32::sqrt(squared_diff / (x.len() - 1) as f32)
 }
 
 pub fn argmin(x: &[f64]) -> Option<usize> {

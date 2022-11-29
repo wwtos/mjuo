@@ -11,6 +11,8 @@ use snafu::ResultExt;
 
 use crate::{midi::messages::Note, MonoSample};
 
+use super::interpolate::lerp;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
     pub loop_start: Option<usize>,
@@ -82,6 +84,28 @@ impl Resource for Sample {
             audio_raw: buffer,
             sample_rate,
         };
+
+        if let (Some(loop_start), Some(loop_end)) = (sample.loop_start, sample.loop_end) {
+            if sample.crossfade > 0 {
+                // calculate crossfade here
+                let mut crossfade_audio: Vec<f32> = Vec::new();
+
+                let audio = &sample.buffer.audio_raw;
+
+                for i in 0..sample.crossfade {
+                    crossfade_audio.push(lerp(
+                        audio[loop_end + i],
+                        audio[loop_start + i],
+                        i as f32 / sample.crossfade as f32,
+                    ));
+                }
+
+                sample.crossfade_buffer = MonoSample {
+                    audio_raw: crossfade_audio,
+                    sample_rate,
+                }
+            }
+        }
 
         Ok(sample)
     }
