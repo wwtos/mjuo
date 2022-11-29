@@ -4,24 +4,17 @@ use interp::interp;
 use nalgebra::DVector;
 use resource_manager::Resource;
 
-use crate::{
-    node::envelope,
-    sampling::util::{resample_to_lin, sq},
-};
+use crate::sampling::util::{resample_to_lin, sq};
 
 use super::{
     sample::Sample,
-    savitzky_golay::savgol_filter,
-    util::{
-        abs, argmax, argmin, gradient, hann, hermite_interpolate, mean, median, mult, norm_signal, resample_to, s_sub,
-        sign, std,
-    },
+    util::{argmax, argmin, gradient, hann, mean, median, mult, norm_signal, resample_to, sign, std},
 };
 
-struct EnvelopePoints {
-    attack: usize,
-    loop_end: usize,
-    release: usize,
+pub struct EnvelopePoints {
+    pub attack: usize,
+    pub loop_end: usize,
+    pub release: usize,
 }
 
 // https://stackoverflow.com/questions/34235530/how-to-get-high-and-low-envelope-of-a-signal
@@ -51,7 +44,7 @@ fn envelopes_idx(signal: &DVector<f64>, dmax: usize) -> Vec<usize> {
     chunked_lmax
 }
 
-pub fn calc_amp(signal: &[f64], dmax: usize, sample_rate: u32) -> Vec<f64> {
+pub fn calc_amp(signal: &[f64], dmax: usize, step_by: usize) -> Vec<f64> {
     let mut env_idx = envelopes_idx(&DVector::from_row_slice(signal), dmax);
     env_idx.insert(0, 0);
     env_idx.push(signal.len() - 1);
@@ -60,10 +53,9 @@ pub fn calc_amp(signal: &[f64], dmax: usize, sample_rate: u32) -> Vec<f64> {
     let env_points: Vec<f64> = env_idx.iter().map(|idx| signal[*idx]).collect();
 
     let interp: Vec<f64> = (0..signal.len())
-        .step_by(100)
+        .step_by(step_by)
         .map(|x| interp(&env_idx_as_f64, &env_points, x as f64))
         .collect();
-    let interp_smoothed = savgol_filter(&interp, sample_rate / 1500, 5, 2);
 
     resample_to(&interp, signal.len())
 }
@@ -73,22 +65,25 @@ struct SearchSettings {
     pub search_step: usize,
     pub peak_attack: usize,
     pub peak_release: usize,
+    pub end_incentive: f64,
     pub too_far_in_percentage_attack: f64,
     pub too_far_in_percentage_release: f64,
 }
 
-fn search_for_attack(envelope: &[f64], envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
+fn search_for_attack(envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
     let SearchSettings {
         search_width,
         search_step,
         peak_attack,
         peak_release,
+        end_incentive: _,
         too_far_in_percentage_attack,
         too_far_in_percentage_release: _,
     } = settings;
 
     let search_start = *peak_attack;
-    let search_end = ((envelope.len() as f64 * too_far_in_percentage_attack) as usize).min(peak_release - search_width);
+    let search_end =
+        ((envelope_deriv.len() as f64 * too_far_in_percentage_attack) as usize).min(peak_release - search_width);
     let search_span = search_end - search_start;
 
     let env_deriv_median = median(envelope_deriv);
@@ -112,12 +107,13 @@ fn search_for_attack(envelope: &[f64], envelope_deriv: &[f64], settings: &Search
     attack_index
 }
 
-fn search_for_release(envelope: &[f64], envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
+fn search_for_release(envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
     let SearchSettings {
         search_width,
         search_step,
         peak_attack,
         peak_release,
+        end_incentive,
         too_far_in_percentage_attack,
         too_far_in_percentage_release: _,
     } = settings;
@@ -130,7 +126,7 @@ fn search_for_release(envelope: &[f64], envelope_deriv: &[f64], settings: &Searc
     let env_deriv_median = median(envelope_deriv);
     let env_deriv_std = std(envelope_deriv);
 
-    let window = &hann(*search_width * 2)[*search_width..(search_width * 2)];
+    let window = &hann(*search_width * 2)[0..*search_width];
 
     let mut release_indexes = (search_start..search_end)
         .step_by(*search_step)
@@ -140,15 +136,13 @@ fn search_for_release(envelope: &[f64], envelope_deriv: &[f64], settings: &Searc
 
             let median_dist = (env_slice_mean - env_deriv_median).abs() / env_deriv_std;
 
-            let beginning_penalty = 0.3 * sq(1.0 - ((i - search_start) as f64) / search_span as f64);
+            let beginning_penalty = end_incentive * sq(1.0 - ((i - search_start) as f64) / search_span as f64);
 
             (median_dist + beginning_penalty, i + search_width)
         })
         .collect::<Vec<(f64, usize)>>();
 
     release_indexes.sort_by(|a, b| a.0.total_cmp(&b.0));
-
-    println!("top picks: {:?}", &release_indexes[0..5]);
 
     release_indexes[0].1
 }
@@ -160,7 +154,7 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let envelope = calc_amp(
         sample_norm.as_slice(),
         ((sample_rate as f64 / freq) * 2.0) as usize,
-        sample_rate,
+        ((sample_rate as f64) / freq) as usize * 2,
     );
 
     // find min envelope value and shift values, so we don't get NaN from log10
@@ -170,23 +164,21 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let envelope_deriv = gradient(&envelope_db);
     println!("deriv: {:?}", &resample_to_lin(&gradient(&envelope), 400));
 
-    let env_deriv_mean = mean(&envelope_deriv);
-    let env_deriv_std = std(&envelope_deriv);
-
     let peak_attack = argmax(&envelope_deriv).unwrap();
     let peak_release = argmin(&envelope_deriv).unwrap();
 
     let search_settings = SearchSettings {
-        search_width: 5000,
-        search_step: 50,
+        search_width: 20000,
+        search_step: 1000,
         peak_attack,
         peak_release,
+        end_incentive: 5.0,
         too_far_in_percentage_attack: 0.2,
         too_far_in_percentage_release: 0.7,
     };
 
-    let attack_index = search_for_attack(&envelope, &envelope_deriv, &search_settings);
-    let release_index = search_for_release(&envelope, &gradient(&envelope), &search_settings);
+    let attack_index = search_for_attack(&envelope_deriv, &search_settings);
+    let release_index = search_for_release(&gradient(&envelope), &search_settings);
 
     let env_deriv_median = median(&envelope_deriv);
 
@@ -201,7 +193,10 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
 
 #[test]
 fn envelopes_idx_test() {
-    let foo = Sample::load_resource(&PathBuf::from("/home/mason/python/dsp/sample-analysis/069-A-nt.wav")).unwrap();
+    let foo = Sample::load_resource(&PathBuf::from(
+        "/home/mason/python/dsp/sample-analysis/test-samples/069-A-nt.wav",
+    ))
+    .unwrap();
 
     let audio = foo.buffer.audio_raw;
 
