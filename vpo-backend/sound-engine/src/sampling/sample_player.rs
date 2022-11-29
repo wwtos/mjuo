@@ -1,11 +1,9 @@
-use num::range;
-
-use crate::{sampling::interpolate::cos_erp, MonoSample, SoundConfig};
+use crate::{MonoSample, SoundConfig};
 
 use super::{
     interpolate::{hermite_interpolate, lerp},
     sample::Sample,
-    util::{rms, rms32, sq32},
+    util::{rms32, sq32},
 };
 
 #[derive(Debug, Clone)]
@@ -286,5 +284,9 @@ fn audio_lookup_with_crossfade(
 }
 
 fn audio_lookup_with_loop(position: usize, loop_start: usize, loop_end: usize, buffer: &MonoSample) -> f32 {
-    todo!()
+    if position < loop_end {
+        buffer.audio_raw[position]
+    } else {
+        buffer.audio_raw[((position - loop_start) % (loop_end - loop_start)) + loop_start]
+    }
 }
