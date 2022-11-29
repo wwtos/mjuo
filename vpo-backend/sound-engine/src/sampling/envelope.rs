@@ -8,11 +8,12 @@ use crate::sampling::util::{resample_to_lin, sq};
 
 use super::{
     sample::Sample,
-    util::{argmax, argmin, gradient, hann, mean, median, mult, norm_signal, resample_to, sign, std},
+    util::{abs, argmax, argmin, gradient, hann, mean, median, mult, norm_signal, resample_to, sign, std},
 };
 
 pub struct EnvelopePoints {
     pub attack: usize,
+    pub loop_start: usize,
     pub loop_end: usize,
     pub release: usize,
 }
@@ -60,7 +61,7 @@ pub fn calc_amp(signal: &[f64], dmax: usize, step_by: usize) -> Vec<f64> {
     resample_to(&interp, signal.len())
 }
 
-struct SearchSettings {
+struct EnvelopeSettings {
     pub search_width: usize,
     pub search_step: usize,
     pub peak_attack: usize,
@@ -70,8 +71,16 @@ struct SearchSettings {
     pub too_far_in_percentage_release: f64,
 }
 
-fn search_for_attack(envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
-    let SearchSettings {
+struct LoopSettings {
+    pub derivative_threshold: f64,
+    pub min_loop_length: f64,
+    pub distance_between_loops: f64,
+    pub quality_factor: f64,
+    pub final_pass_count: usize,
+}
+
+fn search_for_attack(envelope_deriv: &[f64], settings: &EnvelopeSettings) -> usize {
+    let EnvelopeSettings {
         search_width,
         search_step,
         peak_attack,
@@ -84,7 +93,6 @@ fn search_for_attack(envelope_deriv: &[f64], settings: &SearchSettings) -> usize
     let search_start = *peak_attack;
     let search_end =
         ((envelope_deriv.len() as f64 * too_far_in_percentage_attack) as usize).min(peak_release - search_width);
-    let search_span = search_end - search_start;
 
     let env_deriv_median = median(envelope_deriv);
 
@@ -107,19 +115,19 @@ fn search_for_attack(envelope_deriv: &[f64], settings: &SearchSettings) -> usize
     attack_index
 }
 
-fn search_for_release(envelope_deriv: &[f64], settings: &SearchSettings) -> usize {
-    let SearchSettings {
+fn search_for_release(sample: &[f64], envelope_deriv: &[f64], settings: &EnvelopeSettings) -> usize {
+    let EnvelopeSettings {
         search_width,
         search_step,
-        peak_attack,
+        peak_attack: _,
         peak_release,
         end_incentive,
-        too_far_in_percentage_attack,
-        too_far_in_percentage_release: _,
+        too_far_in_percentage_attack: _,
+        too_far_in_percentage_release,
     } = settings;
 
     let search_start =
-        ((envelope_deriv.len() as f64 * too_far_in_percentage_attack) as usize).min(peak_release - search_width);
+        ((envelope_deriv.len() as f64 * too_far_in_percentage_release) as usize).min(peak_release - search_width);
     let search_end = peak_release - search_width;
     let search_span = search_end - search_start;
 
@@ -144,8 +152,16 @@ fn search_for_release(envelope_deriv: &[f64], settings: &SearchSettings) -> usiz
 
     release_indexes.sort_by(|a, b| a.0.total_cmp(&b.0));
 
-    release_indexes[0].1
+    // find part in sample close to 0
+    let mut release_index = release_indexes[0].1;
+
+    let search_area = &sample[release_index..(release_index + 1000)];
+    release_index += argmin(&abs(search_area)).unwrap();
+
+    release_index
 }
+
+// fn find_loop_point()
 
 pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> EnvelopePoints*/
 {
@@ -162,33 +178,22 @@ pub fn find_envelope(sample: &[f64], freq: f64, sample_rate: u32) /* -> Envelope
     let envelope_db: Vec<f64> = envelope.iter().map(|x| (x + envelope_min).log10() * 20.0).collect();
 
     let envelope_deriv = gradient(&envelope_db);
-    println!("deriv: {:?}", &resample_to_lin(&gradient(&envelope), 400));
 
     let peak_attack = argmax(&envelope_deriv).unwrap();
     let peak_release = argmin(&envelope_deriv).unwrap();
 
-    let search_settings = SearchSettings {
+    let search_settings = EnvelopeSettings {
         search_width: 20000,
         search_step: 1000,
         peak_attack,
         peak_release,
-        end_incentive: 5.0,
+        end_incentive: 4.0,
         too_far_in_percentage_attack: 0.2,
-        too_far_in_percentage_release: 0.7,
+        too_far_in_percentage_release: 0.5,
     };
 
     let attack_index = search_for_attack(&envelope_deriv, &search_settings);
-    let release_index = search_for_release(&gradient(&envelope), &search_settings);
-
-    let env_deriv_median = median(&envelope_deriv);
-
-    println!(
-        "attack index: {}, release_index: {}, release_deriv: {}, median: {}",
-        attack_index,
-        release_index,
-        (envelope_deriv[release_index] - env_deriv_median).abs(),
-        env_deriv_median,
-    );
+    let release_index = search_for_release(&sample_norm.as_slice(), &gradient(&envelope), &search_settings);
 }
 
 #[test]

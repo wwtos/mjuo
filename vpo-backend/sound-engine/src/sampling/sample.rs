@@ -15,12 +15,15 @@ use super::interpolate::lerp;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
-    pub loop_start: Option<usize>,
-    pub loop_end: Option<usize>,
-    pub release: Option<usize>,
+    pub loop_start: usize,
+    pub loop_end: usize,
+    pub attack_index: usize,
+    pub release_index: usize,
+    pub min_release_length: usize,
     pub crossfade: usize,
-    pub note: Option<Note>,
-    pub cents: Option<i16>,
+    pub crossfade_release: usize,
+    pub note: Note,
+    pub cents: i16,
     #[serde(skip)]
     pub buffer: MonoSample,
     #[serde(skip)]
@@ -30,12 +33,15 @@ pub struct Sample {
 impl Default for Sample {
     fn default() -> Self {
         Self {
-            loop_start: Some(0),
-            loop_end: Some(100),
-            release: Some(100),
-            crossfade: 0,
-            note: Some(69),
-            cents: Some(0),
+            loop_start: 0,
+            loop_end: 100,
+            attack_index: 0,
+            release_index: 100,
+            min_release_length: 5000,
+            crossfade: 256,
+            crossfade_release: 256,
+            note: 69,
+            cents: 0,
             buffer: MonoSample::default(),
             crossfade_buffer: MonoSample::default(),
         }
@@ -85,25 +91,23 @@ impl Resource for Sample {
             sample_rate,
         };
 
-        if let (Some(loop_start), Some(loop_end)) = (sample.loop_start, sample.loop_end) {
-            if sample.crossfade > 0 {
-                // calculate crossfade here
-                let mut crossfade_audio: Vec<f32> = Vec::new();
+        if sample.crossfade > 0 {
+            // calculate crossfade here
+            let mut crossfade_audio: Vec<f32> = Vec::new();
 
-                let audio = &sample.buffer.audio_raw;
+            let audio = &sample.buffer.audio_raw;
 
-                for i in 0..sample.crossfade {
-                    crossfade_audio.push(lerp(
-                        audio[loop_end + i],
-                        audio[loop_start + i],
-                        i as f32 / sample.crossfade as f32,
-                    ));
-                }
+            for i in 0..sample.crossfade {
+                crossfade_audio.push(lerp(
+                    audio[sample.loop_end + i],
+                    audio[sample.loop_start + i],
+                    i as f32 / sample.crossfade as f32,
+                ));
+            }
 
-                sample.crossfade_buffer = MonoSample {
-                    audio_raw: crossfade_audio,
-                    sample_rate,
-                }
+            sample.crossfade_buffer = MonoSample {
+                audio_raw: crossfade_audio,
+                sample_rate,
             }
         }
 

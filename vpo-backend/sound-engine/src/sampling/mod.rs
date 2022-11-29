@@ -2,6 +2,7 @@ pub mod double_buffer;
 pub mod envelope;
 pub mod interpolate;
 pub mod rank;
+pub mod rank_player;
 pub mod sample;
 pub mod sample_player;
 pub mod savitzky_golay;

@@ -9,8 +9,10 @@ use super::{
 #[derive(Debug, Clone)]
 enum State {
     Attacking,
+    Looping,
     AboutToRelease,
     Releasing,
+    ReleasingAfterAttack,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +23,7 @@ pub struct SamplePlayer {
     stop_at_index: usize,
     release_search_width: usize,
     release_amplitude: f32,
+    release_length: f64,
     global_sample_rate: u32,
     buffer_rate: u32,
     playback_rate: f64,
@@ -34,13 +37,8 @@ impl SamplePlayer {
         let sample_length = sample.buffer.audio_raw.len();
 
         // look for potential release locations based on frequency
-        let release_search_width = if let Some(note) = sample.note {
-            let freq = (440.0 / 32.0) * 2_f32.powf((note - 9) as f32 / 12.0);
-
-            (buffer_rate as f32 / freq) as usize * 2
-        } else {
-            1024
-        };
+        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
+        let release_search_width = (buffer_rate as f32 / freq) as usize * 2;
 
         SamplePlayer {
             state: State::Attacking,
@@ -49,6 +47,7 @@ impl SamplePlayer {
             stop_at_index: 0,
             release_search_width,
             release_amplitude: 1.0,
+            release_length: 0.0,
             global_sample_rate: config.sample_rate,
             buffer_rate,
             playback_rate: 1.0,
@@ -199,10 +198,17 @@ impl SamplePlayer {
         }
 
         let released_at = self.audio_position as usize;
-        let release_index = sample.release.unwrap();
+        let release_index = sample.release_index;
         let audio = &sample.buffer.audio_raw;
 
         if released_at < 6 {
+            return;
+        }
+
+        if matches!(self.state, State::Attacking) {
+            self.state = State::ReleasingAfterAttack;
+            self.release_length = self.audio_position;
+
             return;
         }
 
@@ -231,37 +237,53 @@ impl SamplePlayer {
     }
 
     pub fn next_sample(&mut self, sample: &Sample) -> f32 {
-        if let (Some(loop_start), Some(loop_end), Some(release)) = (sample.loop_start, sample.loop_end, sample.release)
-        {
-            match self.state {
-                State::Attacking => self.next_sample_looped(sample, loop_start, loop_end),
-                State::AboutToRelease => {
-                    if self.audio_position as usize >= self.stop_at_index {
-                        self.state = State::Releasing;
-                        self.audio_position_release = release as f64;
-                    }
-
-                    self.next_sample_normal(sample)
+        match self.state {
+            State::Attacking => {
+                if self.audio_position > sample.attack_index as f64 {
+                    self.state = State::Looping;
                 }
-                State::Releasing => {
-                    if sample.crossfade > 3 {
-                        let crossfade_pos = self.audio_position_release - release as f64;
 
-                        if (crossfade_pos as usize) < sample.crossfade {
-                            let looped = self.next_sample_looped(sample, loop_start, loop_end);
-                            let released = self.next_sample_released(sample) * self.release_amplitude;
+                self.next_sample_looped(sample, sample.loop_start, sample.loop_end)
+            }
+            State::Looping => self.next_sample_looped(sample, sample.loop_start, sample.loop_end),
+            State::AboutToRelease => {
+                if self.audio_position as usize >= self.stop_at_index {
+                    self.state = State::Releasing;
+                    self.audio_position_release = sample.release_index as f64;
+                }
 
-                            lerp(looped, released, crossfade_pos as f32 / sample.crossfade as f32)
-                        } else {
-                            self.next_sample_released(sample) * self.release_amplitude
-                        }
+                self.next_sample_normal(sample)
+            }
+            State::Releasing => {
+                if sample.crossfade_release > 3 {
+                    let crossfade_pos = self.audio_position_release - sample.release_index as f64;
+
+                    if (crossfade_pos as usize) < sample.crossfade_release {
+                        let looped = self.next_sample_looped(sample, sample.loop_start, sample.loop_end);
+                        let released = self.next_sample_released(sample) * self.release_amplitude;
+
+                        lerp(looped, released, crossfade_pos as f32 / sample.crossfade_release as f32)
                     } else {
-                        self.next_sample_released(sample)
+                        self.next_sample_released(sample) * self.release_amplitude
                     }
+                } else {
+                    self.next_sample_released(sample)
                 }
             }
-        } else {
-            self.next_sample_normal(sample)
+            State::ReleasingAfterAttack => {
+                let release_length_f = (sample.min_release_length as f64).max(self.release_length);
+
+                if self.audio_position < release_length_f * 2.0 {
+                    self.next_sample_normal(sample)
+                        * lerp(
+                            1.0,
+                            0.0,
+                            ((self.audio_position - release_length_f) / release_length_f) as f32,
+                        )
+                } else {
+                    0.0
+                }
+            }
         }
     }
 }
