@@ -102,7 +102,7 @@ impl Node for MonoSamplePlayerNode {
         if let Some(player) = &mut self.player {
             if let Some(engaged) = value.as_boolean() {
                 if engaged {
-                    player.seek(0);
+                    player.reset();
                     self.playing = true;
                 } else {
                     self.released = true;

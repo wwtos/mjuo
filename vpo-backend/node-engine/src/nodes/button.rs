@@ -1,11 +1,7 @@
-use std::collections::HashMap;
-
 use crate::{
     connection::{Primitive, ValueSocketType},
     errors::{NodeError, NodeOk},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::Property,
-    ui::ui_node::UiNode,
 };
 
 use super::util::ProcessState;
@@ -33,7 +29,7 @@ impl Node for ButtonNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
         self.input = match self.input {
             ProcessState::Unprocessed(new_value) => {
                 self.state = new_value;

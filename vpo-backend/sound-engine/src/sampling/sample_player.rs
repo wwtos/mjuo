@@ -65,8 +65,8 @@ impl SamplePlayer {
         self.adjusted_playback_rate = (self.buffer_rate as f64 / self.global_sample_rate as f64) * playback_rate;
     }
 
-    pub fn seek(&mut self, location: usize) {
-        self.audio_position = location as f64;
+    pub fn reset(&mut self) {
+        self.audio_position = 0.0;
         self.state = State::Attacking;
     }
 
@@ -201,7 +201,7 @@ impl SamplePlayer {
         let release_index = sample.release_index;
         let audio = &sample.buffer.audio_raw;
 
-        if released_at < 6 {
+        if released_at < self.release_search_width {
             return;
         }
 
@@ -212,10 +212,15 @@ impl SamplePlayer {
             return;
         }
 
-        let rms_before = rms32(&audio[released_at..(released_at + self.release_search_width)]);
+        let rms_before = rms32(&audio[(released_at - self.release_search_width)..released_at]);
         let rms_release = rms32(&audio[release_index..(release_index + self.release_search_width)]);
 
         self.release_amplitude = rms_before / rms_release;
+
+        println!(
+            "rms before: {}, rms after: {}, release search width: {}",
+            rms_before, rms_release, self.release_search_width
+        );
 
         let mut lowest_score = f32::INFINITY;
         let mut stop_at_index = 0;
@@ -271,6 +276,8 @@ impl SamplePlayer {
                 }
             }
             State::ReleasingAfterAttack => {
+                // linear fadeout instead of playing the release sample (for cases where
+                // going from the attack section to the release is choppy)
                 let release_length_f = (sample.min_release_length as f64).max(self.release_length);
 
                 if self.audio_position < release_length_f * 2.0 {

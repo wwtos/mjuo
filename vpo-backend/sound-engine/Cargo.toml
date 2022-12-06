@@ -11,6 +11,8 @@ interp = "0.1.1"
 lazy_static = "1.4.0"
 nalgebra = "0.31"
 num = "0.4.0"
+pitch-detection = {git = "https://github.com/smj-edison/pitch-detection"}
+regex = "1.7"
 resource-manager = {path = "../resource-manager"}
 ringbuf = "0.2.8"
 rodio = "0.16.0"

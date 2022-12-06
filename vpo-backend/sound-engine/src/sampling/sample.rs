@@ -4,6 +4,7 @@ use std::{
     path::Path,
 };
 
+use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource};
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,7 @@ use snafu::ResultExt;
 
 use crate::{midi::messages::Note, MonoSample};
 
-use super::interpolate::lerp;
+use super::{envelope::calc_sample_metadata, interpolate::lerp};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Sample {
@@ -65,17 +66,7 @@ impl Resource for Sample {
     where
         Self: Sized,
     {
-        // next, get the sample metadata (if it exists)
-        let mut sample: Sample = Sample::default();
-        let metadata_path = path.with_extension("json");
-        if let Ok(does_exist) = path.with_extension("json").try_exists() {
-            if does_exist {
-                sample = load_sample(&metadata_path)?;
-            } else {
-                save_sample_metadata(&metadata_path, &sample)?;
-            }
-        }
-
+        println!("loading: {:?}", path);
         let file = BufReader::new(File::open(path).context(IOSnafu)?);
         let source = Decoder::new(file).unwrap();
 
@@ -85,6 +76,28 @@ impl Resource for Sample {
 
         let mut buffer: Vec<f32> = Vec::with_capacity(length);
         buffer.extend(source.map(|x| x as f32 / i16::MAX as f32).step_by(channels as usize));
+
+        // next, get the sample metadata (if it exists)
+        let mut sample: Sample = Sample::default();
+        let metadata_path = path.with_extension("json");
+        if let Ok(does_exist) = path.with_extension("json").try_exists() {
+            if does_exist {
+                sample = load_sample(&metadata_path)?;
+            } else {
+                let note_number = check_for_note_number(&path.file_stem().unwrap().to_string_lossy());
+                let possible_freq = note_number.map(|note| 440.0 * 2_f64.powf((note as i16 - 69) as f64 / 12.0));
+
+                let metadata = calc_sample_metadata(&buffer, sample_rate, possible_freq);
+
+                sample.release_index = metadata.release_index;
+                sample.loop_start = metadata.loop_start;
+                sample.loop_end = metadata.loop_end;
+                sample.note = metadata.note;
+                sample.cents = metadata.cents;
+
+                save_sample_metadata(&metadata_path, &sample)?;
+            }
+        }
 
         sample.buffer = MonoSample {
             audio_raw: buffer,
@@ -113,4 +126,15 @@ impl Resource for Sample {
 
         Ok(sample)
     }
+}
+
+fn check_for_note_number(file_prefix: &str) -> Option<u8> {
+    let get_numbers = Regex::new(r"([0-9]+)").unwrap();
+    let remove_leading_zeroes = Regex::new(r"^0+").unwrap();
+
+    get_numbers
+        .captures(file_prefix)
+        .and_then(|captures| captures.get(0))
+        .map(|numbers| remove_leading_zeroes.replace(numbers.as_str(), ""))
+        .and_then(|numbers_trimmed| numbers_trimmed.parse().ok())
 }

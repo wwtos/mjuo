@@ -30,6 +30,14 @@ rustflags = [
   "link-arg=-fuse-ld=lld",
 ]
 
+[profile.dev]
+opt-level = 1
+overflow-checks = true
+
+[profile.dev.build-override]
+codegen-units = 256
+opt-level = 3
+
 [profile.release-x86_64-pc-windows-gnu]
 inherits = "release"
 opt-level = 3

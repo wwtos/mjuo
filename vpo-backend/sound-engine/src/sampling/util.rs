@@ -103,16 +103,17 @@ pub fn rms32(x: &[f32]) -> f32 {
 }
 
 pub fn argmin(x: &[f64]) -> Option<usize> {
-    x.iter()
-        .enumerate()
-        .fold((f64::INFINITY, None), |(min_so_far, out), (i, val)| {
-            if val < &min_so_far {
-                (*val, Some(i))
-            } else {
-                (min_so_far, out)
-            }
-        })
-        .1
+    let mut smallest: Option<usize> = None;
+    let mut smallest_score = f64::INFINITY;
+
+    for (i, y) in x.iter().enumerate() {
+        if y < &smallest_score {
+            smallest = Some(i);
+            smallest_score = *y;
+        }
+    }
+
+    smallest
 }
 
 pub fn argmax(x: &[f64]) -> Option<usize> {
@@ -131,7 +132,7 @@ pub fn argmax(x: &[f64]) -> Option<usize> {
 pub fn gradient(func: &[f64]) -> Vec<f64> {
     let mut res = Vec::with_capacity(func.len());
 
-    for i in 1..(func.len() - 1) {
+    for i in 0..(func.len() - 1) {
         res.push(func[i + 1] - func[i]);
     }
 
