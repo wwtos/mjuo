@@ -10,13 +10,25 @@ use snafu::ResultExt;
 pub struct RankEntry {
     #[serde(serialize_with = "serialize_resource_id")]
     #[serde(deserialize_with = "deserialize_resource_id")]
-    resource: ResourceId,
-    note: u8,
+    pub resource: ResourceId,
+    pub note: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+impl Default for RankEntry {
+    fn default() -> Self {
+        RankEntry {
+            resource: ResourceId {
+                namespace: "ranks".into(),
+                resource: "none".into(),
+            },
+            note: 0,
+        }
+    }
+}
+
+#[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Rank {
-    samples: Vec<RankEntry>,
+    pub samples: Vec<RankEntry>,
 }
 
 impl Resource for Rank {

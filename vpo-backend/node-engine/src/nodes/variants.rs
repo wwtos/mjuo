@@ -21,6 +21,7 @@ use super::mono_sample_player::MonoSamplePlayerNode;
 use super::outputs::OutputsNode;
 use super::polyphonic::PolyphonicNode;
 use super::portamento::PortamentoNode;
+use super::rank_player::RankPlayerNode;
 use super::stream_expression::StreamExpressionNode;
 use super::wavetable::WavetableNode;
 use super::{
@@ -53,6 +54,7 @@ pub enum NodeVariant {
     WavetableNode,
     PortamentoNode,
     ButtonNode,
+    RankPlayerNode,
     #[cfg(test)]
     TestNode,
 }
@@ -94,6 +96,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
         "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new())),
+        "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::new(config))),
         #[cfg(test)]
         "TestNode" => Ok(NodeVariant::TestNode(TestNode::default())),
         _ => Err(NodeError::NodeTypeDoesNotExist),
@@ -122,6 +125,7 @@ pub fn variant_to_name(variant: &NodeVariant) -> String {
         NodeVariant::WavetableNode(_) => "WavetableNode".to_string(),
         NodeVariant::PortamentoNode(_) => "PortamentoNode".to_string(),
         NodeVariant::ButtonNode(_) => "ButtonNode".to_string(),
+        NodeVariant::RankPlayerNode(_) => "RankPlayerNode".to_string(),
         NodeVariant::Placeholder(_) => unreachable!("Getting name of a placeholder"),
         #[cfg(test)]
         NodeVariant::TestNode(_) => "TestNode".to_string(),

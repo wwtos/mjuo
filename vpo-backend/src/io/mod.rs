@@ -100,6 +100,7 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
         AUDIO_EXTENSIONS,
     )
     .context(LoadingSnafu)?;
+    load_resources(&path.join("ranks"), &mut global_state.resources.ranks, &["json"]).context(LoadingSnafu)?;
 
     // TODO: version handling and migrations here
     state.apply_json(json["state"].take(), global_state)?;

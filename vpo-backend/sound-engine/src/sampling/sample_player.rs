@@ -1,4 +1,4 @@
-use crate::{MonoSample, SoundConfig};
+use crate::{constants::PI, MonoSample, SoundConfig};
 
 use super::{
     interpolate::{hermite_interpolate, lerp},
@@ -12,7 +12,6 @@ enum State {
     Looping,
     AboutToRelease,
     Releasing,
-    ReleasingAfterAttack,
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +28,8 @@ pub struct SamplePlayer {
     playback_rate: f64,
     adjusted_playback_rate: f64,
     sample_length: usize,
+    freq_cos_table: Vec<f32>,
+    freq_sin_table: Vec<f32>,
 }
 
 impl SamplePlayer {
@@ -38,7 +39,9 @@ impl SamplePlayer {
 
         // look for potential release locations based on frequency
         let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
-        let release_search_width = (buffer_rate as f32 / freq) as usize * 2;
+        let release_search_width = 2048.max((buffer_rate as f32 / freq) as usize * 2);
+
+        let (freq_cos_table, freq_sin_table) = generate_freq_tables(freq, buffer_rate);
 
         SamplePlayer {
             state: State::Attacking,
@@ -53,7 +56,35 @@ impl SamplePlayer {
             playback_rate: 1.0,
             adjusted_playback_rate: buffer_rate as f64 / config.sample_rate as f64,
             sample_length,
+            freq_cos_table,
+            freq_sin_table,
         }
+    }
+
+    pub fn init(&mut self, config: &SoundConfig, sample: &Sample) {
+        let buffer_rate = sample.buffer.sample_rate;
+        let sample_length = sample.buffer.audio_raw.len();
+
+        // look for potential release locations based on frequency
+        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
+        let release_search_width = 2048.max((buffer_rate as f32 / freq) as usize * 2);
+
+        let (freq_cos_table, freq_sin_table) = generate_freq_tables(freq, buffer_rate);
+
+        self.state = State::Attacking;
+        self.audio_position = 0.0;
+        self.audio_position_release = 0.0;
+        self.stop_at_index = 0;
+        self.release_search_width = release_search_width;
+        self.release_amplitude = 1.0;
+        self.release_length = 0.0;
+        self.global_sample_rate = config.sample_rate;
+        self.buffer_rate = buffer_rate;
+        self.playback_rate = 1.0;
+        self.adjusted_playback_rate = buffer_rate as f64 / config.sample_rate as f64;
+        self.sample_length = sample_length;
+        self.freq_cos_table = freq_cos_table;
+        self.freq_sin_table = freq_sin_table;
     }
 
     pub fn get_playback_rate(&self) -> f64 {
@@ -205,22 +236,17 @@ impl SamplePlayer {
             return;
         }
 
-        if matches!(self.state, State::Attacking) {
-            self.state = State::ReleasingAfterAttack;
-            self.release_length = self.audio_position;
+        // if matches!(self.state, State::Attacking) {
+        //     self.state = State::ReleasingAfterAttack;
+        //     self.release_length = self.audio_position;
 
-            return;
-        }
+        //     return;
+        // }
 
         let rms_before = rms32(&audio[(released_at - self.release_search_width)..released_at]);
         let rms_release = rms32(&audio[release_index..(release_index + self.release_search_width)]);
 
         self.release_amplitude = rms_before / rms_release;
-
-        println!(
-            "rms before: {}, rms after: {}, release search width: {}",
-            rms_before, rms_release, self.release_search_width
-        );
 
         let mut lowest_score = f32::INFINITY;
         let mut stop_at_index = 0;
@@ -236,7 +262,26 @@ impl SamplePlayer {
             }
         }
 
-        self.stop_at_index = stop_at_index;
+        let phase_stop_at = calc_phase(
+            &audio[stop_at_index..(stop_at_index + self.freq_cos_table.len())],
+            &self.freq_cos_table,
+            &self.freq_sin_table,
+        );
+        let phase_after = calc_phase(
+            &audio[release_index..(release_index + self.freq_cos_table.len())],
+            &self.freq_cos_table,
+            &self.freq_sin_table,
+        );
+
+        let phase_diff = (phase_after - phase_stop_at).rem_euclid(PI * 2.0);
+        let release_shift = ((phase_diff / (PI * 2.0)) * self.freq_cos_table.len() as f32) as usize;
+
+        println!(
+            "phase stop at: {}, phase after: {}, phase diff: {}, release shift: {}",
+            phase_stop_at, phase_after, phase_diff, release_shift
+        );
+
+        self.stop_at_index = stop_at_index + release_shift;
 
         self.state = State::AboutToRelease;
     }
@@ -244,7 +289,7 @@ impl SamplePlayer {
     pub fn next_sample(&mut self, sample: &Sample) -> f32 {
         match self.state {
             State::Attacking => {
-                if self.audio_position > sample.attack_index as f64 {
+                if self.audio_position > sample.sustain_index as f64 {
                     self.state = State::Looping;
                 }
 
@@ -275,23 +320,12 @@ impl SamplePlayer {
                     self.next_sample_released(sample)
                 }
             }
-            State::ReleasingAfterAttack => {
-                // linear fadeout instead of playing the release sample (for cases where
-                // going from the attack section to the release is choppy)
-                let release_length_f = (sample.min_release_length as f64).max(self.release_length);
-
-                if self.audio_position < release_length_f * 2.0 {
-                    self.next_sample_normal(sample)
-                        * lerp(
-                            1.0,
-                            0.0,
-                            ((self.audio_position - release_length_f) / release_length_f) as f32,
-                        )
-                } else {
-                    0.0
-                }
-            }
         }
+    }
+
+    pub fn is_done(&self) -> bool {
+        self.audio_position_release as usize >= self.sample_length - 3
+            || self.audio_position as usize >= self.sample_length - 3
     }
 }
 
@@ -318,4 +352,30 @@ fn audio_lookup_with_loop(position: usize, loop_start: usize, loop_end: usize, b
     } else {
         buffer.audio_raw[((position - loop_start) % (loop_end - loop_start)) + loop_start]
     }
+}
+
+fn generate_freq_tables(freq: f32, sample_rate: u32) -> (Vec<f32>, Vec<f32>) {
+    let cycle_width = sample_rate as f32 / freq;
+
+    let mut cos_table = Vec::new();
+    let mut sin_table = Vec::new();
+
+    for i in 0..(cycle_width as usize) {
+        cos_table.push(f32::cos((i as f32 / cycle_width) * PI * 2.0));
+        sin_table.push(f32::sin((i as f32 / cycle_width) * PI * 2.0));
+    }
+
+    (cos_table, sin_table)
+}
+
+fn calc_phase(sample: &[f32], cos_table: &[f32], sin_table: &[f32]) -> f32 {
+    let mut cos_sum = 0.0;
+    let mut sin_sum = 0.0;
+
+    for i in 0..sample.len() {
+        cos_sum += sample[i] * cos_table[i];
+        sin_sum += sample[i] * sin_table[i];
+    }
+
+    f32::atan2(cos_sum, sin_sum)
 }

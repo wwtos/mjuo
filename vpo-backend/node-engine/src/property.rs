@@ -38,6 +38,13 @@ impl Property {
         }
     }
 
+    pub fn as_integer(self) -> Option<i32> {
+        match self {
+            Property::Integer(value) => Some(value),
+            _ => None,
+        }
+    }
+
     pub fn as_float(self) -> Option<f32> {
         match self {
             Property::Float(value) => Some(value),

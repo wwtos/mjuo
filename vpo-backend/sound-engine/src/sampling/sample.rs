@@ -18,7 +18,8 @@ use super::{envelope::calc_sample_metadata, interpolate::lerp};
 pub struct Sample {
     pub loop_start: usize,
     pub loop_end: usize,
-    pub attack_index: usize,
+    pub decay_index: usize,
+    pub sustain_index: usize,
     pub release_index: usize,
     pub min_release_length: usize,
     pub crossfade: usize,
@@ -36,7 +37,8 @@ impl Default for Sample {
         Self {
             loop_start: 0,
             loop_end: 100,
-            attack_index: 0,
+            decay_index: 50,
+            sustain_index: 80,
             release_index: 100,
             min_release_length: 5000,
             crossfade: 256,
@@ -89,6 +91,8 @@ impl Resource for Sample {
 
                 let metadata = calc_sample_metadata(&buffer, sample_rate, possible_freq);
 
+                sample.decay_index = metadata.decay_index;
+                sample.sustain_index = metadata.sustain_index;
                 sample.release_index = metadata.release_index;
                 sample.loop_start = metadata.loop_start;
                 sample.loop_end = metadata.loop_end;

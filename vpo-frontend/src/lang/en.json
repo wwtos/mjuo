@@ -56,7 +56,8 @@
             "MonoSamplePlayerNode": "Mono Sample Player",
             "WavetableNode": "Wavetable Oscillator",
             "PortamentoNode": "Portamento",
-            "ButtonNode": "Button"
+            "ButtonNode": "Button",
+            "RankPlayerNode": "Rank Player"
         },
         "editor": {
             "create": "Create!",

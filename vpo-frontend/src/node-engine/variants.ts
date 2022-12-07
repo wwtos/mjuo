@@ -81,5 +81,10 @@ export const variants: NodeVariant[] = [
         name: i18n.t("nodes.ButtonNode"),
         internal: "ButtonNode",
         category: "ui"
+    },
+    {
+        name: i18n.t("nodes.RankPlayer"),
+        internal: "RankPlayerNode",
+        category: "audio"
     }
 ];

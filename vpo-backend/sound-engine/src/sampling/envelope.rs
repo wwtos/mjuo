@@ -3,23 +3,19 @@ use {super::sample::Sample, resource_manager::Resource, std::path::PathBuf};
 
 use std::{fs::File, io::Write};
 
-use interp::interp;
 use nalgebra::DVector;
 use pitch_detection::detector::{mcleod::McLeodDetector, PitchDetector};
-use serde_json::json;
 
-use crate::{
-    node::envelope,
-    sampling::util::{resample_to_lin, sq},
-};
+use crate::sampling::util::sq;
 
 use super::{
     savitzky_golay::savgol_filter,
-    util::{abs, argmax, argmin, gradient, hann, mean, median, mult, norm_signal, resample_to, rms, sign, std},
+    util::{abs, argmax, argmin, gradient, median, norm_signal, resample_to, rms, sign, std},
 };
 
 pub struct SampleMetadata {
-    pub attack_index: usize,
+    pub decay_index: usize,
+    pub sustain_index: usize,
     pub release_index: usize,
     pub loop_start: usize,
     pub loop_end: usize,
@@ -54,36 +50,20 @@ fn envelopes_idx(signal: &DVector<f64>, dmax: usize) -> Vec<usize> {
     chunked_lmax
 }
 
-pub fn calc_amp(signal: &[f64], dmax: usize, step_by: usize, sample_rate: u32) -> Vec<f64> {
-    let mut env_idx = envelopes_idx(&DVector::from_row_slice(signal), dmax);
-    env_idx.insert(0, 0);
-    env_idx.push(signal.len() - 1);
-
-    let env_idx_as_f64: Vec<f64> = env_idx.iter().map(|x| *x as f64).collect();
-    let env_points: Vec<f64> = env_idx.iter().map(|idx| signal[*idx]).collect();
-
-    let interp: Vec<f64> = (0..signal.len())
-        .step_by(step_by)
-        .map(|x| interp(&env_idx_as_f64, &env_points, x as f64))
-        .collect();
-    let interp_smoothed = savgol_filter(&interp, sample_rate / 2000, 5, 2);
-
-    resample_to(&interp, signal.len())
-}
-
-pub fn calc_amp_2(signal: &[f64], dmax: usize, step_by: usize, sample_rate: u32) -> Vec<f64> {
-    (0..(signal.len() - dmax)).map(|i| rms(&signal[i..i + dmax])).collect()
+pub fn calc_amp(signal: &[f64], window_width: usize) -> Vec<f64> {
+    (0..(signal.len() - window_width))
+        .map(|i| rms(&signal[i..i + window_width]))
+        .collect()
 }
 
 struct EnvelopeSettings {
-    pub search_width: usize,
-    pub search_step: usize,
     pub peak_attack: usize,
     pub peak_release: usize,
-    pub end_incentive: f64,
-    pub too_far_in_percentage_attack: f64,
-    pub too_far_in_percentage_release: f64,
-    pub attack_shift: i32,
+    pub sustain_sensitivity: f64,
+    pub release_sensitivity: f64,
+    pub too_far_in_attack: f64,
+    pub too_far_in_release: f64,
+    pub sustain_shift: i32,
     pub release_shift: i32,
 }
 
@@ -95,70 +75,67 @@ struct LoopSettings {
     pub final_pass_count: usize,
 }
 
-fn search_for_attack(envelope_deriv: &[f64], settings: &EnvelopeSettings) -> usize {
+fn search_for_sustain(env_db: &[f64], settings: &EnvelopeSettings) -> usize {
     let EnvelopeSettings {
-        search_width,
-        search_step,
         peak_attack,
         peak_release,
-        end_incentive: _,
-        too_far_in_percentage_attack,
-        too_far_in_percentage_release: _,
-        attack_shift,
+        sustain_sensitivity,
+        release_sensitivity: _,
+        too_far_in_attack,
+        too_far_in_release: _,
+        sustain_shift: decay_shift,
         release_shift: _,
     } = settings;
 
     let search_start = *peak_attack;
-    let search_end =
-        ((envelope_deriv.len() as f64 * too_far_in_percentage_attack) as usize).min(peak_release - search_width);
+    let search_end = (env_db.len() as f64 * too_far_in_attack) as usize;
 
-    let env_deriv_median = median(envelope_deriv);
+    let env_db_std = std(&env_db[*peak_attack..*peak_release]);
+    let env_db_median = median(&env_db[*peak_attack..*peak_release]);
 
-    let window = &hann(*search_width * 2)[*search_width..(search_width * 2)];
+    let threshold = env_db_std * sustain_sensitivity;
 
-    let attack_index = (search_start..search_end)
-        .step_by(*search_step)
-        .map(|i| {
-            let env_slice = mult(&envelope_deriv[i..(i + search_width)], &window);
-            let env_slice_mean = mean(&env_slice);
+    let mut outside_of_threshold_last_time = false;
+    let mut sustain_index: usize = 0;
 
-            let median_dist = (env_slice_mean - env_deriv_median).abs();
+    for i in (search_start..search_end).rev() {
+        if (env_db[i] - env_db_median).abs() > threshold {
+            if !outside_of_threshold_last_time {
+                sustain_index = i;
+                outside_of_threshold_last_time = true;
+            }
+        } else {
+            outside_of_threshold_last_time = false;
+        }
+    }
 
-            (median_dist, i)
-        })
-        .min_by(|x, y| x.0.total_cmp(&y.0))
-        .unwrap()
-        .1;
-
-    (attack_index as i32 + attack_shift) as usize
+    (sustain_index as i32 + decay_shift) as usize
 }
 
-fn search_for_release(sample: &[f64], env_deriv: &[f64], settings: &EnvelopeSettings) -> usize {
+fn search_for_release(sample: &[f64], env_db: &[f64], settings: &EnvelopeSettings) -> usize {
     let EnvelopeSettings {
-        search_width,
-        search_step,
         peak_attack,
         peak_release,
-        end_incentive,
-        too_far_in_percentage_attack: _,
-        too_far_in_percentage_release,
-        attack_shift: _,
+        sustain_sensitivity: _,
+        release_sensitivity,
+        too_far_in_attack: _,
+        too_far_in_release,
+        sustain_shift: _,
         release_shift,
     } = settings;
 
-    let search_start =
-        ((env_deriv.len() as f64 * too_far_in_percentage_release) as usize).min(peak_release - search_width);
+    let search_start = (env_db.len() as f64 * too_far_in_release) as usize;
 
-    let env_deriv_std = std(&env_deriv[*peak_attack..*peak_release]);
-    let env_deriv_median = median(&env_deriv[*peak_attack..*peak_release]);
+    let env_db_std = std(&env_db[*peak_attack..*peak_release]);
+    let env_db_median = median(&env_db[*peak_attack..*peak_release]);
 
-    let threshold = (env_deriv[*peak_release] - env_deriv_median).abs() * 0.5;
+    let threshold = env_db_std * release_sensitivity;
 
     let mut outside_of_threshold_last_time = false;
     let mut release_index: usize = 0;
 
     for i in search_start..*peak_release {
-        if (env_deriv[i] - env_deriv_median).abs() > threshold {
+        if (env_db[i] - env_db_median).abs() > threshold {
             if !outside_of_threshold_last_time {
                 release_index = i;
                 outside_of_threshold_last_time = true;
@@ -168,22 +145,11 @@ fn search_for_release(sample: &[f64], env_deriv: &[f64], settings: &EnvelopeSett
         }
     }
 
-    println!(
-        "release index: {}, threshold: {}, search start: {}, search end: {}, length: {}",
-        release_index,
-        threshold,
-        search_start,
-        *peak_release,
-        sample.len(),
-    );
-
     release_index = (release_index as i32 + release_shift) as usize;
 
     // find part in sample close to 0
     let search_area = &sample[release_index..(release_index + 1000)];
     release_index += argmin(&abs(search_area)).unwrap();
-
-    println!("\n\nrelease index: {}\n\n", release_index);
 
     release_index
 }
@@ -240,7 +206,7 @@ fn find_loop_point(
                 continue;
             }
 
-            let cross = (-5..6).fold(0.0, |acc, i| {
+            let cross = (-10..10).fold(0.0, |acc, i| {
                 acc + sq(sample[(i + *from_index as i64) as usize] - sample[(i + *to_index as i64) as usize])
             });
             let correlation_value = cross / 10.0;
@@ -278,12 +244,7 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
 
     let (sample_norm, ..) = norm_signal(&DVector::from_row_slice(&sample));
 
-    let envelope = calc_amp_2(
-        &abs(sample_norm.as_slice()),
-        ((sample_rate as f64 / freq) * 1.0) as usize,
-        ((sample_rate as f64) / freq) as usize * 2,
-        sample_rate,
-    );
+    let envelope = calc_amp(&abs(sample_norm.as_slice()), (sample_rate as f64 / freq) as usize);
 
     let envelope_db: Vec<f64> = savgol_filter(
         &envelope.iter().map(|&x| x.log10() * 20.0).collect::<Vec<f64>>(),
@@ -306,10 +267,8 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
     );
 
     let mut f = File::create("/tmp/test.json").expect("Unable to create file");
-    f.write_all(serde_json::to_string(&envelope_deriv).unwrap().as_bytes())
+    f.write_all(serde_json::to_string(&envelope_db).unwrap().as_bytes())
         .expect("Unable to write data");
-
-    println!("deriv length: {}", envelope_deriv.len());
 
     let peak_attack = argmax(&envelope_deriv[0..(envelope_deriv.len() / 2)]).unwrap();
     let possible_peak_release =
@@ -324,19 +283,25 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
     }
 
     let search_settings = EnvelopeSettings {
-        search_width: 20000,
-        search_step: 1000,
         peak_attack,
         peak_release,
-        end_incentive: 0.8,
-        too_far_in_percentage_attack: 0.2,
-        too_far_in_percentage_release: 0.5,
-        attack_shift: 2000,
-        release_shift: -2000,
+        sustain_sensitivity: 10.0,
+        release_sensitivity: 10.0,
+        too_far_in_attack: 0.2,
+        too_far_in_release: 0.5,
+        sustain_shift: 2000,
+        release_shift: 0,
     };
 
-    let attack_index = /* search_for_attack(&envelope_deriv, &search_settings) */ 50;
-    let release_index = search_for_release(&sample_norm.as_slice(), &envelope_deriv, &search_settings);
+    let sustain_index = search_for_sustain(&envelope_db, &search_settings);
+    let decay_index = argmax(&envelope_db[0..sustain_index]).unwrap();
+
+    let release_index = search_for_release(&sample_norm.as_slice(), &envelope_db, &search_settings);
+
+    println!(
+        "Indexes: decay index: {}, sustain index: {}, release index: {}",
+        decay_index, sustain_index, release_index
+    );
 
     let loop_search_settings = LoopSettings {
         derivative_threshold: 0.06,
@@ -351,7 +316,7 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
         &sample,
         freq,
         sample_rate,
-        attack_index,
+        decay_index,
         release_index,
     );
 
@@ -361,7 +326,8 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
     let cents = (1200.0 * f64::log2(freq / note_freq)).round() as i16;
 
     SampleMetadata {
-        attack_index,
+        decay_index,
+        sustain_index,
         release_index,
         loop_start: loop_point.0,
         loop_end: loop_point.1,
@@ -380,8 +346,6 @@ fn envelopes_idx_test() {
     let audio = foo.buffer.audio_raw;
 
     calc_sample_metadata(&audio, foo.buffer.sample_rate, None);
-
-    // println!("{:?}", resample_to(&amp, 400));
 
     //envelopes_idx(&DVector::from(test_sig), 10);
 }

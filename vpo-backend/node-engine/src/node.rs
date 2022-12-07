@@ -126,7 +126,7 @@ pub struct NodeProcessState<'a> {
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
-pub trait Node: Debug {
+pub trait Node: Debug + Clone {
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
     fn get_child_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
