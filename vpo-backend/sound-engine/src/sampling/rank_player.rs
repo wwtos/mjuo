@@ -14,7 +14,7 @@ struct Voice {
 impl Default for Voice {
     fn default() -> Self {
         Voice {
-            player: SamplePlayer::new(&SoundConfig::default(), &Sample::default()),
+            player: SamplePlayer::default(),
             active: false,
             note: 0,
         }
@@ -49,11 +49,11 @@ impl RankPlayer {
 
     fn find_open_voice(&mut self, note: u8) -> usize {
         // first, look if the voice is already active
-
         if let Some(existing_voice) = self.voices.iter().position(|voice| voice.note == note) {
             return existing_voice;
         }
 
+        // is there a voice that is no longer active?
         if let Some(inactive_voice) = self.voices.iter().position(|voice| !voice.active) {
             return inactive_voice;
         };
@@ -77,8 +77,13 @@ impl RankPlayer {
             let sample = samples.borrow_resource(sample_index).unwrap();
 
             self.voices[open_voice].active = true;
-            self.voices[open_voice].player.init(&self.config, sample);
-            self.voices[open_voice].note = note;
+
+            if note == self.voices[open_voice].note {
+                self.voices[open_voice].player.play(sample);
+            } else {
+                self.voices[open_voice].player.init(&self.config, sample);
+                self.voices[open_voice].note = note;
+            }
         }
     }
 
@@ -104,6 +109,7 @@ impl RankPlayer {
 
                     if voice.player.is_done() {
                         voice.active = false;
+                        voice.player.reset();
                     }
                 }
             }
