@@ -1,6 +1,7 @@
 use std::f64::consts::PI;
 
 use nalgebra::DVector;
+use num::Float;
 
 pub fn lerp(start: f64, end: f64, amount: f64) -> f64 {
     (end - start) * amount + start
@@ -14,8 +15,8 @@ pub fn s_sub(x: &[f64], y: f64) -> Vec<f64> {
     x.iter().map(|x| x - y).collect()
 }
 
-pub fn s_mult(x: &[f64], y: f64) -> Vec<f64> {
-    x.iter().map(|x| x * y).collect()
+pub fn s_mult<F: Float>(x: &[F], y: F) -> Vec<F> {
+    x.iter().map(|&x| x * y).collect()
 }
 
 pub fn s_div(x: &[f64], y: f64) -> Vec<f64> {
@@ -100,6 +101,12 @@ pub fn rms32(x: &[f32]) -> f32 {
     let squared_diff: f32 = x.iter().map(|x| sq32(*x)).sum();
 
     f32::sqrt(squared_diff / (x.len() - 1) as f32)
+}
+
+pub fn rms_sq32(x: &[f32]) -> f32 {
+    let squared_diff: f32 = x.iter().map(|x| sq32(*x)).sum();
+
+    squared_diff / (x.len() - 1) as f32
 }
 
 pub fn argmin(x: &[f64]) -> Option<usize> {

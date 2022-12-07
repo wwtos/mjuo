@@ -1,9 +1,9 @@
-use crate::{constants::PI, MonoSample, SoundConfig};
+use crate::{constants::PI, sampling::util::s_mult, MonoSample, SoundConfig};
 
 use super::{
     interpolate::{hermite_interpolate, lerp},
     sample::Sample,
-    util::{rms32, sq32},
+    util::rms32,
 };
 
 #[derive(Debug, Clone)]
@@ -13,7 +13,10 @@ enum State {
     AboutToRelease,
     Releasing,
     ReAttacking,
+    Stopped,
 }
+
+const ATTACK_ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct SamplePlayer {
@@ -30,6 +33,8 @@ pub struct SamplePlayer {
     adjusted_playback_rate: f64,
     sample_length: usize,
     release_phase: f32,
+    peak_rms: f32,
+    envelope_points: [usize; ATTACK_ENVELOPE_POINTS],
     freq_cos_table: Vec<f32>,
     freq_sin_table: Vec<f32>,
 }
@@ -50,6 +55,8 @@ impl Default for SamplePlayer {
             adjusted_playback_rate: 0.0,
             sample_length: 0,
             release_phase: 0.0,
+            peak_rms: 0.0,
+            envelope_points: [0; ATTACK_ENVELOPE_POINTS],
             freq_cos_table: vec![],
             freq_sin_table: vec![],
         }
@@ -57,9 +64,10 @@ impl Default for SamplePlayer {
 }
 
 impl SamplePlayer {
-    pub fn new(config: &SoundConfig, sample: &Sample) -> SamplePlayer {
+    pub fn init(&mut self, config: &SoundConfig, sample: &Sample) {
         let buffer_rate = sample.buffer.sample_rate;
         let sample_length = sample.buffer.audio_raw.len();
+        let audio = &sample.buffer.audio_raw;
 
         // look for potential release locations based on frequency
         let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
@@ -68,45 +76,33 @@ impl SamplePlayer {
         let (freq_cos_table, freq_sin_table) = generate_freq_tables(freq, buffer_rate);
 
         let release_phase = calc_phase(
-            &sample.buffer.audio_raw[sample.release_index..(sample.release_index + freq_cos_table.len())],
+            &audio[sample.release_index..(sample.release_index + freq_cos_table.len())],
             &freq_cos_table,
             &freq_sin_table,
         );
 
-        SamplePlayer {
-            state: State::Attacking,
-            audio_position: 0.0,
-            audio_position_release: 0.0,
-            stop_at_index: 0,
-            release_search_width,
-            release_amplitude: 1.0,
-            release_length: 0.0,
-            global_sample_rate: config.sample_rate,
-            buffer_rate,
-            playback_rate: 1.0,
-            adjusted_playback_rate: buffer_rate as f64 / config.sample_rate as f64,
-            sample_length,
-            release_phase,
-            freq_cos_table,
-            freq_sin_table,
+        let mut envelope_points = [0; ATTACK_ENVELOPE_POINTS];
+        let peak_rms = rms32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
+
+        for i in 0..ATTACK_ENVELOPE_POINTS {
+            let target_amp = peak_rms / ATTACK_ENVELOPE_POINTS as f32;
+
+            let mut closest_index = 0;
+            let mut closest_score = f32::INFINITY;
+
+            for i in (0..sample.decay_index).step_by(5) {
+                let amp = rms32(&audio[i..(i + release_search_width)]);
+
+                let amp_diff = (amp - target_amp).abs();
+
+                if amp_diff < closest_score {
+                    closest_index = i;
+                    closest_score = amp_diff;
+                }
+            }
+
+            envelope_points[i] = closest_index;
         }
-    }
-
-    pub fn init(&mut self, config: &SoundConfig, sample: &Sample) {
-        let buffer_rate = sample.buffer.sample_rate;
-        let sample_length = sample.buffer.audio_raw.len();
-
-        // look for potential release locations based on frequency
-        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
-        let release_search_width = 2048.max((buffer_rate as f32 / freq) as usize * 2);
-
-        let (freq_cos_table, freq_sin_table) = generate_freq_tables(freq, buffer_rate);
-
-        let release_phase = calc_phase(
-            &sample.buffer.audio_raw[sample.release_index..(sample.release_index + freq_cos_table.len())],
-            &freq_cos_table,
-            &freq_sin_table,
-        );
 
         self.state = State::Attacking;
         self.audio_position = 0.0;
@@ -121,6 +117,8 @@ impl SamplePlayer {
         self.adjusted_playback_rate = buffer_rate as f64 / config.sample_rate as f64;
         self.sample_length = sample_length;
         self.release_phase = release_phase;
+        self.peak_rms = peak_rms;
+        self.envelope_points = envelope_points;
         self.freq_cos_table = freq_cos_table;
         self.freq_sin_table = freq_sin_table;
     }
@@ -135,7 +133,6 @@ impl SamplePlayer {
     }
 
     pub fn reset(&mut self) {
-        println!("reset");
         self.state = State::Attacking;
         self.audio_position = 0.0;
         self.audio_position_release = 0.0;
@@ -144,36 +141,36 @@ impl SamplePlayer {
     }
 
     pub fn play(&mut self, sample: &Sample) {
-        if self.is_done() {
+        let current_location = self.get_audio_position() as usize;
+
+        if self.is_done() || current_location < 2 {
             self.reset();
         } else {
             let audio = &sample.buffer.audio_raw;
 
+            if matches!(self.state, State::AboutToRelease) {
+                self.release_amplitude = 1.0;
+            }
+
             // what's our current amplitude?
-            let current_location = self.get_audio_position() as usize;
             let location_bounded = current_location.max(self.release_search_width);
-            let current_amp = rms32(&audio[(location_bounded - self.release_search_width)..location_bounded]);
+            let current_amp = rms32(&s_mult(
+                &audio[(location_bounded - self.release_search_width)..location_bounded],
+                self.release_amplitude,
+            ));
 
             if current_amp < 0.01 || current_location + self.freq_cos_table.len() >= audio.len() {
                 self.reset();
                 return;
             }
 
-            // TODO: binary search?
             // Find place in signal of equal strength
-            let mut closest_index = 0;
-            let mut closest_score = f32::INFINITY;
-
-            for i in (0..sample.sustain_index).step_by(5) {
-                let amp = rms32(&audio[i..(i + self.release_search_width)]);
-
-                let amp_diff = (amp - current_amp).abs();
-
-                if amp_diff < closest_score {
-                    closest_index = i;
-                    closest_score = amp_diff;
-                }
-            }
+            let closest_index = (current_amp / self.peak_rms).min((ATTACK_ENVELOPE_POINTS - 1) as f32);
+            let closest_index = lerp(
+                self.envelope_points[closest_index.floor() as usize] as f32,
+                self.envelope_points[closest_index.ceil() as usize] as f32,
+                closest_index - closest_index.floor(),
+            ) as usize;
 
             // next, get it in phase
             let phase_current = calc_phase(
@@ -191,13 +188,10 @@ impl SamplePlayer {
             let phase_diff = (phase_new_attack - phase_current).rem_euclid(PI * 2.0);
             let attack_shift = ((phase_diff / (PI * 2.0)) * self.freq_cos_table.len() as f32) as usize;
 
-            self.reset();
             self.audio_position_release = current_location as f64;
             self.audio_position = (closest_index + attack_shift) as f64;
             self.stop_at_index = current_location;
             self.state = State::ReAttacking;
-
-            println!("closest in amp: {}", closest_index);
         }
     }
 
@@ -330,11 +324,13 @@ impl SamplePlayer {
             State::AboutToRelease => self.audio_position,
             State::Releasing => self.audio_position_release,
             State::ReAttacking => self.audio_position,
+            State::Stopped => self.audio_position,
         }
     }
 
     pub fn release(&mut self, sample: &Sample) {
         if self.audio_position < 1.0 {
+            self.state = State::Stopped;
             return;
         }
 
@@ -342,11 +338,8 @@ impl SamplePlayer {
         let release_index = sample.release_index;
         let audio = &sample.buffer.audio_raw;
 
-        if released_at < self.release_search_width {
-            return;
-        }
-
-        let rms_before = rms32(&audio[(released_at - self.release_search_width)..released_at]);
+        let rms_before =
+            rms32(&audio[(released_at.max(self.release_search_width) - self.release_search_width)..released_at]);
         let rms_release = rms32(&audio[release_index..(release_index + self.release_search_width)]);
 
         self.release_amplitude = rms_before / rms_release;
@@ -404,7 +397,7 @@ impl SamplePlayer {
                     let crossfade_pos = self.audio_position_release - self.stop_at_index as f64;
 
                     if (crossfade_pos as usize) < sample.crossfade {
-                        let released = self.next_sample_released(sample);
+                        let released = self.next_sample_released(sample) * self.release_amplitude;
                         let looped = self.next_sample_looped(sample, sample.loop_start, sample.loop_end);
 
                         lerp(released, looped, crossfade_pos as f32 / sample.crossfade as f32)
@@ -416,6 +409,7 @@ impl SamplePlayer {
                     self.next_sample_looped(sample, sample.loop_start, sample.loop_end)
                 }
             }
+            State::Stopped => 0.0,
         }
     }
 

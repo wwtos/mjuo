@@ -9,6 +9,7 @@ version = "0.1.0"
 cpal = "0.14.0"
 interp = "0.1.1"
 lazy_static = "1.4.0"
+midir = "0.8"
 nalgebra = "0.31"
 num = "0.4.0"
 pitch-detection = {git = "https://github.com/smj-edison/pitch-detection"}

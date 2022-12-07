@@ -9,7 +9,10 @@ use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 use sound_engine::{
-    backend::{alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend},
+    backend::{
+        alsa_midi::AlsaMidiClientBackend, midir::MidirMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend,
+        MidiClientBackend,
+    },
     constants::BUFFER_SIZE,
     midi::{messages::MidiData, parse::MidiParser},
 };

@@ -2,6 +2,7 @@
 pub mod alsa;
 #[cfg(target_os = "linux")]
 pub mod alsa_midi;
+pub mod midir;
 #[cfg(target_os = "linux")]
 pub mod pulse;
 
