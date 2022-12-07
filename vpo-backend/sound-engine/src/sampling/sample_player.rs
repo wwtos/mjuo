@@ -1,9 +1,12 @@
-use crate::{constants::PI, sampling::util::s_mult, MonoSample, SoundConfig};
+use crate::{
+    constants::PI,
+    sampling::util::{max32, rms32, s_mult},
+    MonoSample, SoundConfig,
+};
 
 use super::{
     interpolate::{hermite_interpolate, lerp},
     sample::Sample,
-    util::rms32,
 };
 
 #[derive(Debug, Clone)]
@@ -16,7 +19,7 @@ enum State {
     Stopped,
 }
 
-const ATTACK_ENVELOPE_POINTS: usize = 8;
+const ATTACK_ENVELOPE_POINTS: usize = 32;
 
 #[derive(Debug, Clone)]
 pub struct SamplePlayer {
@@ -33,7 +36,7 @@ pub struct SamplePlayer {
     adjusted_playback_rate: f64,
     sample_length: usize,
     release_phase: f32,
-    peak_rms: f32,
+    peak_amp: f32,
     envelope_points: [usize; ATTACK_ENVELOPE_POINTS],
     freq_cos_table: Vec<f32>,
     freq_sin_table: Vec<f32>,
@@ -55,7 +58,7 @@ impl Default for SamplePlayer {
             adjusted_playback_rate: 0.0,
             sample_length: 0,
             release_phase: 0.0,
-            peak_rms: 0.0,
+            peak_amp: 0.0,
             envelope_points: [0; ATTACK_ENVELOPE_POINTS],
             freq_cos_table: vec![],
             freq_sin_table: vec![],
@@ -82,10 +85,10 @@ impl SamplePlayer {
         );
 
         let mut envelope_points = [0; ATTACK_ENVELOPE_POINTS];
-        let peak_rms = rms32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
+        let peak_amp = rms32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
 
         for i in 0..ATTACK_ENVELOPE_POINTS {
-            let target_amp = peak_rms / ATTACK_ENVELOPE_POINTS as f32;
+            let target_amp = i as f32 / ATTACK_ENVELOPE_POINTS as f32 * peak_amp;
 
             let mut closest_index = 0;
             let mut closest_score = f32::INFINITY;
@@ -104,6 +107,8 @@ impl SamplePlayer {
             envelope_points[i] = closest_index;
         }
 
+        println!("envelope points: {:?}", envelope_points);
+
         self.state = State::Attacking;
         self.audio_position = 0.0;
         self.audio_position_release = 0.0;
@@ -117,7 +122,7 @@ impl SamplePlayer {
         self.adjusted_playback_rate = buffer_rate as f64 / config.sample_rate as f64;
         self.sample_length = sample_length;
         self.release_phase = release_phase;
-        self.peak_rms = peak_rms;
+        self.peak_amp = peak_amp;
         self.envelope_points = envelope_points;
         self.freq_cos_table = freq_cos_table;
         self.freq_sin_table = freq_sin_table;
@@ -165,12 +170,18 @@ impl SamplePlayer {
             }
 
             // Find place in signal of equal strength
-            let closest_index = (current_amp / self.peak_rms).min((ATTACK_ENVELOPE_POINTS - 1) as f32);
+            let closest_env_index = ((current_amp / self.peak_amp) * ATTACK_ENVELOPE_POINTS as f32)
+                .min((ATTACK_ENVELOPE_POINTS - 1) as f32);
             let closest_index = lerp(
-                self.envelope_points[closest_index.floor() as usize] as f32,
-                self.envelope_points[closest_index.ceil() as usize] as f32,
-                closest_index - closest_index.floor(),
+                self.envelope_points[closest_env_index.floor() as usize] as f32,
+                self.envelope_points[closest_env_index.ceil() as usize] as f32,
+                closest_env_index - closest_env_index.floor(),
             ) as usize;
+
+            println!(
+                "closest env index: {}, rms: {}, peak rms: {}",
+                closest_env_index, current_amp, self.peak_amp
+            );
 
             // next, get it in phase
             let phase_current = calc_phase(
@@ -458,6 +469,7 @@ fn generate_freq_tables(freq: f32, sample_rate: u32) -> (Vec<f32>, Vec<f32>) {
     (cos_table, sin_table)
 }
 
+// calculate phase using methods from the continous wavelet transform
 fn calc_phase(sample: &[f32], cos_table: &[f32], sin_table: &[f32]) -> f32 {
     let mut cos_sum = 0.0;
     let mut sin_sum = 0.0;
