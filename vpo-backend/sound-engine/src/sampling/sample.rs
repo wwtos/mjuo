@@ -5,7 +5,7 @@ use std::{
 };
 
 use regex::Regex;
-use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource};
+use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource, TomlParserDeSnafu, TomlParserSerSnafu};
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -56,11 +56,11 @@ fn load_sample(path: &Path) -> Result<Sample, LoadingError> {
     let mut data = String::new();
     file.read_to_string(&mut data).context(IOSnafu)?;
 
-    serde_json::from_str(&data).context(ParserSnafu)
+    toml::from_str(&data).context(TomlParserDeSnafu)
 }
 
 fn save_sample_metadata(path: &Path, metadata: &Sample) -> Result<(), LoadingError> {
-    fs::write(path, serde_json::to_string_pretty(metadata).context(ParserSnafu)?).context(IOSnafu)
+    fs::write(path, toml::to_string(metadata).context(TomlParserSerSnafu)?).context(IOSnafu)
 }
 
 impl Resource for Sample {
@@ -81,8 +81,8 @@ impl Resource for Sample {
 
         // next, get the sample metadata (if it exists)
         let mut sample: Sample = Sample::default();
-        let metadata_path = path.with_extension("json");
-        if let Ok(does_exist) = path.with_extension("json").try_exists() {
+        let metadata_path = path.with_extension("toml");
+        if let Ok(does_exist) = path.with_extension("toml").try_exists() {
             if does_exist {
                 sample = load_sample(&metadata_path)?;
             } else {

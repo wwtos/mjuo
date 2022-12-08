@@ -1,6 +1,6 @@
 use crate::{
     constants::PI,
-    sampling::util::{max32, rms32, s_mult},
+    sampling::util::{amp32, max32, rms32, s_mult},
     MonoSample, SoundConfig,
 };
 
@@ -19,7 +19,7 @@ enum State {
     Stopped,
 }
 
-const ATTACK_ENVELOPE_POINTS: usize = 32;
+const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct SamplePlayer {
@@ -37,7 +37,8 @@ pub struct SamplePlayer {
     sample_length: usize,
     release_phase: f32,
     peak_amp: f32,
-    envelope_points: [usize; ATTACK_ENVELOPE_POINTS],
+    attack_envelope_points: [usize; ENVELOPE_POINTS],
+    release_envelope_points: [usize; ENVELOPE_POINTS],
     freq_cos_table: Vec<f32>,
     freq_sin_table: Vec<f32>,
 }
@@ -59,7 +60,8 @@ impl Default for SamplePlayer {
             sample_length: 0,
             release_phase: 0.0,
             peak_amp: 0.0,
-            envelope_points: [0; ATTACK_ENVELOPE_POINTS],
+            attack_envelope_points: [0; ENVELOPE_POINTS],
+            release_envelope_points: [0; ENVELOPE_POINTS],
             freq_cos_table: vec![],
             freq_sin_table: vec![],
         }
@@ -84,17 +86,17 @@ impl SamplePlayer {
             &freq_sin_table,
         );
 
-        let mut envelope_points = [0; ATTACK_ENVELOPE_POINTS];
-        let peak_amp = rms32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
+        let mut envelope_points = [0; ENVELOPE_POINTS];
+        let peak_amp = amp32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
 
-        for i in 0..ATTACK_ENVELOPE_POINTS {
-            let target_amp = i as f32 / ATTACK_ENVELOPE_POINTS as f32 * peak_amp;
+        for i in 0..ENVELOPE_POINTS {
+            let target_amp = i as f32 / ENVELOPE_POINTS as f32 * peak_amp;
 
             let mut closest_index = 0;
             let mut closest_score = f32::INFINITY;
 
             for i in (0..sample.decay_index).step_by(5) {
-                let amp = rms32(&audio[i..(i + release_search_width)]);
+                let amp = amp32(&audio[i..(i + release_search_width)]);
 
                 let amp_diff = (amp - target_amp).abs();
 
@@ -106,8 +108,6 @@ impl SamplePlayer {
 
             envelope_points[i] = closest_index;
         }
-
-        println!("envelope points: {:?}", envelope_points);
 
         self.state = State::Attacking;
         self.audio_position = 0.0;
@@ -123,7 +123,7 @@ impl SamplePlayer {
         self.sample_length = sample_length;
         self.release_phase = release_phase;
         self.peak_amp = peak_amp;
-        self.envelope_points = envelope_points;
+        self.attack_envelope_points = envelope_points;
         self.freq_cos_table = freq_cos_table;
         self.freq_sin_table = freq_sin_table;
     }
@@ -151,6 +151,11 @@ impl SamplePlayer {
         if self.is_done() || current_location < 2 {
             self.reset();
         } else {
+            println!(
+                "attacking at: audio position: {}, release audio position: {}, state: {:?}",
+                self.audio_position, self.audio_position_release, self.state
+            );
+
             let audio = &sample.buffer.audio_raw;
 
             if matches!(self.state, State::AboutToRelease) {
@@ -159,7 +164,7 @@ impl SamplePlayer {
 
             // what's our current amplitude?
             let location_bounded = current_location.max(self.release_search_width);
-            let current_amp = rms32(&s_mult(
+            let current_amp = amp32(&s_mult(
                 &audio[(location_bounded - self.release_search_width)..location_bounded],
                 self.release_amplitude,
             ));
@@ -170,18 +175,13 @@ impl SamplePlayer {
             }
 
             // Find place in signal of equal strength
-            let closest_env_index = ((current_amp / self.peak_amp) * ATTACK_ENVELOPE_POINTS as f32)
-                .min((ATTACK_ENVELOPE_POINTS - 1) as f32);
+            let closest_env_index =
+                ((current_amp / self.peak_amp) * ENVELOPE_POINTS as f32).min((ENVELOPE_POINTS - 1) as f32);
             let closest_index = lerp(
-                self.envelope_points[closest_env_index.floor() as usize] as f32,
-                self.envelope_points[closest_env_index.ceil() as usize] as f32,
+                self.attack_envelope_points[closest_env_index.floor() as usize] as f32,
+                self.attack_envelope_points[closest_env_index.ceil() as usize] as f32,
                 closest_env_index - closest_env_index.floor(),
             ) as usize;
-
-            println!(
-                "closest env index: {}, rms: {}, peak rms: {}",
-                closest_env_index, current_amp, self.peak_amp
-            );
 
             // next, get it in phase
             let phase_current = calc_phase(
@@ -341,6 +341,7 @@ impl SamplePlayer {
 
     pub fn release(&mut self, sample: &Sample) {
         if self.audio_position < 1.0 {
+            self.reset();
             self.state = State::Stopped;
             return;
         }
@@ -350,8 +351,8 @@ impl SamplePlayer {
         let audio = &sample.buffer.audio_raw;
 
         let rms_before =
-            rms32(&audio[(released_at.max(self.release_search_width) - self.release_search_width)..released_at]);
-        let rms_release = rms32(&audio[release_index..(release_index + self.release_search_width)]);
+            amp32(&audio[(released_at.max(self.release_search_width) - self.release_search_width)..released_at]);
+        let rms_release = amp32(&audio[release_index..(release_index + self.release_search_width)]);
 
         self.release_amplitude = rms_before / rms_release;
 
@@ -408,6 +409,13 @@ impl SamplePlayer {
                     let crossfade_pos = self.audio_position_release - self.stop_at_index as f64;
 
                     if (crossfade_pos as usize) < sample.crossfade {
+                        if crossfade_pos < 1.0 {
+                            println!(
+                                "(in reattack crossfade) audio position release: {}, audio position: {}",
+                                self.audio_position_release, self.audio_position
+                            );
+                        }
+
                         let released = self.next_sample_released(sample) * self.release_amplitude;
                         let looped = self.next_sample_looped(sample, sample.loop_start, sample.loop_end);
 

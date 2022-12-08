@@ -89,10 +89,11 @@ impl RankPlayer {
 
     pub fn release_note(&mut self, note: u8, samples: &ResourceManager<Sample>) {
         for voice in &mut self.voices {
-            if voice.active && voice.note == note {
+            if voice.note == note {
                 let sample = samples
                     .borrow_resource(self.note_map[voice.note as usize].unwrap())
                     .unwrap();
+
                 voice.player.release(sample);
             }
         }

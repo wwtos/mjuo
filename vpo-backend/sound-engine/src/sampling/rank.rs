@@ -2,6 +2,7 @@ use std::{fs::File, io::Read, path::Path};
 
 use resource_manager::{
     deserialize_resource_id, serialize_resource_id, IOSnafu, LoadingError, ParserSnafu, Resource, ResourceId,
+    TomlParserDeSnafu,
 };
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -40,6 +41,6 @@ impl Resource for Rank {
         let mut data = String::new();
         file.read_to_string(&mut data).context(IOSnafu)?;
 
-        serde_json::from_str(&data).context(ParserSnafu)
+        toml::from_str(&data).context(TomlParserDeSnafu)
     }
 }

@@ -88,7 +88,7 @@ pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut Midi
         parser.write_all(midi_in.as_slice()).unwrap();
 
         while !parser.parsed.is_empty() {
-            let message = parser.parsed.pop().unwrap();
+            let message = parser.parsed.remove(0);
             messages.push(message);
         }
     }

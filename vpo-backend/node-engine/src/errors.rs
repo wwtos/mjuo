@@ -61,6 +61,8 @@ pub enum NodeError {
     LoadingError { source: LoadingError },
     #[snafu(display("Version doesn't exist: {version}"))]
     VersionError { version: Version },
+    #[snafu(display("Trouble initializing midi: {source:?}"))]
+    MidiInitError { source: midir::InitError },
 }
 
 impl NodeError {

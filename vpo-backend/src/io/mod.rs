@@ -18,6 +18,8 @@ use walkdir::WalkDir;
 
 use crate::migrations::migrate;
 
+pub mod midi;
+
 const AUDIO_EXTENSIONS: &'static [&'static str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
     pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
@@ -100,7 +102,7 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
         AUDIO_EXTENSIONS,
     )
     .context(LoadingSnafu)?;
-    load_resources(&path.join("ranks"), &mut global_state.resources.ranks, &["json"]).context(LoadingSnafu)?;
+    load_resources(&path.join("ranks"), &mut global_state.resources.ranks, &["toml"]).context(LoadingSnafu)?;
 
     // TODO: version handling and migrations here
     state.apply_json(json["state"].take(), global_state)?;

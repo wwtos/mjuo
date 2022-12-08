@@ -136,6 +136,19 @@ pub fn argmax(x: &[f64]) -> Option<usize> {
         .1
 }
 
+pub fn min32(x: &[f32]) -> f32 {
+    x.iter().fold(
+        f32::INFINITY,
+        |max_so_far, val| {
+            if val < &max_so_far {
+                *val
+            } else {
+                max_so_far
+            }
+        },
+    )
+}
+
 pub fn max32(x: &[f32]) -> f32 {
     x.iter().fold(
         -f32::INFINITY,
@@ -147,6 +160,10 @@ pub fn max32(x: &[f32]) -> f32 {
             }
         },
     )
+}
+
+pub fn amp32(x: &[f32]) -> f32 {
+    min32(x).abs().max(max32(x))
 }
 
 pub fn gradient(func: &[f64]) -> Vec<f64> {

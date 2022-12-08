@@ -19,6 +19,10 @@ pub enum LoadingError {
     IOError { source: io::Error },
     #[snafu(display("Parser error: {source}"))]
     ParserError { source: serde_json::Error },
+    #[snafu(display("TOML serialization error: {source}"))]
+    TomlParserSerError { source: toml::ser::Error },
+    #[snafu(display("TOML deserialization error: {source}"))]
+    TomlParserDeError { source: toml::de::Error },
     #[snafu(display("Unknown error: {source}"))]
     Other { source: Box<dyn std::error::Error> },
 }

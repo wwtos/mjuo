@@ -9,6 +9,8 @@ use crate::{
     property::{Property, PropertyType},
 };
 
+const BUFFER_SIZE: usize = 64;
+
 #[derive(Debug, Clone)]
 pub struct RankPlayerNode {
     player: Option<RankPlayer>,
@@ -17,6 +19,8 @@ pub struct RankPlayerNode {
     polyphony: usize,
     midi_in: MidiBundle,
     out: f32,
+    buffer: [f32; BUFFER_SIZE],
+    buffer_position: usize,
 }
 
 impl RankPlayerNode {
@@ -31,6 +35,8 @@ impl RankPlayerNode {
             polyphony: 16,
             midi_in: SmallVec::new(),
             out: 0.0,
+            buffer: [0.0; BUFFER_SIZE],
+            buffer_position: 0,
         }
     }
 }
@@ -100,21 +106,37 @@ impl Node for RankPlayerNode {
         if let Some(player) = &mut self.player {
             let samples = &state.global_state.resources.samples;
 
-            for midi in &self.midi_in {
-                match midi {
-                    MidiData::NoteOn { note, .. } => {
-                        player.play_note(*note, samples);
+            if !self.midi_in.is_empty() {
+                for midi in &self.midi_in {
+                    match midi {
+                        MidiData::NoteOn { note, .. } => {
+                            player.play_note(*note, samples);
+                        }
+                        MidiData::NoteOff { note, .. } => {
+                            player.release_note(*note, samples);
+                        }
+                        _ => {}
                     }
-                    MidiData::NoteOff { note, .. } => {
-                        player.release_note(*note, samples);
-                    }
-                    _ => {}
+                }
+
+                println!("sending: {:?}", self.midi_in);
+
+                self.midi_in.clear();
+            }
+
+            if self.buffer_position >= BUFFER_SIZE {
+                self.buffer_position = 0;
+            }
+
+            if self.buffer_position == 0 {
+                for i in 0..BUFFER_SIZE {
+                    self.buffer[i] = player.next_sample(samples);
                 }
             }
 
-            self.midi_in.clear();
+            self.out = self.buffer[self.buffer_position];
 
-            self.out = player.next_sample(samples);
+            self.buffer_position += 1;
         }
 
         NodeOk::no_warnings(())

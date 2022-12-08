@@ -10,6 +10,7 @@ async-std = "1.10.0"
 hyper = "0.14.18"
 ipc = {path = "./ipc"}
 lazy_static = "1.4.0"
+midir = "0.8"
 node-engine = {path = "./node-engine"}
 resource-manager = {path = "./resource-manager"}
 rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}

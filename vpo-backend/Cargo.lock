@@ -1078,6 +1078,7 @@ dependencies = [
  "async-std",
  "enum_dispatch",
  "lazy_static",
+ "midir",
  "petgraph",
  "resource-manager",
  "rhai",
@@ -1480,6 +1481,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "threadpool",
+ "toml",
 ]
 
 [[package]]
@@ -1756,6 +1758,7 @@ dependencies = [
  "serde_json",
  "simple-error",
  "snafu",
+ "toml",
 ]
 
 [[package]]
@@ -1963,6 +1966,7 @@ dependencies = [
  "hyper",
  "ipc",
  "lazy_static",
+ "midir",
  "node-engine",
  "resource-manager",
  "rhai",
