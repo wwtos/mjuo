@@ -56,10 +56,7 @@ impl Node for MonoSamplePlayerNode {
             let sample = state.global_state.resources.samples.borrow_resource(self.index);
 
             if let Some(sample) = sample {
-                let mut player = SamplePlayer::default();
-                player.init(&self.config, &sample);
-
-                self.player = Some(player);
+                self.player = Some(SamplePlayer::new(&sample));
             }
         }
 
