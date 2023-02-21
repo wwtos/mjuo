@@ -1,21 +1,19 @@
 use crate::{
     constants::PI,
-    sampling::util::{amp32, max32, rms32, s_mult},
-    MonoSample, SoundConfig,
+    sampling::util::{amp32, s_mult},
 };
 
 use super::{
     interpolate::{hermite_interpolate, lerp},
+    phase_calculator::PhaseCalculator,
     sample::Sample,
 };
 
 #[derive(Debug, Clone)]
 enum State {
-    Attacking,
+    Crossfading,
     Looping,
-    AboutToRelease,
     Releasing,
-    ReAttacking,
     Stopped,
 }
 
@@ -23,80 +21,55 @@ const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct SamplePlayer {
-    state: State,
-    audio_position: f64,
-    audio_position_release: f64,
-    stop_at_index: usize,
-    release_search_width: usize,
-    release_amplitude: f32,
-    release_length: f64,
-    global_sample_rate: u32,
-    buffer_rate: u32,
-    playback_rate: f64,
-    adjusted_playback_rate: f64,
     sample_length: usize,
-    release_phase: f32,
-    peak_amp: f32,
-    attack_envelope_points: [usize; ENVELOPE_POINTS],
-    release_envelope_points: [usize; ENVELOPE_POINTS],
-    freq_cos_table: Vec<f32>,
-    freq_sin_table: Vec<f32>,
-}
+    max_amp: f32,
+    amplitude_calc_window: usize,
+    phase_of_release: f32,
+    phase_calculator: PhaseCalculator,
 
-impl Default for SamplePlayer {
-    fn default() -> Self {
-        SamplePlayer {
-            state: State::Attacking,
-            audio_position: 0.0,
-            audio_position_release: 0.0,
-            stop_at_index: 0,
-            release_search_width: 0,
-            release_amplitude: 0.0,
-            release_length: 0.0,
-            global_sample_rate: 0,
-            buffer_rate: 0,
-            playback_rate: 0.0,
-            adjusted_playback_rate: 0.0,
-            sample_length: 0,
-            release_phase: 0.0,
-            peak_amp: 0.0,
-            attack_envelope_points: [0; ENVELOPE_POINTS],
-            release_envelope_points: [0; ENVELOPE_POINTS],
-            freq_cos_table: vec![],
-            freq_sin_table: vec![],
-        }
-    }
+    state: State,
+    next_state: State,
+
+    audio_position: f32,
+    audio_amplitude: f32,
+    playback_rate: f32,
+
+    crossfade_position: f32,
+    crossfade_amplitude: f32,
+    crossfade_start: f32,
+    crossfade_length: f32,
+
+    attack_envelope_indexes: [usize; ENVELOPE_POINTS],
 }
 
 impl SamplePlayer {
-    pub fn init(&mut self, config: &SoundConfig, sample: &Sample) {
+    pub fn new(sample: &Sample) -> SamplePlayer {
         let buffer_rate = sample.buffer.sample_rate;
         let sample_length = sample.buffer.audio_raw.len();
         let audio = &sample.buffer.audio_raw;
 
-        // look for potential release locations based on frequency
-        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0);
-        let release_search_width = (buffer_rate as f32 / freq) as usize * 2;
+        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0 + (sample.cents as f32 / 1200.0));
+        let amplitude_calc_window = (buffer_rate as f32 / freq) as usize * 2;
 
-        let (freq_cos_table, freq_sin_table) = generate_freq_tables(freq, buffer_rate);
+        let phase_calculator = PhaseCalculator::new(freq, buffer_rate);
 
-        let release_phase = calc_phase(
-            &audio[sample.release_index..(sample.release_index + freq_cos_table.len())],
-            &freq_cos_table,
-            &freq_sin_table,
-        );
+        let release_phase = phase_calculator
+            .calc_phase(&audio[sample.release_index..(sample.release_index + phase_calculator.window())]);
 
+        // Find different amplitudes in attack section. This allows quickly jumping to a needed
+        // amplitude in the attack section (used for reattacking, amplitude is matched with the current
+        // audio amplitude in the release phase)
         let mut envelope_points = [0; ENVELOPE_POINTS];
-        let peak_amp = amp32(&audio[sample.decay_index..(sample.decay_index + release_search_width)]);
+        let peak_amp = amp32(&audio[sample.decay_index..(sample.decay_index + amplitude_calc_window)]);
 
-        for i in 0..ENVELOPE_POINTS {
-            let target_amp = i as f32 / ENVELOPE_POINTS as f32 * peak_amp;
+        for target_amp_index in 0..ENVELOPE_POINTS {
+            let target_amp = target_amp_index as f32 / ENVELOPE_POINTS as f32 * peak_amp;
 
             let mut closest_index = 0;
             let mut closest_score = f32::INFINITY;
 
             for i in (0..sample.decay_index).step_by(5) {
-                let amp = amp32(&audio[i..(i + release_search_width)]);
+                let amp = amp32(&audio[i..(i + amplitude_calc_window)]);
 
                 let amp_diff = (amp - target_amp).abs();
 
@@ -106,236 +79,93 @@ impl SamplePlayer {
                 }
             }
 
-            envelope_points[i] = closest_index;
+            envelope_points[target_amp_index] = closest_index;
         }
 
-        self.state = State::Attacking;
-        self.audio_position = 0.0;
-        self.audio_position_release = 0.0;
-        self.stop_at_index = 0;
-        self.release_search_width = release_search_width;
-        self.release_amplitude = 1.0;
-        self.release_length = 0.0;
-        self.global_sample_rate = config.sample_rate;
-        self.buffer_rate = buffer_rate;
-        self.playback_rate = 1.0;
-        self.adjusted_playback_rate = buffer_rate as f64 / config.sample_rate as f64;
-        self.sample_length = sample_length;
-        self.release_phase = release_phase;
-        self.peak_amp = peak_amp;
-        self.attack_envelope_points = envelope_points;
-        self.freq_cos_table = freq_cos_table;
-        self.freq_sin_table = freq_sin_table;
-    }
-
-    pub fn get_playback_rate(&self) -> f64 {
-        self.playback_rate
-    }
-
-    pub fn set_playback_rate(&mut self, playback_rate: f64) {
-        self.playback_rate = playback_rate;
-        self.adjusted_playback_rate = (self.buffer_rate as f64 / self.global_sample_rate as f64) * playback_rate;
-    }
-
-    pub fn reset(&mut self) {
-        self.state = State::Attacking;
-        self.audio_position = 0.0;
-        self.audio_position_release = 0.0;
-        self.stop_at_index = 0;
-        self.release_amplitude = 1.0;
+        SamplePlayer {
+            sample_length,
+            max_amp: peak_amp,
+            amplitude_calc_window,
+            phase_of_release: release_phase,
+            phase_calculator,
+            state: State::Looping,
+            next_state: State::Stopped,
+            audio_position: 1.0,
+            audio_amplitude: 1.0,
+            crossfade_position: 1.0,
+            crossfade_amplitude: 1.0,
+            crossfade_start: 1.0,
+            crossfade_length: 256.0,
+            playback_rate: 1.0,
+            attack_envelope_indexes: envelope_points,
+        }
     }
 
     pub fn play(&mut self, sample: &Sample) {
-        let current_location = self.get_audio_position() as usize;
+        let current_location = self.audio_position as usize;
 
-        if self.is_done() || current_location < 2 {
-            self.reset();
-        } else {
-            println!(
-                "attacking at: audio position: {}, release audio position: {}, state: {:?}",
-                self.audio_position, self.audio_position_release, self.state
-            );
-
-            let audio = &sample.buffer.audio_raw;
-
-            if matches!(self.state, State::AboutToRelease) {
-                self.release_amplitude = 1.0;
-            }
-
-            // what's our current amplitude?
-            let location_bounded = current_location.max(self.release_search_width);
-            let current_amp = amp32(&s_mult(
-                &audio[(location_bounded - self.release_search_width)..location_bounded],
-                self.release_amplitude,
-            ));
-
-            if current_amp < 0.01 || current_location + self.freq_cos_table.len() >= audio.len() {
-                self.reset();
-                return;
-            }
-
-            // Find place in signal of equal strength
-            let closest_env_index =
-                ((current_amp / self.peak_amp) * ENVELOPE_POINTS as f32).min((ENVELOPE_POINTS - 1) as f32);
-            let closest_index = lerp(
-                self.attack_envelope_points[closest_env_index.floor() as usize] as f32,
-                self.attack_envelope_points[closest_env_index.ceil() as usize] as f32,
-                closest_env_index - closest_env_index.floor(),
-            ) as usize;
-
-            // next, get it in phase
-            let phase_current = calc_phase(
-                &audio[current_location..(current_location + self.freq_cos_table.len())],
-                &self.freq_cos_table,
-                &self.freq_sin_table,
-            );
-
-            let phase_new_attack = calc_phase(
-                &audio[closest_index..(closest_index + self.freq_cos_table.len())],
-                &self.freq_cos_table,
-                &self.freq_sin_table,
-            );
-
-            let phase_diff = (phase_new_attack - phase_current).rem_euclid(PI * 2.0);
-            let attack_shift = ((phase_diff / (PI * 2.0)) * self.freq_cos_table.len() as f32) as usize;
-
-            self.audio_position_release = current_location as f64;
-            self.audio_position = (closest_index + attack_shift) as f64;
-            self.stop_at_index = current_location;
-            self.state = State::ReAttacking;
-        }
-    }
-
-    #[inline]
-    fn next_sample_looped(&mut self, sample: &Sample, loop_start: usize, loop_end: usize) -> f32 {
-        let buffer_position_unbounded = self.audio_position as i64;
-
-        if buffer_position_unbounded < 1 {
-            self.audio_position += self.adjusted_playback_rate;
-            return sample.buffer.audio_raw[buffer_position_unbounded as usize];
+        if current_location < 2 {
+            return;
         }
 
-        if buffer_position_unbounded >= self.sample_length as i64 {
-            return 0.0;
-        }
-
-        if buffer_position_unbounded > (self.sample_length as i64) - 3 {
-            return sample.buffer.audio_raw[buffer_position_unbounded as usize]; // out of interpolation bounds
-        }
-
-        let mut buffer_position = (buffer_position_unbounded - 1) as usize;
-
-        self.audio_position += self.adjusted_playback_rate;
-
-        if sample.crossfade > 3 {
-            if buffer_position >= loop_end + sample.crossfade {
-                buffer_position = loop_start + sample.crossfade;
-                self.audio_position = (buffer_position + 1) as f64;
-            }
-
-            hermite_interpolate(
-                audio_lookup_with_crossfade(
-                    buffer_position,
-                    loop_start,
-                    loop_end,
-                    &sample.buffer,
-                    &sample.crossfade_buffer,
-                ),
-                audio_lookup_with_crossfade(
-                    buffer_position + 1,
-                    loop_start,
-                    loop_end,
-                    &sample.buffer,
-                    &sample.crossfade_buffer,
-                ),
-                audio_lookup_with_crossfade(
-                    buffer_position + 2,
-                    loop_start,
-                    loop_end,
-                    &sample.buffer,
-                    &sample.crossfade_buffer,
-                ),
-                audio_lookup_with_crossfade(
-                    buffer_position + 3,
-                    loop_start,
-                    loop_end,
-                    &sample.buffer,
-                    &sample.crossfade_buffer,
-                ),
-                (self.audio_position - self.audio_position.floor()) as f32,
-            )
-        } else {
-            hermite_interpolate(
-                audio_lookup_with_loop(buffer_position, loop_start, loop_end, &sample.buffer),
-                audio_lookup_with_loop(buffer_position + 1, loop_start, loop_end, &sample.buffer),
-                audio_lookup_with_loop(buffer_position + 2, loop_start, loop_end, &sample.buffer),
-                audio_lookup_with_loop(buffer_position + 3, loop_start, loop_end, &sample.buffer),
-                (self.audio_position - self.audio_position.floor()) as f32,
-            )
-        }
-    }
-
-    #[inline]
-    fn next_sample_released(&mut self, sample: &Sample) -> f32 {
-        let buffer_position_unbounded = self.audio_position_release as i64;
-
-        if buffer_position_unbounded >= self.sample_length as i64 || buffer_position_unbounded < 1 {
-            return 0.0;
-        }
-
-        if buffer_position_unbounded > (self.sample_length as i64) - 3 {
-            return sample.buffer.audio_raw[buffer_position_unbounded as usize]; // out of interpolation bounds
-        }
-
-        let buffer_position = (buffer_position_unbounded - 1) as usize;
-        let audio = &sample.buffer.audio_raw;
-
-        self.audio_position_release += self.adjusted_playback_rate;
-
-        hermite_interpolate(
-            audio[buffer_position],
-            audio[buffer_position + 1],
-            audio[buffer_position + 2],
-            audio[buffer_position + 3],
-            (self.audio_position_release - self.audio_position_release.floor()) as f32,
-        )
-    }
-
-    fn next_sample_normal(&mut self, sample: &Sample) -> f32 {
-        let buffer_position_unbounded = self.audio_position as i64;
-
-        if buffer_position_unbounded < 1 {
-            self.audio_position += self.adjusted_playback_rate;
-            return 0.0;
-        }
-
-        // if it's done playing, it'll automatically stop
-        if buffer_position_unbounded > (self.sample_length as i64) - 3 {
-            return 0.0; // out of interpolation bounds
-        }
-
-        let buffer_position = (buffer_position_unbounded - 1) as usize;
-        let sample = &sample.buffer.audio_raw;
-
-        self.audio_position += self.adjusted_playback_rate;
-
-        hermite_interpolate(
-            sample[buffer_position],
-            sample[buffer_position + 1],
-            sample[buffer_position + 2],
-            sample[buffer_position + 3],
-            (self.audio_position - self.audio_position.floor()) as f32,
-        )
-    }
-
-    pub fn get_audio_position(&self) -> f64 {
         match self.state {
-            State::Attacking => self.audio_position,
-            State::Looping => self.audio_position,
-            State::AboutToRelease => self.audio_position,
-            State::Releasing => self.audio_position_release,
-            State::ReAttacking => self.audio_position,
-            State::Stopped => self.audio_position,
+            State::Releasing => {
+                println!(
+                    "attacking at: audio position: {}, crossfade audio position: {}, state: {:?}",
+                    self.audio_position, self.crossfade_position, self.state
+                );
+
+                let audio = &sample.buffer.audio_raw;
+
+                // what's our current amplitude?
+                let location_bounded = current_location.max(self.amplitude_calc_window);
+                let current_amp = amp32(&s_mult(
+                    &audio[(location_bounded - self.amplitude_calc_window)..location_bounded],
+                    self.audio_amplitude,
+                ));
+
+                if current_amp < 0.01 || current_location + self.phase_calculator.window() >= audio.len() {
+                    self.reset();
+                    return;
+                }
+
+                // Find place in attack section of equal strength
+                let closest_env_index =
+                    ((current_amp / self.max_amp) * ENVELOPE_POINTS as f32).min((ENVELOPE_POINTS - 1) as f32);
+                let closest_index = lerp(
+                    self.attack_envelope_indexes[closest_env_index.floor() as usize] as f32,
+                    self.attack_envelope_indexes[closest_env_index.ceil() as usize] as f32,
+                    closest_env_index - closest_env_index.floor(),
+                ) as usize;
+
+                // next, get it in phase
+                let phase_of_current = self
+                    .phase_calculator
+                    .calc_phase(&audio[current_location..(current_location + self.phase_calculator.window())]);
+
+                let phase_of_target = self
+                    .phase_calculator
+                    .calc_phase(&audio[closest_index..(closest_index + self.phase_calculator.window())]);
+
+                let phase_diff = (phase_of_target - phase_of_current).rem_euclid(PI * 2.0);
+                let attack_shift = (phase_diff / (PI * 2.0)) * self.phase_calculator.window() as f32;
+
+                self.crossfade_to(
+                    State::Looping,
+                    sample.crossfade as f32,
+                    (closest_index as f32) + attack_shift,
+                );
+
+                self.crossfade_amplitude = self.audio_amplitude;
+                self.audio_amplitude = 1.0;
+            }
+            State::Stopped => {
+                // start over
+                self.reset();
+            }
+            _ => {
+                // playing when already playing doesn't do anything
+            }
         }
     }
 
@@ -346,146 +176,135 @@ impl SamplePlayer {
             return;
         }
 
-        let released_at = self.audio_position as usize;
+        let current_location = self.audio_position as usize;
         let release_index = sample.release_index;
         let audio = &sample.buffer.audio_raw;
 
-        let rms_before =
-            amp32(&audio[(released_at.max(self.release_search_width) - self.release_search_width)..released_at]);
-        let rms_release = amp32(&audio[release_index..(release_index + self.release_search_width)]);
+        let location_bounded = current_location.max(self.amplitude_calc_window);
+        let amp_current = amp32(&audio[(location_bounded - self.amplitude_calc_window)..current_location]);
+        let amp_of_release = amp32(&audio[release_index..(release_index + self.amplitude_calc_window)]);
 
-        self.release_amplitude = rms_before / rms_release;
+        let release_amp_adjustment = amp_current / amp_of_release;
 
-        let phase_stop_at = calc_phase(
-            &audio[released_at..(released_at + self.freq_cos_table.len())],
-            &self.freq_cos_table,
-            &self.freq_sin_table,
+        let phase_of_current = self
+            .phase_calculator
+            .calc_phase(&audio[current_location..(current_location + self.phase_calculator.window())]);
+
+        let phase_diff = (self.phase_of_release - phase_of_current).rem_euclid(PI * 2.0);
+        let release_shift = (phase_diff / (PI * 2.0)) * self.phase_calculator.window() as f32;
+
+        self.crossfade_to(
+            State::Releasing,
+            sample.crossfade_release as f32,
+            sample.release_index as f32 + release_shift,
         );
 
-        let phase_diff = (self.release_phase - phase_stop_at).rem_euclid(PI * 2.0);
-        let release_shift = ((phase_diff / (PI * 2.0)) * self.freq_cos_table.len() as f32) as usize;
-
-        self.stop_at_index = released_at + release_shift;
-
-        self.state = State::AboutToRelease;
+        self.crossfade_amplitude = 1.0;
+        self.audio_amplitude = release_amp_adjustment;
     }
 
     pub fn next_sample(&mut self, sample: &Sample) -> f32 {
         match self.state {
-            State::Attacking => {
-                if self.audio_position > sample.sustain_index as f64 {
-                    self.state = State::Looping;
+            State::Crossfading => {
+                let (out, done) = self.next_sample_crossfade(sample);
+
+                if done {
+                    self.state = self.next_state.clone();
                 }
 
-                self.next_sample_looped(sample, sample.loop_start, sample.loop_end)
+                out
             }
-            State::Looping => self.next_sample_looped(sample, sample.loop_start, sample.loop_end),
-            State::AboutToRelease => {
-                if self.audio_position as usize >= self.stop_at_index {
-                    self.state = State::Releasing;
-                    self.audio_position_release = sample.release_index as f64;
+            State::Looping => {
+                let out = self.next_sample_normal(sample);
+
+                // loop and crossfade
+                if self.audio_position > sample.loop_end as f32 {
+                    let loop_start = sample.loop_start;
+                    let loop_end = sample.loop_end;
+
+                    let new_location = self.audio_position - (loop_end - loop_start) as f32;
+
+                    self.crossfade_to(State::Looping, sample.crossfade as f32, new_location);
                 }
 
-                self.next_sample_normal(sample)
+                out
             }
             State::Releasing => {
-                if sample.crossfade_release > 3 {
-                    let crossfade_pos = self.audio_position_release - sample.release_index as f64;
-
-                    if (crossfade_pos as usize) < sample.crossfade_release {
-                        let looped = self.next_sample_looped(sample, sample.loop_start, sample.loop_end);
-                        let released = self.next_sample_released(sample) * self.release_amplitude;
-
-                        lerp(looped, released, crossfade_pos as f32 / sample.crossfade_release as f32)
-                    } else {
-                        self.next_sample_released(sample) * self.release_amplitude
-                    }
+                if self.audio_position < (self.sample_length - 3) as f32 {
+                    self.next_sample_normal(sample)
                 } else {
-                    self.next_sample_released(sample)
-                }
-            }
-            State::ReAttacking => {
-                if sample.crossfade > 3 {
-                    let crossfade_pos = self.audio_position_release - self.stop_at_index as f64;
+                    self.state = State::Stopped;
 
-                    if (crossfade_pos as usize) < sample.crossfade {
-                        if crossfade_pos < 1.0 {
-                            println!(
-                                "(in reattack crossfade) audio position release: {}, audio position: {}",
-                                self.audio_position_release, self.audio_position
-                            );
-                        }
-
-                        let released = self.next_sample_released(sample) * self.release_amplitude;
-                        let looped = self.next_sample_looped(sample, sample.loop_start, sample.loop_end);
-
-                        lerp(released, looped, crossfade_pos as f32 / sample.crossfade as f32)
-                    } else {
-                        self.state = State::Attacking;
-                        self.next_sample_released(sample)
-                    }
-                } else {
-                    self.next_sample_looped(sample, sample.loop_start, sample.loop_end)
+                    0.0
                 }
             }
             State::Stopped => 0.0,
         }
     }
 
+    fn next_sample_normal(&mut self, sample: &Sample) -> f32 {
+        let audio_pos = self.audio_position as usize;
+
+        let audio = &sample.buffer.audio_raw;
+
+        let x0 = audio[audio_pos - 1] * self.audio_amplitude;
+        let x1 = audio[audio_pos + 0] * self.audio_amplitude;
+        let x2 = audio[audio_pos + 1] * self.audio_amplitude;
+        let x3 = audio[audio_pos + 2] * self.audio_amplitude;
+
+        hermite_interpolate(x0, x1, x2, x3, self.audio_position.fract())
+    }
+
+    fn next_sample_crossfade(&mut self, sample: &Sample) -> (f32, bool) {
+        let crossfade_factor = (self.crossfade_position - self.crossfade_start) / self.crossfade_length;
+
+        let cf_amp = crossfade_factor * self.crossfade_amplitude;
+        let aud_amp = (1.0 - crossfade_factor) * self.audio_amplitude;
+
+        let audio_pos = self.audio_position as usize;
+        let crossfade_pos = self.crossfade_position as usize;
+
+        let audio = &sample.buffer.audio_raw;
+
+        let x0 = audio[crossfade_pos - 1] * cf_amp + audio[audio_pos - 1] * aud_amp;
+        let x1 = audio[crossfade_pos + 0] * cf_amp + audio[audio_pos + 0] * aud_amp;
+        let x2 = audio[crossfade_pos + 1] * cf_amp + audio[audio_pos + 1] * aud_amp;
+        let x3 = audio[crossfade_pos + 2] * cf_amp + audio[audio_pos + 2] * aud_amp;
+
+        self.audio_position += self.playback_rate;
+        self.crossfade_position += self.playback_rate;
+
+        let out = hermite_interpolate(x0, x1, x2, x3, self.audio_position.fract());
+
+        (out, crossfade_factor >= 1.0)
+    }
+
+    fn crossfade_to(&mut self, next_state: State, crossfade_length: f32, new_location: f32) {
+        self.state = State::Crossfading;
+        self.next_state = next_state;
+
+        self.crossfade_position = self.audio_position;
+        self.crossfade_length = crossfade_length;
+        self.audio_position = new_location;
+    }
+
     pub fn is_done(&self) -> bool {
-        self.audio_position_release as usize >= self.sample_length - 3
-            || self.audio_position as usize >= self.sample_length - 3
-    }
-}
-
-#[inline]
-fn audio_lookup_with_crossfade(
-    position: usize,
-    loop_start: usize,
-    loop_end: usize,
-    buffer: &MonoSample,
-    crossfade_buffer: &MonoSample,
-) -> f32 {
-    if position < loop_end {
-        buffer.audio_raw[position]
-    } else if position < loop_end + crossfade_buffer.audio_raw.len() {
-        crossfade_buffer.audio_raw[position - loop_end]
-    } else {
-        buffer.audio_raw[((position - loop_start) % (loop_end - loop_start)) + loop_start]
-    }
-}
-
-fn audio_lookup_with_loop(position: usize, loop_start: usize, loop_end: usize, buffer: &MonoSample) -> f32 {
-    if position < loop_end {
-        buffer.audio_raw[position]
-    } else {
-        buffer.audio_raw[((position - loop_start) % (loop_end - loop_start)) + loop_start]
-    }
-}
-
-fn generate_freq_tables(freq: f32, sample_rate: u32) -> (Vec<f32>, Vec<f32>) {
-    let cycle_width = sample_rate as f32 / freq;
-
-    let mut cos_table = Vec::new();
-    let mut sin_table = Vec::new();
-
-    for i in 0..(cycle_width as usize) {
-        cos_table.push(f32::cos((i as f32 / cycle_width) * PI * 2.0));
-        sin_table.push(f32::sin((i as f32 / cycle_width) * PI * 2.0));
+        matches!(self.state, State::Stopped)
     }
 
-    (cos_table, sin_table)
-}
-
-// calculate phase using methods from the continous wavelet transform
-fn calc_phase(sample: &[f32], cos_table: &[f32], sin_table: &[f32]) -> f32 {
-    let mut cos_sum = 0.0;
-    let mut sin_sum = 0.0;
-
-    for i in 0..sample.len() {
-        cos_sum += sample[i] * cos_table[i];
-        sin_sum += sample[i] * sin_table[i];
+    pub fn get_playback_rate(&self) -> f32 {
+        self.playback_rate
     }
 
-    f32::atan2(cos_sum, sin_sum)
+    pub fn set_playback_rate(&mut self, playback_rate: f32) {
+        self.playback_rate = playback_rate;
+    }
+
+    pub fn reset(&mut self) {
+        self.state = State::Looping;
+        self.audio_position = 1.0;
+        self.crossfade_position = 1.0;
+        self.audio_amplitude = 1.0;
+        self.crossfade_amplitude = 1.0;
+    }
 }

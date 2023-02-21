@@ -6,7 +6,7 @@ use super::{rank::Rank, sample::Sample, sample_player::SamplePlayer};
 
 #[derive(Debug, Clone)]
 struct Voice {
-    player: SamplePlayer,
+    player: Option<SamplePlayer>,
     active: bool,
     note: u8,
 }
@@ -14,7 +14,7 @@ struct Voice {
 impl Default for Voice {
     fn default() -> Self {
         Voice {
-            player: SamplePlayer::default(),
+            player: None,
             active: false,
             note: 0,
         }
@@ -26,16 +26,16 @@ pub struct RankPlayer {
     config: SoundConfig,
     polyphony: usize,
     voices: Vec<Voice>,
-    note_map: [Option<ResourceIndex>; 128],
+    note_to_resource_map: [Option<ResourceIndex>; 128],
 }
 
 impl RankPlayer {
     pub fn new(config: &SoundConfig, samples: &ResourceManager<Sample>, rank: &Rank, polyphony: usize) -> RankPlayer {
-        let mut note_map: [Option<ResourceIndex>; 128] = [None; 128];
+        let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
         for sample in &rank.samples {
             if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
-                note_map[sample.note as usize] = Some(resource_index);
+                note_to_resource_map[sample.note as usize] = Some(resource_index);
             }
         }
 
@@ -43,7 +43,7 @@ impl RankPlayer {
             config: config.clone(),
             polyphony,
             voices: Vec::with_capacity(polyphony),
-            note_map,
+            note_to_resource_map,
         }
     }
 
@@ -71,18 +71,21 @@ impl RankPlayer {
     }
 
     pub fn play_note(&mut self, note: u8, samples: &ResourceManager<Sample>) {
-        if let Some(sample_index) = self.note_map[note as usize] {
+        if let Some(sample_index) = self.note_to_resource_map[note as usize] {
             let open_voice = self.find_open_voice(note);
 
             let sample = samples.borrow_resource(sample_index).unwrap();
 
             self.voices[open_voice].active = true;
+            let voice_note = self.voices[open_voice].note;
 
-            if note == self.voices[open_voice].note {
-                self.voices[open_voice].player.play(sample);
-            } else {
-                self.voices[open_voice].player.init(&self.config, sample);
-                self.voices[open_voice].note = note;
+            if let Some(player) = &mut self.voices[open_voice].player {
+                if note == voice_note {
+                    player.play(sample);
+                } else {
+                    *player = SamplePlayer::new(sample);
+                    self.voices[open_voice].note = note;
+                }
             }
         }
     }
@@ -90,11 +93,13 @@ impl RankPlayer {
     pub fn release_note(&mut self, note: u8, samples: &ResourceManager<Sample>) {
         for voice in &mut self.voices {
             if voice.note == note {
-                let sample = samples
-                    .borrow_resource(self.note_map[voice.note as usize].unwrap())
-                    .unwrap();
+                if let Some(player) = &mut voice.player {
+                    let sample = samples
+                        .borrow_resource(self.note_to_resource_map[voice.note as usize].unwrap())
+                        .unwrap();
 
-                voice.player.release(sample);
+                    player.release(sample);
+                }
             }
         }
     }
@@ -104,13 +109,15 @@ impl RankPlayer {
 
         for voice in &mut self.voices {
             if voice.active {
-                if let Some(sample_index) = self.note_map[voice.note as usize] {
-                    let sample = samples.borrow_resource(sample_index).unwrap();
-                    output_sum += voice.player.next_sample(sample);
+                if let Some(sample_index) = self.note_to_resource_map[voice.note as usize] {
+                    if let Some(player) = &mut voice.player {
+                        let sample = samples.borrow_resource(sample_index).unwrap();
+                        output_sum += player.next_sample(sample);
 
-                    if voice.player.is_done() {
-                        voice.active = false;
-                        voice.player.reset();
+                        if player.is_done() {
+                            voice.active = false;
+                            player.reset();
+                        }
                     }
                 }
             }

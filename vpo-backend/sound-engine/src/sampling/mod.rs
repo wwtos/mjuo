@@ -1,6 +1,7 @@
 pub mod double_buffer;
 pub mod envelope;
 pub mod interpolate;
+pub mod phase_calculator;
 pub mod rank;
 pub mod rank_player;
 pub mod sample;
