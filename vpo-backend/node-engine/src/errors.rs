@@ -1,5 +1,6 @@
-use resource_manager::LoadingError;
+use resource_manager::{LoadingError, ResourceId};
 use rhai::{EvalAltResult, ParseError};
+use semver::Version;
 use snafu::Snafu;
 
 use serde_json;
@@ -7,7 +8,6 @@ use serde_json;
 use crate::connection::{SocketDirection, SocketType};
 use crate::graph_manager::GraphIndex;
 use crate::node::{NodeIndex, NodeRow};
-use crate::property::Resource;
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -56,9 +56,13 @@ pub enum NodeError {
     #[snafu(display("Inner graph errors: {errors_and_warnings:?}"))]
     InnerGraphErrors { errors_and_warnings: ErrorsAndWarnings },
     #[snafu(display("Missing resource: {resource:?}"))]
-    MissingResource { resource: Resource },
+    MissingResource { resource: ResourceId },
     #[snafu(display("Loading error: {source:?}"))]
     LoadingError { source: LoadingError },
+    #[snafu(display("Version doesn't exist: {version}"))]
+    VersionError { version: Version },
+    #[snafu(display("Trouble initializing midi: {source:?}"))]
+    MidiInitError { source: midir::InitError },
 }
 
 impl NodeError {

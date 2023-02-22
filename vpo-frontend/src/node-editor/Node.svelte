@@ -1,8 +1,8 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
     import { NodeIndex } from "../node-engine/node_index";
-    import { NodeWrapper, SocketValue } from "../node-engine/node";
-    import { NodeGraph } from "../node-engine/node_graph";
+    import type { NodeWrapper, SocketValue } from "../node-engine/node";
+    import type { NodeGraph } from "../node-engine/node_graph";
     import {
         SocketType,
         SocketDirection,
@@ -33,6 +33,7 @@
                 socketType: SocketType;
                 socketDirection: SocketDirection;
                 value: SocketValue;
+                polyphonic: boolean;
             };
             PropertyRow: {
                 propName: string;
@@ -47,54 +48,66 @@
     $: sockets = wrapper.node_rows.map((nodeRow) =>
         match(nodeRow, {
             StreamInput: ({
-                data: [streamInput, defaultValue],
+                data: [streamInput, defaultValue, polyphonic],
             }): ReducedRowType => ({
                 variant: "SocketRow",
                 socketType: { variant: "Stream", data: streamInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Stream", data: defaultValue },
+                polyphonic,
             }),
-            MidiInput: ({ data: [midiInput, defaultValue] }) => ({
+            MidiInput: ({ data: [midiInput, defaultValue, polyphonic] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Midi", data: midiInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Midi", data: defaultValue },
+                polyphonic,
             }),
-            ValueInput: ({ data: [valueInput, defaultValue] }) => ({
+            ValueInput: ({ data: [valueInput, defaultValue, polyphonic] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Value", data: valueInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "Primitive", data: defaultValue },
+                polyphonic,
             }),
-            NodeRefInput: ({ data: nodeRefInput }) => ({
+            NodeRefInput: ({ data: [nodeRefInput, polyphonic] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "NodeRef", data: nodeRefInput },
                 socketDirection: SocketDirection.Input,
                 value: { variant: "None" },
+                polyphonic,
             }),
-            StreamOutput: ({ data: [streamOutput, defaultValue] }) => ({
+            StreamOutput: ({
+                data: [streamOutput, defaultValue, polyphonic],
+            }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Stream", data: streamOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Stream", data: defaultValue },
+                polyphonic,
             }),
-            MidiOutput: ({ data: [midiOutput, defaultValue] }) => ({
+            MidiOutput: ({ data: [midiOutput, defaultValue, polyphonic] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Midi", data: midiOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Midi", data: defaultValue },
+                polyphonic,
             }),
-            ValueOutput: ({ data: [valueOutput, defaultValue] }) => ({
+            ValueOutput: ({
+                data: [valueOutput, defaultValue, polyphonic],
+            }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "Value", data: valueOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "Primitive", data: defaultValue },
+                polyphonic,
             }),
-            NodeRefOutput: ({ data: nodeRefOutput }) => ({
+            NodeRefOutput: ({ data: [nodeRefOutput, polyphonic] }) => ({
                 variant: "SocketRow",
                 socketType: { variant: "NodeRef", data: nodeRefOutput },
                 socketDirection: SocketDirection.Output,
                 value: { variant: "None" },
+                polyphonic,
             }),
             Property: ({ data: [propName, propType, defaultValue] }) => ({
                 variant: "PropertyRow",
@@ -170,6 +183,7 @@
                 type={row.socketType}
                 direction={row.socketDirection}
                 label={socketTypeToString(row.socketType)}
+                polyphonic={row.polyphonic}
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}
                 nodeWrapper={wrapper}

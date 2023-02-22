@@ -1,4 +1,5 @@
 use rhai::Engine;
+use smallvec::SmallVec;
 
 use crate::{
     connection::{OutputSideConnection, SocketDirection, SocketType},
@@ -13,6 +14,7 @@ use super::calculate_traversal_order::calculate_graph_traverse_order;
 #[derive(Debug, Clone)]
 struct NodeTraverseData {
     defaults_in: Vec<NodeRow>,
+    linked_to_ui: bool,
     outputs_to: Vec<OutputSideConnection>,
 }
 
@@ -63,6 +65,7 @@ impl Traverser {
             let node_traverse_data = NodeTraverseData {
                 defaults_in,
                 outputs_to: output_connections,
+                linked_to_ui: node.linked_to_ui(),
             };
 
             nodes.push((*node_index, node_traverse_data));
@@ -103,9 +106,11 @@ impl Traverser {
         current_time: i64,
         script_engine: &Engine,
         global_state: &GlobalState,
-    ) -> Result<(), ErrorsAndWarnings> {
+    ) -> Result<SmallVec<[NodeIndex; 4]>, ErrorsAndWarnings> {
         let mut errors: Vec<NodeError> = vec![];
         let mut warnings: Vec<NodeWarning> = vec![];
+
+        let mut updated_ui_nodes: SmallVec<[NodeIndex; 4]> = SmallVec::new();
 
         for (node_index, data) in &self.nodes {
             let node_wrapper = graph.get_node_mut(node_index).unwrap();
@@ -114,16 +119,16 @@ impl Traverser {
                 for default in &data.defaults_in {
                     // println!("\n\nsending default: {:?}\n", default);
                     match default {
-                        NodeRow::StreamInput(socket_type, default) => {
+                        NodeRow::StreamInput(socket_type, default, _) => {
                             node_wrapper.accept_stream_input(socket_type, *default);
                         }
-                        NodeRow::MidiInput(socket_type, default) => {
+                        NodeRow::MidiInput(socket_type, default, _) => {
                             node_wrapper.accept_midi_input(socket_type, default.clone());
                         }
-                        NodeRow::ValueInput(socket_type, default) => {
+                        NodeRow::ValueInput(socket_type, default, _) => {
                             node_wrapper.accept_value_input(socket_type, default.clone());
                         }
-                        NodeRow::NodeRefInput(_) => {}
+                        NodeRow::NodeRefInput(..) => {}
                         _ => unreachable!(),
                     }
                 }
@@ -178,6 +183,10 @@ impl Traverser {
 
                         let other_node_wrapper = graph.get_node_mut(&output_connection.to_node).unwrap();
                         if let Some(value) = value {
+                            if data.linked_to_ui {
+                                updated_ui_nodes.push(*node_index);
+                            }
+
                             other_node_wrapper.accept_value_input(
                                 &output_connection.to_socket_type.clone().as_value().unwrap(),
                                 value,
@@ -193,7 +202,7 @@ impl Traverser {
         if !errors.is_empty() || !warnings.is_empty() {
             Err(ErrorsAndWarnings { errors, warnings })
         } else {
-            Ok(())
+            Ok(updated_ui_nodes)
         }
     }
 }

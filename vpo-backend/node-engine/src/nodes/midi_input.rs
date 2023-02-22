@@ -23,6 +23,10 @@ impl Node for MidiInNode {
     }
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![NodeRow::MidiOutput(MidiSocketType::Default, SmallVec::new())])
+        InitResult::simple(vec![NodeRow::MidiOutput(
+            MidiSocketType::Default,
+            SmallVec::new(),
+            false,
+        )])
     }
 }

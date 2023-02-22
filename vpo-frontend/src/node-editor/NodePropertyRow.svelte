@@ -1,11 +1,8 @@
 <script lang="ts">
-    import { MemberType } from "safety-match";
-
     import { NodeGraph } from "../node-engine/node_graph";
-    import { NodeWrapper } from "../node-engine/node";
-    import { Property, PropertyType } from "../node-engine/property";
+    import type { NodeWrapper } from "../node-engine/node";
+    import type { Property, PropertyType } from "../node-engine/property";
     import { matchOrElse } from "../util/discriminated-union";
-    import { dataset_dev } from "svelte/internal";
     import { deepEqual } from "fast-equals";
 
     export let nodeWrapper: NodeWrapper;

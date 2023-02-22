@@ -1,8 +1,8 @@
 import { BehaviorSubject } from "rxjs";
 import { GraphManager } from "../node-engine/graph_manager";
 import { SocketRegistry } from "../node-engine/socket_registry";
-import { IPCSocket } from "../util/socket";
-import { type GlobalState } from "../node-engine/global_state";
+import type { IPCSocket } from "../util/socket";
+import type { GlobalState } from "../node-engine/global_state";
 
 export const socketRegistry: BehaviorSubject<SocketRegistry> = new BehaviorSubject(new SocketRegistry());
 export const ipcSocket: BehaviorSubject<IPCSocket | undefined> = new BehaviorSubject<IPCSocket | undefined>(undefined);

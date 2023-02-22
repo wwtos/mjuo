@@ -1,4 +1,4 @@
-import { NodeIndex } from "./node_index";
+import type { NodeIndex } from "./node_index";
 import { GenerationalNode, NodeRow, NodeWrapper, NODE_WIDTH, SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
 import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";
@@ -301,8 +301,13 @@ export class NodeGraph {
 
         if (!node) return { x: 0, y: 0 };
 
+        let y = TITLE_HEIGHT;
+
         const rowIndex = node.node_rows.findIndex(nodeRow => {
             const typeAndDirection = NodeRow.getTypeAndDirection(nodeRow);
+            const height = NodeRow.getHeight(nodeRow);
+
+            y += height;
 
             if (typeAndDirection) {
                 const {
@@ -319,7 +324,7 @@ export class NodeGraph {
         if (rowIndex === -1) return { x: 0, y: 0 };
 
         const relativeX = direction === SocketDirection.Output ? NODE_WIDTH : 0;
-        const relativeY = TITLE_HEIGHT + rowIndex * SOCKET_HEIGHT + SOCKET_OFFSET;
+        const relativeY = (y - SOCKET_HEIGHT) + SOCKET_OFFSET;
 
         return { x: node.ui_data.x + relativeX, y: node.ui_data.y + relativeY };
     }

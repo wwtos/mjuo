@@ -94,7 +94,7 @@ impl Node for StreamExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ];
 
         let mut expression = "";
@@ -162,7 +162,7 @@ impl Node for StreamExpressionNode {
                 .as_stream()
                 .unwrap();
 
-            node_rows.push(NodeRow::StreamInput(new_socket_type, 0.0));
+            node_rows.push(NodeRow::StreamInput(new_socket_type, 0.0, false));
         }
 
         if expression.is_empty() {

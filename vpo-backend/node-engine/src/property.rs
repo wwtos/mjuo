@@ -1,3 +1,4 @@
+use resource_manager::ResourceId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -11,12 +12,6 @@ pub enum PropertyType {
     Resource(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Resource {
-    pub namespace: String,
-    pub resource: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
 pub enum Property {
@@ -25,7 +20,7 @@ pub enum Property {
     Float(f32),
     Bool(bool),
     MultipleChoice(String),
-    Resource(Resource),
+    Resource(ResourceId),
 }
 
 impl Property {
@@ -43,6 +38,13 @@ impl Property {
         }
     }
 
+    pub fn as_integer(self) -> Option<i32> {
+        match self {
+            Property::Integer(value) => Some(value),
+            _ => None,
+        }
+    }
+
     pub fn as_float(self) -> Option<f32> {
         match self {
             Property::Float(value) => Some(value),
@@ -50,7 +52,7 @@ impl Property {
         }
     }
 
-    pub fn as_resource(self) -> Option<Resource> {
+    pub fn as_resource(self) -> Option<ResourceId> {
         match self {
             Property::Resource(resource) => Some(resource),
             _ => None,

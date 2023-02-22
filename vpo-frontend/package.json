@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "concurrently": "^7.0.0",
+    "dependencies": "^0.0.1",
     "electron-reload": "^2.0.0-alpha.1",
     "electron-squirrel-startup": "^1.0.0",
     "esm": "^3.2.25",

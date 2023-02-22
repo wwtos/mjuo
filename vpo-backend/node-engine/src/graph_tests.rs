@@ -25,11 +25,11 @@ impl Default for TestNode {
 impl Node for TestNode {
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
-            NodeRow::StreamInput(StreamSocketType::Audio, 0.0),
-            NodeRow::StreamInput(StreamSocketType::Detune, 0.0),
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
-            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0)),
+            NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
+            NodeRow::StreamInput(StreamSocketType::Detune, 0.0, false),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
+            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0), false),
         ])
     }
 }

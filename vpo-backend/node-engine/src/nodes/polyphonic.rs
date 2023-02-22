@@ -103,10 +103,10 @@ impl Node for PolyphonicNode {
         }
 
         InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
             NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
             NodeRow::InnerGraph,
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0),
+            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
     }
 

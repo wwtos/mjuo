@@ -77,9 +77,9 @@ impl Node for MidiToValuesNode {
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new()),
-            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0)),
-            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false)),
+            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
+            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
+            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false), false),
         ])
     }
 

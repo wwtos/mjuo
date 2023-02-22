@@ -74,9 +74,12 @@ impl BiquadFilter {
             self.recompute();
         }
 
-        let output = (self.b0 * input_in) + (self.b1 * self.prev_input_1) + (self.b2 * self.prev_input_2)
-            - (self.a1 * self.prev_output_1)
-            - (self.a2 * self.prev_output_2);
+        #[rustfmt::skip]
+        let output = (self.b0 * input_in) +
+                     (self.b1 * self.prev_input_1) +
+                     (self.b2 * self.prev_input_2) -
+                     (self.a1 * self.prev_output_1) -
+                     (self.a2 * self.prev_output_2);
 
         self.prev_input_2 = self.prev_input_1;
         self.prev_input_1 = input_in;

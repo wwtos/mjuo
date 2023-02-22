@@ -44,6 +44,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let mut midi = get_midi(&mut midi_backend, &mut midi_parser);
 
+        if !midi.is_empty() {
+            //println!("midi in main: {:?}", midi);
+        }
+
         let mut buffer = [0_f32; BUFFER_SIZE];
 
         for (i, sample) in buffer.iter_mut().enumerate() {

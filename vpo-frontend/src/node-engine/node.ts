@@ -1,8 +1,8 @@
 import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection,
          Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
 import type { Property, PropertyType } from "./property";
-import { MidiData } from "../sound-engine/midi/messages";
-import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
+import type { MidiData } from "../sound-engine/midi/messages";
+import { type DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
 import { NodeIndex } from "./node_index";
 
 export const TITLE_HEIGHT = 30;
@@ -12,56 +12,64 @@ export const NODE_WIDTH = 270;
 
 
 export type NodeRow = DiscriminatedUnion<"variant", {
-    StreamInput: { data: [StreamSocketType, number] },
-    MidiInput: { data: [MidiSocketType, MidiData[]] },
-    ValueInput: { data: [ValueSocketType, Primitive] },
-    NodeRefInput: { data: NodeRefSocketType },
-    StreamOutput: { data: [StreamSocketType, number] },
-    MidiOutput: { data: [MidiSocketType, MidiData[]] },
-    ValueOutput: { data: [ValueSocketType, Primitive] },
-    NodeRefOutput: { data: NodeRefSocketType },
+    StreamInput: { data: [StreamSocketType, number, boolean] },
+    MidiInput: { data: [MidiSocketType, MidiData[], boolean] },
+    ValueInput: { data: [ValueSocketType, Primitive, boolean] },
+    NodeRefInput: { data: [NodeRefSocketType, boolean] },
+    StreamOutput: { data: [StreamSocketType, number, boolean] },
+    MidiOutput: { data: [MidiSocketType, MidiData[], boolean] },
+    ValueOutput: { data: [ValueSocketType, Primitive, boolean] },
+    NodeRefOutput: { data: [NodeRefSocketType, boolean] },
     Property: { data: [string, PropertyType, Property] },
     InnerGraph: { data: undefined },
 }>;
 
-type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection};
+type SocketTypeAndDirection = {socketType: SocketType, direction: SocketDirection, polyphonic: boolean};
 
 export const NodeRow = {
     getTypeAndDirection: (
         nodeRow: NodeRow
-    ): {socketType: SocketType, direction: SocketDirection} | undefined => {
+    ): SocketTypeAndDirection | undefined => {
         return matchOrElse(nodeRow, {
-            StreamInput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            StreamInput: ({ data: [type, _, polyphonic] }): SocketTypeAndDirection => ({
                 socketType: { variant: "Stream", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                polyphonic
             }),
-            MidiInput: ({ data: [type, _] }) => ({
+            MidiInput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Midi", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                polyphonic
             }),
-            ValueInput: ({ data: [type, _] }) => ({
+            ValueInput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Value", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                polyphonic
             }),
-            NodeRefInput: ({ data: type }): SocketTypeAndDirection => ({
+            NodeRefInput: ({ data: [type, polyphonic] }) => ({
                 socketType: { variant: "NodeRef", data: type },
-                direction: SocketDirection.Input
+                direction: SocketDirection.Input,
+                polyphonic
             }),
-            StreamOutput: ({ data: [type, _] }): SocketTypeAndDirection => ({
+            StreamOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Stream", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                polyphonic
             }),
-            MidiOutput: ({ data: [type, _] }) => ({
+            MidiOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Midi", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                polyphonic
             }),
-            ValueOutput: ({ data: [type, _] }) => ({
+            ValueOutput: ({ data: [type, _, polyphonic] }) => ({
                 socketType: { variant: "Value", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                polyphonic
             }),
-            NodeRefOutput: ({ data: type }): SocketTypeAndDirection => ({
+            NodeRefOutput: ({ data: [type, polyphonic] }) => ({
                 socketType: { variant: "NodeRef", data: type },
-                direction: SocketDirection.Output
+                direction: SocketDirection.Output,
+                polyphonic
             }),
         },  () => undefined);
     },
@@ -69,24 +77,25 @@ export const NodeRow = {
         type: SocketType,
         direction: SocketDirection,
         defaultValue: any,
+        polyphonic: boolean,
     ): NodeRow => {
         if (direction === SocketDirection.Input) {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue]
+                    data: [streamSocketType, defaultValue, polyphonic]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue]
+                    data: [midiSocketType, defaultValue, polyphonic]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue]
+                    data: [valueSocketType, defaultValue, polyphonic]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: nodeRefSocketType
+                    data: [nodeRefSocketType, polyphonic]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")
@@ -96,19 +105,19 @@ export const NodeRow = {
             return match(type, {
                 Stream: ({ data: streamSocketType }): NodeRow => ({
                     variant: "StreamInput",
-                    data: [streamSocketType, defaultValue]
+                    data: [streamSocketType, defaultValue, polyphonic]
                 }),
                 Midi: ({ data: midiSocketType }): NodeRow => ({
                     variant: "MidiInput",
-                    data: [midiSocketType, defaultValue]
+                    data: [midiSocketType, defaultValue, polyphonic]
                 }),
                 Value: ({ data: valueSocketType }): NodeRow => ({
                     variant: "ValueInput", 
-                    data: [valueSocketType, defaultValue]
+                    data: [valueSocketType, defaultValue, polyphonic]
                 }),
                 NodeRef: ({ data: nodeRefSocketType }): NodeRow => ({
                     variant: "NodeRefInput",
-                    data: nodeRefSocketType
+                    data: [nodeRefSocketType, polyphonic]
                 }),
                 MethodCall: (_params) => {
                     throw new Error("why do I still have this")
@@ -127,6 +136,9 @@ export const NodeRow = {
             ValueOutput: ({ data: [_, defaultValue ] }): SocketValue => ({ variant: "Primitive", data: defaultValue }),
             NodeRefOutput: ({ data: _ }): SocketValue => ({ variant: "None" })
         },  () => ({ variant: "None" }));
+    },
+    getHeight(nodeRow: NodeRow): number {
+        return SOCKET_HEIGHT;
     }
 };
 

@@ -572,7 +572,9 @@ impl GraphManager {
                             node.set_node_rows(
                                 input_sockets
                                     .into_iter()
-                                    .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Output))
+                                    .map(|socket| {
+                                        NodeRow::from_type_and_direction(socket, SocketDirection::Output, false)
+                                    })
                                     .collect(),
                             );
                         } else {
@@ -590,7 +592,9 @@ impl GraphManager {
                             node.set_node_rows(
                                 output_sockets
                                     .into_iter()
-                                    .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Input))
+                                    .map(|socket| {
+                                        NodeRow::from_type_and_direction(socket, SocketDirection::Input, false)
+                                    })
                                     .collect(),
                             );
                         } else {

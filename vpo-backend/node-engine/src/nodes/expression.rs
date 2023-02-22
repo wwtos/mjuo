@@ -122,7 +122,7 @@ impl Node for ExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            NodeRow::ValueOutput(ValueSocketType::Default, Primitive::Float(0.0)),
+            NodeRow::ValueOutput(ValueSocketType::Default, Primitive::Float(0.0), false),
         ];
 
         let mut expression = "";
@@ -190,7 +190,7 @@ impl Node for ExpressionNode {
                 .as_value()
                 .unwrap();
 
-            node_rows.push(NodeRow::ValueInput(new_socket_type, Primitive::Float(0.0)));
+            node_rows.push(NodeRow::ValueInput(new_socket_type, Primitive::Float(0.0), false));
         }
 
         // compile the expression and collect any errors

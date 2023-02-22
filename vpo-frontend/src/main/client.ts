@@ -1,6 +1,6 @@
 // @ts-ignore
 import Net from 'net';
-import { DiscriminatedUnion } from '../util/discriminated-union';
+import type { DiscriminatedUnion } from '../util/discriminated-union';
 
 type RawMessage = DiscriminatedUnion<"variant", {
     "Ping": {},
@@ -15,6 +15,7 @@ const host = '127.0.0.1';
 const client = new Net.Socket();
 
 let reconnectLoop: ReturnType<typeof setInterval> | undefined;
+let isConnected = false;
 
 enum MessageType {
     PING = 0x00,
@@ -151,23 +152,35 @@ class Client {
         
         client.on('end', function() {
             console.log('Requested an end to the TCP connection, trying to reconnect');
+            isConnected = false;
 
             if (reconnectLoop === undefined) {
                 reconnectLoop = setInterval(() => {
                     client.end();
                     client.connect({ port: port, host: host }, function() {
-                        // If there is no error, the server has accepted the request and created a new 
-                        // socket dedicated to us.
-                        console.log('TCP connection established with the server.');
-                        clearInterval(reconnectLoop);
-                        reconnectLoop = undefined;
-                
-                        // The client can now send data to the server by writing to its socket.
-                        let text = new TextEncoder().encode(JSON.stringify({
-                            action: "establishConnection"
-                        }));
-                        
-                        client.write(buildMessage(MessageType.DATA_JSON, text));
+                        if (!isConnected) {
+                            // If there is no error, the server has accepted the request and created a new 
+                            // socket dedicated to us.
+                            console.log('TCP connection established with the server.');
+                            clearInterval(reconnectLoop);
+                            reconnectLoop = undefined;
+                    
+                            // The client can now send data to the server by writing to its socket.
+                            let text = new TextEncoder().encode(JSON.stringify({
+                                action: "establishConnection"
+                            }));
+                            
+                            client.write(buildMessage(MessageType.DATA_JSON, text));
+
+                            let text2 = new TextEncoder().encode(JSON.stringify({
+                                "action": "io/load",
+                                "payload": {"path": "/home/mason/Documents/mjuo/organ1"}
+                            }));
+
+                            client.write(buildMessage(MessageType.DATA_JSON,  text2));
+
+                            isConnected = true;
+                        }
                     });
                     
                     process.stdout.write(".");

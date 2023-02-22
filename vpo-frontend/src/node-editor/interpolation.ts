@@ -1,7 +1,6 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { MemberType } from "safety-match";
 import { i18n } from "../i18n";
-import { SocketType } from "../node-engine/connection";
+import type { SocketType } from "../node-engine/connection";
 import { match } from "../util/discriminated-union";
 import { socketRegistry } from "./state";
 
@@ -30,6 +29,7 @@ export function socketTypeToString(socketType: SocketType): BehaviorSubject<stri
             Release: () => i18n.t("socketType.value.release"),
             Speed: () => i18n.t("socketType.value.speed"),
             State: () => i18n.t("socketType.value.state"),
+            UiState: () => i18n.t("socketType.value.uiState"),
             Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
         }),
         NodeRef: ({ data: nodeRef }): string | Observable<string> => match(nodeRef, {

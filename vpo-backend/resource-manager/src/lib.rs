@@ -8,7 +8,7 @@ use std::{
     thread::available_parallelism,
 };
 
-use serde::{ser::SerializeSeq, Serialize};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::Snafu;
 use threadpool::ThreadPool;
 
@@ -19,6 +19,10 @@ pub enum LoadingError {
     IOError { source: io::Error },
     #[snafu(display("Parser error: {source}"))]
     ParserError { source: serde_json::Error },
+    #[snafu(display("TOML serialization error: {source}"))]
+    TomlParserSerError { source: toml::ser::Error },
+    #[snafu(display("TOML deserialization error: {source}"))]
+    TomlParserDeError { source: toml::de::Error },
     #[snafu(display("Unknown error: {source}"))]
     Other { source: Box<dyn std::error::Error> },
 }
@@ -35,6 +39,47 @@ pub struct ResourceIndex {
     pub generation: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ResourceId {
+    pub namespace: String,
+    pub resource: String,
+}
+
+impl ResourceId {
+    pub fn from_str(id: &str) -> Option<ResourceId> {
+        let foo: Vec<&str> = id.split(":").take(2).collect();
+
+        if foo.len() != 2 {
+            None
+        } else {
+            Some(ResourceId {
+                namespace: foo[0].to_string(),
+                resource: foo[1].to_string(),
+            })
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("{}:{}", self.namespace, self.resource)
+    }
+}
+
+pub fn serialize_resource_id<S>(resource_id: &ResourceId, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&resource_id.to_string())
+}
+
+pub fn deserialize_resource_id<'de, D>(deserializer: D) -> Result<ResourceId, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let resource_id: String = serde::Deserialize::deserialize(deserializer)?;
+
+    Ok(ResourceId::from_str(&resource_id).unwrap())
+}
+
 pub enum PossibleResource<A: Resource> {
     Some(A, u32),
     None(u32),
@@ -44,6 +89,7 @@ pub enum PossibleResource<A: Resource> {
 pub struct ResourceManager<A: Resource> {
     resources: Vec<PossibleResource<A>>,
     resource_mapping: HashMap<String, ResourceIndex>,
+    resources_to_watch: Vec<(String, PathBuf)>,
 }
 
 impl<A> Serialize for ResourceManager<A>
@@ -72,6 +118,7 @@ where
         ResourceManager {
             resources: Vec::new(),
             resource_mapping: HashMap::new(),
+            resources_to_watch: Vec::new(),
         }
     }
 
@@ -125,7 +172,7 @@ where
         self.resource_mapping.get(key).copied()
     }
 
-    pub fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
     where
         I: Iterator<Item = (String, PathBuf)>,
     {
@@ -166,6 +213,23 @@ where
             let resource_index = self.add_resource(resource);
             self.resource_mapping.insert(key, resource_index);
         }
+
+        Ok(())
+    }
+
+    pub fn watch_resources<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    where
+        I: Iterator<Item = (String, PathBuf)>,
+    {
+        let mut resources_to_watch = Vec::new();
+
+        self.request_resources_parallel(resources_to_load.map(|resource| {
+            resources_to_watch.push(resource.clone());
+
+            resource
+        }))?;
+
+        self.resources_to_watch.extend(resources_to_watch);
 
         Ok(())
     }

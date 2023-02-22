@@ -10,7 +10,7 @@ use routes::{route, RouteReturn};
 use serde_json::json;
 use sound_engine::{
     backend::{
-        alsa::AlsaAudioBackend, alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend,
+        alsa_midi::AlsaMidiClientBackend, midir::MidirMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend,
         MidiClientBackend,
     },
     constants::BUFFER_SIZE,
@@ -18,6 +18,7 @@ use sound_engine::{
 };
 
 pub mod io;
+pub mod migrations;
 pub mod routes;
 pub mod util;
 
@@ -87,7 +88,7 @@ pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut Midi
         parser.write_all(midi_in.as_slice()).unwrap();
 
         while !parser.parsed.is_empty() {
-            let message = parser.parsed.pop().unwrap();
+            let message = parser.parsed.remove(0);
             messages.push(message);
         }
     }
