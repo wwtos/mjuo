@@ -1,6 +1,6 @@
 use crate::{
     constants::PI,
-    sampling::util::{amp32, s_mult},
+    sampling::util::{amp32, rms32, s_mult},
 };
 
 use super::{
@@ -17,6 +17,13 @@ enum State {
     Stopped,
 }
 
+#[derive(Debug, Clone)]
+enum QueuedAction {
+    Play,
+    Release,
+    None,
+}
+
 const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
@@ -29,6 +36,8 @@ pub struct SamplePlayer {
 
     state: State,
     next_state: State,
+    // in case an action is performed during a crossfade
+    queued_action: QueuedAction,
 
     audio_position: f32,
     audio_amplitude: f32,
@@ -90,6 +99,7 @@ impl SamplePlayer {
             phase_calculator,
             state: State::Looping,
             next_state: State::Stopped,
+            queued_action: QueuedAction::None,
             audio_position: 1.0,
             audio_amplitude: 1.0,
             crossfade_position: 1.0,
@@ -110,11 +120,6 @@ impl SamplePlayer {
 
         match self.state {
             State::Releasing => {
-                println!(
-                    "attacking at: audio position: {}, crossfade audio position: {}, state: {:?}",
-                    self.audio_position, self.crossfade_position, self.state
-                );
-
                 let audio = &sample.buffer.audio_raw;
 
                 // what's our current amplitude?
@@ -147,7 +152,7 @@ impl SamplePlayer {
                     .phase_calculator
                     .calc_phase(&audio[closest_index..(closest_index + self.phase_calculator.window())]);
 
-                let phase_diff = (phase_of_target - phase_of_current).rem_euclid(PI * 2.0);
+                let phase_diff = (phase_of_current - phase_of_target).rem_euclid(PI * 2.0);
                 let attack_shift = (phase_diff / (PI * 2.0)) * self.phase_calculator.window() as f32;
 
                 self.crossfade_to(
@@ -158,6 +163,9 @@ impl SamplePlayer {
 
                 self.crossfade_amplitude = self.audio_amplitude;
                 self.audio_amplitude = 1.0;
+            }
+            State::Crossfading => {
+                self.queued_action = QueuedAction::Play;
             }
             State::Stopped => {
                 // start over
@@ -170,37 +178,39 @@ impl SamplePlayer {
     }
 
     pub fn release(&mut self, sample: &Sample) {
-        if self.audio_position < 1.0 {
-            self.reset();
-            self.state = State::Stopped;
-            return;
+        match self.state {
+            State::Crossfading => {
+                self.queued_action = QueuedAction::Release;
+            }
+            State::Looping => {
+                let current_location = self.audio_position as usize;
+                let release_index = sample.release_index;
+                let audio = &sample.buffer.audio_raw;
+
+                let location_bounded = current_location.max(self.amplitude_calc_window);
+                let amp_current = rms32(&audio[(location_bounded - self.amplitude_calc_window)..current_location]);
+                let amp_of_release = rms32(&audio[release_index..(release_index + self.amplitude_calc_window)]);
+
+                let release_amp_adjustment = amp_current / amp_of_release;
+
+                let phase_of_current = self
+                    .phase_calculator
+                    .calc_phase(&audio[current_location..(current_location + self.phase_calculator.window())]);
+
+                let phase_diff = (phase_of_current - self.phase_of_release).rem_euclid(PI * 2.0);
+                let release_shift = (phase_diff / (PI * 2.0)) * self.phase_calculator.window() as f32;
+
+                self.crossfade_to(
+                    State::Releasing,
+                    sample.crossfade_release as f32,
+                    sample.release_index as f32 + release_shift,
+                );
+
+                self.crossfade_amplitude = 1.0;
+                self.audio_amplitude = release_amp_adjustment;
+            }
+            State::Releasing | State::Stopped => {}
         }
-
-        let current_location = self.audio_position as usize;
-        let release_index = sample.release_index;
-        let audio = &sample.buffer.audio_raw;
-
-        let location_bounded = current_location.max(self.amplitude_calc_window);
-        let amp_current = amp32(&audio[(location_bounded - self.amplitude_calc_window)..current_location]);
-        let amp_of_release = amp32(&audio[release_index..(release_index + self.amplitude_calc_window)]);
-
-        let release_amp_adjustment = amp_current / amp_of_release;
-
-        let phase_of_current = self
-            .phase_calculator
-            .calc_phase(&audio[current_location..(current_location + self.phase_calculator.window())]);
-
-        let phase_diff = (self.phase_of_release - phase_of_current).rem_euclid(PI * 2.0);
-        let release_shift = (phase_diff / (PI * 2.0)) * self.phase_calculator.window() as f32;
-
-        self.crossfade_to(
-            State::Releasing,
-            sample.crossfade_release as f32,
-            sample.release_index as f32 + release_shift,
-        );
-
-        self.crossfade_amplitude = 1.0;
-        self.audio_amplitude = release_amp_adjustment;
     }
 
     pub fn next_sample(&mut self, sample: &Sample) -> f32 {
@@ -211,6 +221,14 @@ impl SamplePlayer {
                 if done {
                     self.state = self.next_state.clone();
                 }
+
+                match self.queued_action {
+                    QueuedAction::Play => self.play(sample),
+                    QueuedAction::Release => self.release(sample),
+                    QueuedAction::None => {}
+                }
+
+                self.queued_action = QueuedAction::None;
 
                 out
             }
@@ -252,14 +270,16 @@ impl SamplePlayer {
         let x2 = audio[audio_pos + 1] * self.audio_amplitude;
         let x3 = audio[audio_pos + 2] * self.audio_amplitude;
 
+        self.audio_position += self.playback_rate;
+
         hermite_interpolate(x0, x1, x2, x3, self.audio_position.fract())
     }
 
     fn next_sample_crossfade(&mut self, sample: &Sample) -> (f32, bool) {
         let crossfade_factor = (self.crossfade_position - self.crossfade_start) / self.crossfade_length;
 
-        let cf_amp = crossfade_factor * self.crossfade_amplitude;
-        let aud_amp = (1.0 - crossfade_factor) * self.audio_amplitude;
+        let cf_amp = (1.0 - crossfade_factor) * self.crossfade_amplitude;
+        let aud_amp = crossfade_factor * self.audio_amplitude;
 
         let audio_pos = self.audio_position as usize;
         let crossfade_pos = self.crossfade_position as usize;
@@ -284,6 +304,7 @@ impl SamplePlayer {
         self.next_state = next_state;
 
         self.crossfade_position = self.audio_position;
+        self.crossfade_start = self.crossfade_position;
         self.crossfade_length = crossfade_length;
         self.audio_position = new_location;
     }
@@ -302,6 +323,8 @@ impl SamplePlayer {
 
     pub fn reset(&mut self) {
         self.state = State::Looping;
+        self.queued_action = QueuedAction::None;
+
         self.audio_position = 1.0;
         self.crossfade_position = 1.0;
         self.audio_amplitude = 1.0;

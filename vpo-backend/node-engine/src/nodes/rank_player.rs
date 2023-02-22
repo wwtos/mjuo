@@ -1,6 +1,6 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
-use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer, SoundConfig};
+use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
 
 use crate::{
     connection::{MidiBundle, MidiSocketType, StreamSocketType},
@@ -15,7 +15,6 @@ const BUFFER_SIZE: usize = 64;
 pub struct RankPlayerNode {
     player: Option<RankPlayer>,
     index: ResourceIndex,
-    config: SoundConfig,
     polyphony: usize,
     midi_in: MidiBundle,
     out: f32,
@@ -23,15 +22,14 @@ pub struct RankPlayerNode {
     buffer_position: usize,
 }
 
-impl RankPlayerNode {
-    pub fn new(sound_config: &SoundConfig) -> Self {
+impl Default for RankPlayerNode {
+    fn default() -> Self {
         RankPlayerNode {
             player: None,
             index: ResourceIndex {
                 index: 0,
                 generation: 0,
             },
-            config: sound_config.clone(),
             polyphony: 16,
             midi_in: SmallVec::new(),
             out: 0.0,
@@ -77,12 +75,7 @@ impl Node for RankPlayerNode {
             let rank = state.global_state.resources.ranks.borrow_resource(self.index);
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(
-                    &self.config,
-                    &state.global_state.resources.samples,
-                    &rank,
-                    self.polyphony,
-                );
+                let player = RankPlayer::new(&state.global_state.resources.samples, &rank, self.polyphony);
                 self.player = Some(player);
             }
         }

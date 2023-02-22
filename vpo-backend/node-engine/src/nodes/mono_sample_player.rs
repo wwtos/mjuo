@@ -12,7 +12,7 @@ use crate::{
 pub struct MonoSamplePlayerNode {
     player: Option<SamplePlayer>,
     released: bool,
-    playing: bool,
+    played: bool,
     index: ResourceIndex,
     config: SoundConfig,
     output: f32,
@@ -23,7 +23,7 @@ impl MonoSamplePlayerNode {
         MonoSamplePlayerNode {
             player: None,
             released: false,
-            playing: false,
+            played: false,
             index: ResourceIndex {
                 index: 0,
                 generation: 0,
@@ -75,23 +75,25 @@ impl Node for MonoSamplePlayerNode {
     }
 
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        if self.playing {
-            if let Some(player) = &mut self.player {
-                let sample = state
-                    .global_state
-                    .resources
-                    .samples
-                    .borrow_resource(self.index)
-                    .unwrap();
+        if let Some(player) = &mut self.player {
+            let sample = state
+                .global_state
+                .resources
+                .samples
+                .borrow_resource(self.index)
+                .unwrap();
 
-                if self.released && self.playing {
-                    println!("releasing");
-                    player.release(sample);
-                    self.released = false;
-                }
-
-                self.output = player.next_sample(&sample);
+            if self.played {
+                player.play(sample);
+                self.played = false;
             }
+
+            if self.released {
+                player.release(sample);
+                self.released = false;
+            }
+
+            self.output = player.next_sample(&sample);
         }
 
         NodeOk::no_warnings(())
@@ -101,7 +103,7 @@ impl Node for MonoSamplePlayerNode {
         if let Some(player) = &mut self.player {
             if let Some(engaged) = value.as_boolean() {
                 if engaged {
-                    self.playing = true;
+                    self.played = true;
                 } else {
                     self.released = true;
                 }

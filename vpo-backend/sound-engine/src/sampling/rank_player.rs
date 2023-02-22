@@ -1,8 +1,5 @@
-use resource_manager::{ResourceIndex, ResourceManager};
-
-use crate::SoundConfig;
-
 use super::{rank::Rank, sample::Sample, sample_player::SamplePlayer};
+use resource_manager::{ResourceIndex, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
@@ -23,14 +20,13 @@ impl Default for Voice {
 
 #[derive(Debug, Clone)]
 pub struct RankPlayer {
-    config: SoundConfig,
     polyphony: usize,
     voices: Vec<Voice>,
     note_to_resource_map: [Option<ResourceIndex>; 128],
 }
 
 impl RankPlayer {
-    pub fn new(config: &SoundConfig, samples: &ResourceManager<Sample>, rank: &Rank, polyphony: usize) -> RankPlayer {
+    pub fn new(samples: &ResourceManager<Sample>, rank: &Rank, polyphony: usize) -> RankPlayer {
         let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
         for sample in &rank.samples {
@@ -40,7 +36,6 @@ impl RankPlayer {
         }
 
         RankPlayer {
-            config: config.clone(),
             polyphony,
             voices: Vec::with_capacity(polyphony),
             note_to_resource_map,
@@ -84,8 +79,16 @@ impl RankPlayer {
                     player.play(sample);
                 } else {
                     *player = SamplePlayer::new(sample);
+                    player.play(sample);
+
                     self.voices[open_voice].note = note;
                 }
+            } else {
+                let mut player = SamplePlayer::new(sample);
+                player.play(sample);
+
+                self.voices[open_voice].player = Some(player);
+                self.voices[open_voice].note = note;
             }
         }
     }
