@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
+use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -190,7 +191,6 @@ pub struct NodeWrapper {
     #[serde(serialize_with = "serialize_node_prop")]
     #[serde(deserialize_with = "deserialize_node_prop")]
     pub(crate) node: NodeVariant,
-    index: NodeIndex,
     connected_inputs: Vec<InputSideConnection>,
     connected_outputs: Vec<OutputSideConnection>,
     node_rows: Vec<NodeRow>,
@@ -202,11 +202,7 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(
-        mut node: NodeVariant,
-        index: NodeIndex,
-        state: NodeInitState,
-    ) -> Result<NodeOk<NodeWrapper>, NodeError> {
+    pub fn new(mut node: NodeVariant, state: NodeInitState) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
         let init_result = node.init(state)?;
@@ -229,7 +225,6 @@ impl NodeWrapper {
 
         let mut wrapper = NodeWrapper {
             node,
-            index,
             default_overrides: Vec::new(),
             connected_inputs: Vec::new(),
             connected_outputs: Vec::new(),
@@ -252,19 +247,19 @@ impl NodeWrapper {
         })
     }
 
-    pub fn does_need_child_graph_created(&self) -> bool {
-        self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph)) && self.child_graph_index.is_none()
+    pub fn uses_child_graph(&self) -> bool {
+        self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph))
     }
 
     pub fn init_child_graph(
         &mut self,
-        index: &GraphIndex,
+        index: GraphIndex,
         graph_manager: &GraphManager,
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
         state: NodeInitState,
     ) {
-        self.set_child_graph_index(*index);
+        self.set_child_graph_index(index);
 
         let mut new_inputs_node = InputsNode::default();
         let mut new_outputs_node = OutputsNode::default();
@@ -272,7 +267,7 @@ impl NodeWrapper {
         new_inputs_node.set_inputs(inputs);
         new_outputs_node.set_outputs(outputs);
 
-        let child_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
+        let child_graph = &mut graph_manager.get_graph(index)?.graph;
 
         let NodeInitState {
             props,
@@ -311,10 +306,6 @@ impl NodeWrapper {
 
     pub fn set_child_graph_index(&mut self, index: GraphIndex) {
         self.child_graph_index = Some(index);
-    }
-
-    pub fn get_index(&self) -> NodeIndex {
-        self.index
     }
 
     pub fn get_child_graph_index(&self) -> &Option<GraphIndex> {
@@ -413,12 +404,12 @@ impl NodeWrapper {
             .collect()
     }
 
-    pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_input_sockets().iter().any(|socket| *socket == *socket_type)
+    pub fn has_input_socket(&self, socket_type: SocketType) -> bool {
+        self.list_input_sockets().iter().any(|&socket| socket == socket_type)
     }
 
-    pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_output_sockets().iter().any(|socket| *socket == *socket_type)
+    pub fn has_output_socket(&self, socket_type: SocketType) -> bool {
+        self.list_output_sockets().iter().any(|&socket| socket == socket_type)
     }
 
     pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
@@ -483,7 +474,6 @@ impl NodeWrapper {
         Ok(json! {{
             "node_rows": self.node_rows.clone(),
             "default_overrides": self.default_overrides.clone(),
-            "index": self.index,
             "connected_inputs": self.connected_inputs,
             "connected_outputs": self.connected_outputs,
             "properties": self.properties,
@@ -499,13 +489,6 @@ impl NodeWrapper {
         let index: NodeIndex = serde_json::from_value(json["index"].clone()).context(JsonParserSnafu)?;
         let ui_data: HashMap<String, Value> =
             serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
-
-        if index != self.index {
-            return Err(NodeError::MismatchedNodeIndex {
-                current: self.index,
-                incoming: index,
-            });
-        }
 
         self.ui_data = ui_data;
 
@@ -570,10 +553,6 @@ impl NodeWrapper {
 
     pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
         &self.child_graph_io_indexes
-    }
-
-    pub(crate) fn _set_index(&mut self, index: NodeIndex) {
-        self.index = index;
     }
 
     pub(crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
@@ -654,14 +633,11 @@ impl NodeWrapper {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct NodeIndex {
-    pub index: usize,
-    pub generation: u32,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeIndex(pub VertexIndex);
 
 impl Display for NodeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "index: {}, generation: {}", self.index, self.generation)
+        write!(f, "{:?}", self.0)
     }
 }

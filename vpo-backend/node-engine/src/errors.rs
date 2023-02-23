@@ -1,3 +1,4 @@
+use ddgg::GraphError;
 use resource_manager::{LoadingError, ResourceId};
 use rhai::{EvalAltResult, ParseError};
 use semver::Version;
@@ -6,7 +7,6 @@ use snafu::Snafu;
 use serde_json;
 
 use crate::connection::{SocketDirection, SocketType};
-use crate::graph_manager::GraphIndex;
 use crate::node::{NodeIndex, NodeRow};
 
 #[derive(Snafu, Debug)]
@@ -15,7 +15,7 @@ pub enum NodeError {
     #[snafu(display("The field `{missing_field}` was missing during an action rollback"))]
     ActionRollbackFieldMissing { missing_field: String },
     #[snafu(display("Graph does not exist at index `{graph_index}`"))]
-    GraphDoesNotExist { graph_index: GraphIndex },
+    GraphDoesNotExist { graph_index: u64 },
     #[snafu(display("Graph has more than one parent, cannot remove"))]
     GraphHasOtherParents,
     #[snafu(display("Connection between {from} and {to} already exists"))]
@@ -61,8 +61,8 @@ pub enum NodeError {
     LoadingError { source: LoadingError },
     #[snafu(display("Version doesn't exist: {version}"))]
     VersionError { version: Version },
-    #[snafu(display("Trouble initializing midi: {source:?}"))]
-    MidiInitError { source: midir::InitError },
+    #[snafu(display("Graph error: {error:?}"))]
+    GraphError { error: GraphError },
 }
 
 impl NodeError {
@@ -74,6 +74,12 @@ impl NodeError {
 impl From<ErrorInContext> for NodeError {
     fn from(error: ErrorInContext) -> Self {
         error.error
+    }
+}
+
+impl From<GraphError> for NodeError {
+    fn from(value: GraphError) -> Self {
+        NodeError::GraphError { error: value }
     }
 }
 
@@ -95,7 +101,7 @@ impl From<WarningInContext> for NodeWarning {
 
 #[derive(Debug)]
 pub struct NodeErrorContext {
-    pub graph: Option<GraphIndex>,
+    pub graph: Option<u64>,
     pub index: Option<NodeIndex>,
     pub socket: Option<SocketType>,
     pub direction: Option<SocketDirection>,

@@ -57,6 +57,7 @@ pub enum Action {
         graph_index: GraphIndex,
         connection: Connection,
     },
+    None,
 }
 
 pub struct ActionResult {

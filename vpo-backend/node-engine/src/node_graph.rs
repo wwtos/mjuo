@@ -162,7 +162,8 @@ impl NodeGraph {
         let mut warnings = WarningBuilder::new();
 
         // will return the new node rows, if they changed
-        let possible_rows = if let Some(node_wrapper) = self.get_node_mut(index) {
+        let node_wrapper = self.get_node_mut(index)?;
+        let possible_rows = {
             let NodeInitState {
                 props: _,
                 registry,
@@ -214,8 +215,6 @@ impl NodeGraph {
             } else {
                 None
             }
-        } else {
-            return Err(NodeError::NodeDoesNotExist { node_index: index });
         };
 
         if let Some((removed_rows, new_node_rows)) = possible_rows {
@@ -231,15 +230,13 @@ impl NodeGraph {
                             let input_connection = node_wrapper.get_input_connection_by_type(&socket_type);
 
                             if let Some(input_connection) = input_connection {
-                                let from_wrapper = self.get_node_mut(input_connection.from_node);
+                                let from_wrapper = self.get_node_mut(input_connection.from_node)?;
 
-                                if let Some(from_wrapper) = from_wrapper {
-                                    from_wrapper.remove_output_socket_connection_unchecked(&OutputSideConnection {
-                                        from_socket_type: input_connection.from_socket_type,
-                                        to_node: index,
-                                        to_socket_type: input_connection.to_socket_type.clone(),
-                                    })?;
-                                }
+                                from_wrapper.remove_output_socket_connection_unchecked(&OutputSideConnection {
+                                    from_socket_type: input_connection.from_socket_type,
+                                    to_node: index,
+                                    to_socket_type: input_connection.to_socket_type.clone(),
+                                })?;
 
                                 self.get_node_mut(index)
                                     .unwrap()
@@ -251,13 +248,10 @@ impl NodeGraph {
                             let output_connections = node_wrapper.get_output_connections_by_type(&socket_type);
 
                             for output_connection in output_connections {
-                                let to_wrapper = self.get_node_mut(output_connection.to_node);
-
-                                if let Some(to_wrapper) = to_wrapper {
-                                    // remove the other connection to this one
-                                    to_wrapper
-                                        .remove_input_socket_connection_unchecked(&output_connection.to_socket_type)?;
-                                }
+                                let to_wrapper = self.get_node_mut(output_connection.to_node)?;
+                                // remove the other connection to this one
+                                to_wrapper
+                                    .remove_input_socket_connection_unchecked(&output_connection.to_socket_type)?;
 
                                 // remove this connection to the other one
                                 self.get_node_mut(index)
@@ -281,18 +275,16 @@ impl NodeGraph {
         Ok(NodeOk::new(has_changed_self, warnings.into_warnings()))
     }
 
-    pub fn get_node(&self, index: NodeIndex) -> Option<&NodeWrapper> {
-        match self.nodes.get_vertex(index.0) {
-            Ok(vertex) => Some(&vertex.data),
-            Err(_) => None,
-        }
+    pub fn get_node(&self, index: NodeIndex) -> Result<&NodeWrapper, NodeError> {
+        Ok(self.nodes.get_vertex_data(index.0)?)
     }
 
-    pub fn get_node_mut(&mut self, index: NodeIndex) -> Option<&mut NodeWrapper> {
-        match self.nodes.get_vertex_mut(index.0) {
-            Ok(vertex) => Some(&mut vertex.data),
-            Err(_) => None,
-        }
+    pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+        Ok(self.nodes.get_vertex_data_mut(index.0)?)
+    }
+
+    pub fn node_indexes(&self) -> impl Iterator<Item = NodeIndex> + '_ {
+        self.nodes.vertex_indexes().map(|index| NodeIndex(index))
     }
 
     pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {
