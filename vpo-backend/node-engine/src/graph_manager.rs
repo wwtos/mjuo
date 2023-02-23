@@ -16,8 +16,6 @@ use crate::state::Action;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
-pub type GraphIndex = u64;
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
