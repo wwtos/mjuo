@@ -11,7 +11,7 @@ use crate::{
     nodes::variants::NodeVariant,
 };
 
-type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
+pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 struct NodeConnection {

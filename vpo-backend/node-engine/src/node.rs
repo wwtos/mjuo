@@ -146,26 +146,26 @@ pub trait Node: Debug + Clone {
     }
 
     /// Accept incoming stream data of type `socket_type`
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {}
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
 
     /// Return outgoing stream data of type `socket_type`
-    fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         0_f32
     }
 
     /// Accept incoming midi data of type `socket_type`
-    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {}
+    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {}
 
     /// Return outgoing midi data of type `socket_type`
-    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
         Some(SmallVec::new())
     }
 
     /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {}
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
 
     /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         None
     }
 }
@@ -258,7 +258,7 @@ impl NodeWrapper {
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
         state: NodeInitState,
-    ) {
+    ) -> Result<(), NodeError> {
         self.set_child_graph_index(index);
 
         let mut new_inputs_node = InputsNode::default();
@@ -267,7 +267,7 @@ impl NodeWrapper {
         new_inputs_node.set_inputs(inputs);
         new_outputs_node.set_outputs(outputs);
 
-        let child_graph = &mut graph_manager.get_graph(index)?.graph;
+        let child_graph = &mut graph_manager.get_graph(index)?.graph.borrow_mut();
 
         let NodeInitState {
             props,
@@ -276,7 +276,7 @@ impl NodeWrapper {
             global_state,
         } = state;
 
-        let input_index = child_graph
+        let (input_index, input_diff) = child_graph
             .add_node(
                 NodeVariant::InputsNode(new_inputs_node),
                 NodeInitState {
@@ -288,7 +288,7 @@ impl NodeWrapper {
             )
             .unwrap()
             .value;
-        let output_index = child_graph
+        let (output_index, output_diff) = child_graph
             .add_node(
                 NodeVariant::OutputsNode(new_outputs_node),
                 NodeInitState {
@@ -302,6 +302,8 @@ impl NodeWrapper {
             .value;
 
         self.child_graph_io_indexes = Some((input_index, output_index));
+
+        Ok(())
     }
 
     pub fn set_child_graph_index(&mut self, index: GraphIndex) {
@@ -505,7 +507,7 @@ impl NodeWrapper {
         self.node.accept_stream_input(socket_type, value);
     }
 
-    pub fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    pub fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         self.node.get_stream_output(socket_type)
     }
 

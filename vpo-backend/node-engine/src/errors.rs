@@ -7,11 +7,14 @@ use snafu::Snafu;
 use serde_json;
 
 use crate::connection::{SocketDirection, SocketType};
+use crate::graph_manager::GlobalNodeIndex;
 use crate::node::{NodeIndex, NodeRow};
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 pub enum NodeError {
+    #[snafu(display("Node `{from:?}` and {to:?} are on two different graphs"))]
+    MismatchedNodeGraphs { from: GlobalNodeIndex, to: GlobalNodeIndex },
     #[snafu(display("The field `{missing_field}` was missing during an action rollback"))]
     ActionRollbackFieldMissing { missing_field: String },
     #[snafu(display("Graph does not exist at index `{graph_index}`"))]
@@ -216,5 +219,19 @@ impl WarningBuilder {
 
     pub fn into_warnings(self) -> Option<Warnings> {
         self.warnings.map(|warnings| Warnings { warnings })
+    }
+}
+
+pub trait WarningProducer<T> {
+    fn append_warnings(self, warning_builder: &mut WarningBuilder) -> Result<T, NodeError>;
+}
+
+impl<T> WarningProducer<T> for Result<NodeOk<T>, NodeError> {
+    fn append_warnings(self, warning_builder: &mut WarningBuilder) -> Result<T, NodeError> {
+        self.map(|node_ok| {
+            warning_builder.append_warnings(node_ok.warnings);
+
+            node_ok.value
+        })
     }
 }
