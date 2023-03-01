@@ -135,11 +135,11 @@ impl Node for RankPlayerNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: MidiBundle) {
+    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
         self.midi_in = value;
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.out
     }
 }

@@ -503,7 +503,7 @@ impl NodeWrapper {
         Ok(())
     }
 
-    pub fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
+    pub fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
         self.node.accept_stream_input(socket_type, value);
     }
 
@@ -511,19 +511,19 @@ impl NodeWrapper {
         self.node.get_stream_output(socket_type)
     }
 
-    pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {
+    pub fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {
         self.node.accept_midi_input(socket_type, value);
     }
 
-    pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    pub fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
         self.node.get_midi_output(socket_type)
     }
 
-    pub fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         self.node.accept_value_input(socket_type, value);
     }
 
-    pub fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
+    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         self.node.get_value_output(socket_type)
     }
 
@@ -635,7 +635,7 @@ impl NodeWrapper {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct NodeIndex(pub VertexIndex);
 
 impl Display for NodeIndex {

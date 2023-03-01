@@ -175,7 +175,7 @@ impl GraphManager {
         let NodeGraphWrapper { traverser, graph, .. } = &mut *graph_wrapper;
 
         for node_index in nodes_to_update.iter() {
-            traverser.update_node_defaults(&graph.borrow(), node_index);
+            traverser.update_node_defaults(&graph.borrow(), *node_index);
         }
 
         Ok(())

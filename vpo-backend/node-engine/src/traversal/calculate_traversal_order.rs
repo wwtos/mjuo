@@ -1,46 +1,27 @@
 use std::collections::HashMap;
 
 use crate::connection::Connection;
-use crate::node_graph::PossibleNode;
+use crate::node;
+use crate::node_graph::NodeConnection;
 
+use ddgg::VertexIndex;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
 
-pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGraph) -> Vec<crate::node::NodeIndex> {
+pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGraph) -> Vec<node::NodeIndex> {
     // traverse backward and build a traversal order
 
-    let mut graph = StableGraph::<usize, Connection>::new();
-    let mut graph_lookup: HashMap<usize, NodeIndex> = HashMap::new();
+    let mut graph = StableGraph::<node::NodeIndex, NodeConnection>::new();
+    let mut graph_lookup: HashMap<VertexIndex, NodeIndex> = HashMap::new();
 
-    for (i, original_node) in original_graph.get_nodes().iter().enumerate() {
-        match original_node {
-            PossibleNode::Some(..) => {
-                graph_lookup.insert(i, graph.add_node(i));
-            }
-            PossibleNode::None(_) => {}
-        }
+    for original_node_index in original_graph.node_indexes() {
+        graph_lookup.insert(original_node_index.0, graph.add_node(original_node_index));
     }
 
-    for original_node in original_graph.get_nodes().iter() {
-        match original_node {
-            PossibleNode::Some(node, _) => {
-                let node_index = node.get_index();
+    for (i, original_edge_index) in original_graph.edge_indexes().enumerate() {
+        let edge = original_graph.get_graph().get_edge(original_edge_index.0).unwrap();
 
-                for input in node.list_connected_input_sockets() {
-                    graph.add_edge(
-                        *graph_lookup.get(&input.from_node.index).unwrap(),
-                        *graph_lookup.get(&node.get_index().index).unwrap(),
-                        Connection {
-                            from_socket_type: input.from_socket_type,
-                            from_node: input.from_node,
-                            to_socket_type: input.to_socket_type,
-                            to_node: node_index,
-                        },
-                    );
-                }
-            }
-            PossibleNode::None(_) => {}
-        }
+        graph.add_edge(graph_lookup[&edge.get_from()], graph_lookup[&edge.get_to()], edge.data);
     }
 
     let edges = greedy_feedback_arc_set(&graph);
@@ -49,7 +30,15 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
     let mut edge_indexes: Vec<EdgeIndex> = Vec::new();
 
     for edge in edges {
-        connections.push(edge.weight().clone());
+        let weight = edge.weight();
+
+        connections.push(Connection {
+            from_socket_type: weight.from_socket_type,
+            from_node: graph[edge.source()],
+            to_socket_type: weight.to_socket_type,
+            to_node: graph[edge.target()],
+        });
+
         edge_indexes.push(edge.id());
     }
 
@@ -61,16 +50,6 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
 
     node_order
         .iter()
-        .map(|index| {
-            let mapped_index = *graph.node_weight(*index).unwrap();
-
-            crate::node::NodeIndex {
-                index: mapped_index,
-                generation: match &original_graph.get_nodes()[mapped_index] {
-                    PossibleNode::Some(_, generation) => *generation,
-                    PossibleNode::None(_) => unreachable!(),
-                },
-            }
-        })
+        .map(|index| *graph.node_weight(*index).unwrap())
         .collect::<Vec<crate::node::NodeIndex>>()
 }

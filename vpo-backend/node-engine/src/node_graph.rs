@@ -14,9 +14,9 @@ use crate::{
 pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-struct NodeConnection {
-    from_socket_type: SocketType,
-    to_socket_type: SocketType,
+pub(crate) struct NodeConnection {
+    pub(crate) from_socket_type: SocketType,
+    pub(crate) to_socket_type: SocketType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -285,6 +285,10 @@ impl NodeGraph {
 
     pub fn node_indexes(&self) -> impl Iterator<Item = NodeIndex> + '_ {
         self.nodes.vertex_indexes().map(|index| NodeIndex(index))
+    }
+
+    pub fn edge_indexes(&self) -> impl Iterator<Item = ConnectionIndex> + '_ {
+        self.nodes.edge_indexes().map(|index| ConnectionIndex(index))
     }
 
     pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {

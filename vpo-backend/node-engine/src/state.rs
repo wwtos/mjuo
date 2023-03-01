@@ -234,7 +234,7 @@ impl NodeEngineState {
         let traverser = root_graph.traverser;
 
         let midi_in_node = graph.get_node_mut(self.midi_in_node).unwrap();
-        midi_in_node.accept_midi_input(&MidiSocketType::Default, midi_in);
+        midi_in_node.accept_midi_input(MidiSocketType::Default, midi_in);
 
         let traversal_errors = traverser.traverse(
             &mut graph,
