@@ -185,6 +185,7 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeWrapper {
     #[serde(serialize_with = "serialize_node_prop")]
     #[serde(deserialize_with = "deserialize_node_prop")]

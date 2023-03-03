@@ -14,6 +14,7 @@ pub enum BiquadFilterType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BiquadFilter {
     filter_type: BiquadFilterType,
     sample_rate: u32,

@@ -11,6 +11,7 @@ use crate::{node::NodeIndex, socket_registry::SocketRegistry};
 pub type MidiBundle = SmallVec<[MidiData; 2]>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Connection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
@@ -19,12 +20,14 @@ pub struct Connection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
     pub to_socket_type: SocketType,
 }
 
+#[serde(rename_all = "camelCase")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OutputSideConnection {
     pub from_socket_type: SocketType,

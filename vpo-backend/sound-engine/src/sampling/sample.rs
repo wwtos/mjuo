@@ -15,6 +15,7 @@ use crate::{midi::messages::Note, MonoSample};
 use super::{envelope::calc_sample_metadata, interpolate::lerp};
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct Sample {
     pub loop_start: usize,
     pub loop_end: usize,

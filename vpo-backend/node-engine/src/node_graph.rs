@@ -14,6 +14,7 @@ use crate::{
 pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeConnection {
     pub from_socket_type: SocketType,
     pub to_socket_type: SocketType,
@@ -23,6 +24,7 @@ pub struct NodeConnection {
 pub struct ConnectionIndex(pub EdgeIndex);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
     nodes: Graph<NodeWrapper, NodeConnection>,
 }

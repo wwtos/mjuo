@@ -9,6 +9,7 @@ use sound_engine::{
 };
 
 #[derive(Default, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Resources {
     pub samples: ResourceManager<Sample>,
     pub wavetables: ResourceManager<Wavetable>,
@@ -16,6 +17,7 @@ pub struct Resources {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalState {
     pub active_project: Option<PathBuf>,
     pub sound_config: SoundConfig,

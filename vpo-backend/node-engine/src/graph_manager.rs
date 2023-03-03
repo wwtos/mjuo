@@ -30,12 +30,14 @@ pub struct GraphEdgeIndex(pub EdgeIndex);
 pub struct ConnectedThrough(pub NodeIndex);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
     pub node_index: NodeIndex,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeGraphWrapper {
     pub graph: RefCell<NodeGraph>,
     #[serde(skip)]
@@ -43,6 +45,7 @@ pub struct NodeGraphWrapper {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct GraphManager {
     node_graphs: Graph<NodeGraphWrapper, ConnectedThrough>,
     root_index: GraphIndex,

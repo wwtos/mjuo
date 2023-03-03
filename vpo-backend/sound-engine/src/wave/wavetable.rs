@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Wavetable {
     #[serde(skip)]
     pub sample_rate: u32,

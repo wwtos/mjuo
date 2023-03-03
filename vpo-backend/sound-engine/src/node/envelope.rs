@@ -14,6 +14,7 @@ pub enum EnvelopeState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Envelope {
     sample_rate: u32,
     pub attack: f32,

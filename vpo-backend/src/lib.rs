@@ -41,6 +41,7 @@ pub fn handle_msg(
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) {
+    println!("got: {:?}", msg);
     let result = route(msg, to_server, state, global_state);
 
     match result {
