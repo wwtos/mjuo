@@ -51,7 +51,6 @@ impl SocketRegistry {
                 SocketType::Midi(_) => SocketType::Midi(MidiSocketType::Dynamic(uid)),
                 SocketType::Value(_) => SocketType::Value(ValueSocketType::Dynamic(uid)),
                 SocketType::NodeRef(_) => SocketType::NodeRef(NodeRefSocketType::Dynamic(uid)),
-                SocketType::MethodCall(_) => todo!(),
             };
 
             self.name_to_socket_type.insert(

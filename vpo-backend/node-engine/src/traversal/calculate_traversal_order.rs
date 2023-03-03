@@ -21,7 +21,11 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
     for (i, original_edge_index) in original_graph.edge_indexes().enumerate() {
         let edge = original_graph.get_graph().get_edge(original_edge_index.0).unwrap();
 
-        graph.add_edge(graph_lookup[&edge.get_from()], graph_lookup[&edge.get_to()], edge.data);
+        graph.add_edge(
+            graph_lookup[&edge.get_from()],
+            graph_lookup[&edge.get_to()],
+            edge.data.clone(),
+        );
     }
 
     let edges = greedy_feedback_arc_set(&graph);

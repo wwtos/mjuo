@@ -10,11 +10,11 @@ pub struct MidiInNode {
 }
 
 impl Node for MidiInNode {
-    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: MidiBundle) {
+    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
         self.midi_in = value;
     }
 
-    fn get_midi_output(&self, _socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    fn get_midi_output(&self, _socket_type: MidiSocketType) -> Option<MidiBundle> {
         if !self.midi_in.is_empty() {
             Some(self.midi_in.clone())
         } else {

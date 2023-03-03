@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let mut global_state = GlobalState::new(sound_config);
-    let mut engine_state = NodeEngineState::new(&global_state);
+    let mut engine_state = NodeEngineState::new(&global_state).unwrap();
 
     let mut backend = connect_backend()?;
     let mut midi_backend = connect_midi_backend()?;

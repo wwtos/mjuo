@@ -48,8 +48,7 @@ pub struct PolyphonicNode {
     polyphony: u8,
     traverser: Traverser,
     output: f32,
-    child_inputs_node: NodeIndex,
-    child_outputs_node: NodeIndex,
+    child_io_nodes: Option<(NodeIndex, NodeIndex)>,
     current_time: i64,
 }
 
@@ -60,14 +59,7 @@ impl Default for PolyphonicNode {
             traverser: Traverser::default(),
             polyphony: 1,
             output: 0_f32,
-            child_inputs_node: NodeIndex {
-                index: 0,
-                generation: 0,
-            },
-            child_outputs_node: NodeIndex {
-                index: 0,
-                generation: 0,
-            },
+            child_io_nodes: None,
             current_time: 0,
         }
     }
@@ -117,7 +109,9 @@ impl Node for PolyphonicNode {
         ]
     }
 
-    fn accept_midi_input(&mut self, _socket_type: &MidiSocketType, value: MidiBundle) {
+    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
+        let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
+
         if !self.voices.is_empty() {
             // go through all the messages and send them to all the appropriate locations
             for message in value {
@@ -127,8 +121,8 @@ impl Node for PolyphonicNode {
                         // message if so
                         for voice in self.voices.iter_mut() {
                             if voice.info.active && voice.info.note == note {
-                                let subgraph_input_node = voice.graph.get_node_mut(&self.child_inputs_node).unwrap();
-                                subgraph_input_node.accept_midi_input(&MidiSocketType::Default, smallvec![message]);
+                                let subgraph_input_node = voice.graph.get_node_mut(child_input_node).unwrap();
+                                subgraph_input_node.accept_midi_input(MidiSocketType::Default, smallvec![message]);
 
                                 voice.info.active = true;
                                 voice.info.note = note;
@@ -147,11 +141,11 @@ impl Node for PolyphonicNode {
                             .iter_mut()
                             .find(|voice| voice.info.active && voice.info.note == note);
                         if let Some(already_on) = already_on {
-                            let subgraph_input_node = already_on.graph.get_node_mut(&self.child_inputs_node).unwrap();
+                            let subgraph_input_node = already_on.graph.get_node_mut(child_input_node).unwrap();
 
                             // be sure to send a note off message first
                             subgraph_input_node.accept_midi_input(
-                                &MidiSocketType::Default,
+                                MidiSocketType::Default,
                                 smallvec![
                                     MidiData::NoteOff {
                                         channel,
@@ -170,12 +164,11 @@ impl Node for PolyphonicNode {
                             let available = self.voices.iter_mut().find(|voice| !voice.info.active);
 
                             if let Some(available) = available {
-                                let subgraph_input_node =
-                                    available.graph.get_node_mut(&self.child_inputs_node).unwrap();
+                                let subgraph_input_node = available.graph.get_node_mut(child_input_node).unwrap();
 
                                 // TODO: test code here VV
                                 subgraph_input_node.accept_midi_input(
-                                    &MidiSocketType::Default,
+                                    MidiSocketType::Default,
                                     smallvec![
                                         MidiData::NoteOff {
                                             channel,
@@ -197,11 +190,11 @@ impl Node for PolyphonicNode {
                                     .min_by(|x, y| x.info.started_at.cmp(&y.info.started_at))
                                     .unwrap();
 
-                                let subgraph_input_node = oldest.graph.get_node_mut(&self.child_inputs_node).unwrap();
+                                let subgraph_input_node = oldest.graph.get_node_mut(child_input_node).unwrap();
 
                                 // be sure to send a note off message first
                                 subgraph_input_node.accept_midi_input(
-                                    &MidiSocketType::Default,
+                                    MidiSocketType::Default,
                                     smallvec![
                                         MidiData::NoteOff {
                                             channel,
@@ -227,9 +220,9 @@ impl Node for PolyphonicNode {
                 if let Some(message_to_pass_to_all) = message_to_pass_to_all {
                     for voice in self.voices.iter_mut() {
                         if voice.info.active {
-                            let subgraph_input_node = voice.graph.get_node_mut(&self.child_inputs_node).unwrap();
+                            let subgraph_input_node = voice.graph.get_node_mut(child_input_node).unwrap();
                             subgraph_input_node
-                                .accept_midi_input(&MidiSocketType::Default, smallvec![message_to_pass_to_all.clone()]);
+                                .accept_midi_input(MidiSocketType::Default, smallvec![message_to_pass_to_all.clone()]);
                         }
                     }
                 }
@@ -237,7 +230,7 @@ impl Node for PolyphonicNode {
         }
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.output
     }
 
@@ -263,11 +256,12 @@ impl Node for PolyphonicNode {
         }
 
         self.traverser = Traverser::get_traverser(graph);
-        self.child_inputs_node = input_node;
-        self.child_outputs_node = output_node;
+        self.child_io_nodes = Some((input_node, output_node));
     }
 
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+        let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
+
         self.current_time = state.current_time;
 
         self.output = 0.0;
@@ -288,8 +282,8 @@ impl Node for PolyphonicNode {
                         errors_and_warnings: err,
                     })?;
 
-                let subgraph_output_node = voice.graph.get_node_mut(&self.child_outputs_node).unwrap();
-                let output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);
+                let subgraph_output_node = voice.graph.get_node_mut(child_output_node).unwrap();
+                let output = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
 
                 self.output += output;
 

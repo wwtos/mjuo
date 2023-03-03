@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use midir::{Ignore, MidiInput, MidiInputPort};
 use snafu::ResultExt;
 
-use node_engine::errors::{MidiInitSnafu, NodeError};
+use node_engine::errors::NodeError;
 use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 struct Channel {
@@ -17,7 +17,7 @@ pub struct MidiInterface {
 
 impl MidiInterface {
     pub fn new() -> Result<MidiInterface, NodeError> {
-        let mut midi_in = MidiInput::new("Mason-Jones Unit Orchestra").context(MidiInitSnafu)?;
+        let mut midi_in = MidiInput::new("Mason-Jones Unit Orchestra").unwrap();
         midi_in.ignore(Ignore::None);
 
         Ok(MidiInterface {

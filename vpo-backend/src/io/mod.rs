@@ -87,7 +87,7 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = NodeEngineState::new(global_state);
+    *state = NodeEngineState::new(global_state).unwrap();
     global_state.resources.samples.clear();
 
     load_resources(

@@ -42,11 +42,11 @@ impl Node for ButtonNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
         self.input = ProcessState::Unprocessed(value.as_boolean().unwrap());
     }
 
-    fn get_value_output(&self, _socket_type: &ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, _socket_type: ValueSocketType) -> Option<Primitive> {
         if matches!(self.input, ProcessState::Processed) {
             Some(Primitive::Boolean(self.state))
         } else {

@@ -1,9 +1,9 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserErrorInContextSnafu, NodeError},
+    errors::{JsonParserErrorInContextSnafu, JsonParserSnafu, NodeError},
     global_state::GlobalState,
-    graph_manager::GlobalNodeIndex,
+    graph_manager::{GlobalNodeIndex, GraphIndex},
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
 };
@@ -16,21 +16,17 @@ use crate::{
 };
 
 pub fn route(
-    msg: Value,
+    mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
+    let graph_index: GraphIndex =
+        serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
     let nodes_to_update = msg["payload"]["updatedNodes"]
         .as_array()
         .ok_or(NodeError::PropertyMissingOrMalformed {
             property_name: "updatedNodes".to_string(),
-        })?;
-
-    let graph_index = msg["payload"]["graphIndex"]
-        .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "graphIndex".to_string(),
         })?;
 
     println!("{}", msg);
@@ -50,8 +46,7 @@ pub fn route(
                             node_index: index,
                             graph_index,
                         },
-                        before: None,
-                        after: serde_json::from_value(node_json["properties"].clone()).context(
+                        props: serde_json::from_value(node_json["properties"].clone()).context(
                             JsonParserErrorInContextSnafu {
                                 context: "payload.updatedNodes[x].properties".to_string(),
                             },
@@ -65,8 +60,7 @@ pub fn route(
                             node_index: index,
                             graph_index,
                         },
-                        before: None,
-                        after: serde_json::from_value(node_json["ui_data"].clone()).context(
+                        data: serde_json::from_value(node_json["ui_data"].clone()).context(
                             JsonParserErrorInContextSnafu {
                                 context: "payload.updatedNodes[x].ui_data".to_string(),
                             },
@@ -80,8 +74,7 @@ pub fn route(
                             node_index: index,
                             graph_index,
                         },
-                        before: None,
-                        after: serde_json::from_value(node_json["default_overrides"].clone()).context(
+                        overrides: serde_json::from_value(node_json["default_overrides"].clone()).context(
                             JsonParserErrorInContextSnafu {
                                 context: "payload.updatedNodes[x].default_overrides".to_string(),
                             },

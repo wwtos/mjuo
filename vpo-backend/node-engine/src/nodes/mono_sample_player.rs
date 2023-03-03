@@ -99,7 +99,7 @@ impl Node for MonoSamplePlayerNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
         if let Some(player) = &mut self.player {
             if let Some(engaged) = value.as_boolean() {
                 if engaged {
@@ -111,7 +111,7 @@ impl Node for MonoSamplePlayerNode {
         }
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.output
     }
 }

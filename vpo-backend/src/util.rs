@@ -15,13 +15,8 @@ pub fn send_graph_updates(
     graph_index: GraphIndex,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), NodeError> {
-    let graph = &mut state
-        .get_graph_manager()
-        .get_graph_wrapper_mut(graph_index)
-        .ok_or(NodeError::GraphDoesNotExist { graph_index })?
-        .graph;
-
-    let json = graph.serialize_to_json().unwrap();
+    let mut graph = state.get_graph_manager().get_graph(graph_index)?.graph.borrow_mut();
+    let json = serde_json::to_value(&*graph).unwrap();
 
     block_on(async {
         to_server

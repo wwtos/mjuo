@@ -192,7 +192,6 @@ impl Traverser {
                         }
                     }
                     SocketType::NodeRef(_) => {}
-                    SocketType::MethodCall(_) => todo!(),
                 }
             }
         }

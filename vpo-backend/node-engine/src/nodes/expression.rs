@@ -38,8 +38,8 @@ impl ExpressionNode {
 }
 
 impl Node for ExpressionNode {
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
-        if let &ValueSocketType::Dynamic(uid) = socket_type {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
+        if let ValueSocketType::Dynamic(uid) = socket_type {
             let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
 
             if let Some(local_index) = local_index {
@@ -50,7 +50,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_value_output(&self, _socket_type: &ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, _socket_type: ValueSocketType) -> Option<Primitive> {
         self.value_out.clone()
     }
 

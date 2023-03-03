@@ -72,14 +72,12 @@ impl NodeRow {
                 SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), polyphonic),
                 SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), polyphonic),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, polyphonic),
-                SocketType::MethodCall(_) => unimplemented!(),
             },
             SocketDirection::Output => match socket_type {
                 SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, polyphonic),
                 SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), polyphonic),
                 SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), polyphonic),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, polyphonic),
-                SocketType::MethodCall(_) => unimplemented!(),
             },
         }
     }
@@ -488,7 +486,6 @@ impl NodeWrapper {
     pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
         println!("Applying json: {}", json);
 
-        let index: NodeIndex = serde_json::from_value(json["index"].clone()).context(JsonParserSnafu)?;
         let ui_data: HashMap<String, Value> =
             serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
 

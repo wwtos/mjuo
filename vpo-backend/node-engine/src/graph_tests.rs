@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use ddgg::GraphError;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -9,6 +10,7 @@ use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType,
 use crate::errors::{NodeError, NodeOk};
 use crate::global_state::GlobalState;
 use crate::node::{InitResult, NodeInitState, NodeRow};
+use crate::nodes::gain::GainGraphNode;
 use crate::nodes::variants::NodeVariant;
 use crate::socket_registry::SocketRegistry;
 use crate::{node::Node, node_graph::NodeGraph};
@@ -59,16 +61,13 @@ fn graph_node_crud() {
     assert!(graph.get_node(first_node_index).is_ok());
 
     // now let's remove it
-    assert_eq!(
-        format!("{:?}", graph.remove_node(first_node_index)),
-        format!("{:?}", Ok::<(), NodeError>(()))
-    );
+    assert!(graph.remove_node(first_node_index).is_ok());
 
     // let's try removing it twice
     assert_eq!(
         std::mem::discriminant(&graph.remove_node(first_node_index).unwrap_err()),
-        std::mem::discriminant(&NodeError::NodeDoesNotExist {
-            node_index: first_node_index
+        std::mem::discriminant(&NodeError::GraphError {
+            error: GraphError::VertexDoesNotExist(first_node_index.0)
         })
     );
 
@@ -98,8 +97,8 @@ fn graph_node_crud() {
         format!("{:?}", &graph.remove_node(first_node_index).unwrap_err()),
         format!(
             "{:?}",
-            &NodeError::NodeDoesNotExist {
-                node_index: first_node_index.clone()
+            &NodeError::GraphError {
+                error: GraphError::VertexDoesNotExist(first_node_index.0)
             }
         )
     );
@@ -110,7 +109,7 @@ fn graph_node_crud() {
     // add another node for good measure to make sure it's growing
     graph
         .add_node(
-            NodeVariant::TestNode(TestNode {}),
+            NodeVariant::GainGraphNode(GainGraphNode::default()),
             NodeInitState {
                 props: &HashMap::new(),
                 registry: &mut registry,
@@ -118,7 +117,9 @@ fn graph_node_crud() {
                 global_state,
             },
         )
-        .unwrap();
+        .unwrap()
+        .value;
+
     assert_eq!(graph.len(), 2);
 
     println!("{:?}", graph);

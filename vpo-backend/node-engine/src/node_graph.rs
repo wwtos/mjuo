@@ -1,6 +1,6 @@
 use std::mem;
 
-use ddgg::{EdgeIndex, Graph, GraphDiff};
+use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
@@ -14,13 +14,13 @@ use crate::{
 pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub(crate) struct NodeConnection {
-    pub(crate) from_socket_type: SocketType,
-    pub(crate) to_socket_type: SocketType,
+pub struct NodeConnection {
+    pub from_socket_type: SocketType,
+    pub to_socket_type: SocketType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-struct ConnectionIndex(pub EdgeIndex);
+pub struct ConnectionIndex(pub EdgeIndex);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeGraph {
@@ -63,8 +63,8 @@ impl NodeGraph {
             });
         }
 
-        let from = self.nodes.get_vertex(from_index.0)?.data;
-        let to = self.nodes.get_vertex(to_index.0)?.data;
+        let from = &self.nodes.get_vertex(from_index.0)?.data;
+        let to = &self.nodes.get_vertex(to_index.0)?.data;
 
         if !from.has_output_socket(from_socket_type) {
             return Err(NodeError::SocketDoesNotExist {
@@ -127,7 +127,7 @@ impl NodeGraph {
         let edges = self.nodes.shared_edges(from_index.0, to_index.0)?;
 
         for edge_index in edges {
-            let edge = self.nodes.get_edge(edge_index)?.data;
+            let edge = &self.nodes.get_edge(edge_index)?.data;
 
             if edge.from_socket_type == from_socket_type && edge.to_socket_type == to_socket_type {
                 return Ok(ConnectionIndex(edge_index));
@@ -317,7 +317,7 @@ impl NodeGraph {
 }
 
 impl NodeGraph {
-    pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
+    pub fn post_deserialization(&mut self, state: NodeInitState, _sound_config: &SoundConfig) -> Result<(), NodeError> {
         let NodeInitState {
             props,
             registry,
@@ -329,6 +329,8 @@ impl NodeGraph {
         // then, initialize all those nodes in the graph here
         self.nodes
             .vertex_indexes()
+            .collect::<Vec<VertexIndex>>()
+            .into_iter()
             .map(|node_index| {
                 self.init_node(
                     NodeIndex(node_index),
@@ -339,9 +341,11 @@ impl NodeGraph {
                         global_state,
                     },
                     false,
-                )
+                )?;
+
+                Ok(())
             })
-            .collect::<Result<Vec<_>, NodeError>>()?;
+            .collect::<Result<Vec<()>, NodeError>>()?;
 
         Ok(())
     }

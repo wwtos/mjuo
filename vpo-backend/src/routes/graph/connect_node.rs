@@ -1,8 +1,10 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
+    connection::Connection,
     errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
+    graph_manager::{GlobalNodeIndex, GraphIndex},
     state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
@@ -11,21 +13,28 @@ use snafu::ResultExt;
 use crate::{routes::RouteReturn, util::send_graph_updates};
 
 pub fn route(
-    msg: Value,
+    mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let graph_index = msg["payload"]["graphIndex"]
-        .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "graphIndex".to_string(),
-        })?;
+    let graph_index: GraphIndex =
+        serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
+    let connection: Connection =
+        serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?;
 
     state.commit(
-        ActionBundle::new(vec![Action::AddConnection {
-            graph_index,
-            connection: serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?,
+        ActionBundle::new(vec![Action::ConnectNodes {
+            from: GlobalNodeIndex {
+                graph_index,
+                node_index: connection.from_node,
+            },
+            from_socket_type: connection.from_socket_type,
+            to: GlobalNodeIndex {
+                graph_index,
+                node_index: connection.to_node,
+            },
+            to_socket_type: connection.to_socket_type,
         }]),
         global_state,
     )?;

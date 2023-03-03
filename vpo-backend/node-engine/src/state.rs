@@ -57,6 +57,12 @@ pub struct ActionBundle {
     actions: Vec<Action>,
 }
 
+impl ActionBundle {
+    pub fn new(actions: Vec<Action>) -> ActionBundle {
+        ActionBundle { actions }
+    }
+}
+
 pub struct ActionInvalidations {
     pub graph_to_reindex: Option<GraphIndex>,
     pub graph_operated_on: Option<GraphIndex>,
@@ -90,12 +96,6 @@ struct HistoryActionBundle {
     actions: Vec<HistoryAction>,
 }
 
-impl HistoryActionBundle {
-    pub fn new(actions: Vec<HistoryAction>) -> HistoryActionBundle {
-        HistoryActionBundle { actions }
-    }
-}
-
 #[derive(Clone)]
 pub struct AssetBundle<'a> {
     pub samples: &'a ResourceManager<Sample>,
@@ -127,7 +127,7 @@ impl NodeEngineState {
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, midi_in_node) = {
-            let graph = graph_manager.get_graph(root_graph_index)?.graph.borrow_mut();
+            let mut graph = graph_manager.get_graph(root_graph_index)?.graph.borrow_mut();
 
             let output_node = graph
                 .add_node(
@@ -210,7 +210,7 @@ impl NodeEngineState {
                 node_index: parent_node_index,
             } in parent_nodes
             {
-                let parent_node_graph = self.graph_manager.get_graph(parent_node_graph)?.graph.borrow_mut();
+                let mut parent_node_graph = self.graph_manager.get_graph(parent_node_graph)?.graph.borrow_mut();
                 let subgraph = &mut self.graph_manager.get_graph(graph_index)?.graph.borrow_mut();
 
                 let node = parent_node_graph.get_node_mut(parent_node_index)?;
@@ -230,8 +230,8 @@ impl NodeEngineState {
     ) -> f32 {
         let root_graph = self.graph_manager.get_graph(self.graph_manager.root_index()).unwrap();
 
-        let graph = root_graph.graph.borrow_mut();
-        let traverser = root_graph.traverser;
+        let mut graph = root_graph.graph.borrow_mut();
+        let traverser = &root_graph.traverser;
 
         let midi_in_node = graph.get_node_mut(self.midi_in_node).unwrap();
         midi_in_node.accept_midi_input(MidiSocketType::Default, midi_in);
@@ -312,7 +312,7 @@ impl NodeEngineState {
         all_graphs_that_changed
     }
 
-    pub fn is_action_property_related(action: &HistoryAction) -> bool {
+    fn is_action_property_related(action: &HistoryAction) -> bool {
         matches!(
             action,
             HistoryAction::ChangeNodeProperties { .. }
@@ -321,7 +321,7 @@ impl NodeEngineState {
         )
     }
 
-    pub fn get_history_ref(&self) -> &Vec<HistoryActionBundle> {
+    fn get_history_ref(&self) -> &Vec<HistoryActionBundle> {
         &self.history
     }
 
@@ -523,7 +523,7 @@ impl NodeEngineState {
                 before: _,
                 after,
             } => {
-                let graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
                 let node = graph.get_node_mut(index.node_index)?;
 
                 let before = node.replace_properties(after.clone());
@@ -548,7 +548,7 @@ impl NodeEngineState {
                 before: _,
                 after,
             } => {
-                let graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
 
                 let node = graph.get_node_mut(index.node_index)?;
 
@@ -611,7 +611,7 @@ impl NodeEngineState {
 
         let new_action = match action {
             HistoryAction::ChangeNodeProperties { index, before, after } => {
-                let graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
 
                 let node = graph.get_node_mut(index.node_index)?;
 
@@ -650,7 +650,7 @@ impl NodeEngineState {
                 HistoryAction::ChangeNodeUiData { index, before, after }
             }
             HistoryAction::ChangeNodeOverrides { index, before, after } => {
-                let graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
 
                 let node = graph.get_node_mut(index.node_index)?;
 

@@ -22,11 +22,11 @@ enum DiffElement {
 #[derive(Debug, Clone)]
 pub struct GraphManagerDiff(Vec<DiffElement>);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphIndex(pub VertexIndex);
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphEdgeIndex(pub EdgeIndex);
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConnectedThrough(pub NodeIndex);
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -50,7 +50,7 @@ pub struct GraphManager {
 
 impl GraphManager {
     pub fn new() -> Self {
-        let graph = Graph::new();
+        let mut graph = Graph::new();
         let (root_index, _) = graph
             .add_vertex(NodeGraphWrapper {
                 graph: RefCell::new(NodeGraph::new()),
@@ -96,8 +96,8 @@ impl GraphManager {
     ) -> Result<(ConnectedThrough, GraphManagerDiff), NodeError> {
         let shared_edges = self.node_graphs.shared_edges(from.0, to.0)?;
 
-        for edge_index in shared_edges {
-            let edge = self.node_graphs.get_edge(edge_index)?;
+        for edge_index in &shared_edges {
+            let edge = self.node_graphs.get_edge(*edge_index)?;
 
             if edge.data == through {
                 let (old_data, remove_diff) = self.node_graphs.remove_edge(shared_edges[0])?;
@@ -137,7 +137,7 @@ impl GraphManager {
         Ok(self.node_graphs.get_vertex_data(index.0)?)
     }
 
-    fn get_graph_mut(&self, index: GraphIndex) -> Result<&mut NodeGraphWrapper, NodeError> {
+    fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraphWrapper, NodeError> {
         Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
     }
 
@@ -156,8 +156,8 @@ impl GraphManager {
             .map_err(|err| err.into())
     }
 
-    pub fn recalculate_traversal_for_graph(&self, index: GraphIndex) -> Result<(), NodeError> {
-        let mut graph_wrapper = self.get_graph(index)?;
+    pub fn recalculate_traversal_for_graph(&mut self, index: GraphIndex) -> Result<(), NodeError> {
+        let mut graph_wrapper = self.get_graph_mut(index)?;
 
         // set the new traverser
         graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow());
@@ -166,11 +166,11 @@ impl GraphManager {
     }
 
     pub fn update_traversal_defaults(
-        &self,
+        &mut self,
         index: GraphIndex,
         nodes_to_update: Vec<NodeIndex>,
     ) -> Result<(), NodeError> {
-        let graph_wrapper = self.get_graph(index)?;
+        let graph_wrapper = self.get_graph_mut(index)?;
 
         let NodeGraphWrapper { traverser, graph, .. } = &mut *graph_wrapper;
 
@@ -202,7 +202,7 @@ impl GraphManager {
         let new_node = new_variant(node_type, sound_config)?;
         let mut diff = vec![];
 
-        let graph = &mut self.get_graph(graph_index)?.graph.borrow_mut();
+        let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
         let creation_result = graph.add_node(
             new_node,
             NodeInitState {
@@ -224,12 +224,15 @@ impl GraphManager {
         let new_node_wrapper = graph.get_node(new_node_index)?;
         let uses_child_graph = new_node_wrapper.uses_child_graph();
 
+        drop(graph);
+
         let child_graph_index = if uses_child_graph {
             let new_graph_index = {
                 // create a graph for it
                 let (new_graph_index, creation_diff) = self.new_graph()?;
                 diff.extend(creation_diff.0);
 
+                let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
                 let new_node = graph.get_node_mut(new_node_index)?;
 
                 // get a list of the input and output nodes in the child graph
@@ -273,8 +276,8 @@ impl GraphManager {
                 );
 
                 // run the node's graph init function
-                let new_child_graph = &mut self.get_graph(new_graph_index)?.graph.borrow();
-                new_node.node_init_graph(new_child_graph);
+                let mut new_child_graph = self.get_graph(new_graph_index)?.graph.borrow_mut();
+                new_node.node_init_graph(&mut new_child_graph);
 
                 new_graph_index
             };
@@ -290,6 +293,10 @@ impl GraphManager {
 
         let graph = &mut self.get_graph(graph_index)?.graph.borrow_mut();
         let new_node = graph.get_node_mut(new_node_index)?;
+
+        if let Some(child_graph_index) = child_graph_index {
+            new_node.set_child_graph_index(child_graph_index);
+        }
 
         let invalidations = ActionInvalidations {
             graph_to_reindex: None,
@@ -314,7 +321,7 @@ impl GraphManager {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
 
-        let graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
+        let mut graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
 
         let (_, graph_diff) = graph.connect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
 
@@ -340,7 +347,7 @@ impl GraphManager {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
 
-        let graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
+        let mut graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
 
         let (_, graph_diff) = graph.disconnect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
 
@@ -378,8 +385,7 @@ impl GraphManager {
 
         // now that we've ensured that the graph is disconnected, we can safely delete the node
         // but first, we need to make a list of its current connections (for undo)
-        let graph = self.get_graph(graph_index)?.graph.borrow_mut();
-        let node = graph.get_node(node_index)?;
+        let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
 
         // now, we can remove the node
         let (_, remove_diff) = graph.remove_node(node_index)?;
@@ -428,8 +434,10 @@ impl GraphManager {
             global_state,
         } = state;
 
-        for graph_wrapper_index in self.node_graphs.vertex_indexes() {
-            let graph_wrapper = self.get_graph_mut(GraphIndex(graph_wrapper_index))?;
+        let indexes: Vec<VertexIndex> = self.node_graphs.vertex_indexes().collect();
+
+        for graph_wrapper_index in &indexes {
+            let graph_wrapper = self.get_graph_mut(GraphIndex(*graph_wrapper_index))?;
 
             graph_wrapper.graph.borrow_mut().post_deserialization(
                 NodeInitState {
@@ -444,11 +452,13 @@ impl GraphManager {
         }
 
         // next, init child graph inputs and outputs nodes
-        for graph_wrapper_index in self.node_graphs.vertex_indexes() {
-            let graph_wrapper = self.get_graph(GraphIndex(graph_wrapper_index))?;
-            let graph = graph_wrapper.graph.borrow();
+        for graph_wrapper_index in &indexes {
+            let graph_wrapper = self.get_graph(GraphIndex(*graph_wrapper_index))?;
+            let mut graph = graph_wrapper.graph.borrow_mut();
 
-            for node_index in graph.node_indexes() {
+            let node_indexes: Vec<NodeIndex> = graph.node_indexes().collect();
+
+            for node_index in node_indexes {
                 let node = graph.get_node_mut(node_index)?;
                 let socket_list = node.get_child_graph_socket_list(registry);
 
@@ -511,13 +521,14 @@ impl GraphManager {
         }
 
         // finally go through and run init_child_graph for all the nodes in the root graph
-        let root_graph = self.get_graph(self.root_index)?.graph.borrow_mut();
+        let mut root_graph = self.get_graph(self.root_index)?.graph.borrow_mut();
 
-        for node_index in root_graph.node_indexes() {
-            let node = root_graph.get_node(node_index)?;
+        let node_indexes: Vec<NodeIndex> = root_graph.node_indexes().collect();
+        for node_index in node_indexes {
+            let node = root_graph.get_node_mut(node_index)?;
 
             if let Some(child_graph_index) = node.get_child_graph_index() {
-                let mut child_graph = self.get_graph(*child_graph_index)?;
+                let child_graph = self.get_graph(*child_graph_index)?;
 
                 node.node_init_graph(&mut child_graph.graph.borrow_mut());
             }

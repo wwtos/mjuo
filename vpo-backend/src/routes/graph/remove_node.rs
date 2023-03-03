@@ -1,9 +1,9 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserErrorInContextSnafu, NodeError},
+    errors::{JsonParserErrorInContextSnafu, JsonParserSnafu, NodeError},
     global_state::GlobalState,
-    graph_manager::GlobalNodeIndex,
+    graph_manager::{GlobalNodeIndex, GraphIndex},
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
 };
@@ -27,33 +27,25 @@ use crate::{routes::RouteReturn, util::send_graph_updates};
 /// }```
 ///
 pub fn route(
-    msg: Value,
+    mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     let node_index: NodeIndex =
-        serde_json::from_value(msg["payload"]["nodeIndex"].clone()).context(JsonParserErrorInContextSnafu {
+        serde_json::from_value(msg["payload"]["nodeIndex"].take()).context(JsonParserErrorInContextSnafu {
             context: "payload.nodeIndex".to_string(),
         })?;
 
-    let graph_index = msg["payload"]["graphIndex"]
-        .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "payload.graphIndex".to_string(),
-        })?;
+    let graph_index: GraphIndex =
+        serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
 
     state.commit(
         ActionBundle::new(vec![Action::RemoveNode {
-            node_type: None,
             index: GlobalNodeIndex {
                 node_index,
                 graph_index,
             },
-            connections: None,
-            serialized: None,
-            child_graph_index: None,
-            child_graph_io_indexes: None,
         }]),
         global_state,
     )?;
