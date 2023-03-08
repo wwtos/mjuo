@@ -1,10 +1,9 @@
 <script lang="ts">
     import Node from "./Node.svelte";
     import ConnectionUI from "./Connection.svelte";
-    import { graphManager, socketRegistry } from "./state";
+    import { graphManager } from "./state";
     import { onMount } from "svelte";
-    import { NodeIndex } from "../node-engine/node_index";
-    import { NodeGraph, PossibleNode } from "../node-engine/node_graph";
+    import type { NodeGraph } from "../node-engine/node_graph";
     import { NodeWrapper, NODE_WIDTH } from "../node-engine/node";
     import {
         SocketDirection,
@@ -12,18 +11,19 @@
         Connection,
         SocketType,
     } from "../node-engine/connection";
-    import { IPCSocket } from "../util/socket";
+    import type { IPCSocket } from "../util/socket";
     import panzoom from "panzoom";
     import {
         transformMouse,
         transformMouseRelativeToEditor,
     } from "../util/mouse-transforms";
-    import { variants } from "../node-engine/variants";
-    import { i18nStore } from "../i18n.js";
-    import { BehaviorSubject, Subject, Subscription } from "rxjs";
+    import type { BehaviorSubject, Subscription } from "rxjs";
     import type { SocketEvent } from "./socket";
     import NodeCreationMenu from "./NodeCreationMenu.svelte";
     import Breadcrumb from "./Breadcrumb.svelte";
+    import type { Index } from "../ddgg/gen_vec";
+    import type { VertexIndex } from "../ddgg/graph";
+    import { deselectAll } from "./editor-utils";
 
     export let width = 400;
     export let height = 400;
@@ -33,6 +33,8 @@
     export let activeGraph: BehaviorSubject<NodeGraph>;
     let previousSubscriptions: Array<Subscription> = [];
 
+    $: console.log(activeGraph);
+
     // TODO: remove debugging VVV
     window["ipcSocket"] = ipcSocket;
     $: window["graph"] = $activeGraph;
@@ -41,13 +43,13 @@
 
     let zoomer;
 
-    ipcSocket.requestGraph(0);
+    ipcSocket.requestGraph({ index: 0, generation: 0 });
 
     let editor: HTMLDivElement;
     let nodeContainer: HTMLDivElement;
 
     // node being actively dragged as well as the mouse offset
-    let draggedNode: null | NodeIndex = null;
+    let draggedNode: null | VertexIndex = null;
     let draggedNodeWasDragged = false;
     let draggedOffset: null | [number, number] = null;
     let createNodeMenu = {
@@ -64,18 +66,18 @@
         y2: number;
     } = null;
     let connectionBeingCreatedFrom: {
-        index: NodeIndex;
+        index: VertexIndex;
         direction: SocketDirection;
         socket: SocketType;
     };
     let path = [
         {
             name: "root",
-            index: 0,
+            index: { index: 0, generation: 0 },
         },
     ];
 
-    let selectedNodes: NodeIndex[] = [];
+    let selectedNodes: VertexIndex[] = [];
 
     const onKeydown = (event) => {
         if (event.ctrlKey) {
@@ -96,8 +98,8 @@
                 case "Delete":
                     const selected = $activeGraph.nodeStore
                         .getValue()
-                        .filter((node) => node?.ui_data.selected)
-                        .map((node) => node.index);
+                        .filter(([{ data: node }, _]) => node?.uiData.selected)
+                        .map(([_, index]) => index);
 
                     for (let index of selected) {
                         ipcSocket.removeNode($activeGraph.graphIndex, index);
@@ -122,13 +124,13 @@
 
             draggedNodeWasDragged = true;
 
-            node.ui_data = {
-                ...node.ui_data,
+            node.uiData = {
+                ...node.uiData,
                 x: mouseX - draggedOffset[0],
                 y: mouseY - draggedOffset[1],
             };
 
-            $activeGraph.updateNode(node.index);
+            $activeGraph.updateNode(draggedNode);
             $activeGraph.update();
         } else if (connectionBeingCreated) {
             connectionBeingCreated.x2 = mouseX;
@@ -185,7 +187,7 @@
         createNodeMenu.visible = false;
     }
 
-    let keyedNodes: [string, NodeWrapper][];
+    let keyedNodes: [string, NodeWrapper, VertexIndex][];
     let keyedConnections: [string, Connection][];
 
     $: {
@@ -205,28 +207,7 @@
         ];
     }
 
-    function deselectAll(): NodeIndex[] {
-        const currentNodes = $activeGraph.nodeStore.getValue();
-
-        let touchedNodes: NodeIndex[] = [];
-
-        for (var i = 0; i < currentNodes.length; i++) {
-            if (currentNodes[i] && currentNodes[i].ui_data.selected) {
-                touchedNodes.push(currentNodes[i].index);
-
-                currentNodes[i].ui_data = {
-                    ...currentNodes[i].ui_data,
-                    selected: false,
-                };
-
-                $activeGraph.updateNode(currentNodes[i].index);
-            }
-        }
-
-        return touchedNodes;
-    }
-
-    function handleNodeMousedown(index: NodeIndex, event: MouseEvent) {
+    function handleNodeMousedown(index: VertexIndex, event: MouseEvent) {
         if (event.button === 0) {
             let boundingRect = editor.getBoundingClientRect();
 
@@ -240,12 +221,12 @@
             draggedNode = index;
 
             let node = $activeGraph.getNode(draggedNode);
-            draggedOffset = [mouseX - node.ui_data.x, mouseY - node.ui_data.y];
+            draggedOffset = [mouseX - node.uiData.x, mouseY - node.uiData.y];
 
-            let touchedNodes = deselectAll();
+            let touchedNodes = deselectAll($activeGraph);
 
-            node.ui_data = {
-                ...node.ui_data,
+            node.uiData = {
+                ...node.uiData,
                 selected: true,
             };
 
@@ -268,9 +249,9 @@
 
         if (e.direction === SocketDirection.Input) {
             // see if it's already connected, in which case we're disconnecting it
-            const disconnectingFrom = $activeGraph.getNode(e.nodeIndex);
+            const disconnectingFrom = $activeGraph.getNode(e.vertexIndex);
 
-            let connection = disconnectingFrom.connected_inputs.find(
+            let connection = disconnectingFrom.connectedInputs.find(
                 (inputSocket) => {
                     return (
                         socketToKey(inputSocket.to_socket_type, e.direction) ===
@@ -282,10 +263,12 @@
             // check if we are already connected
             if (connection) {
                 let fullConnection: Connection = {
-                    from_socket_type: connection.from_socket_type,
                     from_node: connection.from_node,
-                    to_socket_type: connection.to_socket_type,
-                    to_node: e.nodeIndex,
+                    to_node: e.vertexIndex,
+                    data: {
+                        from_socket_type: connection.from_socket_type,
+                        to_socket_type: connection.to_socket_type,
+                    },
                 };
 
                 ipcSocket.disconnectNode(
@@ -302,7 +285,7 @@
 
                 const fromNode = $activeGraph.getNode(connection.from_node);
                 const fromNodeXY = $activeGraph.getNodeSocketXY(
-                    fromNode.index,
+                    connection.from_node,
                     connection.from_socket_type,
                     SocketDirection.Output
                 );
@@ -319,7 +302,7 @@
         }
 
         connectionBeingCreatedFrom = {
-            index: e.nodeIndex,
+            index: e.vertexIndex,
             direction: e.direction,
             socket: e.type,
         };
@@ -336,7 +319,7 @@
         let e = event.detail;
 
         // can't connect one node to the same node
-        if (e.nodeIndex.index === connectionBeingCreatedFrom.index.index)
+        if (e.vertexIndex.index === connectionBeingCreatedFrom.index.index)
             return;
 
         // can't connect input to output
@@ -348,17 +331,21 @@
         // connect the output to the input, not the input to the output
         if (connectionBeingCreatedFrom.direction === SocketDirection.Input) {
             newConnection = {
-                from_socket_type: e.type,
-                from_node: e.nodeIndex,
-                to_socket_type: connectionBeingCreatedFrom.socket,
+                from_node: e.vertexIndex,
                 to_node: connectionBeingCreatedFrom.index,
+                data: {
+                    from_socket_type: e.type,
+                    to_socket_type: connectionBeingCreatedFrom.socket,
+                },
             };
         } else {
             newConnection = {
-                from_socket_type: connectionBeingCreatedFrom.socket,
                 from_node: connectionBeingCreatedFrom.index,
-                to_socket_type: e.type,
-                to_node: e.nodeIndex,
+                to_node: e.vertexIndex,
+                data: {
+                    from_socket_type: connectionBeingCreatedFrom.socket,
+                    to_socket_type: e.type,
+                },
             };
         }
 
@@ -373,12 +360,12 @@
     } {
         const fromXY = $activeGraph.getNodeSocketXY(
             connection.from_node,
-            connection.from_socket_type,
+            connection.data.from_socket_type,
             SocketDirection.Output
         );
         const toXY = $activeGraph.getNodeSocketXY(
             connection.to_node,
-            connection.to_socket_type,
+            connection.data.to_socket_type,
             SocketDirection.Input
         );
 
@@ -390,12 +377,10 @@
         };
     }
 
-    async function breadcrumbChangeGraph(
-        event: CustomEvent<{ index: number }>
-    ) {
+    async function breadcrumbChangeGraph(event: CustomEvent<{ index: Index }>) {
         while (
             path.length > 1 &&
-            path[path.length - 1].index !== event.detail.index
+            path[path.length - 1].index.index !== event.detail.index.index
         ) {
             path.pop();
         }
@@ -406,7 +391,7 @@
         path = path;
     }
 
-    async function changeGraphTo(graphIndex: number, nodeTitle: string) {
+    async function changeGraphTo(graphIndex: Index, nodeTitle: string) {
         let graph = await graphManager.getGraph(graphIndex);
 
         activeGraph.next(graph);
@@ -465,10 +450,11 @@
             {/if}
         </div>
         <div style="z-index: 10">
-            {#each keyedNodes as [key, node] (key)}
+            {#each keyedNodes as [key, node, index] (key)}
                 <Node
                     nodes={$activeGraph}
                     wrapper={node}
+                    nodeIndex={index}
                     onMousedown={handleNodeMousedown}
                     on:socketMousedown={handleSocketMousedown}
                     on:socketMouseup={handleSocketMouseup}

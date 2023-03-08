@@ -1,6 +1,8 @@
 import { deepEqual } from "fast-equals";
+import { Index } from "../ddgg/gen_vec";
+import type { VertexIndex } from "../ddgg/graph";
 import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
-import { NodeIndex } from "./node_index";
+import type { NodeConnection } from "./node_graph";
 
 
 export type MidiSocketType = DiscriminatedUnion<"variant", {
@@ -49,7 +51,6 @@ export type SocketType = DiscriminatedUnion<"variant", {
     Midi: { data: MidiSocketType },
     Value: { data: ValueSocketType },
     NodeRef: { data: NodeRefSocketType },
-    MethodCall: { data: Primitive[] },
 }>;
 
 export const SocketType = {
@@ -75,7 +76,6 @@ export const SocketType = {
                     Dynamic: ({ data }) => nodeRef.variant + data,
                 },  () => nodeRef.variant
             ),
-            MethodCall: args => args.toString()
         });
     },
     areEqual(socketType1: SocketType, socketType2: SocketType): boolean {
@@ -97,7 +97,6 @@ export function socketToKey(socket: SocketType, direction: SocketDirection) {
         NodeRef: ({ data: nodeRef }) => matchOrElse(nodeRef, {
             Dynamic: ({ data: uid }) => ":" + uid,
         },  () => "_"),
-        MethodCall: () => ""
     });
 }
 
@@ -107,29 +106,28 @@ export enum SocketDirection {
 };
 
 export interface Connection {
-    from_socket_type: SocketType;
-    from_node: NodeIndex;
-    to_socket_type: SocketType;
-    to_node: NodeIndex;
+    from_node: VertexIndex;
+    to_node: VertexIndex;
+    data: NodeConnection;
 }
 
 export const Connection = {
     getKey(connection: Connection): string {
-        return SocketType.toKey(connection.from_socket_type) + ":" +
-            NodeIndex.toKey(connection.from_node) + "->" +
-            SocketType.toKey(connection.to_socket_type) + ":" +
-            NodeIndex.toKey(connection.to_node);
+        return SocketType.toKey(connection.data.from_socket_type) + ":" +
+            Index.toKey(connection.from_node) + "->" +
+            SocketType.toKey(connection.data.to_socket_type) + ":" +
+            Index.toKey(connection.to_node);
     }
 }
 
 export interface InputSideConnection {
     from_socket_type: SocketType;
-    from_node: NodeIndex;
+    from_node: VertexIndex;
     to_socket_type: SocketType;
 }
 
 export interface OutputSideConnection {
     from_socket_type: SocketType;
-    to_node: NodeIndex;
+    to_node: VertexIndex;
     to_socket_type: SocketType;
 }

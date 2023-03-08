@@ -1,16 +1,18 @@
 <script lang="ts">
-    import { NodeGraph } from "../node-engine/node_graph";
+    import type { NodeGraph } from "../node-engine/node_graph";
     import type { NodeWrapper } from "../node-engine/node";
     import type { Property, PropertyType } from "../node-engine/property";
     import { matchOrElse } from "../util/discriminated-union";
     import { deepEqual } from "fast-equals";
+    import type { VertexIndex } from "../ddgg/graph";
 
     export let nodeWrapper: NodeWrapper;
+    export let nodeIndex: VertexIndex;
     export let propName: string;
     export let propType: PropertyType;
     export let nodes: NodeGraph;
 
-    let value = nodes.getNodePropertyValue(nodeWrapper.index, propName);
+    let value = nodes.getNodePropertyValue(nodeIndex, propName);
 
     function updateProperties(event) {
         const newValue = event.target.value;
@@ -58,8 +60,8 @@
         if (!deepEqual(nodeWrapper.properties[propName], newValueParsed)) {
             nodeWrapper.properties[propName] = newValueParsed;
 
-            nodes.updateNode(nodeWrapper.index);
-            nodes.markNodeAsUpdated(nodeWrapper.index);
+            nodes.updateNode(nodeIndex);
+            nodes.markNodeAsUpdated(nodeIndex);
             nodes.writeChangedNodesToServer();
         }
     }

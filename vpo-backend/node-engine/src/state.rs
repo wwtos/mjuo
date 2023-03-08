@@ -11,6 +11,7 @@ use crate::{
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeInitState, NodeRow},
+    node_graph::NodeConnection,
     nodes::{midi_input::MidiInNode, output::OutputNode, variants::NodeVariant},
     property::Property,
     socket_registry::SocketRegistry,
@@ -25,15 +26,13 @@ pub enum Action {
     },
     ConnectNodes {
         from: GlobalNodeIndex,
-        from_socket_type: SocketType,
         to: GlobalNodeIndex,
-        to_socket_type: SocketType,
+        data: NodeConnection,
     },
     DisconnectNodes {
         from: GlobalNodeIndex,
-        from_socket_type: SocketType,
         to: GlobalNodeIndex,
-        to_socket_type: SocketType,
+        data: NodeConnection,
     },
     RemoveNode {
         index: GlobalNodeIndex,
@@ -444,27 +443,17 @@ impl NodeEngineState {
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
-            Action::ConnectNodes {
-                from,
-                from_socket_type,
-                to,
-                to_socket_type,
-            } => {
+            Action::ConnectNodes { from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .connect_nodes(from, from_socket_type, to, to_socket_type)?;
+                        .connect_nodes(from, data.from_socket_type, to, data.to_socket_type)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
-            Action::DisconnectNodes {
-                from,
-                from_socket_type,
-                to,
-                to_socket_type,
-            } => {
+            Action::DisconnectNodes { from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .disconnect_nodes(from, from_socket_type, to, to_socket_type)?;
+                        .disconnect_nodes(from, data.from_socket_type, to, data.to_socket_type)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }

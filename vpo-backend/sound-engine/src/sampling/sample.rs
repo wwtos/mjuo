@@ -5,7 +5,7 @@ use std::{
 };
 
 use regex::Regex;
-use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource, TomlParserDeSnafu, TomlParserSerSnafu};
+use resource_manager::{IOSnafu, LoadingError, Resource, TomlParserDeSnafu, TomlParserSerSnafu};
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
@@ -15,7 +15,6 @@ use crate::{midi::messages::Note, MonoSample};
 use super::{envelope::calc_sample_metadata, interpolate::lerp};
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Sample {
     pub loop_start: usize,
     pub loop_end: usize,

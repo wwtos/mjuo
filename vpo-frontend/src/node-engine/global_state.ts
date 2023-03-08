@@ -1,9 +1,9 @@
 export interface SoundConfig {
-    sample_rate: number;
+    sampleRate: number;
 }
 
 export interface GlobalState {
-    active_project: string | null;
-    sound_config: SoundConfig;
+    activeProject: string | null;
+    soundConfig: SoundConfig;
     resources: string[];
 }

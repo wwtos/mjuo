@@ -1,6 +1,7 @@
+import type { Index } from "../ddgg/gen_vec";
+import type { VertexIndex } from "../ddgg/graph";
 import type { Connection } from "../node-engine/connection";
 import type { NodeWrapper, UiData } from "../node-engine/node";
-import type { NodeIndex } from "../node-engine/node_index";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -31,28 +32,28 @@ export class IPCSocket {
         });
     }
 
-    createNode (graphIndex: number, type: string, uiData?: UiData) {
+    createNode (graphIndex: Index, type: string, uiData?: UiData) {
         this.send({
             "action": "graph/newNode",
             "payload": {
                 graphIndex,
                 "type": type,
-                "ui_data": uiData,
+                "uiData": uiData,
             }
         });
     }
 
-    removeNode (graphIndex: number, nodeIndex: NodeIndex) {
+    removeNode (graphIndex: Index, vertexIndex: VertexIndex) {
         this.send({
             "action": "graph/removeNode",
             "payload": {
                 graphIndex,
-                nodeIndex
+                vertexIndex
             }
         });
     }
 
-    updateNodes (graphIndex: number, nodes: NodeWrapper[]) {
+    updateNodes (graphIndex: Index, nodes: NodeWrapper[]) {
         const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
 
         this.send({
@@ -64,7 +65,7 @@ export class IPCSocket {
         });
     }
 
-    updateNodesUi (graphIndex: number, nodes: NodeWrapper[]) {
+    updateNodesUi (graphIndex: Index, nodes: NodeWrapper[]) {
         const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
 
         this.send({
@@ -76,7 +77,7 @@ export class IPCSocket {
         });
     }
 
-    connectNode (graphIndex: number, connection: Connection) {
+    connectNode (graphIndex: Index, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/connectNode",
             "payload": {
@@ -86,7 +87,7 @@ export class IPCSocket {
         })));
     }
 
-    disconnectNode (graphIndex: number, connection: Connection) {
+    disconnectNode (graphIndex: Index, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/disconnectNode",
             "payload": {
@@ -96,7 +97,7 @@ export class IPCSocket {
         })));
     }
 
-    requestGraph (graphIndex: number) {
+    requestGraph (graphIndex: Index) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/get",
             "payload": {

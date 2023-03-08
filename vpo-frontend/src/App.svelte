@@ -5,7 +5,7 @@
     import { SplitDirection } from "./layout/enums";
     import { windowDimensions } from "./util/window-size";
     import { IPCSocket } from "./util/socket";
-    import { NodeGraph } from "./node-engine/node_graph";
+    import type { NodeGraph } from "./node-engine/node_graph";
     import Toasts from "./ui/Toasts.svelte";
     import {
         graphManager,
@@ -45,7 +45,7 @@
         console.log("received", message);
 
         if (message.action === "graph/updateGraph") {
-            graphManager.applyJson(message);
+            graphManager.applyJson(message.payload);
         } else if (message.action === "registry/updateRegistry") {
             $socketRegistry.applyJson(message.payload);
         } else if (message.action === "state/updateGlobalState") {

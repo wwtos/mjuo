@@ -9,7 +9,7 @@ export const ipcSocket: BehaviorSubject<IPCSocket | undefined> = new BehaviorSub
 export const graphManager = new GraphManager();
 export const activeEditor = new BehaviorSubject<"nodes" | "ui" | "files">("nodes");
 export const globalState = new BehaviorSubject<GlobalState>({
-    active_project: null,
-    sound_config: {sample_rate: 0},
+    activeProject: null,
+    soundConfig: {sampleRate: 0},
     resources: []
 });

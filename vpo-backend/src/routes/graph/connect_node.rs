@@ -5,6 +5,7 @@ use node_engine::{
     errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
+    node_graph::NodeConnection,
     state::{Action, ActionBundle, NodeEngineState},
 };
 use serde_json::Value;
@@ -29,12 +30,14 @@ pub fn route(
                 graph_index,
                 node_index: connection.from_node,
             },
-            from_socket_type: connection.from_socket_type,
             to: GlobalNodeIndex {
                 graph_index,
                 node_index: connection.to_node,
             },
-            to_socket_type: connection.to_socket_type,
+            data: NodeConnection {
+                from_socket_type: connection.data.from_socket_type,
+                to_socket_type: connection.data.to_socket_type,
+            },
         }]),
         global_state,
     )?;

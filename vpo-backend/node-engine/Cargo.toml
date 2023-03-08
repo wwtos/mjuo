@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 async-std = "1.10.0"
-ddgg = {git = "https://github.com/smj-edison/ddgg"}
+ddgg = {git = "https://github.com/smj-edison/ddgg", features = ["js_names", "serde"]}
 enum_dispatch = "0.3.8"
 lazy_static = "1.4.0"
 petgraph = "0.6.0"

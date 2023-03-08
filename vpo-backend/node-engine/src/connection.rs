@@ -6,17 +6,16 @@ use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
-use crate::{node::NodeIndex, socket_registry::SocketRegistry};
+use crate::{node::NodeIndex, node_graph::NodeConnection, socket_registry::SocketRegistry};
 
 pub type MidiBundle = SmallVec<[MidiData; 2]>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Connection {
-    pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
-    pub to_socket_type: SocketType,
     pub to_node: NodeIndex,
+    pub data: NodeConnection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -27,8 +26,8 @@ pub struct InputSideConnection {
     pub to_socket_type: SocketType,
 }
 
-#[serde(rename_all = "camelCase")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OutputSideConnection {
     pub from_socket_type: SocketType,
     pub to_node: NodeIndex,

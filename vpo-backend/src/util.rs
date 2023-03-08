@@ -15,7 +15,7 @@ pub fn send_graph_updates(
     graph_index: GraphIndex,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), NodeError> {
-    let mut graph = state.get_graph_manager().get_graph(graph_index)?.graph.borrow_mut();
+    let graph = state.get_graph_manager().get_graph(graph_index)?.graph.borrow_mut();
     let json = serde_json::to_value(&*graph).unwrap();
 
     block_on(async {
@@ -24,7 +24,6 @@ pub fn send_graph_updates(
                 "action": "graph/updateGraph",
                 "payload": {
                     "nodes": json["nodes"],
-                    "connections": json["connections"],
                     "graphIndex": graph_index
                 }
             }}))

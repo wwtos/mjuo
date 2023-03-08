@@ -37,10 +37,12 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
         let weight = edge.weight();
 
         connections.push(Connection {
-            from_socket_type: weight.from_socket_type,
             from_node: graph[edge.source()],
-            to_socket_type: weight.to_socket_type,
             to_node: graph[edge.target()],
+            data: NodeConnection {
+                from_socket_type: weight.from_socket_type,
+                to_socket_type: weight.to_socket_type,
+            },
         });
 
         edge_indexes.push(edge.id());

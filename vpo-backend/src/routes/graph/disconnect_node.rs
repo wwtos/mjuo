@@ -29,12 +29,11 @@ pub fn route(
                 graph_index,
                 node_index: connection.from_node,
             },
-            from_socket_type: connection.from_socket_type,
             to: GlobalNodeIndex {
                 graph_index,
                 node_index: connection.to_node,
             },
-            to_socket_type: connection.to_socket_type,
+            data: connection.data,
         }]),
         global_state,
     )?;

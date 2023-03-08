@@ -1,6 +1,5 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
-    import { NodeIndex } from "../node-engine/node_index";
     import type { NodeWrapper, SocketValue } from "../node-engine/node";
     import type { NodeGraph } from "../node-engine/node_graph";
     import {
@@ -11,10 +10,12 @@
     import { socketTypeToString } from "./interpolation";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { i18n } from "../i18n.js";
-    import { Property, PropertyType } from "../node-engine/property";
+    import type { Property, PropertyType } from "../node-engine/property";
     import { createEventDispatcher } from "svelte";
     import { DiscriminatedUnion, match } from "../util/discriminated-union";
     import type { SocketEvent } from "./socket";
+    import type { Index } from "../ddgg/gen_vec";
+    import type { VertexIndex } from "../ddgg/graph";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -23,6 +24,7 @@
 
     export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;
+    export let nodeIndex: Index;
 
     const dispatch = createEventDispatcher();
 
@@ -45,7 +47,7 @@
     >;
 
     let sockets: ReducedRowType[] = [];
-    $: sockets = wrapper.node_rows.map((nodeRow) =>
+    $: sockets = wrapper.nodeRows.map((nodeRow) =>
         match(nodeRow, {
             StreamInput: ({
                 data: [streamInput, defaultValue, polyphonic],
@@ -121,10 +123,10 @@
 
     let node: HTMLDivElement;
 
-    export let onMousedown = function (index: NodeIndex, e: MouseEvent) {};
+    export let onMousedown = function (index: VertexIndex, e: MouseEvent) {};
 
     function onMousedownRaw(e: MouseEvent) {
-        onMousedown(wrapper.index, e);
+        onMousedown(nodeIndex, e);
     }
 
     function rowToKey(row: ReducedRowType): string {
@@ -136,12 +138,12 @@
     }
 
     function openInnerGraph() {
-        if (wrapper.child_graph_index !== null) {
+        if (wrapper.childGraphIndex !== null) {
             dispatch("changeGraph", {
-                graphIndex: wrapper.child_graph_index,
+                graphIndex: wrapper.childGraphIndex,
                 nodeTitle:
-                    wrapper.ui_data.title && wrapper.ui_data.title.length > 0
-                        ? i18n.t("nodes." + wrapper.ui_data.title)
+                    wrapper.uiData.title && wrapper.uiData.title.length > 0
+                        ? i18n.t("nodes." + wrapper.uiData.title)
                         : " ",
             });
         }
@@ -150,29 +152,29 @@
     function onSocketMousedown(event: CustomEvent<SocketEvent>) {
         dispatch("socketMousedown", {
             ...event.detail,
-            nodeIndex: { ...wrapper.index },
+            vertexIndex: { ...nodeIndex },
         });
     }
 
     function onSocketMouseup(event: CustomEvent<SocketEvent>) {
         dispatch("socketMouseup", {
             ...event.detail,
-            nodeIndex: { ...wrapper.index },
+            vertexIndex: { ...nodeIndex },
         });
     }
 </script>
 
 <div
     class="background"
-    style="transform: translate({wrapper.ui_data.x}px, {wrapper.ui_data
+    style="transform: translate({wrapper.uiData.x}px, {wrapper.uiData
         .y}px); width: {width}px"
     on:mousedown={onMousedownRaw}
-    class:selected={wrapper.ui_data.selected}
+    class:selected={wrapper.uiData.selected}
     bind:this={node}
 >
     <div class="node-title">
-        {wrapper.ui_data.title && wrapper.ui_data.title.length > 0
-            ? i18n.t("nodes." + wrapper.ui_data.title)
+        {wrapper.uiData.title && wrapper.uiData.title.length > 0
+            ? i18n.t("nodes." + wrapper.uiData.title)
             : " "}
     </div>
 
@@ -187,6 +189,7 @@
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}
                 nodeWrapper={wrapper}
+                {nodeIndex}
             />
         {:else if row.variant === "PropertyRow"}
             <NodePropertyRow
@@ -194,6 +197,7 @@
                 nodeWrapper={wrapper}
                 propName={row.propName}
                 propType={row.propType}
+                {nodeIndex}
             />
         {:else}
             <div class="container">

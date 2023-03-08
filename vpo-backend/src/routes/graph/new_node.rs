@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
@@ -56,8 +54,4 @@ pub fn route(
         graph_to_reindex: Some(graph_index),
         graph_operated_on: Some(graph_index),
     }))
-}
-
-fn value_to_hashmap(map: serde_json::Map<String, Value>) -> HashMap<String, Value> {
-    map.into_iter().collect::<HashMap<String, Value>>()
 }
