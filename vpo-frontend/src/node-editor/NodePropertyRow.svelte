@@ -16,7 +16,6 @@
 
     function updateProperties(event) {
         const newValue = event.target.value;
-        console.log(newValue);
 
         const newValueParsed = matchOrElse(
             propType,
@@ -53,8 +52,6 @@
                 throw new Error("unimplemened");
             }
         );
-
-        console.log(nodeWrapper.properties[propName], newValueParsed);
 
         // only send updates if it's changed
         if (!deepEqual(nodeWrapper.properties[propName], newValueParsed)) {

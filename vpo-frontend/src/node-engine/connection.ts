@@ -106,28 +106,28 @@ export enum SocketDirection {
 };
 
 export interface Connection {
-    from_node: VertexIndex;
-    to_node: VertexIndex;
+    fromNode: VertexIndex;
+    toNode: VertexIndex;
     data: NodeConnection;
 }
 
 export const Connection = {
     getKey(connection: Connection): string {
-        return SocketType.toKey(connection.data.from_socket_type) + ":" +
-            Index.toKey(connection.from_node) + "->" +
-            SocketType.toKey(connection.data.to_socket_type) + ":" +
-            Index.toKey(connection.to_node);
+        return SocketType.toKey(connection.data.fromSocketType) + ":" +
+            Index.toKey(connection.fromNode) + "->" +
+            SocketType.toKey(connection.data.toSocketType) + ":" +
+            Index.toKey(connection.toNode);
     }
 }
 
 export interface InputSideConnection {
-    from_socket_type: SocketType;
-    from_node: VertexIndex;
-    to_socket_type: SocketType;
+    fromSocketType: SocketType;
+    fromNode: VertexIndex;
+    toSocketType: SocketType;
 }
 
 export interface OutputSideConnection {
-    from_socket_type: SocketType;
-    to_node: VertexIndex;
-    to_socket_type: SocketType;
+    fromSocketType: SocketType;
+    toNode: VertexIndex;
+    toSocketType: SocketType;
 }

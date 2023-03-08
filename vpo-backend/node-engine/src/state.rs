@@ -320,10 +320,6 @@ impl NodeEngineState {
         )
     }
 
-    fn get_history_ref(&self) -> &Vec<HistoryActionBundle> {
-        &self.history
-    }
-
     pub fn commit(&mut self, actions: ActionBundle, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {
         let (mut new_actions, action_results) = actions
             .actions
@@ -470,14 +466,25 @@ impl NodeEngineState {
                 },
                 global_state,
             )?,
-            Action::ChangeNodeUiData { index, data } => self.reapply_action(
-                HistoryAction::ChangeNodeUiData {
-                    index,
-                    before: HashMap::new(),
-                    after: data,
-                },
-                global_state,
-            )?,
+            Action::ChangeNodeUiData { index, data } => {
+                let before = self
+                    .graph_manager
+                    .get_graph(index.graph_index)?
+                    .graph
+                    .borrow()
+                    .get_node(index.node_index)?
+                    .get_ui_data()
+                    .clone();
+
+                self.reapply_action(
+                    HistoryAction::ChangeNodeUiData {
+                        index,
+                        before,
+                        after: data,
+                    },
+                    global_state,
+                )?
+            }
             Action::ChangeNodeOverrides { index, overrides } => self.reapply_action(
                 HistoryAction::ChangeNodeOverrides {
                     index,
@@ -576,7 +583,7 @@ impl NodeEngineState {
             }
             HistoryAction::GraphAction { diff } => {
                 let cloned = diff.clone();
-                self.graph_manager.reapply_action(diff)?;
+                action_result = self.graph_manager.reapply_action(diff)?;
 
                 HistoryAction::GraphAction { diff: cloned }
             }
@@ -590,8 +597,6 @@ impl NodeEngineState {
         action: HistoryAction,
         global_state: &GlobalState,
     ) -> Result<(HistoryAction, ActionInvalidations), NodeError> {
-        println!("Rolling back action: {:?}", action);
-
         let mut action_result = ActionInvalidations {
             graph_to_reindex: None,
             graph_operated_on: None,
@@ -657,7 +662,7 @@ impl NodeEngineState {
             }
             HistoryAction::GraphAction { diff } => {
                 let cloned = diff.clone();
-                self.graph_manager.rollback_action(diff)?;
+                action_result = self.graph_manager.rollback_action(diff)?;
 
                 HistoryAction::GraphAction { diff: cloned }
             }

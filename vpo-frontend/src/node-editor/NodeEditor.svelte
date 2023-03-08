@@ -33,8 +33,6 @@
     export let activeGraph: BehaviorSubject<NodeGraph>;
     let previousSubscriptions: Array<Subscription> = [];
 
-    $: console.log(activeGraph);
-
     // TODO: remove debugging VVV
     window["ipcSocket"] = ipcSocket;
     $: window["graph"] = $activeGraph;
@@ -230,9 +228,9 @@
                 selected: true,
             };
 
-            ipcSocket.updateNodesUi($activeGraph.graphIndex, [
-                ...touchedNodes.map((index) => $activeGraph.getNode(index)),
-                node,
+            ipcSocket.updateNodesUi($activeGraph, [
+                ...touchedNodes,
+                draggedNode,
             ]);
         }
     }
@@ -249,25 +247,19 @@
 
         if (e.direction === SocketDirection.Input) {
             // see if it's already connected, in which case we're disconnecting it
-            const disconnectingFrom = $activeGraph.getNode(e.vertexIndex);
-
-            let connection = disconnectingFrom.connectedInputs.find(
-                (inputSocket) => {
-                    return (
-                        socketToKey(inputSocket.to_socket_type, e.direction) ===
-                        socketToKey(e.type, e.direction)
-                    );
-                }
+            let connection = $activeGraph.getNodeInputConnectionImmediate(
+                e.vertexIndex,
+                e.type
             );
 
             // check if we are already connected
             if (connection) {
                 let fullConnection: Connection = {
-                    from_node: connection.from_node,
-                    to_node: e.vertexIndex,
+                    fromNode: connection.fromNode,
+                    toNode: e.vertexIndex,
                     data: {
-                        from_socket_type: connection.from_socket_type,
-                        to_socket_type: connection.to_socket_type,
+                        fromSocketType: connection.fromSocketType,
+                        toSocketType: connection.toSocketType,
                     },
                 };
 
@@ -278,15 +270,15 @@
 
                 // add the connection line back for connecting to something else
                 connectionBeingCreatedFrom = {
-                    index: connection.from_node,
+                    index: connection.fromNode,
                     direction: SocketDirection.Output,
-                    socket: connection.from_socket_type,
+                    socket: connection.fromSocketType,
                 };
 
-                const fromNode = $activeGraph.getNode(connection.from_node);
-                const fromNodeXY = $activeGraph.getNodeSocketXY(
-                    connection.from_node,
-                    connection.from_socket_type,
+                const fromNode = $activeGraph.getNode(connection.fromNode);
+                const fromNodeXY = $activeGraph.getNodeSocketXy(
+                    connection.fromNode,
+                    connection.fromSocketType,
                     SocketDirection.Output
                 );
 
@@ -331,20 +323,20 @@
         // connect the output to the input, not the input to the output
         if (connectionBeingCreatedFrom.direction === SocketDirection.Input) {
             newConnection = {
-                from_node: e.vertexIndex,
-                to_node: connectionBeingCreatedFrom.index,
+                fromNode: e.vertexIndex,
+                toNode: connectionBeingCreatedFrom.index,
                 data: {
-                    from_socket_type: e.type,
-                    to_socket_type: connectionBeingCreatedFrom.socket,
+                    fromSocketType: e.type,
+                    toSocketType: connectionBeingCreatedFrom.socket,
                 },
             };
         } else {
             newConnection = {
-                from_node: connectionBeingCreatedFrom.index,
-                to_node: e.vertexIndex,
+                fromNode: connectionBeingCreatedFrom.index,
+                toNode: e.vertexIndex,
                 data: {
-                    from_socket_type: connectionBeingCreatedFrom.socket,
-                    to_socket_type: e.type,
+                    fromSocketType: connectionBeingCreatedFrom.socket,
+                    toSocketType: e.type,
                 },
             };
         }
@@ -358,14 +350,14 @@
         x2: number;
         y2: number;
     } {
-        const fromXY = $activeGraph.getNodeSocketXY(
-            connection.from_node,
-            connection.data.from_socket_type,
+        const fromXY = $activeGraph.getNodeSocketXy(
+            connection.fromNode,
+            connection.data.fromSocketType,
             SocketDirection.Output
         );
-        const toXY = $activeGraph.getNodeSocketXY(
-            connection.to_node,
-            connection.data.to_socket_type,
+        const toXY = $activeGraph.getNodeSocketXy(
+            connection.toNode,
+            connection.data.toSocketType,
             SocketDirection.Input
         );
 

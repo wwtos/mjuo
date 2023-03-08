@@ -1,11 +1,12 @@
 use std::mem;
 
-use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
+use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
 use crate::{
-    connection::{OutputSideConnection, SocketDirection, SocketType},
+    connection::{InputSideConnection, OutputSideConnection, SocketDirection, SocketType},
     errors::{NodeError, NodeOk, NodeResult, WarningBuilder},
     node::{Node, NodeIndex, NodeInitState, NodeRow, NodeWrapper},
     nodes::variants::NodeVariant,
@@ -20,7 +21,7 @@ pub struct NodeConnection {
     pub to_socket_type: SocketType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConnectionIndex(pub EdgeIndex);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -113,6 +114,13 @@ impl NodeGraph {
         Ok(self.nodes.remove_edge(edge_index.0)?)
     }
 
+    pub fn disconnect_by_index(
+        &mut self,
+        edge_index: ConnectionIndex,
+    ) -> Result<(NodeConnection, NodeGraphDiff), NodeError> {
+        Ok(self.nodes.remove_edge(edge_index.0)?)
+    }
+
     pub fn remove_node(&mut self, index: NodeIndex) -> Result<(NodeWrapper, NodeGraphDiff), NodeError> {
         let (old_data, diff) = self.nodes.remove_vertex(index.0)?;
 
@@ -139,6 +147,74 @@ impl NodeGraph {
         Err(NodeError::NotConnected)
     }
 
+    pub fn get_output_connection_indexes(
+        &self,
+        from_index: NodeIndex,
+        to_socket_type: SocketType,
+    ) -> Result<Vec<ConnectionIndex>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_to();
+
+        let matching: Vec<ConnectionIndex> = edge_indexes
+            .iter()
+            .map(|(_, edge_index)| self.nodes.get_edge(*edge_index).map(|edge| (&edge.data, edge_index)))
+            .filter_ok(|(edge, _)| edge.to_socket_type == to_socket_type)
+            .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
+            .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
+
+        Ok(matching)
+    }
+
+    pub fn get_input_connection_indexes(
+        &self,
+        to_index: NodeIndex,
+        from_socket_type: SocketType,
+    ) -> Result<Vec<ConnectionIndex>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(to_index.0)?.get_connections_to();
+
+        let matching: Vec<ConnectionIndex> = edge_indexes
+            .iter()
+            .map(|(_, edge_index)| self.nodes.get_edge(*edge_index).map(|edge| (&edge.data, edge_index)))
+            .filter_ok(|(edge, _)| edge.from_socket_type == from_socket_type)
+            .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
+            .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
+
+        Ok(matching)
+    }
+
+    pub fn get_input_side_connections(&self, from_index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_from();
+
+        let matching: Vec<InputSideConnection> = edge_indexes
+            .iter()
+            .map(|(from_node, edge_index)| {
+                self.nodes.get_edge(*edge_index).map(|edge| InputSideConnection {
+                    from_socket_type: edge.data.from_socket_type,
+                    from_node: NodeIndex(*from_node),
+                    to_socket_type: edge.data.to_socket_type,
+                })
+            })
+            .collect::<Result<Vec<InputSideConnection>, GraphError>>()?;
+
+        Ok(matching)
+    }
+
+    pub fn get_output_side_connections(&self, from_index: NodeIndex) -> Result<Vec<OutputSideConnection>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_to();
+
+        let matching: Vec<OutputSideConnection> = edge_indexes
+            .iter()
+            .map(|(to_node, edge_index)| {
+                self.nodes.get_edge(*edge_index).map(|edge| OutputSideConnection {
+                    from_socket_type: edge.data.from_socket_type,
+                    to_node: NodeIndex(*to_node),
+                    to_socket_type: edge.data.to_socket_type,
+                })
+            })
+            .collect::<Result<Vec<OutputSideConnection>, GraphError>>()?;
+
+        Ok(matching)
+    }
+
     pub fn get_connection(
         &self,
         from_index: NodeIndex,
@@ -159,9 +235,10 @@ impl NodeGraph {
         index: NodeIndex,
         state: NodeInitState,
         force_update: bool,
-    ) -> Result<NodeOk<bool>, NodeError> {
+    ) -> Result<NodeOk<(bool, Vec<GraphDiff<NodeWrapper, NodeConnection>>)>, NodeError> {
         let mut has_changed_self = false;
         let mut warnings = WarningBuilder::new();
+        let mut diffs: Vec<GraphDiff<NodeWrapper, NodeConnection>> = Vec::new();
 
         // will return the new node rows, if they changed
         let node_wrapper = self.get_node_mut(index)?;
@@ -197,10 +274,6 @@ impl NodeGraph {
                 let old_rows = node_wrapper.get_node_rows().clone();
                 let new_rows = &init_result.value.node_rows;
 
-                // TODO: implement sockets changing properly
-                // aka, if a socket is removed, safely disconnect it from the
-                // other node
-
                 // The main thing here is to see what properties were removed -- if it was removed
                 // it needs to be disconnected safely
                 let removed_rows: Vec<NodeRow> = old_rows
@@ -223,46 +296,23 @@ impl NodeGraph {
             for removed_row in removed_rows {
                 let type_and_direction = removed_row.to_type_and_direction();
 
-                if let Some(type_and_direction) = type_and_direction {
-                    let (socket_type, direction) = type_and_direction;
-
+                // go through all the connections that were connected to this row and disconnect them
+                if let Some((socket_type, direction)) = type_and_direction {
                     match direction {
                         SocketDirection::Input => {
-                            let node_wrapper = self.get_node(index).unwrap();
-                            let input_connection = node_wrapper.get_input_connection_by_type(&socket_type);
+                            let input_connection = self.get_input_connection_indexes(index, socket_type)?;
 
-                            if let Some(input_connection) = input_connection {
-                                let from_wrapper = self.get_node_mut(input_connection.from_node)?;
-
-                                from_wrapper.remove_output_socket_connection_unchecked(&OutputSideConnection {
-                                    from_socket_type: input_connection.from_socket_type,
-                                    to_node: index,
-                                    to_socket_type: input_connection.to_socket_type.clone(),
-                                })?;
-
-                                self.get_node_mut(index)
-                                    .unwrap()
-                                    .remove_input_socket_connection_unchecked(&input_connection.to_socket_type)?;
+                            if let [input_connection] = &input_connection[..] {
+                                let (_, diff) = self.disconnect_by_index(*input_connection)?;
+                                diffs.push(diff);
                             }
                         }
                         SocketDirection::Output => {
-                            let node_wrapper = self.get_node(index).unwrap();
-                            let output_connections = node_wrapper.get_output_connections_by_type(&socket_type);
+                            let output_connections = self.get_output_connection_indexes(index, socket_type)?;
 
                             for output_connection in output_connections {
-                                let to_wrapper = self.get_node_mut(output_connection.to_node)?;
-                                // remove the other connection to this one
-                                to_wrapper
-                                    .remove_input_socket_connection_unchecked(&output_connection.to_socket_type)?;
-
-                                // remove this connection to the other one
-                                self.get_node_mut(index)
-                                    .unwrap()
-                                    .remove_output_socket_connection_unchecked(&OutputSideConnection {
-                                        from_socket_type: output_connection.from_socket_type,
-                                        to_node: output_connection.to_node,
-                                        to_socket_type: output_connection.to_socket_type,
-                                    })?;
+                                let (_, diff) = self.disconnect_by_index(output_connection)?;
+                                diffs.push(diff);
                             }
                         }
                     }
@@ -274,7 +324,7 @@ impl NodeGraph {
             has_changed_self = true;
         }
 
-        Ok(NodeOk::new(has_changed_self, warnings.into_warnings()))
+        Ok(NodeOk::new((has_changed_self, diffs), warnings.into_warnings()))
     }
 
     pub fn get_node(&self, index: NodeIndex) -> Result<&NodeWrapper, NodeError> {

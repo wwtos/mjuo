@@ -34,14 +34,14 @@ impl Traverser {
         Traverser { nodes: vec![] }
     }
 
-    pub fn get_traverser(graph: &NodeGraph) -> Traverser {
+    pub fn get_traverser(graph: &NodeGraph) -> Result<Traverser, NodeError> {
         // first, get traversal order
         let traversal_order = calculate_graph_traverse_order(graph);
 
         let mut nodes: Vec<(NodeIndex, NodeTraverseData)> = Vec::with_capacity(traversal_order.len());
 
         for node_index in traversal_order.iter() {
-            let node = graph.get_node(*node_index).unwrap();
+            let node = graph.get_node(*node_index)?;
 
             // make a list of all the socket defaults
             let defaults_list = node.get_node_rows().iter().filter_map(|row| {
@@ -60,18 +60,18 @@ impl Traverser {
                 .collect();
 
             // now, find where in the traversal order the linked nodes are
-            let output_connections = node.get_output_connections().clone();
+            let output_connections = graph.get_output_side_connections(*node_index)?;
 
             let node_traverse_data = NodeTraverseData {
                 defaults_in,
-                outputs_to: output_connections,
+                outputs_to: output_connections.clone(),
                 linked_to_ui: node.linked_to_ui(),
             };
 
             nodes.push((*node_index, node_traverse_data));
         }
 
-        Traverser { nodes }
+        Ok(Traverser { nodes })
     }
 
     pub fn update_node_defaults(&mut self, graph: &NodeGraph, node_index: NodeIndex) {

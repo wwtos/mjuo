@@ -361,13 +361,11 @@ fn hanging_connections() -> Result<(), NodeError> {
         SocketType::Stream(StreamSocketType::Audio),
     )?;
 
-    let first_node_wrapper = graph.get_node(first_node).unwrap();
-    assert_eq!(first_node_wrapper.list_connected_output_sockets().len(), 1); // it should be connected here
+    assert_eq!(graph.get_output_side_connections(first_node)?.len(), 1); // it should be connected here
 
     graph.remove_node(second_node)?;
 
-    let first_node_wrapper = graph.get_node(first_node).unwrap();
-    assert_eq!(first_node_wrapper.list_connected_output_sockets().len(), 0); // it shouldn't be connected to anything
+    assert_eq!(graph.get_output_side_connections(first_node)?.len(), 0); // it shouldn't be connected to anything
 
     Ok(())
 }

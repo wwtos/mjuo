@@ -37,8 +37,6 @@ export const Graph = {
     verticies<V, E>(graph: Graph<V, E>): Array<[Vertex<V>, Index]> {
         let out: Array<[Vertex<V>, Index]> = [];
 
-        console.log("graph", graph);
-
         for (let i = 0; i < graph.verticies.vec.length; i++) {
             let elem = graph.verticies.vec[i];
 

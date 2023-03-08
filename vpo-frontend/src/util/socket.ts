@@ -2,6 +2,7 @@ import type { Index } from "../ddgg/gen_vec";
 import type { VertexIndex } from "../ddgg/graph";
 import type { Connection } from "../node-engine/connection";
 import type { NodeWrapper, UiData } from "../node-engine/node";
+import { NodeGraph } from "../node-engine/node_graph";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -53,25 +54,27 @@ export class IPCSocket {
         });
     }
 
-    updateNodes (graphIndex: Index, nodes: NodeWrapper[]) {
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+    updateNodes (graph: NodeGraph, nodes: Array<VertexIndex>) {
+        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
 
         this.send({
             "action": "graph/updateNodes",
             "payload": {
-                graphIndex,
+                graphIndex: graph.graphIndex,
                 "updatedNodes": nodesToUpdateJson,
             }
         });
     }
 
-    updateNodesUi (graphIndex: Index, nodes: NodeWrapper[]) {
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+    updateNodesUi (graph: NodeGraph, nodes: Array<VertexIndex>) {
+        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
 
         this.send({
             "action": "graph/updateNodesUi",
             "payload": {
-                graphIndex,
+                graphIndex: graph.graphIndex,
                 "updatedNodes": nodesToUpdateJson,
             }
         });

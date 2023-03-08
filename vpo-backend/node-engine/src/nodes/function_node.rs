@@ -54,7 +54,7 @@ impl Node for FunctionNode {
 
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
         self.local_graph = graph.clone();
-        self.traverser = Traverser::get_traverser(&self.local_graph);
+        self.traverser = Traverser::get_traverser(&self.local_graph).unwrap();
         self.is_first_time = true;
         self.child_io_nodes = Some((input_node, output_node));
     }

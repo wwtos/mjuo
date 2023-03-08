@@ -64,9 +64,13 @@ export class GraphManager {
                 }
             } = (await graphPromise) as any;
 
-            this.nodeGraphs.verticies[graphIndex.index] = {
-                "variant": "Some",
-                "data": new NodeGraph(this.ipcSocket, graphIndex)
+            this.nodeGraphs.verticies.vec[graphIndex.index] = {
+                "variant": "Occupied",
+                "data": [{
+                    data: new NodeGraph(this.ipcSocket, graphIndex),
+                    connectionsFrom: [],
+                    connectionsTo: []
+                }, graphIndex.generation]
             };
 
             this.nodeGraphs[graphIndex.index].applyJson(graph.payload);

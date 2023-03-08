@@ -163,7 +163,7 @@ impl GraphManager {
         let mut graph_wrapper = self.get_graph_mut(index)?;
 
         // set the new traverser
-        graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow());
+        graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow())?;
 
         Ok(())
     }
@@ -403,30 +403,48 @@ impl GraphManager {
         Ok((GraphManagerDiff(diff), invalidations))
     }
 
-    pub fn reapply_action(&mut self, diff: GraphManagerDiff) -> Result<(), NodeError> {
+    pub fn reapply_action(&mut self, diff: GraphManagerDiff) -> Result<ActionInvalidations, NodeError> {
+        let mut invalidations = ActionInvalidations {
+            graph_to_reindex: None,
+            graph_operated_on: None,
+            defaults_to_update: None,
+        };
+
         for part in diff.0 {
             match part {
                 DiffElement::GraphManagerDiff(diff) => self.node_graphs.apply_diff(diff)?,
                 DiffElement::ChildGraphDiff(graph_index, diff) => {
+                    invalidations.graph_to_reindex = Some(graph_index);
+                    invalidations.graph_operated_on = Some(graph_index);
+
                     self.get_graph(graph_index)?.graph.borrow_mut().apply_diff(diff)?
                 }
             }
         }
 
-        Ok(())
+        Ok(invalidations)
     }
 
-    pub fn rollback_action(&mut self, diff: GraphManagerDiff) -> Result<(), NodeError> {
+    pub fn rollback_action(&mut self, diff: GraphManagerDiff) -> Result<ActionInvalidations, NodeError> {
+        let mut invalidations = ActionInvalidations {
+            graph_to_reindex: None,
+            graph_operated_on: None,
+            defaults_to_update: None,
+        };
+
         for part in diff.0 {
             match part {
                 DiffElement::GraphManagerDiff(diff) => self.node_graphs.rollback_diff(diff)?,
                 DiffElement::ChildGraphDiff(graph_index, diff) => {
+                    invalidations.graph_to_reindex = Some(graph_index);
+                    invalidations.graph_operated_on = Some(graph_index);
+
                     self.get_graph(graph_index)?.graph.borrow_mut().rollback_diff(diff)?
                 }
             }
         }
 
-        Ok(())
+        Ok(invalidations)
     }
 
     pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
@@ -451,7 +469,7 @@ impl GraphManager {
                 },
                 sound_config,
             )?;
-            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow());
+            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow())?;
         }
 
         // next, init child graph inputs and outputs nodes

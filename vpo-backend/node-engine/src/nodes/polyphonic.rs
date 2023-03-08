@@ -255,7 +255,7 @@ impl Node for PolyphonicNode {
             self.voices.truncate(self.polyphony as usize);
         }
 
-        self.traverser = Traverser::get_traverser(graph);
+        self.traverser = Traverser::get_traverser(graph).unwrap();
         self.child_io_nodes = Some((input_node, output_node));
     }
 

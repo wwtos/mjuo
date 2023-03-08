@@ -190,8 +190,6 @@ pub struct NodeWrapper {
     #[serde(serialize_with = "serialize_node_prop")]
     #[serde(deserialize_with = "deserialize_node_prop")]
     pub(crate) node: NodeVariant,
-    connected_inputs: Vec<InputSideConnection>,
-    connected_outputs: Vec<OutputSideConnection>,
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
@@ -225,8 +223,6 @@ impl NodeWrapper {
         let mut wrapper = NodeWrapper {
             node,
             default_overrides: Vec::new(),
-            connected_inputs: Vec::new(),
-            connected_outputs: Vec::new(),
             node_rows: init_result.value.node_rows,
             properties,
             ui_data: HashMap::new(),
@@ -357,14 +353,6 @@ impl NodeWrapper {
         self.ui_data.insert(key, value);
     }
 
-    pub fn list_connected_input_sockets(&self) -> Vec<InputSideConnection> {
-        self.connected_inputs.clone()
-    }
-
-    pub fn list_connected_output_sockets(&self) -> Vec<OutputSideConnection> {
-        self.connected_outputs.clone()
-    }
-
     pub fn list_input_sockets(&self) -> Vec<SocketType> {
         self.node_rows
             .iter()
@@ -413,36 +401,31 @@ impl NodeWrapper {
         self.list_output_sockets().iter().any(|&socket| socket == socket_type)
     }
 
-    pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
-        let input = self
-            .connected_inputs
-            .iter()
-            .find(|input| input.to_socket_type == *input_socket_type);
+    // pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
+    //     let input = self
+    //         .connected_inputs
+    //         .iter()
+    //         .find(|input| input.to_socket_type == *input_socket_type);
 
-        input.map(|input| (*input).clone())
-    }
+    //     input.map(|input| (*input).clone())
+    // }
 
-    pub fn get_output_connections_by_type(&self, output_socket_type: &SocketType) -> Vec<OutputSideConnection> {
-        let my_outputs_filtered = self
-            .connected_outputs
-            .iter()
-            .filter(|input| input.from_socket_type == *output_socket_type);
+    // pub fn get_output_connections_by_type(&self, output_socket_type: &SocketType) -> Vec<OutputSideConnection> {
+    //     let my_outputs_filtered = self
+    //         .connected_outputs
+    //         .iter()
+    //         .filter(|input| input.from_socket_type == *output_socket_type);
 
-        let mut outputs_filtered: Vec<OutputSideConnection> = Vec::new();
+    //     let mut outputs_filtered: Vec<OutputSideConnection> = Vec::new();
 
-        for output in my_outputs_filtered {
-            outputs_filtered.push((*output).clone());
-        }
+    //     for output in my_outputs_filtered {
+    //         outputs_filtered.push((*output).clone());
+    //     }
 
-        outputs_filtered
-    }
+    //     outputs_filtered
+    // }
 
     pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
-        // if it's connected to something, it doesn't have a default
-        if self.get_input_connection_by_type(socket_type).is_some() {
-            return None;
-        }
-
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let type_and_direction = (*override_row).clone().to_type_and_direction();
 
@@ -471,24 +454,11 @@ impl NodeWrapper {
             .cloned()
     }
 
-    pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
-        Ok(json! {{
-            "node_rows": self.node_rows.clone(),
-            "default_overrides": self.default_overrides.clone(),
-            "connected_inputs": self.connected_inputs,
-            "connected_outputs": self.connected_outputs,
-            "properties": self.properties,
-            "ui_data": self.ui_data,
-            "child_graph_index": self.child_graph_index,
-        }})
-    }
-
     /// Note, this does not deserialize the node itself, only the generic properties
-    pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
+    pub fn apply_json(&mut self, json: &mut Value) -> Result<(), NodeError> {
         println!("Applying json: {}", json);
 
-        let ui_data: HashMap<String, Value> =
-            serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
+        let ui_data: HashMap<String, Value> = serde_json::from_value(json["uiData"].take()).context(JsonParserSnafu)?;
 
         self.ui_data = ui_data;
 
@@ -561,75 +531,6 @@ impl NodeWrapper {
 
     pub(crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
         &self.node_rows
-    }
-
-    pub(crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
-        &self.connected_outputs
-    }
-
-    pub(crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
-        self.connected_inputs.push(connection);
-    }
-
-    pub(crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
-        self.connected_outputs.push(connection);
-    }
-
-    pub(crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
-        let to_remove = self
-            .connected_inputs
-            .iter()
-            .position(|input| input.to_socket_type == *to_type);
-
-        if let Some(to_remove) = to_remove {
-            self.connected_inputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub(crate) fn remove_output_socket_connection_unchecked(
-        &mut self,
-        connection: &OutputSideConnection,
-    ) -> Result<(), NodeError> {
-        let to_remove = self.connected_outputs.iter().position(|input| {
-            input.from_socket_type == connection.from_socket_type
-                && input.to_node == connection.to_node
-                && input.to_socket_type == connection.to_socket_type
-        });
-
-        if let Some(to_remove) = to_remove {
-            self.connected_outputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub(crate) fn _remove_output_socket_connections_unchecked(
-        &mut self,
-        from_type: &SocketType,
-    ) -> Result<(), NodeError> {
-        let mut found: Vec<usize> = Vec::new();
-
-        for (i, connection) in self.connected_outputs.iter().enumerate() {
-            if connection.from_socket_type == *from_type {
-                found.push(i);
-            }
-        }
-
-        for found_index in &found {
-            self.connected_inputs.remove(*found_index);
-        }
-
-        if found.is_empty() {
-            Err(NodeError::NotConnected)
-        } else {
-            Ok(())
-        }
     }
 }
 

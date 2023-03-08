@@ -183,8 +183,6 @@ export interface Node {
 
 export interface NodeWrapper {
     node: Node;
-    connectedInputs: InputSideConnection[];
-    connectedOutputs: OutputSideConnection[];
     nodeRows: NodeRow[];
     defaultOverrides: NodeRow[];
     properties: { [key: string]: Property };

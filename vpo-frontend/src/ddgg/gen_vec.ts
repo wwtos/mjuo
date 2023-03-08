@@ -40,6 +40,8 @@ export interface GenVec<T> {
 
 export const GenVec = {
     get<T>(genVec: GenVec<T>, index: Index): T | undefined {
+        if (!genVec.vec[index.index]) return undefined;
+
         return match(genVec.vec[index.index], {
             Occupied: ({data: [value, generation]}) => {
                 if (generation == index.generation) {
