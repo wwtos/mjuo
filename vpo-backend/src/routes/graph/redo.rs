@@ -12,7 +12,7 @@ pub fn route(
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
     println!("redo");
-    let graphs_changed = state.redo(global_state)?;
+    let (graphs_changed, _) = state.redo(global_state)?;
 
     for graph_index in graphs_changed {
         send_graph_updates(state, graph_index, to_server)?;

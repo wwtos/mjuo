@@ -38,18 +38,18 @@ export class IPCSocket {
             "action": "graph/newNode",
             "payload": {
                 graphIndex,
-                "type": type,
+                "nodeType": type,
                 "uiData": uiData,
             }
         });
     }
 
-    removeNode (graphIndex: Index, vertexIndex: VertexIndex) {
+    removeNode (graphIndex: Index, nodeIndex: VertexIndex) {
         this.send({
             "action": "graph/removeNode",
             "payload": {
                 graphIndex,
-                vertexIndex
+                nodeIndex
             }
         });
     }

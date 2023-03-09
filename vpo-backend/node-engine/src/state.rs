@@ -65,11 +65,12 @@ impl ActionBundle {
 pub struct ActionInvalidations {
     pub graph_to_reindex: Option<GraphIndex>,
     pub graph_operated_on: Option<GraphIndex>,
+    pub nodes_created: Vec<GlobalNodeIndex>,
     pub defaults_to_update: Option<Vec<GlobalNodeIndex>>,
 }
 
 #[derive(Clone, Debug)]
-enum HistoryAction {
+pub enum HistoryAction {
     GraphAction {
         diff: GraphManagerDiff,
     },
@@ -91,8 +92,8 @@ enum HistoryAction {
 }
 
 #[derive(Clone)]
-struct HistoryActionBundle {
-    actions: Vec<HistoryAction>,
+pub struct HistoryActionBundle {
+    pub actions: Vec<HistoryAction>,
 }
 
 #[derive(Clone)]
@@ -254,10 +255,14 @@ impl NodeEngineState {
 }
 
 impl NodeEngineState {
-    fn handle_action_invalidations(&mut self, action_results: Vec<ActionInvalidations>) -> Vec<GraphIndex> {
+    fn handle_action_invalidations(
+        &mut self,
+        action_results: Vec<ActionInvalidations>,
+    ) -> (Vec<GraphIndex>, Vec<GlobalNodeIndex>) {
         let mut graphs_to_reindex: Vec<GraphIndex> = Vec::new();
         let mut graphs_operated_on: Vec<GraphIndex> = Vec::new();
         let mut defaults_to_update: Vec<GlobalNodeIndex> = Vec::new();
+        let mut nodes_created = Vec::new();
 
         let mut all_graphs_that_changed: Vec<GraphIndex> = Vec::new();
 
@@ -293,6 +298,8 @@ impl NodeEngineState {
                     }
                 }
             }
+
+            nodes_created.extend(action_result.nodes_created);
         }
 
         for to_reindex in graphs_to_reindex {
@@ -308,7 +315,11 @@ impl NodeEngineState {
                 .update_traversal_defaults(default_to_update.graph_index, vec![default_to_update.node_index]);
         }
 
-        all_graphs_that_changed
+        (all_graphs_that_changed, nodes_created)
+    }
+
+    pub fn get_history(&self) -> &Vec<HistoryActionBundle> {
+        &self.history
     }
 
     fn is_action_property_related(action: &HistoryAction) -> bool {
@@ -320,7 +331,11 @@ impl NodeEngineState {
         )
     }
 
-    pub fn commit(&mut self, actions: ActionBundle, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn commit(
+        &mut self,
+        actions: ActionBundle,
+        global_state: &GlobalState,
+    ) -> Result<(Vec<GraphIndex>, Vec<GlobalNodeIndex>), NodeError> {
         let (mut new_actions, action_results) = actions
             .actions
             .into_iter()
@@ -333,7 +348,7 @@ impl NodeEngineState {
             self.history.truncate(self.place_in_history);
         }
 
-        let graphs_changed = self.handle_action_invalidations(action_results);
+        let (graphs_changed, nodes_changed) = self.handle_action_invalidations(action_results);
 
         // determine whether to add a new action bundle, or to concatinate it to the current
         // action bundle
@@ -358,10 +373,10 @@ impl NodeEngineState {
             self.place_in_history += 1;
         }
 
-        Ok(graphs_changed)
+        Ok((graphs_changed, nodes_changed))
     }
 
-    pub fn undo(&mut self, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn undo(&mut self, global_state: &GlobalState) -> Result<(Vec<GraphIndex>, Vec<GlobalNodeIndex>), NodeError> {
         if self.place_in_history > 0 {
             let to_rollback = self.history[self.place_in_history - 1].clone();
 
@@ -381,11 +396,11 @@ impl NodeEngineState {
 
             Ok(graphs_changed)
         } else {
-            Ok(Vec::new())
+            Ok((Vec::new(), Vec::new()))
         }
     }
 
-    pub fn redo(&mut self, global_state: &GlobalState) -> Result<Vec<GraphIndex>, NodeError> {
+    pub fn redo(&mut self, global_state: &GlobalState) -> Result<(Vec<GraphIndex>, Vec<GlobalNodeIndex>), NodeError> {
         if self.place_in_history < self.history.len() {
             let to_redo = self.history[self.place_in_history].clone();
 
@@ -404,7 +419,7 @@ impl NodeEngineState {
 
             Ok(graphs_changed)
         } else {
-            Ok(Vec::new())
+            Ok((Vec::new(), Vec::new()))
         }
     }
 
@@ -466,25 +481,14 @@ impl NodeEngineState {
                 },
                 global_state,
             )?,
-            Action::ChangeNodeUiData { index, data } => {
-                let before = self
-                    .graph_manager
-                    .get_graph(index.graph_index)?
-                    .graph
-                    .borrow()
-                    .get_node(index.node_index)?
-                    .get_ui_data()
-                    .clone();
-
-                self.reapply_action(
-                    HistoryAction::ChangeNodeUiData {
-                        index,
-                        before,
-                        after: data,
-                    },
-                    global_state,
-                )?
-            }
+            Action::ChangeNodeUiData { index, data } => self.reapply_action(
+                HistoryAction::ChangeNodeUiData {
+                    index,
+                    before: HashMap::new(),
+                    after: data,
+                },
+                global_state,
+            )?,
             Action::ChangeNodeOverrides { index, overrides } => self.reapply_action(
                 HistoryAction::ChangeNodeOverrides {
                     index,
@@ -509,6 +513,7 @@ impl NodeEngineState {
             graph_to_reindex: None,
             graph_operated_on: None,
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         let mut warnings = WarningBuilder::new();
@@ -524,7 +529,7 @@ impl NodeEngineState {
 
                 let before = node.replace_properties(after.clone());
 
-                graph.init_node(
+                let node_ok = graph.init_node(
                     index.node_index,
                     NodeInitState {
                         props: &HashMap::new(),
@@ -534,6 +539,8 @@ impl NodeEngineState {
                     },
                     false,
                 )?;
+
+                warnings.append_warnings(node_ok.warnings);
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -601,6 +608,7 @@ impl NodeEngineState {
             graph_to_reindex: None,
             graph_operated_on: None,
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         let new_action = match action {

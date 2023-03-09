@@ -6,7 +6,7 @@ use sound_engine::SoundConfig;
 
 use crate::connection::{SocketDirection, SocketType};
 use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
-use crate::node::{NodeInitState, NodeRow};
+use crate::node::{NodeInitState, NodeRow, NodeWrapper};
 use crate::node_graph::NodeGraphDiff;
 use crate::nodes::variants::{new_variant, NodeVariant};
 use crate::state::ActionInvalidations;
@@ -29,7 +29,7 @@ pub struct GraphEdgeIndex(pub EdgeIndex);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ConnectedThrough(pub NodeIndex);
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobalNodeIndex {
     pub graph_index: GraphIndex,
@@ -204,7 +204,6 @@ impl GraphManager {
 
         let new_node = new_variant(node_type, sound_config)?;
         let mut diff = vec![];
-
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
         let creation_result = graph.add_node(
             new_node,
@@ -276,7 +275,7 @@ impl GraphManager {
                         script_engine,
                         global_state,
                     },
-                );
+                )?;
 
                 // run the node's graph init function
                 let mut new_child_graph = self.get_graph(new_graph_index)?.graph.borrow_mut();
@@ -305,6 +304,10 @@ impl GraphManager {
             graph_to_reindex: None,
             graph_operated_on: Some(graph_index),
             defaults_to_update: None,
+            nodes_created: vec![GlobalNodeIndex {
+                node_index: new_node_index,
+                graph_index,
+            }],
         };
 
         Ok(NodeOk::new(
@@ -332,6 +335,7 @@ impl GraphManager {
             graph_to_reindex: Some(from.graph_index),
             graph_operated_on: Some(from.graph_index),
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
@@ -358,6 +362,7 @@ impl GraphManager {
             graph_to_reindex: Some(from.graph_index),
             graph_operated_on: Some(from.graph_index),
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
@@ -398,6 +403,7 @@ impl GraphManager {
             graph_to_reindex: Some(graph_index),
             graph_operated_on: Some(graph_index),
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         Ok((GraphManagerDiff(diff), invalidations))
@@ -408,6 +414,7 @@ impl GraphManager {
             graph_to_reindex: None,
             graph_operated_on: None,
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         for part in diff.0 {
@@ -416,6 +423,14 @@ impl GraphManager {
                 DiffElement::ChildGraphDiff(graph_index, diff) => {
                     invalidations.graph_to_reindex = Some(graph_index);
                     invalidations.graph_operated_on = Some(graph_index);
+
+                    match &diff {
+                        GraphDiff::AddVertex(diff) => invalidations.nodes_created.push(GlobalNodeIndex {
+                            node_index: NodeIndex(diff.get_vertex_index()),
+                            graph_index,
+                        }),
+                        _ => {}
+                    }
 
                     self.get_graph(graph_index)?.graph.borrow_mut().apply_diff(diff)?
                 }
@@ -430,6 +445,7 @@ impl GraphManager {
             graph_to_reindex: None,
             graph_operated_on: None,
             defaults_to_update: None,
+            nodes_created: vec![],
         };
 
         for part in diff.0 {

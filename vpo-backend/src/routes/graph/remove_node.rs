@@ -7,38 +7,29 @@ use node_engine::{
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{routes::RouteReturn, util::send_graph_updates};
 
-/// this function creates a new node in the graph based on the provided data
-///
-/// JSON should be formatted thus:
-/// ```json
-/// {
-///     "action": "graph/deleteNode",
-///     "payload": {
-///         graphIndex: number,
-///         nodeIndex: {
-///             
-///         }
-///     }
-/// }```
-///
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Payload {
+    graph_index: GraphIndex,
+    node_index: NodeIndex,
+}
+
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let node_index: NodeIndex =
-        serde_json::from_value(msg["payload"]["nodeIndex"].take()).context(JsonParserErrorInContextSnafu {
-            context: "payload.nodeIndex".to_string(),
-        })?;
-
-    let graph_index: GraphIndex =
-        serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
+    let Payload {
+        graph_index,
+        node_index,
+    } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
     state.commit(
         ActionBundle::new(vec![Action::RemoveNode {
