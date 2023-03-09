@@ -258,7 +258,7 @@ impl NodeEngineState {
     fn handle_action_invalidations(
         &mut self,
         action_results: Vec<ActionInvalidations>,
-    ) -> (Vec<GraphIndex>, Vec<GlobalNodeIndex>) {
+    ) -> Result<(Vec<GraphIndex>, Vec<GlobalNodeIndex>), NodeError> {
         let mut graphs_to_reindex: Vec<GraphIndex> = Vec::new();
         let mut graphs_operated_on: Vec<GraphIndex> = Vec::new();
         let mut defaults_to_update: Vec<GlobalNodeIndex> = Vec::new();
@@ -312,10 +312,10 @@ impl NodeEngineState {
 
         for default_to_update in defaults_to_update {
             self.graph_manager
-                .update_traversal_defaults(default_to_update.graph_index, vec![default_to_update.node_index]);
+                .update_traversal_defaults(default_to_update.graph_index, vec![default_to_update.node_index])?;
         }
 
-        (all_graphs_that_changed, nodes_created)
+        Ok((all_graphs_that_changed, nodes_created))
     }
 
     pub fn get_history(&self) -> &Vec<HistoryActionBundle> {
@@ -348,7 +348,7 @@ impl NodeEngineState {
             self.history.truncate(self.place_in_history);
         }
 
-        let (graphs_changed, nodes_changed) = self.handle_action_invalidations(action_results);
+        let (graphs_changed, nodes_changed) = self.handle_action_invalidations(action_results)?;
 
         // determine whether to add a new action bundle, or to concatinate it to the current
         // action bundle
@@ -390,7 +390,7 @@ impl NodeEngineState {
                 .into_iter()
                 .unzip::<HistoryAction, ActionInvalidations, Vec<HistoryAction>, Vec<ActionInvalidations>>();
 
-            let graphs_changed = self.handle_action_invalidations(action_results);
+            let graphs_changed = self.handle_action_invalidations(action_results)?;
 
             self.place_in_history -= 1;
 
@@ -413,7 +413,7 @@ impl NodeEngineState {
                 .into_iter()
                 .unzip::<HistoryAction, ActionInvalidations, Vec<HistoryAction>, Vec<ActionInvalidations>>();
 
-            let graphs_changed = self.handle_action_invalidations(action_results);
+            let graphs_changed = self.handle_action_invalidations(action_results)?;
 
             self.place_in_history += 1;
 

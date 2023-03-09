@@ -6,7 +6,7 @@ use sound_engine::SoundConfig;
 
 use crate::connection::{SocketDirection, SocketType};
 use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
-use crate::node::{NodeInitState, NodeRow, NodeWrapper};
+use crate::node::{NodeInitState, NodeRow};
 use crate::node_graph::NodeGraphDiff;
 use crate::nodes::variants::{new_variant, NodeVariant};
 use crate::state::ActionInvalidations;

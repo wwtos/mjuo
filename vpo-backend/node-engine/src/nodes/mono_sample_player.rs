@@ -98,13 +98,11 @@ impl Node for MonoSamplePlayerNode {
     }
 
     fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
-        if let Some(player) = &mut self.player {
-            if let Some(engaged) = value.as_boolean() {
-                if engaged {
-                    self.played = true;
-                } else {
-                    self.released = true;
-                }
+        if let Some(engaged) = value.as_boolean() {
+            if engaged {
+                self.played = true;
+            } else {
+                self.released = true;
             }
         }
     }

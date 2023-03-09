@@ -110,7 +110,7 @@ impl Node for PolyphonicNode {
     }
 
     fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
-        let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
+        let (child_input_node, _) = self.child_io_nodes.unwrap();
 
         if !self.voices.is_empty() {
             // go through all the messages and send them to all the appropriate locations

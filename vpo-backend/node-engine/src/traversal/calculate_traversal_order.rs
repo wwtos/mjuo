@@ -18,7 +18,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
         graph_lookup.insert(original_node_index.0, graph.add_node(original_node_index));
     }
 
-    for (i, original_edge_index) in original_graph.edge_indexes().enumerate() {
+    for original_edge_index in original_graph.edge_indexes() {
         let edge = original_graph.get_graph().get_edge(original_edge_index.0).unwrap();
 
         graph.add_edge(

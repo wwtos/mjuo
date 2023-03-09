@@ -1,7 +1,7 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserErrorInContextSnafu, JsonParserSnafu, NodeError},
+    errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node::NodeIndex,

@@ -10,11 +10,10 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use smallvec::SmallVec;
 use snafu::ResultExt;
-use sound_engine::SoundConfig;
 
 use crate::connection::{
-    InputSideConnection, MidiBundle, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive,
-    SocketDirection, SocketType, StreamSocketType, ValueSocketType,
+    MidiBundle, MidiSocketType, NodeRefSocketType, Primitive, SocketDirection, SocketType, StreamSocketType,
+    ValueSocketType,
 };
 
 use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
@@ -24,7 +23,7 @@ use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
 use crate::nodes::outputs::OutputsNode;
 use crate::nodes::placeholder::Placeholder;
-use crate::nodes::variants::{new_variant, variant_to_name, NodeVariant};
+use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
@@ -271,7 +270,7 @@ impl NodeWrapper {
             global_state,
         } = state;
 
-        let (input_index, input_diff) = child_graph
+        let (input_index, _) = child_graph
             .add_node(
                 NodeVariant::InputsNode(new_inputs_node),
                 NodeInitState {
@@ -283,7 +282,7 @@ impl NodeWrapper {
             )
             .unwrap()
             .value;
-        let (output_index, output_diff) = child_graph
+        let (output_index, _) = child_graph
             .add_node(
                 NodeVariant::OutputsNode(new_outputs_node),
                 NodeInitState {
@@ -401,30 +400,6 @@ impl NodeWrapper {
         self.list_output_sockets().iter().any(|&socket| socket == socket_type)
     }
 
-    // pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
-    //     let input = self
-    //         .connected_inputs
-    //         .iter()
-    //         .find(|input| input.to_socket_type == *input_socket_type);
-
-    //     input.map(|input| (*input).clone())
-    // }
-
-    // pub fn get_output_connections_by_type(&self, output_socket_type: &SocketType) -> Vec<OutputSideConnection> {
-    //     let my_outputs_filtered = self
-    //         .connected_outputs
-    //         .iter()
-    //         .filter(|input| input.from_socket_type == *output_socket_type);
-
-    //     let mut outputs_filtered: Vec<OutputSideConnection> = Vec::new();
-
-    //     for output in my_outputs_filtered {
-    //         outputs_filtered.push((*output).clone());
-    //     }
-
-    //     outputs_filtered
-    // }
-
     pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let type_and_direction = (*override_row).clone().to_type_and_direction();
@@ -461,12 +436,6 @@ impl NodeWrapper {
         let ui_data: HashMap<String, Value> = serde_json::from_value(json["uiData"].take()).context(JsonParserSnafu)?;
 
         self.ui_data = ui_data;
-
-        Ok(())
-    }
-
-    pub(crate) fn post_deserialization(&mut self, sound_config: &SoundConfig) -> Result<(), NodeError> {
-        self.node = new_variant(&self.node.as_placeholder_value().unwrap(), sound_config)?;
 
         Ok(())
     }
@@ -515,10 +484,6 @@ impl NodeWrapper {
 
     pub fn linked_to_ui(&self) -> bool {
         self.node.linked_to_ui()
-    }
-
-    pub(crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
-        self.child_graph_io_indexes = ios;
     }
 
     pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
