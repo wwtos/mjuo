@@ -8,7 +8,8 @@ use sound_engine::SoundConfig;
 use crate::{
     connection::{InputSideConnection, OutputSideConnection, SocketDirection, SocketType},
     errors::{NodeError, NodeOk, NodeResult, WarningBuilder},
-    node::{Node, NodeIndex, NodeInitState, NodeRow, NodeWrapper},
+    node::{Node, NodeIndex, NodeInitState, NodeRow},
+    node_wrapper::NodeWrapper,
     nodes::variants::NodeVariant,
 };
 
