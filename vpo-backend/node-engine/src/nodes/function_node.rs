@@ -9,8 +9,6 @@ use crate::traversal::traverser::Traverser;
 pub struct FunctionNode {
     local_graph: NodeGraph,
     traverser: Traverser,
-    input: f32,
-    output: f32,
     is_first_time: bool,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
@@ -20,8 +18,6 @@ impl Default for FunctionNode {
         FunctionNode {
             local_graph: NodeGraph::new(),
             traverser: Traverser::default(),
-            input: 0_f32,
-            output: 0_f32,
             is_first_time: true,
             child_io_nodes: None,
         }
@@ -44,14 +40,6 @@ impl Node for FunctionNode {
         ]
     }
 
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
-        self.input = value;
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.output
-    }
-
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
         self.local_graph = graph.clone();
         self.traverser = Traverser::get_traverser(&self.local_graph).unwrap();
@@ -59,11 +47,16 @@ impl Node for FunctionNode {
         self.child_io_nodes = Some((input_node, output_node));
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
         let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
         let subgraph_input_node = self.local_graph.get_node_mut(child_input_node).unwrap();
-        subgraph_input_node.accept_stream_input(StreamSocketType::Audio, self.input);
+        subgraph_input_node.accept_stream_input(StreamSocketType::Audio, streams_in[0]);
 
         self.traverser
             .traverse(
@@ -78,7 +71,7 @@ impl Node for FunctionNode {
             })?;
 
         let subgraph_output_node = self.local_graph.get_node_mut(child_output_node).unwrap();
-        self.output = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
+        streams_out[0] = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
 
         self.is_first_time = false;
 

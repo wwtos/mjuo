@@ -3,7 +3,7 @@ use smallvec::SmallVec;
 
 use crate::{
     connection::{MidiBundle, MidiSocketType},
-    errors::{NodeOk, NodeResult, NodeWarning, WarningBuilder},
+    errors::{NodeError, NodeOk, NodeResult, NodeWarning, WarningBuilder},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
     property::{Property, PropertyType},
 };
@@ -88,7 +88,12 @@ impl Node for MidiFilterNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
         let mut warnings = WarningBuilder::new();
 
         if let Some(filter) = &self.filter {
@@ -142,11 +147,11 @@ impl Node for MidiFilterNode {
         Ok(NodeOk::new((), warnings.into_warnings()))
     }
 
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
-        self.midi_state = ProcessState::Unprocessed(value);
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+        self.midi_state = ProcessState::Unprocessed(midi_in[0].unwrap());
     }
 
-    fn get_midi_output(&self, _socket_type: MidiSocketType) -> Option<MidiBundle> {
-        self.output.clone()
+    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
+        midi_out[0] = self.output.clone();
     }
 }

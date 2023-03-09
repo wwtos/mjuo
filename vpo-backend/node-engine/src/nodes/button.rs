@@ -29,7 +29,12 @@ impl Node for ButtonNode {
         ])
     }
 
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(
+        &mut self,
+        _state: NodeProcessState,
+        _streams_in: &[f32],
+        _streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
         self.input = match self.input {
             ProcessState::Unprocessed(new_value) => {
                 self.state = new_value;
@@ -42,15 +47,13 @@ impl Node for ButtonNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
-        self.input = ProcessState::Unprocessed(value.as_boolean().unwrap());
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        self.input = ProcessState::Unprocessed(values_in[0].unwrap().as_boolean().unwrap());
     }
 
-    fn get_value_output(&self, _socket_type: ValueSocketType) -> Option<Primitive> {
+    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
         if matches!(self.input, ProcessState::Processed) {
-            Some(Primitive::Boolean(self.state))
-        } else {
-            None
+            values_out[0] = Some(Primitive::Boolean(self.state));
         }
     }
 

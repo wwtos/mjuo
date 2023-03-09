@@ -83,7 +83,7 @@ impl Oscillator {
     }
 
     #[inline]
-    pub fn process_fast(&mut self) -> f32 {
+    pub fn process(&mut self) -> f32 {
         let phase_advance = self.frequency / (SAMPLE_RATE as f32);
 
         self.phase += phase_advance;
@@ -100,34 +100,5 @@ impl Oscillator {
 
     pub fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
-    }
-}
-
-impl AudioNode for Oscillator {
-    fn process(&mut self) {
-        self.output_out = self.process_fast();
-    }
-
-    fn receive_audio(&mut self, input_type: InputType, _input: f32) -> Result<(), NodeError> {
-        Err(NodeError::UnsupportedInput {
-            unsupported_input_type: input_type,
-        })
-    }
-
-    fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
-        match output_type {
-            OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::UnsupportedOutput {
-                unsupported_output_type: output_type,
-            }),
-        }
-    }
-
-    fn list_inputs(&self) -> Vec<InputType> {
-        vec![]
-    }
-
-    fn list_outputs(&self) -> Vec<OutputType> {
-        vec![OutputType::Out]
     }
 }

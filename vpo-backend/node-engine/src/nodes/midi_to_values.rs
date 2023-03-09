@@ -5,72 +5,65 @@ use crate::connection::{MidiBundle, MidiSocketType, Primitive, ValueSocketType};
 use crate::errors::{NodeError, NodeOk};
 use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 
-#[derive(Debug, PartialEq, Clone)]
-enum ChangedState {
-    NewInfo,
-    InfoProcessed,
-    NoInfo,
-}
+use super::util::ProcessState;
 
 #[derive(Debug, Clone)]
 pub struct MidiToValuesNode {
-    midi_in: MidiBundle,
+    midi_in: ProcessState<MidiBundle>,
     frequency: f32,
     gate: bool,
     velocity: f32,
-    state: ChangedState,
 }
 
 impl Default for MidiToValuesNode {
     fn default() -> Self {
         MidiToValuesNode {
-            midi_in: SmallVec::new(),
+            midi_in: ProcessState::None,
             frequency: 440.0,
             gate: false,
             velocity: 0.0,
-            state: ChangedState::NewInfo,
         }
     }
 }
 
 impl Node for MidiToValuesNode {
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
-        self.midi_in = value;
-        self.state = ChangedState::NewInfo;
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+        self.midi_in = ProcessState::Unprocessed(midi_in[0].unwrap());
     }
 
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        if self.state == ChangedState::NewInfo {
-            for data in &self.midi_in {
-                match data {
-                    MidiData::NoteOn {
-                        channel: _,
-                        note,
-                        velocity,
-                    } => {
-                        self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
-                        self.velocity = (*velocity as f32) / 127.0;
-                        self.gate = true;
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
+        match self.midi_in {
+            ProcessState::Unprocessed(midi_in) => {
+                for data in midi_in {
+                    match data {
+                        MidiData::NoteOn {
+                            channel: _,
+                            note,
+                            velocity,
+                        } => {
+                            self.frequency = 440.0 * f32::powf(2.0, (note as f32 - 69.0) / 12.0);
+                            self.velocity = (velocity as f32) / 127.0;
+                            self.gate = true;
+                        }
+                        MidiData::NoteOff {
+                            channel: _,
+                            note: _,
+                            velocity: _,
+                        } => {
+                            self.gate = false;
+                        }
+                        _ => {}
                     }
-                    MidiData::NoteOff {
-                        channel: _,
-                        note: _,
-                        velocity: _,
-                    } => {
-                        self.gate = false;
-                    }
-                    _ => {}
                 }
             }
-
-            self.midi_in.clear();
+            ProcessState::Processed => self.midi_in = ProcessState::None,
+            ProcessState::None => {}
         }
-
-        self.state = match self.state {
-            ChangedState::NewInfo => ChangedState::InfoProcessed,
-            ChangedState::InfoProcessed => ChangedState::NoInfo,
-            ChangedState::NoInfo => ChangedState::NoInfo,
-        };
 
         NodeOk::no_warnings(())
     }
@@ -83,15 +76,10 @@ impl Node for MidiToValuesNode {
         ])
     }
 
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
-        if self.state == ChangedState::NoInfo {
-            return None;
-        }
-
-        match socket_type {
-            ValueSocketType::Frequency => Some(Primitive::Float(self.frequency)),
-            ValueSocketType::Gate => Some(Primitive::Boolean(self.gate)),
-            _ => None,
+    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+        if matches!(self.midi_in, ProcessState::Processed) {
+            values_out[0] = Some(Primitive::Float(self.frequency));
+            values_out[1] = Some(Primitive::Boolean(self.gate));
         }
     }
 }

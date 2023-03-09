@@ -13,7 +13,6 @@ pub struct ExpressionNode {
     ast: Option<Box<AST>>,
     scope: Box<Scope<'static>>,
     values_in: Vec<Primitive>,
-    values_in_mapping: Vec<(u64, usize)>,
     value_out: Option<Primitive>,
     have_values_changed: bool,
 }
@@ -30,7 +29,6 @@ impl ExpressionNode {
             scope: Box::new(Scope::new()),
             ast: None,
             values_in: vec![],
-            values_in_mapping: vec![],
             value_out: None,
             have_values_changed: true,
         }
@@ -38,23 +36,23 @@ impl ExpressionNode {
 }
 
 impl Node for ExpressionNode {
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        if let ValueSocketType::Dynamic(uid) = socket_type {
-            let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        self.have_values_changed = false;
 
-            if let Some(local_index) = local_index {
-                self.values_in[local_index.1] = value;
+        for (i, value_in) in values_in.iter().enumerate() {
+            if let Some(value) = value_in {
+                self.have_values_changed = true;
+                self.values_in[i] = value.clone();
             }
-
-            self.have_values_changed = true;
         }
     }
 
-    fn get_value_output(&self, _socket_type: ValueSocketType) -> Option<Primitive> {
-        self.value_out.clone()
-    }
-
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
         let mut warnings = WarningBuilder::new();
 
         self.value_out = None;
@@ -98,7 +96,6 @@ impl Node for ExpressionNode {
                     }
                 }
 
-                self.have_values_changed = false;
                 self.scope.rewind(0);
             }
         }
@@ -131,16 +128,15 @@ impl Node for ExpressionNode {
         }
 
         if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
-            let values_in_count_usize = *values_in_count as usize;
+            let values_in_count = *values_in_count as usize;
 
-            match values_in_count_usize.cmp(&self.values_in.len()) {
+            match values_in_count.cmp(&self.values_in.len()) {
                 Ordering::Less => {
                     // if smaller, see how many we need to remove
-                    let to_remove = self.values_in.len() - values_in_count_usize;
+                    let to_remove = self.values_in.len() - values_in_count;
 
                     for _ in 0..to_remove {
                         self.values_in.pop();
-                        self.values_in_mapping.pop();
                     }
 
                     did_rows_change = true;
@@ -150,7 +146,7 @@ impl Node for ExpressionNode {
                 }
                 Ordering::Greater => {
                     // if bigger, add some accordingly
-                    for i in self.values_in.len()..values_in_count_usize {
+                    for i in self.values_in.len()..values_in_count {
                         // get ID for socket
                         let new_socket_uid = state
                             .registry
@@ -164,7 +160,6 @@ impl Node for ExpressionNode {
                             .1;
 
                         // add a socket -> local index mapping
-                        self.values_in_mapping.push((new_socket_uid, i));
                         self.values_in.push(Primitive::Float(0.0));
                     }
 
@@ -173,7 +168,6 @@ impl Node for ExpressionNode {
             }
         } else {
             self.values_in.clear();
-            self.values_in_mapping.clear();
         }
 
         for i in 0..self.values_in.len() {

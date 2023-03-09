@@ -25,19 +25,15 @@ impl Default for MixerNode {
 }
 
 impl Node for MixerNode {
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
-        self.input_sum += value;
-    }
-
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        self.output_audio = self.input_sum;
-        self.input_sum = 0.0;
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
+        streams_out[0] = streams_in.iter().sum::<f32>() / streams_in.len() as f32;
 
         NodeOk::no_warnings(())
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.output_audio
     }
 
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {

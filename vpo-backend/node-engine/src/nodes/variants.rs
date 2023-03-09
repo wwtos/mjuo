@@ -2,9 +2,8 @@ use enum_dispatch::enum_dispatch;
 
 use sound_engine::SoundConfig;
 
-use crate::connection::{
-    MidiBundle, MidiSocketType, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType,
-};
+use crate::connection::{MidiBundle, Primitive, SocketDirection, SocketType};
+use crate::errors::NodeResult;
 use crate::errors::{NodeError, NodeOk};
 use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState};
 use crate::node_graph::NodeGraph;

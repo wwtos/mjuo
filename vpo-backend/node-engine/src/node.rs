@@ -131,33 +131,21 @@ pub trait Node: Debug + Clone {
     }
 
     /// Process received data.
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         NodeOk::no_warnings(())
     }
 
-    /// Accept incoming stream data of type `socket_type`
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
+    /// Accept incoming midi data (ordered based on rows returned from `init`)
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {}
 
-    /// Return outgoing stream data of type `socket_type`
-    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
-        0_f32
-    }
+    /// Return outgoing midi data (ordered based on rows returned from `init`)
+    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {}
 
-    /// Accept incoming midi data of type `socket_type`
-    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {}
+    /// Accept incoming value data (ordered based on rows returned from `init`)
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {}
 
-    /// Return outgoing midi data of type `socket_type`
-    fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
-        Some(SmallVec::new())
-    }
-
-    /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
-
-    /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
-        None
-    }
+    /// Return outgoing value data (ordered based on rows returned from `init`)
+    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]

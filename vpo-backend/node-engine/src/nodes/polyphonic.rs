@@ -3,7 +3,7 @@ use sound_engine::constants::SAMPLE_RATE;
 use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiBundle, MidiSocketType, SocketDirection, SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk};
+use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
 use crate::node_graph::NodeGraph;
 use crate::property::PropertyType;
@@ -47,7 +47,6 @@ pub struct PolyphonicNode {
     voices: Vec<Voice>,
     polyphony: u8,
     traverser: Traverser,
-    output: f32,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
     current_time: i64,
 }
@@ -58,7 +57,6 @@ impl Default for PolyphonicNode {
             voices: vec![],
             traverser: Traverser::default(),
             polyphony: 1,
-            output: 0_f32,
             child_io_nodes: None,
             current_time: 0,
         }
@@ -109,7 +107,9 @@ impl Node for PolyphonicNode {
         ]
     }
 
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+        let value = midi_in[0].unwrap();
+
         let (child_input_node, _) = self.child_io_nodes.unwrap();
 
         if !self.voices.is_empty() {
@@ -230,10 +230,6 @@ impl Node for PolyphonicNode {
         }
     }
 
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.output
-    }
-
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
         for i in 0..self.polyphony {
             if i as usize >= self.voices.len() {
@@ -259,12 +255,12 @@ impl Node for PolyphonicNode {
         self.child_io_nodes = Some((input_node, output_node));
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
         self.current_time = state.current_time;
 
-        self.output = 0.0;
+        let mut output = 0.0;
 
         // loop through voices
         for voice in self.voices.iter_mut() {
@@ -283,11 +279,11 @@ impl Node for PolyphonicNode {
                     })?;
 
                 let subgraph_output_node = voice.graph.get_node_mut(child_output_node).unwrap();
-                let output = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
+                let child_output = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
 
-                self.output += output;
+                output += child_output;
 
-                if (voice.info.last_output_value - output).abs() < DIFFERENCE_THRESHOLD {
+                if (voice.info.last_output_value - child_output).abs() < DIFFERENCE_THRESHOLD {
                     voice.info.duration_of_same_output += 1;
 
                     if voice.info.duration_of_same_output > SAME_VALUE_LENGTH_THRESHOLD {
@@ -297,12 +293,14 @@ impl Node for PolyphonicNode {
                     }
                 } else {
                     voice.info.duration_of_same_output = 0;
-                    voice.info.last_output_value = output;
+                    voice.info.last_output_value = child_output;
                 }
 
                 voice.is_first_time = false;
             }
         }
+
+        streams_out[0] = output;
 
         NodeOk::no_warnings(())
     }

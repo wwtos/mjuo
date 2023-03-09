@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::node::{AudioNode, InputType, OutputType};
-use crate::{error::NodeError, SoundConfig};
+use crate::SoundConfig;
 
 const GATE_THRESHOLD: f32 = 0.001;
 
@@ -28,8 +27,6 @@ pub struct Envelope {
     // based on the current amplitude, not jump to 0
     amplitude_anchor: f32, // between 0 and 1
     current_value: f32,    // between 0 and 1
-    input_gate: f32,
-    output_out: f32,
 }
 
 // TODO: ADSR linear only
@@ -45,8 +42,6 @@ impl Envelope {
             curve_position: 0.0,
             amplitude_anchor: 0.0,
             current_value: 0.0,
-            input_gate: 0_f32,
-            output_out: 0_f32,
         }
     }
 
@@ -147,7 +142,7 @@ impl Envelope {
 }
 
 impl Envelope {
-    pub fn do_envelope(&mut self, gate: f32) {
+    pub fn process(&mut self, gate: f32) -> f32 {
         let engaged = gate > GATE_THRESHOLD;
 
         if engaged {
@@ -156,55 +151,7 @@ impl Envelope {
             self.process_gate_released();
         }
 
-        self.output_out = self.current_value;
-    }
-
-    pub fn set_gate(&mut self, gate: f32) {
-        self.input_gate = gate;
-    }
-
-    pub fn get_gate(&self) -> f32 {
-        self.input_gate
-    }
-
-    pub fn get_gain(&self) -> f32 {
-        self.output_out
-    }
-}
-
-impl AudioNode for Envelope {
-    fn process(&mut self) {
-        self.do_envelope(self.input_gate);
-    }
-
-    fn receive_audio(&mut self, input_type: InputType, input: f32) -> Result<(), NodeError> {
-        match input_type {
-            InputType::Gate => {
-                self.input_gate = input;
-
-                Ok(())
-            }
-            _ => Err(NodeError::UnsupportedInput {
-                unsupported_input_type: input_type,
-            }),
-        }
-    }
-
-    fn get_output_audio(&self, output_type: OutputType) -> Result<f32, NodeError> {
-        match output_type {
-            OutputType::Out => Ok(self.output_out),
-            _ => Err(NodeError::UnsupportedOutput {
-                unsupported_output_type: output_type,
-            }),
-        }
-    }
-
-    fn list_inputs(&self) -> Vec<InputType> {
-        vec![InputType::Gate]
-    }
-
-    fn list_outputs(&self) -> Vec<OutputType> {
-        vec![OutputType::Out]
+        self.current_value
     }
 }
 
