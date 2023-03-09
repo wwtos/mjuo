@@ -507,8 +507,6 @@ impl NodeEngineState {
         action: HistoryAction,
         global_state: &GlobalState,
     ) -> Result<(HistoryAction, ActionInvalidations), NodeError> {
-        println!("Reapplying action: {:?}", action);
-
         let mut action_result = ActionInvalidations {
             graph_to_reindex: None,
             graph_operated_on: None,
