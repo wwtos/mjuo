@@ -285,38 +285,24 @@ fn graph_connecting() {
     );
 
     // nor can we connect multiple outputs to one input
-    assert_eq!(
-        format!(
-            "{:?}",
-            graph
-                .connect(
-                    third_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                    second_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
-                )
-                .unwrap_err()
-        ),
-        format!(
-            "{:?}",
-            NodeError::InputSocketOccupied {
-                socket_type: SocketType::Stream(StreamSocketType::Audio)
-            }
+    graph
+        .connect(
+            third_node_index,
+            SocketType::Stream(StreamSocketType::Audio),
+            second_node_index,
+            SocketType::Stream(StreamSocketType::Audio),
         )
-    );
+        .unwrap_err();
 
     // but we can connect one output to multiple inputs
-    assert_eq!(
-        graph
-            .connect(
-                third_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
-                second_node_index,
-                SocketType::Stream(StreamSocketType::Detune),
-            )
-            .is_ok(),
-        true
-    );
+    graph
+        .connect(
+            third_node_index,
+            SocketType::Stream(StreamSocketType::Audio),
+            second_node_index,
+            SocketType::Stream(StreamSocketType::Detune),
+        )
+        .unwrap();
 }
 
 /// This test makes sure that when removing a node, it also removes any

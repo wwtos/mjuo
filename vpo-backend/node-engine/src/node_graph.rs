@@ -57,9 +57,9 @@ impl NodeGraph {
         to_socket_type: SocketType,
     ) -> Result<(ConnectionIndex, NodeGraphDiff), NodeError> {
         // check that this connection doesn't already exist
-        let existing_connection = self.get_connection(from_index, from_socket_type, to_index, to_socket_type);
+        let existing_connection = self.get_input_connection_index(to_index, to_socket_type)?;
 
-        if existing_connection.is_ok() {
+        if let Some(_) = existing_connection {
             return Err(NodeError::AlreadyConnected {
                 from: from_socket_type,
                 to: to_socket_type,
@@ -164,21 +164,21 @@ impl NodeGraph {
         Ok(matching)
     }
 
-    pub fn get_input_connection_indexes(
+    pub fn get_input_connection_index(
         &self,
         to_index: NodeIndex,
-        from_socket_type: SocketType,
-    ) -> Result<Vec<ConnectionIndex>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(to_index.0)?.get_connections_to();
+        to_socket_type: SocketType,
+    ) -> Result<Option<ConnectionIndex>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(to_index.0)?.get_connections_from();
 
         let matching: Vec<ConnectionIndex> = edge_indexes
             .iter()
             .map(|(_, edge_index)| self.nodes.get_edge(*edge_index).map(|edge| (&edge.data, edge_index)))
-            .filter_ok(|(edge, _)| edge.from_socket_type == from_socket_type)
+            .filter_ok(|(edge, _)| edge.to_socket_type == to_socket_type)
             .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
             .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
 
-        Ok(matching)
+        Ok(matching.last().map(|index| *index))
     }
 
     pub fn get_input_side_connections(&self, from_index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
@@ -300,10 +300,10 @@ impl NodeGraph {
                 if let Some((socket_type, direction)) = type_and_direction {
                     match direction {
                         SocketDirection::Input => {
-                            let input_connection = self.get_input_connection_indexes(index, socket_type)?;
+                            let input_connection = self.get_input_connection_index(index, socket_type)?;
 
-                            if let [input_connection] = &input_connection[..] {
-                                let (_, diff) = self.disconnect_by_index(*input_connection)?;
+                            if let Some(input_connection) = input_connection {
+                                let (_, diff) = self.disconnect_by_index(input_connection)?;
                                 diffs.push(diff);
                             }
                         }
