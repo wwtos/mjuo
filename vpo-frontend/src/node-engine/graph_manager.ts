@@ -1,23 +1,35 @@
+import type { Index } from "../ddgg/gen_vec";
+import { Graph, VertexIndex } from "../ddgg/graph";
 import type { IPCSocket } from "../util/socket";
-import { NodeGraph } from "./node_graph";
+import type { NodeWrapper } from "./node";
+import { NodeConnection, NodeGraph } from "./node_graph";
+
+export type ConnectedThrough = VertexIndex;
 
 export class GraphManager {
-    graphs: {[key: string]: NodeGraph} = {};
+    nodeGraphs: Graph<NodeGraph, ConnectedThrough>;
     ipcSocket: IPCSocket;
     ipcListenerRegistered: boolean = false;
-    graphWaitingFor: number | null = null;
+    graphWaitingFor: Index | null = null;
     graphWaitingForEvent: Function | null = null;
+
+    constructor() {
+        this.nodeGraphs = {edges: {vec: []}, verticies: {vec: []}};
+    }
 
     setIpcSocket(ipcSocket: IPCSocket) {
         this.ipcSocket = ipcSocket;
     }
 
-    applyJson(json: any) {
-        if (!this.graphs[json.payload.graphIndex]) {
-            this.graphs[json.payload.graphIndex] = new NodeGraph(this.ipcSocket, json.payload.graphIndex);
+    applyJson(json: {
+            graphIndex: Index,
+            nodes: Graph<NodeWrapper, NodeConnection>
+    }) {
+        if (!this.nodeGraphs[json.graphIndex.index]) {
+            this.nodeGraphs[json.graphIndex.index] = new NodeGraph(this.ipcSocket, json.graphIndex);
         }
 
-        this.graphs[json.payload.graphIndex].applyJson(json.payload);
+        this.nodeGraphs[json.graphIndex.index].applyJson(json);
     }
 
     onMessage ([message]) {
@@ -29,9 +41,9 @@ export class GraphManager {
         }
     }
 
-    async getGraph(graphIndex: number)/*: NodeGraph*/ {
-        if (this.graphs[graphIndex]) {
-            return this.graphs[graphIndex];
+    async getGraph(graphIndex: Index)/*: NodeGraph*/ {
+        if (Graph.getVertex(this.nodeGraphs, graphIndex)) {
+            return Graph.getVertex(this.nodeGraphs, graphIndex);
         } else {
             if (!this.ipcListenerRegistered) {
                 this.ipcSocket.onMessage(this.onMessage.bind(this));
@@ -46,20 +58,32 @@ export class GraphManager {
 
             this.ipcSocket.requestGraph(graphIndex);
 
-            let graph: any = await graphPromise;
+            let graph: {
+                payload: {
+                    nodes: Graph<NodeWrapper, NodeConnection>
+                }
+            } = (await graphPromise) as any;
 
-            this.graphs[graphIndex] = new NodeGraph(this.ipcSocket, graphIndex);
-            this.graphs[graphIndex].applyJson(graph.payload);
+            this.nodeGraphs.verticies.vec[graphIndex.index] = {
+                "variant": "Occupied",
+                "data": [{
+                    data: new NodeGraph(this.ipcSocket, graphIndex),
+                    connectionsFrom: [],
+                    connectionsTo: []
+                }, graphIndex.generation]
+            };
+
+            this.nodeGraphs[graphIndex.index].applyJson(graph.payload);
         }
 
-        return this.graphs[graphIndex];
+        return this.nodeGraphs[graphIndex.index];
     }
 
     getRootGraph() {
-        if (!this.graphs[0]) {
-            this.graphs[0] = new NodeGraph(this.ipcSocket, 0);
+        if (!this.nodeGraphs[0]) {
+            this.nodeGraphs[0] = new NodeGraph(this.ipcSocket, {index: 0, generation: 0});
         }
 
-        return this.graphs[0];
+        return this.nodeGraphs[0];
     }
 }

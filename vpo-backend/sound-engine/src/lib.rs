@@ -15,6 +15,7 @@ pub mod wave;
 pub type SamplePoint = i16;
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SoundConfig {
     pub sample_rate: u32,
 }

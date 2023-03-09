@@ -6,8 +6,8 @@ import { matchOrElse } from "../util/discriminated-union";
 
 interface RegistryValue {
     template: string;
-    socket_type: SocketType;
-    associated_data: any;
+    socketType: SocketType;
+    associatedData: any;
 }
 
 export class SocketRegistry {
@@ -36,7 +36,7 @@ export class SocketRegistry {
         return this.nameToSocketType$.pipe(
             map(nameToSocketType => {
                 const entry = Object.values(nameToSocketType).find(entry => {
-                    return matchOrElse(entry.socket_type, {
+                    return matchOrElse(entry.socketType, {
                         Stream: ({ data: stream }) => matchOrElse(stream, {
                             Dynamic: ({ data: uid }) => uidToLookFor === uid,
                         },  () => false),
@@ -53,7 +53,7 @@ export class SocketRegistry {
                 });
 
                 if (entry) {
-                    return i18n.t("customSockets." + entry.template, entry.associated_data);
+                    return i18n.t("customSockets." + entry.template, entry.associatedData);
                 } else {
                     return "";
                 }

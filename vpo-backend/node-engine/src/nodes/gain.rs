@@ -16,7 +16,7 @@ impl Default for GainGraphNode {
 }
 
 impl Node for GainGraphNode {
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
         match socket_type {
             StreamSocketType::Audio => self.value = value,
             StreamSocketType::Gain => self.gain = value,
@@ -24,7 +24,7 @@ impl Node for GainGraphNode {
         };
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.value * self.gain
     }
 

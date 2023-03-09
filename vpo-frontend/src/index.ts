@@ -1,10 +1,10 @@
-import { app, BrowserWindow, IpcMainEvent, WebContents, dialog } from 'electron';
+import { app, BrowserWindow, WebContents, dialog } from 'electron';
 import path from 'path';
 
 import { open, RawMessage } from "./main/client";
 
 import { ipcMain } from "electron";
-import { match, matchOrElse } from './util/discriminated-union';
+import { matchOrElse } from './util/discriminated-union';
 
 let activeWindow: BrowserWindow;
 

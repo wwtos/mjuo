@@ -8,6 +8,7 @@ use serde_json::Value;
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RegistryValue {
     pub template: String,
     pub socket_type: SocketType,
@@ -16,6 +17,7 @@ pub struct RegistryValue {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SocketRegistry {
     name_to_socket_type: HashMap<String, RegistryValue>,
     uid_counter: u64,
@@ -51,7 +53,6 @@ impl SocketRegistry {
                 SocketType::Midi(_) => SocketType::Midi(MidiSocketType::Dynamic(uid)),
                 SocketType::Value(_) => SocketType::Value(ValueSocketType::Dynamic(uid)),
                 SocketType::NodeRef(_) => SocketType::NodeRef(NodeRefSocketType::Dynamic(uid)),
-                SocketType::MethodCall(_) => todo!(),
             };
 
             self.name_to_socket_type.insert(

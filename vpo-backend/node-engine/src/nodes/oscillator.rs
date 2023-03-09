@@ -59,13 +59,13 @@ impl Node for OscillatorNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
-        if socket_type == &ValueSocketType::Frequency {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
+        if socket_type == ValueSocketType::Frequency {
             self.oscillator.set_frequency(value.as_float().unwrap());
         }
     }
 
-    fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         match socket_type {
             StreamSocketType::Audio => self.audio_out,
             _ => 0_f32,

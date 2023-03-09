@@ -1,59 +1,42 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserErrorInContextSnafu, NodeError},
+    errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
-    graph_manager::GlobalNodeIndex,
+    graph_manager::{GlobalNodeIndex, GraphIndex},
     node::NodeIndex,
     state::{Action, ActionBundle, NodeEngineState},
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{routes::RouteReturn, util::send_graph_updates};
 
-/// this function creates a new node in the graph based on the provided data
-///
-/// JSON should be formatted thus:
-/// ```json
-/// {
-///     "action": "graph/deleteNode",
-///     "payload": {
-///         graphIndex: number,
-///         nodeIndex: {
-///             
-///         }
-///     }
-/// }```
-///
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Payload {
+    graph_index: GraphIndex,
+    node_index: NodeIndex,
+}
+
 pub fn route(
-    msg: Value,
+    mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let node_index: NodeIndex =
-        serde_json::from_value(msg["payload"]["nodeIndex"].clone()).context(JsonParserErrorInContextSnafu {
-            context: "payload.nodeIndex".to_string(),
-        })?;
-
-    let graph_index = msg["payload"]["graphIndex"]
-        .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "payload.graphIndex".to_string(),
-        })?;
+    let Payload {
+        graph_index,
+        node_index,
+    } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
     state.commit(
         ActionBundle::new(vec![Action::RemoveNode {
-            node_type: None,
             index: GlobalNodeIndex {
                 node_index,
                 graph_index,
             },
-            connections: None,
-            serialized: None,
-            child_graph_index: None,
-            child_graph_io_indexes: None,
         }]),
         global_state,
     )?;

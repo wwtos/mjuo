@@ -1,11 +1,13 @@
 use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserErrorInContextSnafu, NodeError},
+    errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
+    graph_manager::GraphIndex,
     node::NodeIndex,
     state::NodeEngineState,
 };
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
@@ -14,48 +16,36 @@ use crate::{
     util::{send_graph_updates, send_registry_updates},
 };
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Payload {
+    graph_index: GraphIndex,
+    updated_nodes: Vec<(Value, NodeIndex)>,
+}
+
 pub fn route(
-    msg: Value,
+    mut msg: Value,
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, NodeError> {
-    let nodes_to_update = msg["payload"]["updatedNodes"]
-        .as_array()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "updatedNodes".to_string(),
-        })?;
+    let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
-    let graph_index = msg["payload"]["graphIndex"]
-        .as_u64()
-        .ok_or(NodeError::PropertyMissingOrMalformed {
-            property_name: "graphIndex".to_string(),
-        })?;
-
-    println!("{}", msg);
-
-    for node_json in nodes_to_update {
-        let index: NodeIndex =
-            serde_json::from_value(node_json["index"].clone()).context(JsonParserErrorInContextSnafu {
-                context: "payload.updatedNodes[x].index".to_string(),
-            })?;
-
-        if node_json["ui_data"].is_object() {
-            let graph = &mut state
+    for (mut node_json, index) in payload.updated_nodes {
+        if node_json["uiData"].is_object() {
+            let mut graph = state
                 .get_graph_manager()
-                .get_graph_wrapper_mut(graph_index)
-                .ok_or(NodeError::GraphDoesNotExist { graph_index })?;
-
-            let node = graph
+                .get_graph(payload.graph_index)?
                 .graph
-                .get_node_mut(&index)
-                .ok_or(NodeError::NodeDoesNotExist { node_index: index })?;
+                .borrow_mut();
 
-            node.apply_json(node_json)?;
+            let node = graph.get_node_mut(index)?;
+
+            node.apply_json(&mut node_json)?;
         }
     }
 
-    send_graph_updates(state, graph_index, to_server)?;
+    send_graph_updates(state, payload.graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;
 
     Ok(None)

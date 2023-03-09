@@ -10,19 +10,20 @@
     import { BehaviorSubject, Observable } from "rxjs";
 
     import Socket from "./Socket.svelte";
-    import { MemberType } from "safety-match";
     import { match, matchOrElse } from "../util/discriminated-union";
+    import type { Index } from "../ddgg/gen_vec";
 
     export let type: SocketType;
     export let label: BehaviorSubject<string>;
     export let direction: SocketDirection;
     export let polyphonic: boolean;
     export let nodeWrapper: NodeWrapper;
+    export let nodeIndex: Index;
     export let nodes: NodeGraph;
 
     let shouldNotDisplayDefaultField =
         direction === SocketDirection.Input
-            ? nodes.getNodeInputConnection(nodeWrapper.index, type)
+            ? nodes.getNodeInputConnection(nodeIndex, type)
             : new Observable();
 
     let socketDefault: BehaviorSubject<SocketValue> = new BehaviorSubject({
@@ -30,7 +31,7 @@
     });
 
     nodes
-        .getNodeSocketDefault(nodeWrapper.index, type, direction)
+        .getNodeSocketDefault(nodeIndex, type, direction)
         .subscribe(socketDefault);
 
     function updateOverrides(event) {
@@ -83,7 +84,7 @@
         );
 
         // check if this override is already in there, in which case the value needs to be updated
-        let override = nodeWrapper.default_overrides.find((defaultOverride) => {
+        let override = nodeWrapper.defaultOverrides.find((defaultOverride) => {
             const {
                 socketType: overrideSocketType,
                 direction: overrideDirection,
@@ -98,8 +99,8 @@
         if (override) {
             override.data[1] = (newValueParsed as any).data;
         } else {
-            nodeWrapper.default_overrides = [
-                ...nodeWrapper.default_overrides,
+            nodeWrapper.defaultOverrides = [
+                ...nodeWrapper.defaultOverrides,
                 NodeRow.fromTypeAndDirection(
                     type,
                     direction,
@@ -108,10 +109,10 @@
                 ),
             ];
 
-            nodes.updateNode(nodeWrapper.index);
+            nodes.updateNode(nodeIndex);
         }
 
-        nodes.markNodeAsUpdated(nodeWrapper.index);
+        nodes.markNodeAsUpdated(nodeIndex);
         nodes.writeChangedNodesToServer();
     }
 </script>

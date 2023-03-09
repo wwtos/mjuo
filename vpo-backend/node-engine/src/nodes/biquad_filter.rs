@@ -20,7 +20,7 @@ impl BiquadFilterNode {
 }
 
 impl Node for BiquadFilterNode {
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         match socket_type {
             ValueSocketType::Frequency => {
                 if let Some(frequency) = value.as_float() {
@@ -36,7 +36,7 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn accept_stream_input(&mut self, _socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
         self.filter.set_audio_in(value);
     }
 
@@ -46,7 +46,7 @@ impl Node for BiquadFilterNode {
         NodeOk::no_warnings(())
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.filter.get_output_out()
     }
 

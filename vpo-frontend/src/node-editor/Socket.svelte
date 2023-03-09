@@ -2,7 +2,6 @@
     import { createEventDispatcher } from "svelte";
 
     import { SocketType, SocketDirection } from "../node-engine/connection";
-    import { NodeIndex } from "../node-engine/node_index";
 
     const dispatch = createEventDispatcher();
 

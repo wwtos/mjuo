@@ -2,11 +2,10 @@ use crate::graph_manager::GraphManager;
 
 #[test]
 fn create_graph() {
-    let mut graph_manager = GraphManager::default();
+    let mut graph_manager = GraphManager::new();
 
-    let index = graph_manager.new_graph();
-    assert_eq!(index, 0);
+    let (index, _) = graph_manager.new_graph().unwrap();
 
-    let graph = graph_manager.get_graph_wrapper_ref(index);
-    assert!(graph.is_some(), "Graph was none!");
+    let graph = graph_manager.get_graph(index);
+    assert!(graph.is_ok(), "Graph was none!");
 }

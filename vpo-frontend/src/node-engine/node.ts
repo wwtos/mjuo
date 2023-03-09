@@ -3,7 +3,7 @@ import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConne
 import type { Property, PropertyType } from "./property";
 import type { MidiData } from "../sound-engine/midi/messages";
 import { type DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
-import { NodeIndex } from "./node_index";
+import type { Index } from "../ddgg/gen_vec";
 
 export const TITLE_HEIGHT = 30;
 export const SOCKET_HEIGHT = 36;
@@ -183,14 +183,11 @@ export interface Node {
 
 export interface NodeWrapper {
     node: Node;
-    index: NodeIndex;
-    connected_inputs: InputSideConnection[];
-    connected_outputs: OutputSideConnection[];
-    node_rows: NodeRow[];
-    default_overrides: NodeRow[];
+    nodeRows: NodeRow[];
+    defaultOverrides: NodeRow[];
     properties: { [key: string]: Property };
-    ui_data: UiData;
-    child_graph_index: number | null;
+    uiData: UiData;
+    childGraphIndex: Index | null;
 }
 export interface GenerationalNode {
     node: NodeWrapper;

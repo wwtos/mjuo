@@ -40,6 +40,7 @@ pub struct ResourceIndex {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ResourceId {
     pub namespace: String,
     pub resource: String,

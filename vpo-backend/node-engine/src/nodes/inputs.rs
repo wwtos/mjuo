@@ -30,7 +30,6 @@ impl InputsNode {
                 SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
                 SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
-                SocketType::MethodCall(_) => todo!(),
             };
 
             self.value_changed[i] = ProcessState::Unprocessed(());
@@ -42,7 +41,6 @@ impl InputsNode {
                 SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
                 SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
                 SocketType::NodeRef(_) => SocketValue::NodeRef,
-                SocketType::MethodCall(_) => todo!(),
             });
 
             self.value_changed.push(ProcessState::Unprocessed(()));
@@ -72,7 +70,7 @@ impl Node for InputsNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
         let index = self
             .inputs
             .iter()
@@ -82,7 +80,7 @@ impl Node for InputsNode {
         self.values[index] = SocketValue::Stream(value);
     }
 
-    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {
+    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {
         let index = self
             .inputs
             .iter()
@@ -97,7 +95,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         let index = self
             .inputs
             .iter()
@@ -108,7 +106,7 @@ impl Node for InputsNode {
         self.value_changed[index] = ProcessState::Unprocessed(());
     }
 
-    fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         let index = self
             .inputs
             .iter()
@@ -118,7 +116,7 @@ impl Node for InputsNode {
         self.values[index].clone().as_stream().unwrap()
     }
 
-    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
         let index = self
             .inputs
             .iter()
@@ -132,7 +130,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         let index = self
             .inputs
             .iter()

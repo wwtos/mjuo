@@ -6,19 +6,20 @@ use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
-use crate::{node::NodeIndex, socket_registry::SocketRegistry};
+use crate::{node::NodeIndex, node_graph::NodeConnection, socket_registry::SocketRegistry};
 
 pub type MidiBundle = SmallVec<[MidiData; 2]>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Connection {
-    pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
-    pub to_socket_type: SocketType,
     pub to_node: NodeIndex,
+    pub data: NodeConnection,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct InputSideConnection {
     pub from_socket_type: SocketType,
     pub from_node: NodeIndex,
@@ -26,37 +27,37 @@ pub struct InputSideConnection {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OutputSideConnection {
     pub from_socket_type: SocketType,
     pub to_node: NodeIndex,
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, EnumDiscriminants)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketType {
     Stream(StreamSocketType),
     Midi(MidiSocketType),
     Value(ValueSocketType),
     NodeRef(NodeRefSocketType),
-    MethodCall(Vec<Primitive>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketDirection {
     Input,
     Output,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Eq)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, Eq)]
 #[serde(tag = "variant", content = "data")]
 pub enum MidiSocketType {
     Default,
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum StreamSocketType {
     Audio,
@@ -66,7 +67,7 @@ pub enum StreamSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum ValueSocketType {
     Default,
@@ -84,7 +85,7 @@ pub enum ValueSocketType {
     Dynamic(u64),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum NodeRefSocketType {
     Button,
@@ -198,7 +199,6 @@ impl SocketType {
             SocketType::Midi(_) => "midi",
             SocketType::Value(_) => "value",
             SocketType::NodeRef(_) => "node_ref",
-            SocketType::MethodCall(_) => "method_call",
         }
     }
 

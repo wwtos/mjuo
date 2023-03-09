@@ -12,8 +12,7 @@ pub struct FunctionNode {
     input: f32,
     output: f32,
     is_first_time: bool,
-    child_input_node: NodeIndex,
-    child_output_node: NodeIndex,
+    child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
 impl Default for FunctionNode {
@@ -24,14 +23,7 @@ impl Default for FunctionNode {
             input: 0_f32,
             output: 0_f32,
             is_first_time: true,
-            child_input_node: NodeIndex {
-                index: 0,
-                generation: 0,
-            },
-            child_output_node: NodeIndex {
-                index: 0,
-                generation: 0,
-            },
+            child_io_nodes: None,
         }
     }
 }
@@ -52,25 +44,26 @@ impl Node for FunctionNode {
         ]
     }
 
-    fn accept_stream_input(&mut self, _socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
         self.input = value;
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.output
     }
 
     fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
         self.local_graph = graph.clone();
-        self.traverser = Traverser::get_traverser(&self.local_graph);
+        self.traverser = Traverser::get_traverser(&self.local_graph).unwrap();
         self.is_first_time = true;
-        self.child_input_node = input_node;
-        self.child_output_node = output_node;
+        self.child_io_nodes = Some((input_node, output_node));
     }
 
     fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        let subgraph_input_node = self.local_graph.get_node_mut(&self.child_input_node).unwrap();
-        subgraph_input_node.accept_stream_input(&StreamSocketType::Audio, self.input);
+        let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
+
+        let subgraph_input_node = self.local_graph.get_node_mut(child_input_node).unwrap();
+        subgraph_input_node.accept_stream_input(StreamSocketType::Audio, self.input);
 
         self.traverser
             .traverse(
@@ -84,8 +77,8 @@ impl Node for FunctionNode {
                 errors_and_warnings: err,
             })?;
 
-        let subgraph_output_node = self.local_graph.get_node_mut(&self.child_output_node).unwrap();
-        self.output = subgraph_output_node.get_stream_output(&StreamSocketType::Audio);
+        let subgraph_output_node = self.local_graph.get_node_mut(child_output_node).unwrap();
+        self.output = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
 
         self.is_first_time = false;
 

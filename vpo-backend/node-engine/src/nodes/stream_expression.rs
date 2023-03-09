@@ -37,8 +37,8 @@ impl StreamExpressionNode {
 }
 
 impl Node for StreamExpressionNode {
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
-        if let &StreamSocketType::Dynamic(uid) = socket_type {
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
+        if let StreamSocketType::Dynamic(uid) = socket_type {
             let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
 
             if let Some(local_index) = local_index {
@@ -47,7 +47,7 @@ impl Node for StreamExpressionNode {
         }
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.value_out
     }
 

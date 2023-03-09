@@ -3,17 +3,17 @@
 use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 
+use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{json, Value};
 use smallvec::SmallVec;
 use snafu::ResultExt;
-use sound_engine::SoundConfig;
 
 use crate::connection::{
-    InputSideConnection, MidiBundle, MidiSocketType, NodeRefSocketType, OutputSideConnection, Primitive,
-    SocketDirection, SocketType, StreamSocketType, ValueSocketType,
+    MidiBundle, MidiSocketType, NodeRefSocketType, Primitive, SocketDirection, SocketType, StreamSocketType,
+    ValueSocketType,
 };
 
 use crate::errors::{JsonParserSnafu, NodeError, NodeOk, NodeResult};
@@ -23,7 +23,7 @@ use crate::node_graph::NodeGraph;
 use crate::nodes::inputs::InputsNode;
 use crate::nodes::outputs::OutputsNode;
 use crate::nodes::placeholder::Placeholder;
-use crate::nodes::variants::{new_variant, variant_to_name, NodeVariant};
+use crate::nodes::variants::{variant_to_name, NodeVariant};
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
@@ -71,14 +71,12 @@ impl NodeRow {
                 SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), polyphonic),
                 SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), polyphonic),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, polyphonic),
-                SocketType::MethodCall(_) => unimplemented!(),
             },
             SocketDirection::Output => match socket_type {
                 SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, polyphonic),
                 SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), polyphonic),
                 SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), polyphonic),
                 SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, polyphonic),
-                SocketType::MethodCall(_) => unimplemented!(),
             },
         }
     }
@@ -145,26 +143,26 @@ pub trait Node: Debug + Clone {
     }
 
     /// Accept incoming stream data of type `socket_type`
-    fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {}
+    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {}
 
     /// Return outgoing stream data of type `socket_type`
-    fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         0_f32
     }
 
     /// Accept incoming midi data of type `socket_type`
-    fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {}
+    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {}
 
     /// Return outgoing midi data of type `socket_type`
-    fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
         Some(SmallVec::new())
     }
 
     /// Accept incoming value data of type `socket_type`
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {}
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {}
 
     /// Return outgoing value data of type `socket_type`
-    fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
+    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         None
     }
 }
@@ -186,13 +184,11 @@ where
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeWrapper {
     #[serde(serialize_with = "serialize_node_prop")]
     #[serde(deserialize_with = "deserialize_node_prop")]
     pub(crate) node: NodeVariant,
-    index: NodeIndex,
-    connected_inputs: Vec<InputSideConnection>,
-    connected_outputs: Vec<OutputSideConnection>,
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
@@ -202,11 +198,7 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(
-        mut node: NodeVariant,
-        index: NodeIndex,
-        state: NodeInitState,
-    ) -> Result<NodeOk<NodeWrapper>, NodeError> {
+    pub fn new(mut node: NodeVariant, state: NodeInitState) -> Result<NodeOk<NodeWrapper>, NodeError> {
         let name = variant_to_name(&node);
 
         let init_result = node.init(state)?;
@@ -229,10 +221,7 @@ impl NodeWrapper {
 
         let mut wrapper = NodeWrapper {
             node,
-            index,
             default_overrides: Vec::new(),
-            connected_inputs: Vec::new(),
-            connected_outputs: Vec::new(),
             node_rows: init_result.value.node_rows,
             properties,
             ui_data: HashMap::new(),
@@ -252,19 +241,19 @@ impl NodeWrapper {
         })
     }
 
-    pub fn does_need_child_graph_created(&self) -> bool {
-        self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph)) && self.child_graph_index.is_none()
+    pub fn uses_child_graph(&self) -> bool {
+        self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph))
     }
 
     pub fn init_child_graph(
         &mut self,
-        index: &GraphIndex,
+        index: GraphIndex,
         graph_manager: &GraphManager,
         inputs: Vec<SocketType>,
         outputs: Vec<SocketType>,
         state: NodeInitState,
-    ) {
-        self.set_child_graph_index(*index);
+    ) -> Result<(), NodeError> {
+        self.set_child_graph_index(index);
 
         let mut new_inputs_node = InputsNode::default();
         let mut new_outputs_node = OutputsNode::default();
@@ -272,7 +261,7 @@ impl NodeWrapper {
         new_inputs_node.set_inputs(inputs);
         new_outputs_node.set_outputs(outputs);
 
-        let child_graph = &mut graph_manager.get_graph_wrapper_mut(*index).unwrap().graph;
+        let child_graph = &mut graph_manager.get_graph(index)?.graph.borrow_mut();
 
         let NodeInitState {
             props,
@@ -281,7 +270,7 @@ impl NodeWrapper {
             global_state,
         } = state;
 
-        let input_index = child_graph
+        let (input_index, _) = child_graph
             .add_node(
                 NodeVariant::InputsNode(new_inputs_node),
                 NodeInitState {
@@ -293,7 +282,7 @@ impl NodeWrapper {
             )
             .unwrap()
             .value;
-        let output_index = child_graph
+        let (output_index, _) = child_graph
             .add_node(
                 NodeVariant::OutputsNode(new_outputs_node),
                 NodeInitState {
@@ -307,14 +296,12 @@ impl NodeWrapper {
             .value;
 
         self.child_graph_io_indexes = Some((input_index, output_index));
+
+        Ok(())
     }
 
     pub fn set_child_graph_index(&mut self, index: GraphIndex) {
         self.child_graph_index = Some(index);
-    }
-
-    pub fn get_index(&self) -> NodeIndex {
-        self.index
     }
 
     pub fn get_child_graph_index(&self) -> &Option<GraphIndex> {
@@ -365,14 +352,6 @@ impl NodeWrapper {
         self.ui_data.insert(key, value);
     }
 
-    pub fn list_connected_input_sockets(&self) -> Vec<InputSideConnection> {
-        self.connected_inputs.clone()
-    }
-
-    pub fn list_connected_output_sockets(&self) -> Vec<OutputSideConnection> {
-        self.connected_outputs.clone()
-    }
-
     pub fn list_input_sockets(&self) -> Vec<SocketType> {
         self.node_rows
             .iter()
@@ -413,44 +392,15 @@ impl NodeWrapper {
             .collect()
     }
 
-    pub fn has_input_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_input_sockets().iter().any(|socket| *socket == *socket_type)
+    pub fn has_input_socket(&self, socket_type: SocketType) -> bool {
+        self.list_input_sockets().iter().any(|&socket| socket == socket_type)
     }
 
-    pub fn has_output_socket(&self, socket_type: &SocketType) -> bool {
-        self.list_output_sockets().iter().any(|socket| *socket == *socket_type)
-    }
-
-    pub fn get_input_connection_by_type(&self, input_socket_type: &SocketType) -> Option<InputSideConnection> {
-        let input = self
-            .connected_inputs
-            .iter()
-            .find(|input| input.to_socket_type == *input_socket_type);
-
-        input.map(|input| (*input).clone())
-    }
-
-    pub fn get_output_connections_by_type(&self, output_socket_type: &SocketType) -> Vec<OutputSideConnection> {
-        let my_outputs_filtered = self
-            .connected_outputs
-            .iter()
-            .filter(|input| input.from_socket_type == *output_socket_type);
-
-        let mut outputs_filtered: Vec<OutputSideConnection> = Vec::new();
-
-        for output in my_outputs_filtered {
-            outputs_filtered.push((*output).clone());
-        }
-
-        outputs_filtered
+    pub fn has_output_socket(&self, socket_type: SocketType) -> bool {
+        self.list_output_sockets().iter().any(|&socket| socket == socket_type)
     }
 
     pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
-        // if it's connected to something, it doesn't have a default
-        if self.get_input_connection_by_type(socket_type).is_some() {
-            return None;
-        }
-
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let type_and_direction = (*override_row).clone().to_type_and_direction();
 
@@ -479,66 +429,38 @@ impl NodeWrapper {
             .cloned()
     }
 
-    pub fn serialize_to_json(&self) -> Result<serde_json::Value, NodeError> {
-        Ok(json! {{
-            "node_rows": self.node_rows.clone(),
-            "default_overrides": self.default_overrides.clone(),
-            "index": self.index,
-            "connected_inputs": self.connected_inputs,
-            "connected_outputs": self.connected_outputs,
-            "properties": self.properties,
-            "ui_data": self.ui_data,
-            "child_graph_index": self.child_graph_index,
-        }})
-    }
-
     /// Note, this does not deserialize the node itself, only the generic properties
-    pub fn apply_json(&mut self, json: &Value) -> Result<(), NodeError> {
+    pub fn apply_json(&mut self, json: &mut Value) -> Result<(), NodeError> {
         println!("Applying json: {}", json);
 
-        let index: NodeIndex = serde_json::from_value(json["index"].clone()).context(JsonParserSnafu)?;
-        let ui_data: HashMap<String, Value> =
-            serde_json::from_value(json["ui_data"].clone()).context(JsonParserSnafu)?;
-
-        if index != self.index {
-            return Err(NodeError::MismatchedNodeIndex {
-                current: self.index,
-                incoming: index,
-            });
-        }
+        let ui_data: HashMap<String, Value> = serde_json::from_value(json["uiData"].take()).context(JsonParserSnafu)?;
 
         self.ui_data = ui_data;
 
         Ok(())
     }
 
-    pub(crate) fn post_deserialization(&mut self, sound_config: &SoundConfig) -> Result<(), NodeError> {
-        self.node = new_variant(&self.node.as_placeholder_value().unwrap(), sound_config)?;
-
-        Ok(())
-    }
-
-    pub fn accept_stream_input(&mut self, socket_type: &StreamSocketType, value: f32) {
+    pub fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
         self.node.accept_stream_input(socket_type, value);
     }
 
-    pub fn get_stream_output(&self, socket_type: &StreamSocketType) -> f32 {
+    pub fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
         self.node.get_stream_output(socket_type)
     }
 
-    pub fn accept_midi_input(&mut self, socket_type: &MidiSocketType, value: MidiBundle) {
+    pub fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {
         self.node.accept_midi_input(socket_type, value);
     }
 
-    pub fn get_midi_output(&self, socket_type: &MidiSocketType) -> Option<MidiBundle> {
+    pub fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
         self.node.get_midi_output(socket_type)
     }
 
-    pub fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    pub fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         self.node.accept_value_input(socket_type, value);
     }
 
-    pub fn get_value_output(&self, socket_type: &ValueSocketType) -> Option<Primitive> {
+    pub fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
         self.node.get_value_output(socket_type)
     }
 
@@ -564,16 +486,8 @@ impl NodeWrapper {
         self.node.linked_to_ui()
     }
 
-    pub(crate) fn set_child_graph_io_indexes(&mut self, ios: Option<(NodeIndex, NodeIndex)>) {
-        self.child_graph_io_indexes = ios;
-    }
-
     pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
         &self.child_graph_io_indexes
-    }
-
-    pub(crate) fn _set_index(&mut self, index: NodeIndex) {
-        self.index = index;
     }
 
     pub(crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
@@ -583,85 +497,13 @@ impl NodeWrapper {
     pub(crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
         &self.node_rows
     }
-
-    pub(crate) fn get_output_connections(&self) -> &Vec<OutputSideConnection> {
-        &self.connected_outputs
-    }
-
-    pub(crate) fn add_input_connection_unchecked(&mut self, connection: InputSideConnection) {
-        self.connected_inputs.push(connection);
-    }
-
-    pub(crate) fn add_output_connection_unchecked(&mut self, connection: OutputSideConnection) {
-        self.connected_outputs.push(connection);
-    }
-
-    pub(crate) fn remove_input_socket_connection_unchecked(&mut self, to_type: &SocketType) -> Result<(), NodeError> {
-        let to_remove = self
-            .connected_inputs
-            .iter()
-            .position(|input| input.to_socket_type == *to_type);
-
-        if let Some(to_remove) = to_remove {
-            self.connected_inputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub(crate) fn remove_output_socket_connection_unchecked(
-        &mut self,
-        connection: &OutputSideConnection,
-    ) -> Result<(), NodeError> {
-        let to_remove = self.connected_outputs.iter().position(|input| {
-            input.from_socket_type == connection.from_socket_type
-                && input.to_node == connection.to_node
-                && input.to_socket_type == connection.to_socket_type
-        });
-
-        if let Some(to_remove) = to_remove {
-            self.connected_outputs.remove(to_remove);
-
-            Ok(())
-        } else {
-            Err(NodeError::NotConnected)
-        }
-    }
-
-    pub(crate) fn _remove_output_socket_connections_unchecked(
-        &mut self,
-        from_type: &SocketType,
-    ) -> Result<(), NodeError> {
-        let mut found: Vec<usize> = Vec::new();
-
-        for (i, connection) in self.connected_outputs.iter().enumerate() {
-            if connection.from_socket_type == *from_type {
-                found.push(i);
-            }
-        }
-
-        for found_index in &found {
-            self.connected_inputs.remove(*found_index);
-        }
-
-        if found.is_empty() {
-            Err(NodeError::NotConnected)
-        } else {
-            Ok(())
-        }
-    }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub struct NodeIndex {
-    pub index: usize,
-    pub generation: u32,
-}
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub struct NodeIndex(pub VertexIndex);
 
 impl Display for NodeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "index: {}, generation: {}", self.index, self.generation)
+        write!(f, "{:?}", self.0)
     }
 }

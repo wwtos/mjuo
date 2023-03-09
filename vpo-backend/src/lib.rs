@@ -9,10 +9,7 @@ use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 use sound_engine::{
-    backend::{
-        alsa_midi::AlsaMidiClientBackend, midir::MidirMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend,
-        MidiClientBackend,
-    },
+    backend::{alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend},
     constants::BUFFER_SIZE,
     midi::{messages::MidiData, parse::MidiParser},
 };
@@ -41,6 +38,7 @@ pub fn handle_msg(
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
 ) {
+    println!("got: {:?}", msg);
     let result = route(msg, to_server, state, global_state);
 
     match result {

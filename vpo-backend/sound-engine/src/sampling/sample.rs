@@ -5,7 +5,7 @@ use std::{
 };
 
 use regex::Regex;
-use resource_manager::{IOSnafu, LoadingError, ParserSnafu, Resource, TomlParserDeSnafu, TomlParserSerSnafu};
+use resource_manager::{IOSnafu, LoadingError, Resource, TomlParserDeSnafu, TomlParserSerSnafu};
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;

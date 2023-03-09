@@ -1,5 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{sampling::sample_player::SamplePlayer, SoundConfig};
+use sound_engine::sampling::sample_player::SamplePlayer;
 
 use crate::{
     connection::{Primitive, StreamSocketType, ValueSocketType},
@@ -14,12 +14,11 @@ pub struct MonoSamplePlayerNode {
     released: bool,
     played: bool,
     index: ResourceIndex,
-    config: SoundConfig,
     output: f32,
 }
 
-impl MonoSamplePlayerNode {
-    pub fn new(config: &SoundConfig) -> Self {
+impl Default for MonoSamplePlayerNode {
+    fn default() -> Self {
         MonoSamplePlayerNode {
             player: None,
             released: false,
@@ -28,7 +27,6 @@ impl MonoSamplePlayerNode {
                 index: 0,
                 generation: 0,
             },
-            config: config.clone(),
             output: 0.0,
         }
     }
@@ -99,19 +97,17 @@ impl Node for MonoSamplePlayerNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: &ValueSocketType, value: Primitive) {
-        if let Some(player) = &mut self.player {
-            if let Some(engaged) = value.as_boolean() {
-                if engaged {
-                    self.played = true;
-                } else {
-                    self.released = true;
-                }
+    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
+        if let Some(engaged) = value.as_boolean() {
+            if engaged {
+                self.played = true;
+            } else {
+                self.released = true;
             }
         }
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.output
     }
 }

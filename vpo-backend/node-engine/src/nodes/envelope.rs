@@ -19,7 +19,7 @@ impl EnvelopeNode {
 }
 
 impl Node for EnvelopeNode {
-    fn accept_value_input(&mut self, socket_type: &ValueSocketType, value: Primitive) {
+    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
         match socket_type {
             ValueSocketType::Gate => {
                 if let Some(gate) = value.as_float() {
@@ -50,7 +50,7 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.envelope.get_gain()
     }
 

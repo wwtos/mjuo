@@ -18,11 +18,11 @@ impl Node for OutputNode {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false)])
     }
 
-    fn accept_stream_input(&mut self, _socket_type: &StreamSocketType, value: f32) {
+    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
         self.current_value = value;
     }
 
-    fn get_stream_output(&self, _socket_type: &StreamSocketType) -> f32 {
+    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
         self.current_value
     }
 }

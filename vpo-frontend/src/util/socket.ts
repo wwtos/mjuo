@@ -1,6 +1,8 @@
+import type { Index } from "../ddgg/gen_vec";
+import type { VertexIndex } from "../ddgg/graph";
 import type { Connection } from "../node-engine/connection";
 import type { NodeWrapper, UiData } from "../node-engine/node";
-import type { NodeIndex } from "../node-engine/node_index";
+import { NodeGraph } from "../node-engine/node_graph";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -31,18 +33,18 @@ export class IPCSocket {
         });
     }
 
-    createNode (graphIndex: number, type: string, uiData?: UiData) {
+    createNode (graphIndex: Index, type: string, uiData?: UiData) {
         this.send({
             "action": "graph/newNode",
             "payload": {
                 graphIndex,
-                "type": type,
-                "ui_data": uiData,
+                "nodeType": type,
+                "uiData": uiData,
             }
         });
     }
 
-    removeNode (graphIndex: number, nodeIndex: NodeIndex) {
+    removeNode (graphIndex: Index, nodeIndex: VertexIndex) {
         this.send({
             "action": "graph/removeNode",
             "payload": {
@@ -52,31 +54,33 @@ export class IPCSocket {
         });
     }
 
-    updateNodes (graphIndex: number, nodes: NodeWrapper[]) {
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+    updateNodes (graph: NodeGraph, nodes: Array<VertexIndex>) {
+        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
 
         this.send({
             "action": "graph/updateNodes",
             "payload": {
-                graphIndex,
+                graphIndex: graph.graphIndex,
                 "updatedNodes": nodesToUpdateJson,
             }
         });
     }
 
-    updateNodesUi (graphIndex: number, nodes: NodeWrapper[]) {
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodes));
+    updateNodesUi (graph: NodeGraph, nodes: Array<VertexIndex>) {
+        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
+        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
 
         this.send({
             "action": "graph/updateNodesUi",
             "payload": {
-                graphIndex,
+                graphIndex: graph.graphIndex,
                 "updatedNodes": nodesToUpdateJson,
             }
         });
     }
 
-    connectNode (graphIndex: number, connection: Connection) {
+    connectNode (graphIndex: Index, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/connectNode",
             "payload": {
@@ -86,7 +90,7 @@ export class IPCSocket {
         })));
     }
 
-    disconnectNode (graphIndex: number, connection: Connection) {
+    disconnectNode (graphIndex: Index, connection: Connection) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/disconnectNode",
             "payload": {
@@ -96,7 +100,7 @@ export class IPCSocket {
         })));
     }
 
-    requestGraph (graphIndex: number) {
+    requestGraph (graphIndex: Index) {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/get",
             "payload": {
