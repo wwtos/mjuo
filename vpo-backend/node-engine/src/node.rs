@@ -106,9 +106,9 @@ pub struct NodeProcessState<'a> {
 }
 
 pub struct NodeGraphAndIo<'a> {
-    graph: &'a NodeGraph,
-    input_index: NodeIndex,
-    output_index: NodeIndex,
+    pub graph: &'a NodeGraph,
+    pub input_index: NodeIndex,
+    pub output_index: NodeIndex,
 }
 
 /// Node trait

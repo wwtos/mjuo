@@ -71,6 +71,7 @@ impl Node for MixerNode {
             did_rows_change,
             node_rows,
             changed_properties: None,
+            child_graph_io: None,
         })
     }
 }

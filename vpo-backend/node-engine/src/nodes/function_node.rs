@@ -2,14 +2,12 @@ use crate::connection::{SocketDirection, SocketType, StreamSocketType};
 use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::node::{InitResult, Node, NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
 use crate::node_graph::NodeGraph;
-use crate::socket_registry::SocketRegistry;
 use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct FunctionNode {
     local_graph: NodeGraph,
     traverser: Traverser,
-    is_first_time: bool,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
@@ -18,7 +16,6 @@ impl Default for FunctionNode {
         FunctionNode {
             local_graph: NodeGraph::new(),
             traverser: Traverser::default(),
-            is_first_time: true,
             child_io_nodes: None,
         }
     }
@@ -59,9 +56,9 @@ impl Node for FunctionNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
+        _state: NodeProcessState,
+        _streams_in: &[f32],
+        _streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 

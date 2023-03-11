@@ -1,14 +1,13 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 use sound_engine::constants::SAMPLE_RATE;
-use sound_engine::midi::messages::MidiData;
 
 use crate::connection::{MidiBundle, MidiSocketType, SocketDirection, SocketType, StreamSocketType};
 use crate::errors::{NodeError, NodeOk, NodeResult};
-use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
+use crate::node::{InitResult, Node, NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
 use crate::node_graph::NodeGraph;
+use crate::property::Property;
 use crate::property::PropertyType;
 use crate::traversal::traverser::Traverser;
-use crate::{property::Property, socket_registry::SocketRegistry};
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 //                                                             50 ms
@@ -92,19 +91,20 @@ impl Node for PolyphonicNode {
         //     }
         // }
 
-        InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
-            NodeRow::InnerGraph,
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
-    }
-
-    fn get_child_graph_socket_list(&self, _registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
-        vec![
-            (SocketType::Midi(MidiSocketType::Default), SocketDirection::Input),
-            (SocketType::Stream(StreamSocketType::Audio), SocketDirection::Output),
-        ]
+        NodeOk::no_warnings(InitResult {
+            did_rows_change: false,
+            node_rows: vec![
+                NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
+                NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
+                NodeRow::InnerGraph,
+                NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
+            ],
+            changed_properties: None,
+            child_graph_io: Some(vec![
+                (SocketType::Midi(MidiSocketType::Default), SocketDirection::Input),
+                (SocketType::Stream(StreamSocketType::Audio), SocketDirection::Output),
+            ]),
+        })
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
@@ -230,7 +230,7 @@ impl Node for PolyphonicNode {
         // }
     }
 
-    fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {
+    fn post_init(&mut self, init_state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<()> {
         // for i in 0..self.polyphony {
         //     if i as usize >= self.voices.len() {
         //         self.voices.push(Voice {
@@ -253,6 +253,8 @@ impl Node for PolyphonicNode {
 
         // self.traverser = Traverser::get_traverser(graph).unwrap();
         // self.child_io_nodes = Some((input_node, output_node));
+
+        NodeOk::no_warnings(())
     }
 
     fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {

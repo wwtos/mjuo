@@ -2,12 +2,11 @@ use enum_dispatch::enum_dispatch;
 
 use sound_engine::SoundConfig;
 
-use crate::connection::{MidiBundle, Primitive, SocketDirection, SocketType};
+use crate::connection::{MidiBundle, Primitive};
 use crate::errors::NodeResult;
 use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeIndex, NodeInitState, NodeProcessState};
-use crate::node_graph::NodeGraph;
-use crate::socket_registry::SocketRegistry;
+use crate::node::NodeGraphAndIo;
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState};
 
 use super::button::ButtonNode;
 use super::function_node::FunctionNode;

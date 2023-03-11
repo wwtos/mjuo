@@ -71,6 +71,7 @@ impl Node for OutputsNode {
             did_rows_change: self.dirty,
             node_rows,
             changed_properties: None,
+            child_graph_io: None,
         })
     }
 }

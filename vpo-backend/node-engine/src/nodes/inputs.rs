@@ -46,6 +46,7 @@ impl Node for InputsNode {
             did_rows_change: was_dirty,
             node_rows,
             changed_properties: None,
+            child_graph_io: None,
         })
     }
 

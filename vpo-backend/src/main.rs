@@ -31,8 +31,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut buffer_index = 0;
     let start = Instant::now();
 
-    let mut is_first_time = true;
-
     let mut output_file = File::create("out.raw").unwrap();
 
     loop {
@@ -40,9 +38,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if let Ok(msg) = msg {
             handle_msg(msg, &to_server, &mut engine_state, &mut global_state);
-
-            // TODO: this shouldn't reset `is_first_time` for just any message
-            is_first_time = true;
         }
 
         let mut midi = get_midi(&mut midi_backend, &mut midi_parser);
@@ -56,13 +51,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
 
-            *sample = engine_state.step(current_time, is_first_time, SmallVec::from(midi.clone()), &global_state);
+            *sample = engine_state.step(current_time, SmallVec::from(midi.clone()), &global_state);
 
             if !midi.is_empty() {
                 midi = Vec::new();
             }
-
-            is_first_time = false;
         }
 
         print!(", {:?}", buffer[0]);
