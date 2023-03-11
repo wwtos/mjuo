@@ -20,36 +20,6 @@ impl BiquadFilterNode {
 }
 
 impl Node for BiquadFilterNode {
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        match socket_type {
-            ValueSocketType::Frequency => {
-                if let Some(frequency) = value.as_float() {
-                    self.filter.set_frequency(frequency.max(1.0));
-                }
-            }
-            ValueSocketType::Resonance => {
-                if let Some(resonance) = value.as_float() {
-                    self.filter.set_q(resonance);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
-        self.filter.set_audio_in(value);
-    }
-
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        self.filter.process();
-
-        NodeOk::no_warnings(())
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.filter.get_output_out()
-    }
-
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         self.filter.reset();
 
@@ -83,5 +53,28 @@ impl Node for BiquadFilterNode {
             NodeRow::ValueInput(ValueSocketType::Resonance, Primitive::Float(0.707), false),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ])
+    }
+
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        if let [frequency, resonance] = &values_in {
+            if let Some(frequency) = frequency.clone().and_then(|f| f.as_float()) {
+                self.filter.set_frequency(frequency.max(1.0));
+            }
+
+            if let Some(resonance) = resonance.clone().and_then(|r| r.as_float()) {
+                self.filter.set_q(resonance);
+            }
+        }
+    }
+
+    fn process(
+        &mut self,
+        _state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
+        streams_out[0] = self.filter.filter_audio(streams_in[0]);
+
+        NodeOk::no_warnings(())
     }
 }

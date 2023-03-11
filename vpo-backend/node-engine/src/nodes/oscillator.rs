@@ -53,22 +53,22 @@ impl Node for OscillatorNode {
         ])
     }
 
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        self.audio_out = self.oscillator.process_fast();
+    fn process(
+        &mut self,
+        _state: NodeProcessState,
+        _streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
+        streams_out[0] = self.oscillator.process();
 
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        if socket_type == ValueSocketType::Frequency {
-            self.oscillator.set_frequency(value.as_float().unwrap());
-        }
-    }
-
-    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
-        match socket_type {
-            StreamSocketType::Audio => self.audio_out,
-            _ => 0_f32,
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        if let [Some(frequency)] = values_in {
+            if let Some(frequency) = frequency.clone().as_float() {
+                self.oscillator.set_frequency(frequency);
+            }
         }
     }
 }

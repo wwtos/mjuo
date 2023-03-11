@@ -5,7 +5,7 @@ use sound_engine::{
 
 use crate::{
     connection::{Primitive, ValueSocketType},
-    errors::{NodeError, NodeOk},
+    errors::{NodeError, NodeOk, NodeResult},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
     property::{Property, PropertyType},
 };
@@ -56,7 +56,7 @@ impl Node for PortamentoNode {
         ])
     }
 
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, _state: NodeProcessState, _streams_in: &[f32], _streams_out: &mut [f32]) -> NodeResult<()> {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
@@ -75,38 +75,37 @@ impl Node for PortamentoNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        match socket_type {
-            ValueSocketType::Gate => {
-                self.engaged = value.as_boolean().unwrap();
-
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        if let [gate, frequency, speed] = values_in {
+            if let Some(gate) = gate.clone().and_then(|x| x.as_boolean()) {
                 if !self.engaged {
                     self.value_out = Some(Primitive::Float(self.ramp.get_to()));
                     self.ramp.set_position(self.ramp.get_to());
                 }
             }
-            ValueSocketType::Frequency => {
+
+            if let Some(frequency) = frequency.clone().and_then(|x| x.as_float()) {
                 if self.engaged {
                     self.ramp
-                        .set_ramp_parameters(self.ramp.get_position(), value.as_float().unwrap(), self.speed)
+                        .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
                         .unwrap();
                 } else {
-                    self.value_out = Some(Primitive::Float(value.as_float().unwrap()));
+                    self.value_out = Some(Primitive::Float(frequency));
                 }
             }
-            ValueSocketType::Speed => {
-                self.speed = value.as_float().unwrap();
+
+            if let Some(speed) = speed.clone().and_then(|x| x.as_float()) {
+                self.speed = speed;
                 self.ramp
                     .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
                     .unwrap();
             }
-            _ => {}
         }
 
         self.active = true;
     }
 
-    fn get_value_output(&self, _socket_type: ValueSocketType) -> Option<Primitive> {
-        self.value_out.clone()
+    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+        values_out[0] = self.value_out.clone();
     }
 }

@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::fs::File;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -9,7 +10,7 @@ use smallvec::SmallVec;
 use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
-use vpo_backend::{connect_backend, connect_midi_backend, get_midi, handle_msg, start_ipc};
+use vpo_backend::{connect_backend, connect_midi_backend, get_midi, handle_msg, start_ipc, write_to_file};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // first, start ipc server
@@ -30,16 +31,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut buffer_index = 0;
     let start = Instant::now();
 
-    let mut is_first_time = true;
+    let mut output_file = File::create("out.raw").unwrap();
 
     loop {
         let msg = from_server.try_recv();
 
         if let Ok(msg) = msg {
             handle_msg(msg, &to_server, &mut engine_state, &mut global_state);
-
-            // TODO: this shouldn't reset `is_first_time` for just any message
-            is_first_time = true;
         }
 
         let mut midi = get_midi(&mut midi_backend, &mut midi_parser);
@@ -53,17 +51,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         for (i, sample) in buffer.iter_mut().enumerate() {
             let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
 
-            *sample = engine_state.step(current_time, is_first_time, SmallVec::from(midi.clone()), &global_state);
+            *sample = engine_state.step(current_time, SmallVec::from(midi.clone()), &global_state);
 
             if !midi.is_empty() {
                 midi = Vec::new();
             }
-
-            is_first_time = false;
         }
 
+        print!(", {:?}", buffer[0]);
+
         backend.write(&buffer)?;
-        //write_to_file(&mut output_file, &buffer)?;
+        write_to_file(&mut output_file, &buffer)?;
 
         let now = Instant::now() - start;
         let sample_duration = Duration::from_secs_f64(BUFFER_SIZE as f64 / SAMPLE_RATE as f64);

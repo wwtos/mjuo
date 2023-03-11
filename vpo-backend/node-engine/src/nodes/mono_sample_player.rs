@@ -14,7 +14,6 @@ pub struct MonoSamplePlayerNode {
     released: bool,
     played: bool,
     index: ResourceIndex,
-    output: f32,
 }
 
 impl Default for MonoSamplePlayerNode {
@@ -27,7 +26,6 @@ impl Default for MonoSamplePlayerNode {
                 index: 0,
                 generation: 0,
             },
-            output: 0.0,
         }
     }
 }
@@ -72,7 +70,12 @@ impl Node for MonoSamplePlayerNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        _streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
         if let Some(player) = &mut self.player {
             let sample = state
                 .global_state
@@ -91,23 +94,21 @@ impl Node for MonoSamplePlayerNode {
                 self.released = false;
             }
 
-            self.output = player.next_sample(&sample);
+            streams_out[0] = player.next_sample(&sample);
         }
 
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
-        if let Some(engaged) = value.as_boolean() {
-            if engaged {
-                self.played = true;
-            } else {
-                self.released = true;
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        if let [Some(engaged)] = values_in {
+            if let Some(engaged) = engaged.clone().as_boolean() {
+                if engaged {
+                    self.played = true;
+                } else {
+                    self.released = true;
+                }
             }
         }
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.output
     }
 }

@@ -1,15 +1,21 @@
 use crate::connection::StreamSocketType;
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState, NodeRow};
+use crate::errors::{NodeError, NodeOk, NodeResult};
+use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 
 #[derive(Debug, Clone)]
 pub struct OutputNode {
-    current_value: f32,
+    value_received: f32,
 }
 
 impl Default for OutputNode {
     fn default() -> Self {
-        OutputNode { current_value: 0.0 }
+        OutputNode { value_received: 0.0 }
+    }
+}
+
+impl OutputNode {
+    pub fn get_value_received(&self) -> f32 {
+        self.value_received
     }
 }
 
@@ -18,11 +24,9 @@ impl Node for OutputNode {
         InitResult::simple(vec![NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false)])
     }
 
-    fn accept_stream_input(&mut self, _socket_type: StreamSocketType, value: f32) {
-        self.current_value = value;
-    }
+    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+        self.value_received = streams_in[0];
 
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.current_value
+        NodeOk::no_warnings(())
     }
 }

@@ -4,11 +4,10 @@ use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
-use crate::connection::{SocketDirection, SocketType};
+use crate::connection::SocketType;
 use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
-use crate::node::{NodeInitState, NodeRow};
+use crate::node::NodeInitState;
 use crate::node_graph::NodeGraphDiff;
-use crate::nodes::variants::{new_variant, NodeVariant};
 use crate::state::ActionInvalidations;
 use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -140,7 +139,7 @@ impl GraphManager {
         Ok(self.node_graphs.get_vertex_data(index.0)?)
     }
 
-    fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraphWrapper, NodeError> {
+    pub fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraphWrapper, NodeError> {
         Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
     }
 
@@ -159,27 +158,15 @@ impl GraphManager {
             .map_err(|err| err.into())
     }
 
-    pub fn recalculate_traversal_for_graph(&mut self, index: GraphIndex) -> Result<(), NodeError> {
+    pub fn recalculate_traversal_for_graph(
+        &mut self,
+        index: GraphIndex,
+        state: NodeInitState,
+    ) -> Result<(), NodeError> {
         let mut graph_wrapper = self.get_graph_mut(index)?;
 
         // set the new traverser
-        graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow())?;
-
-        Ok(())
-    }
-
-    pub fn update_traversal_defaults(
-        &mut self,
-        index: GraphIndex,
-        nodes_to_update: Vec<NodeIndex>,
-    ) -> Result<(), NodeError> {
-        let graph_wrapper = self.get_graph_mut(index)?;
-
-        let NodeGraphWrapper { traverser, graph, .. } = &mut *graph_wrapper;
-
-        for node_index in nodes_to_update.iter() {
-            traverser.update_node_defaults(&graph.borrow(), *node_index);
-        }
+        graph_wrapper.traverser = Traverser::get_traverser(&mut graph_wrapper.graph.borrow_mut(), state)?;
 
         Ok(())
     }
@@ -190,7 +177,6 @@ impl GraphManager {
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
-        sound_config: &SoundConfig,
         state: NodeInitState,
     ) -> NodeResult<(GraphManagerDiff, ActionInvalidations)> {
         let mut warnings = WarningBuilder::new();
@@ -202,25 +188,14 @@ impl GraphManager {
             global_state,
         } = state;
 
-        let new_node = new_variant(node_type, sound_config)?;
         let mut diff = vec![];
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
-        let creation_result = graph.add_node(
-            new_node,
-            NodeInitState {
-                props,
-                registry,
-                script_engine,
-                global_state,
-            },
-        )?;
+        let creation_result = graph.add_node(node_type.into(), vec![])?;
 
         let new_node_index = creation_result.value.0;
         warnings.append_warnings(creation_result.warnings);
 
         diff.push(DiffElement::ChildGraphDiff(graph_index, creation_result.value.1));
-
-        // now, for the issue of child graphs
 
         // does this node need a child graph?
         let new_node_wrapper = graph.get_node(new_node_index)?;
@@ -234,56 +209,10 @@ impl GraphManager {
                 let (new_graph_index, creation_diff) = self.new_graph()?;
                 diff.extend(creation_diff.0);
 
-                let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
-                let new_node = graph.get_node_mut(new_node_index)?;
-
-                // get a list of the input and output nodes in the child graph
-                // (for creating the InputsNode and OutputsNode inside the child graph)
-                let child_sockets = new_node.get_child_graph_socket_list(registry);
-
-                let input_sockets = child_sockets
-                    .iter()
-                    .filter_map(|child_socket| {
-                        if child_socket.1 == SocketDirection::Input {
-                            Some(child_socket.0)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<SocketType>>();
-
-                let output_sockets = child_sockets
-                    .iter()
-                    .filter_map(|child_socket| {
-                        if child_socket.1 == SocketDirection::Output {
-                            Some(child_socket.0)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<SocketType>>();
-
-                // let the node's wrapper set up the graph
-                new_node.init_child_graph(
-                    graph_index,
-                    self,
-                    input_sockets,
-                    output_sockets,
-                    NodeInitState {
-                        props,
-                        registry,
-                        script_engine,
-                        global_state,
-                    },
-                )?;
-
-                // run the node's graph init function
-                let mut new_child_graph = self.get_graph(new_graph_index)?.graph.borrow_mut();
-                new_node.node_init_graph(&mut new_child_graph);
-
                 new_graph_index
             };
 
+            // connect the two graphs together
             let (_, connect_diff) =
                 self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index)?;
             diff.extend(connect_diff.0);
@@ -475,100 +404,15 @@ impl GraphManager {
 
         for graph_wrapper_index in &indexes {
             let graph_wrapper = self.get_graph_mut(GraphIndex(*graph_wrapper_index))?;
-
-            graph_wrapper.graph.borrow_mut().post_deserialization(
+            graph_wrapper.traverser = Traverser::get_traverser(
+                &mut graph_wrapper.graph.borrow_mut(),
                 NodeInitState {
                     props,
                     registry,
                     script_engine,
                     global_state,
                 },
-                sound_config,
             )?;
-            graph_wrapper.traverser = Traverser::get_traverser(&graph_wrapper.graph.borrow())?;
-        }
-
-        // next, init child graph inputs and outputs nodes
-        for graph_wrapper_index in &indexes {
-            let graph_wrapper = self.get_graph(GraphIndex(*graph_wrapper_index))?;
-            let mut graph = graph_wrapper.graph.borrow_mut();
-
-            let node_indexes: Vec<NodeIndex> = graph.node_indexes().collect();
-
-            for node_index in node_indexes {
-                let node = graph.get_node_mut(node_index)?;
-                let socket_list = node.get_child_graph_socket_list(registry);
-
-                if let Some(index) = node.get_child_graph_index() {
-                    let mut child_graph = self.get_graph(*index)?.graph.borrow_mut();
-
-                    let input_sockets = socket_list
-                        .iter()
-                        .filter_map(|child_socket| {
-                            if child_socket.1 == SocketDirection::Input {
-                                Some(child_socket.0.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<SocketType>>();
-
-                    let output_sockets = socket_list
-                        .iter()
-                        .filter_map(|child_socket| {
-                            if child_socket.1 == SocketDirection::Output {
-                                Some(child_socket.0.clone())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect::<Vec<SocketType>>();
-
-                    let (input_index, output_index) = node.get_child_graph_io_indexes().unwrap();
-
-                    let input_node = child_graph.get_node_mut(input_index)?;
-                    if let NodeVariant::InputsNode(inputs_node) = &mut input_node.node {
-                        println!("\n\nsetting inputs: {:?}\n\n", input_sockets);
-                        inputs_node.set_inputs(input_sockets.clone());
-                    } else {
-                        unreachable!("Child graph input index is not input node!");
-                    }
-
-                    input_node.set_node_rows(
-                        input_sockets
-                            .into_iter()
-                            .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Output, false))
-                            .collect(),
-                    );
-
-                    let output_node = child_graph.get_node_mut(output_index)?;
-                    if let NodeVariant::OutputsNode(outputs_node) = &mut output_node.node {
-                        println!("\n\nsetting outputs: {:?}\n\n", output_sockets);
-                        outputs_node.set_outputs(output_sockets.clone());
-                    }
-
-                    output_node.set_node_rows(
-                        output_sockets
-                            .into_iter()
-                            .map(|socket| NodeRow::from_type_and_direction(socket, SocketDirection::Input, false))
-                            .collect(),
-                    );
-                }
-            }
-        }
-
-        // finally go through and run init_child_graph for all the nodes in the root graph
-        let mut root_graph = self.get_graph(self.root_index)?.graph.borrow_mut();
-
-        let node_indexes: Vec<NodeIndex> = root_graph.node_indexes().collect();
-        for node_index in node_indexes {
-            let node = root_graph.get_node_mut(node_index)?;
-
-            if let Some(child_graph_index) = node.get_child_graph_index() {
-                let child_graph = self.get_graph(*child_graph_index)?;
-
-                node.node_init_graph(&mut child_graph.graph.borrow_mut());
-            }
         }
 
         Ok(())

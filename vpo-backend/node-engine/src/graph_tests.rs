@@ -1,39 +1,26 @@
-use std::collections::HashMap;
-
 use ddgg::GraphError;
+use lazy_static::lazy_static;
 use rhai::Engine;
-use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
 use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
-use crate::errors::{NodeError, NodeOk};
+use crate::errors::NodeError;
 use crate::global_state::GlobalState;
-use crate::node::{InitResult, NodeInitState, NodeRow};
-use crate::nodes::gain::GainGraphNode;
-use crate::nodes::variants::NodeVariant;
+use crate::node::NodeRow;
+use crate::node_graph::NodeGraph;
 use crate::socket_registry::SocketRegistry;
-use crate::{node::Node, node_graph::NodeGraph};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TestNode {}
-
-impl Default for TestNode {
-    fn default() -> Self {
-        TestNode {}
-    }
-}
-
-impl Node for TestNode {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![
+lazy_static! {
+    pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
+        vec![
             NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
             NodeRow::StreamInput(StreamSocketType::Detune, 0.0, false),
             NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
             NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0), false),
-        ])
-    }
+        ]
+    };
 }
 
 #[test]
@@ -44,18 +31,7 @@ fn graph_node_crud() {
     let global_state = &GlobalState::new(SoundConfig::default());
 
     // add a new node
-    let (first_node_index, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
+    let (first_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
 
     // check that the node exists
     assert!(graph.get_node(first_node_index).is_ok());
@@ -75,18 +51,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(first_node_index).is_err());
 
     // now add a second node
-    let (second_node_index, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
+    let (second_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
 
     // as it took the place of the first one, let's make sure we can't try to
     // retrieve the old one and get the new one
@@ -107,18 +72,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(second_node_index).is_ok());
 
     // add another node for good measure to make sure it's growing
-    graph
-        .add_node(
-            NodeVariant::GainGraphNode(GainGraphNode::default()),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
+    graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
 
     assert_eq!(graph.len(), 2);
 
@@ -133,42 +87,9 @@ fn graph_connecting() {
     let global_state = &GlobalState::new(SoundConfig::default());
 
     // add two new nodes
-    let (first_node_index, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
-    let (second_node_index, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
-    let (third_node_index, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
+    let (first_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (second_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (third_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -315,30 +236,8 @@ fn hanging_connections() -> Result<(), NodeError> {
     let global_state = &GlobalState::new(SoundConfig::default());
 
     // set up a simple network
-    let (first_node, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
-    let (second_node, _) = graph
-        .add_node(
-            NodeVariant::TestNode(TestNode {}),
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut registry,
-                script_engine: &scripting_engine,
-                global_state,
-            },
-        )
-        .unwrap()
-        .value;
+    let (first_node, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (second_node, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
 
     graph.connect(
         first_node,

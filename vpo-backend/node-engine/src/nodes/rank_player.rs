@@ -4,7 +4,7 @@ use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
 
 use crate::{
     connection::{MidiBundle, MidiSocketType, StreamSocketType},
-    errors::{NodeError, NodeOk},
+    errors::{NodeError, NodeOk, NodeResult},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
     property::{Property, PropertyType},
 };
@@ -17,7 +17,6 @@ pub struct RankPlayerNode {
     index: ResourceIndex,
     polyphony: usize,
     midi_in: MidiBundle,
-    out: f32,
     buffer: [f32; BUFFER_SIZE],
     buffer_position: usize,
 }
@@ -32,7 +31,6 @@ impl Default for RankPlayerNode {
             },
             polyphony: 16,
             midi_in: SmallVec::new(),
-            out: 0.0,
             buffer: [0.0; BUFFER_SIZE],
             buffer_position: 0,
         }
@@ -95,7 +93,7 @@ impl Node for RankPlayerNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.player {
             let samples = &state.global_state.resources.samples;
 
@@ -127,7 +125,7 @@ impl Node for RankPlayerNode {
                 }
             }
 
-            self.out = self.buffer[self.buffer_position];
+            streams_out[0] = self.buffer[self.buffer_position];
 
             self.buffer_position += 1;
         }
@@ -135,11 +133,9 @@ impl Node for RankPlayerNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_midi_input(&mut self, _socket_type: MidiSocketType, value: MidiBundle) {
-        self.midi_in = value;
-    }
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+        let value = midi_in[0].clone().unwrap();
 
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.out
+        self.midi_in = value;
     }
 }

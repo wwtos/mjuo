@@ -3,7 +3,7 @@ use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig}
 
 use crate::{
     connection::{Primitive, StreamSocketType, ValueSocketType},
-    errors::{NodeError, NodeOk},
+    errors::{NodeError, NodeOk, NodeResult},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
     property::{Property, PropertyType},
 };
@@ -13,7 +13,6 @@ pub struct WavetableNode {
     oscillator: Option<WavetableOscillator>,
     index: ResourceIndex,
     config: SoundConfig,
-    output: f32,
 }
 
 impl WavetableNode {
@@ -25,7 +24,6 @@ impl WavetableNode {
                 generation: 0,
             },
             config: config.clone(),
-            output: 0.0,
         }
     }
 }
@@ -34,11 +32,7 @@ impl Node for WavetableNode {
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
         let did_index_change;
 
-        if let Some(Some(resource)) = state
-            .props
-            .get("wavetable")
-            .map(|wavetable| wavetable.clone().as_resource())
-        {
+        if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
             let new_index = state
                 .global_state
                 .resources
@@ -74,7 +68,7 @@ impl Node for WavetableNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
             let wavetable = state
                 .global_state
@@ -83,19 +77,17 @@ impl Node for WavetableNode {
                 .borrow_resource(self.index)
                 .unwrap();
 
-            self.output = player.get_next_sample(wavetable);
+            streams_out[0] = player.get_next_sample(wavetable);
         }
 
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_input(&mut self, _socket_type: ValueSocketType, value: Primitive) {
-        if let Some(oscillator) = &mut self.oscillator {
-            oscillator.set_frequency(value.as_float().unwrap());
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        if let [frequency] = values_in {
+            if let Some(oscillator) = &mut self.oscillator {
+                oscillator.set_frequency(frequency.clone().and_then(|x| x.as_float()).unwrap());
+            }
         }
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.output
     }
 }

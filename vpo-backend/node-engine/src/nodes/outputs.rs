@@ -1,147 +1,63 @@
-use smallvec::SmallVec;
-
 use crate::{
-    connection::{
-        MidiBundle, MidiSocketType, Primitive, SocketDirection, SocketType, SocketValue, StreamSocketType,
-        ValueSocketType,
-    },
+    connection::{MidiBundle, Primitive, SocketDirection, SocketType},
     errors::{NodeError, NodeOk},
     node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
 };
 
-use super::util::ProcessState;
-
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
     outputs: Vec<SocketType>,
-    values_in: Vec<ProcessState<SocketValue>>,
-    values_out: Vec<Option<SocketValue>>,
+    values: Vec<Option<Primitive>>,
+    midis: Vec<Option<MidiBundle>>,
     dirty: bool,
 }
 
 impl OutputsNode {
     pub fn set_outputs(&mut self, outputs: Vec<SocketType>) {
+        let midi_outputs = outputs
+            .iter()
+            .filter(|output| matches!(output, SocketType::Midi(_)))
+            .count();
+
+        let value_outputs = outputs
+            .iter()
+            .filter(|output| matches!(output, SocketType::Value(_)))
+            .count();
+
         self.dirty = true;
         self.outputs = outputs;
 
-        for i in 0..self.values_in.len().min(self.outputs.len()) {
-            self.values_in[i] = ProcessState::Unprocessed(match self.outputs[i] {
-                SocketType::Stream(_) => SocketValue::Stream(0.0),
-                SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
-                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
-                SocketType::NodeRef(_) => SocketValue::NodeRef,
-            });
-        }
-
-        for i in self.values_in.len()..self.outputs.len() {
-            self.values_in.push(ProcessState::Unprocessed(match self.outputs[i] {
-                SocketType::Stream(_) => SocketValue::Stream(0.0),
-                SocketType::Midi(_) => SocketValue::Midi(SmallVec::new()),
-                SocketType::Value(_) => SocketValue::Value(Primitive::Boolean(false)),
-                SocketType::NodeRef(_) => SocketValue::NodeRef,
-            }));
-        }
-
-        if self.values_in.len() > self.outputs.len() {
-            self.values_in.truncate(self.outputs.len());
-        }
-
-        self.transfer_inputs_to_outputs();
-    }
-
-    fn transfer_inputs_to_outputs(&mut self) {
-        self.values_out = self
-            .values_in
-            .iter_mut()
-            .map(|value_in| {
-                let (new_value, new_state) = match value_in {
-                    ProcessState::Unprocessed(new_value) => (Some(new_value.clone()), ProcessState::Processed),
-                    ProcessState::Processed => (None, ProcessState::None),
-                    ProcessState::None => (None, ProcessState::None),
-                };
-
-                *value_in = new_state;
-
-                new_value
-            })
-            .collect();
+        self.midis.resize(midi_outputs, None);
+        self.values.resize(value_outputs, None);
     }
 }
 
 impl Node for OutputsNode {
-    fn process(&mut self, _state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
-        self.transfer_inputs_to_outputs();
+    fn process(
+        &mut self,
+        _state: NodeProcessState,
+        streams_in: &[f32],
+        streams_out: &mut [f32],
+    ) -> Result<NodeOk<()>, NodeError> {
+        streams_out.clone_from_slice(streams_in);
 
         NodeOk::no_warnings(())
     }
 
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Stream(socket_type.clone()))
-            .unwrap();
-
-        self.values_in[index] = ProcessState::Unprocessed(SocketValue::Stream(value));
+    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+        self.midis.clone_from_slice(midi_in);
     }
 
-    fn accept_midi_input(&mut self, socket_type: MidiSocketType, value: MidiBundle) {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Midi(socket_type.clone()))
-            .unwrap();
-
-        self.values_in[index] = ProcessState::Unprocessed(SocketValue::Midi(value));
+    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
+        midi_out.clone_from_slice(&self.midis[..]);
     }
 
-    fn accept_value_input(&mut self, socket_type: ValueSocketType, value: Primitive) {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Value(socket_type.clone()))
-            .unwrap();
-
-        self.values_in[index] = ProcessState::Unprocessed(SocketValue::Value(value));
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        self.values.clone_from_slice(values_in);
     }
 
-    fn get_stream_output(&self, socket_type: StreamSocketType) -> f32 {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Stream(socket_type.clone()))
-            .unwrap();
-
-        self.values_out[index]
-            .clone()
-            .and_then(|x| x.as_stream())
-            .unwrap_or(0.0)
-    }
-
-    fn get_midi_output(&self, socket_type: MidiSocketType) -> Option<MidiBundle> {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Midi(socket_type.clone()))
-            .unwrap();
-
-        if let Some(midi_out) = &self.values_out[index] {
-            Some(midi_out.clone().as_midi().unwrap())
-        } else {
-            None
-        }
-    }
-
-    fn get_value_output(&self, socket_type: ValueSocketType) -> Option<Primitive> {
-        let index = self
-            .outputs
-            .iter()
-            .position(|x| x == &SocketType::Value(socket_type.clone()))
-            .unwrap();
-
-        self.values_out[index]
-            .as_ref()
-            .map(|value_out| value_out.clone().as_value().unwrap())
+    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+        values_out.clone_from_slice(&self.values[..]);
     }
 
     fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
@@ -155,6 +71,7 @@ impl Node for OutputsNode {
             did_rows_change: self.dirty,
             node_rows,
             changed_properties: None,
+            child_graph_io: None,
         })
     }
 }

@@ -1,11 +1,8 @@
-use std::cmp::Ordering;
-
 use rhai::{Scope, AST};
 use serde_json::json;
-use smallvec::{smallvec, SmallVec};
 
 use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk, NodeWarning, WarningBuilder};
+use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning, WarningBuilder};
 use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
 use crate::property::{Property, PropertyType};
 
@@ -13,9 +10,6 @@ use crate::property::{Property, PropertyType};
 pub struct StreamExpressionNode {
     ast: Option<Box<AST>>,
     scope: Box<Scope<'static>>,
-    values_in: SmallVec<[f32; 4]>,
-    values_in_mapping: SmallVec<[(u64, usize); 4]>,
-    value_out: f32,
 }
 
 impl Default for StreamExpressionNode {
@@ -29,35 +23,18 @@ impl StreamExpressionNode {
         StreamExpressionNode {
             scope: Box::new(Scope::new()),
             ast: None,
-            values_in: smallvec![],
-            values_in_mapping: smallvec![],
-            value_out: 0.0,
         }
     }
 }
 
 impl Node for StreamExpressionNode {
-    fn accept_stream_input(&mut self, socket_type: StreamSocketType, value: f32) {
-        if let StreamSocketType::Dynamic(uid) = socket_type {
-            let local_index = self.values_in_mapping.iter().find(|mapping| mapping.0 == uid);
-
-            if let Some(local_index) = local_index {
-                self.values_in[local_index.1] = value;
-            }
-        }
-    }
-
-    fn get_stream_output(&self, _socket_type: StreamSocketType) -> f32 {
-        self.value_out
-    }
-
-    fn process(&mut self, state: NodeProcessState) -> Result<NodeOk<()>, NodeError> {
+    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             // start by rewinding the scope
             self.scope.rewind(0);
 
             // add inputs to scope
-            for (i, val) in self.values_in.iter().enumerate() {
+            for (i, val) in streams_in.iter().enumerate() {
                 self.scope.push(format!("x{}", i + 1), *val);
             }
 
@@ -67,11 +44,9 @@ impl Node for StreamExpressionNode {
             // convert the output to a usuable form
             match result {
                 Ok(output) => {
-                    self.value_out = output;
+                    streams_out[0] = output;
                 }
-                Err(_) => {
-                    self.value_out = 0.0;
-                }
+                Err(_) => {}
             }
         }
 
@@ -97,58 +72,19 @@ impl Node for StreamExpressionNode {
             NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
         ];
 
-        let mut expression = "";
-        if let Some(Property::String(new_expression)) = state.props.get("expression") {
-            expression = new_expression;
-        }
+        let expression = state
+            .props
+            .get("expression")
+            .and_then(|x| x.clone().as_string())
+            .unwrap_or("".into());
 
-        if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
-            let values_in_count_usize = *values_in_count as usize;
+        let values_in_count = state
+            .props
+            .get("values_in_count")
+            .and_then(|x| x.clone().as_integer())
+            .unwrap() as usize;
 
-            match values_in_count_usize.cmp(&self.values_in.len()) {
-                Ordering::Less => {
-                    // if smaller, see how many we need to remove
-                    let to_remove = self.values_in.len() - values_in_count_usize;
-
-                    for _ in 0..to_remove {
-                        self.values_in.pop();
-                        self.values_in_mapping.pop();
-                    }
-
-                    did_rows_change = true;
-                }
-                Ordering::Equal => {
-                    // if it's the same, we don't need to do anything
-                }
-                Ordering::Greater => {
-                    // if bigger, add some accordingly
-                    for i in self.values_in.len()..values_in_count_usize {
-                        // get ID for socket
-                        let new_socket_uid = state
-                            .registry
-                            .register_socket(
-                                format!("stream.stream_expression.{}", i),
-                                SocketType::Stream(StreamSocketType::Audio),
-                                "stream.stream_expression".to_string(),
-                                Some(json! {{ "input_number": i + 1 }}),
-                            )
-                            .unwrap()
-                            .1;
-
-                        // add a socket -> local index mapping
-                        self.values_in_mapping.push((new_socket_uid, i));
-                        self.values_in.push(0.0);
-                    }
-
-                    did_rows_change = true;
-                }
-            }
-        } else {
-            self.values_in.clear();
-            self.values_in_mapping.clear();
-        }
-
-        for i in 0..self.values_in.len() {
+        for i in 0..values_in_count {
             let new_socket_type = state
                 .registry
                 .register_socket(
@@ -188,6 +124,7 @@ impl Node for StreamExpressionNode {
                 did_rows_change,
                 node_rows,
                 changed_properties: None,
+                child_graph_io: None,
             },
             warnings.into_warnings(),
         ))
