@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserSnafu, NodeError},
@@ -12,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{routes::RouteReturn, util::send_graph_updates};
+use crate::{routes::RouteReturn, util::send_graph_updates, Sender};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

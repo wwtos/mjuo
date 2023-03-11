@@ -1,24 +1,37 @@
+#[cfg(any(windows, unix))]
+pub mod io;
+pub mod migrations;
+#[cfg(any(windows, unix))]
+pub mod resource;
+pub mod routes;
+pub mod util;
+
+#[cfg(any(windows, unix))]
+type Sender = async_std::channel::Sender;
+#[cfg(target_arch = "wasm32")]
+type Sender<T> = SendBuffer<T>;
+
 use std::{error::Error, io::Write, thread};
 
-use async_std::{
-    channel::{unbounded, Receiver, Sender},
-    task::block_on,
-};
+#[cfg(any(unix, windows))]
+use async_std::channel::{unbounded, Receiver, Sender};
+use futures::executor::block_on;
+
+#[cfg(any(unix, windows))]
 use io::{
     alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend, BUFFER_SIZE,
 };
+#[cfg(target_arch = "wasm32")]
+use ipc::send_buffer::SendBuffer;
+#[cfg(any(unix, windows))]
 use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
+
 use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 use sound_engine::midi::{messages::MidiData, parse::MidiParser};
 
-pub mod io;
-pub mod migrations;
-pub mod resource;
-pub mod routes;
-pub mod util;
-
+#[cfg(any(unix, windows))]
 pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     let (to_server, from_main) = unbounded::<IPCMessage>();
     let (to_main, from_server) = unbounded::<IPCMessage>();
@@ -32,6 +45,7 @@ pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
     (to_server, from_server)
 }
 
+#[cfg(any(unix, windows))]
 pub fn handle_msg(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
@@ -64,6 +78,7 @@ pub fn handle_msg(
     }
 }
 
+#[cfg(any(unix, windows))]
 pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
     let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
     backend.connect()?;
@@ -71,6 +86,7 @@ pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> 
     Ok(backend)
 }
 
+#[cfg(any(unix, windows))]
 pub fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Error>> {
     let mut backend: Box<dyn MidiClientBackend> = Box::new(AlsaMidiClientBackend::new());
     backend.connect()?;
@@ -78,6 +94,7 @@ pub fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Erro
     Ok(backend)
 }
 
+#[cfg(any(unix, windows))]
 pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiParser) -> Vec<MidiData> {
     let midi_in = midi_backend.read().unwrap();
     let mut messages: Vec<MidiData> = Vec::new();
@@ -94,6 +111,7 @@ pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut Midi
     messages
 }
 
+#[cfg(any(unix, windows))]
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {
     let mut data_out = [0_u8; BUFFER_SIZE * 4];
 

@@ -1,4 +1,4 @@
-use async_std::{channel::Sender, task::block_on};
+use futures::executor::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserSnafu, NodeError},
@@ -9,6 +9,8 @@ use node_engine::{
 };
 use serde_json::json;
 use snafu::ResultExt;
+
+use crate::Sender;
 
 pub fn send_graph_updates(
     state: &mut NodeEngineState,
@@ -28,8 +30,7 @@ pub fn send_graph_updates(
                 }
             }}))
             .await
-    })
-    .unwrap();
+    });
 
     Ok(())
 }
@@ -44,8 +45,7 @@ pub fn send_registry_updates(registry: &mut SocketRegistry, to_server: &Sender<I
                 "payload": json
             }}))
             .await
-    })
-    .unwrap();
+    });
 
     Ok(())
 }
@@ -63,8 +63,7 @@ pub fn send_global_state_updates(
                 "payload": json
             }}))
             .await
-    })
-    .unwrap();
+    });
 
     Ok(())
 }

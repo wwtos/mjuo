@@ -6,25 +6,21 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-std = "1.10.0"
 console_error_panic_hook = {version = "0.1.6", optional = true}
-hyper = "0.14.18"
+futures = "0.3.27"
 ipc = {path = "./ipc"}
 lazy_static = "1.4.0"
 midir = "0.8"
 node-engine = {path = "./node-engine"}
 regex = "1.7"
 resource-manager = {path = "./resource-manager"}
-rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
-routerify = "3.0.0"
+rhai = {version = "1.7.0", features = ["f32_float", "only_i32", "wasm-bindgen"]}
 semver = "1.0.14"
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"
 smallvec = {version = "1.10", features = ["serde"]}
 snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
-strum = "0.24.0"
-strum_macros = "0.24"
 toml = "0.5"
 walkdir = "2"
 
@@ -37,6 +33,7 @@ psimple = {package = "libpulse-simple-binding", version = "2.24.1"}
 pulse = {package = "libpulse-binding", version = "2.25.0"}
 
 [target.'cfg(any(unix,windows))'.dependencies]
+async-std = "1.10.0"
 cpal = "0.14.0"
 ringbuf = "0.2.8"
 rodio = "0.16.0"

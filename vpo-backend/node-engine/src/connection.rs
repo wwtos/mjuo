@@ -2,7 +2,6 @@ use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
-use strum_macros::EnumDiscriminants;
 
 use std::fmt::{Debug, Display};
 
@@ -34,7 +33,7 @@ pub struct OutputSideConnection {
     pub to_socket_type: SocketType,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, EnumDiscriminants)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketType {
     Stream(StreamSocketType),

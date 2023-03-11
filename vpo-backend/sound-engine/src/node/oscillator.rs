@@ -49,7 +49,6 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
 pub struct Oscillator {
     phase: f32,
     frequency: f32,
-    output_out: f32,
     waveform: &'static Vec<[f32; WAVETABLE_SIZE]>,
 }
 
@@ -64,7 +63,6 @@ impl Oscillator {
         Oscillator {
             phase: 0_f32,
             frequency: 440_f32,
-            output_out: 0_f32,
             waveform: wavetable_lookup(&waveform),
         }
     }

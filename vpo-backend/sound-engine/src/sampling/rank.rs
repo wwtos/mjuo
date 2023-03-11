@@ -1,10 +1,5 @@
-use std::{fs::File, io::Read, path::Path};
-
-use resource_manager::{
-    deserialize_resource_id, serialize_resource_id, IOSnafu, LoadingError, Resource, ResourceId, TomlParserDeSnafu,
-};
+use resource_manager::{deserialize_resource_id, serialize_resource_id, ResourceId};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RankEntry {
