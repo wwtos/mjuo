@@ -13,7 +13,7 @@ pub struct MonoSamplePlayerNode {
     player: Option<SamplePlayer>,
     released: bool,
     played: bool,
-    index: ResourceIndex,
+    index: Option<ResourceIndex>,
 }
 
 impl Default for MonoSamplePlayerNode {
@@ -22,10 +22,7 @@ impl Default for MonoSamplePlayerNode {
             player: None,
             released: false,
             played: false,
-            index: ResourceIndex {
-                index: 0,
-                generation: 0,
-            },
+            index: None,
         }
     }
 }
@@ -42,14 +39,18 @@ impl Node for MonoSamplePlayerNode {
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource })?;
 
-            did_index_change = new_index != self.index;
-            self.index = new_index;
+            did_index_change = Some(new_index) != self.index;
+            self.index = Some(new_index);
         } else {
             did_index_change = false;
         }
 
         if self.player.is_none() || did_index_change {
-            let sample = state.global_state.resources.samples.borrow_resource(self.index);
+            let sample = state
+                .global_state
+                .resources
+                .samples
+                .borrow_resource(self.index.unwrap());
 
             if let Some(sample) = sample {
                 self.player = Some(SamplePlayer::new(&sample));
@@ -81,7 +82,7 @@ impl Node for MonoSamplePlayerNode {
                 .global_state
                 .resources
                 .samples
-                .borrow_resource(self.index)
+                .borrow_resource(self.index.unwrap())
                 .unwrap();
 
             if self.played {

@@ -8,6 +8,7 @@ use std::{
     thread::available_parallelism,
 };
 
+use ddgg::{GenVec, Index};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::Snafu;
 use threadpool::ThreadPool;
@@ -34,10 +35,7 @@ pub trait Resource {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ResourceIndex {
-    pub index: usize,
-    pub generation: u32,
-}
+pub struct ResourceIndex(Index);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -81,22 +79,23 @@ where
     Ok(ResourceId::from_str(&resource_id).unwrap())
 }
 
-pub enum PossibleResource<A: Resource> {
-    Some(A, u32),
-    None(u32),
-}
-
-#[derive(Default)]
-pub struct ResourceManager<A: Resource> {
-    resources: Vec<PossibleResource<A>>,
+pub struct ResourceManager<A> {
+    resources: GenVec<A>,
     resource_mapping: HashMap<String, ResourceIndex>,
     resources_to_watch: Vec<(String, PathBuf)>,
 }
 
-impl<A> Serialize for ResourceManager<A>
-where
-    A: Resource + Debug + Send + Sync + 'static,
-{
+impl<A> Default for ResourceManager<A> {
+    fn default() -> Self {
+        ResourceManager {
+            resources: GenVec::new(),
+            resource_mapping: HashMap::new(),
+            resources_to_watch: Vec::new(),
+        }
+    }
+}
+
+impl<A> Serialize for ResourceManager<A> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -111,13 +110,10 @@ where
     }
 }
 
-impl<A> ResourceManager<A>
-where
-    A: Resource + Debug + Send + Sync + 'static,
-{
+impl<A> ResourceManager<A> {
     pub fn new() -> ResourceManager<A> {
         ResourceManager {
-            resources: Vec::new(),
+            resources: GenVec::new(),
             resource_mapping: HashMap::new(),
             resources_to_watch: Vec::new(),
         }
@@ -136,46 +132,35 @@ where
     }
 
     fn add_resource(&mut self, resource: A) -> ResourceIndex {
-        // check if there's an opening
-        let possible_opening = self
-            .resources
-            .iter()
-            .position(|resource| !matches!(resource, PossibleResource::Some(..)));
-
-        // put the new resource in the opening
-        if let Some(opening) = possible_opening {
-            let new_generation = match self.resources[opening] {
-                PossibleResource::Some(..) => unreachable!(),
-                PossibleResource::None(generation) => generation + 1,
-            };
-
-            self.resources[opening] = PossibleResource::Some(resource, new_generation);
-
-            ResourceIndex {
-                index: opening,
-                generation: new_generation,
-            }
-        } else {
-            // else, expand the resource length
-            let index = self.resources.len();
-            let new_generation = 0;
-
-            self.resources.push(PossibleResource::Some(resource, new_generation));
-
-            ResourceIndex {
-                index,
-                generation: new_generation,
-            }
-        }
+        ResourceIndex(self.resources.add(resource))
     }
 
     pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {
         self.resource_mapping.get(key).copied()
     }
 
-    fn request_resources_parallel<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    pub fn borrow_resource(&self, index: ResourceIndex) -> Option<&A> {
+        self.resources.get(index.0)
+    }
+
+    pub fn clear(&mut self) {
+        self.resource_mapping.clear();
+        self.resources.clear();
+    }
+}
+
+impl<A> ResourceManager<A>
+where
+    A: Debug + Send + Sync + 'static,
+{
+    fn request_resources_parallel<I, F>(
+        &mut self,
+        resources_to_load: I,
+        load_resource: &'static F,
+    ) -> Result<(), LoadingError>
     where
         I: Iterator<Item = (String, PathBuf)>,
+        F: Fn(PathBuf) -> Result<A, LoadingError> + Send + Sync,
     {
         // create the structures to populate
         let resources: Arc<Mutex<HashMap<String, A>>> = Arc::new(Mutex::new(HashMap::new()));
@@ -199,7 +184,7 @@ where
                 }
 
                 // else, load and register it
-                let new_resource = A::load_resource(&location).unwrap();
+                let new_resource = load_resource(location.clone()).unwrap();
                 println!("Loaded: {}", location.to_string_lossy());
 
                 resources_cloned.lock().unwrap().insert(key, new_resource);
@@ -218,42 +203,24 @@ where
         Ok(())
     }
 
-    pub fn watch_resources<I>(&mut self, resources_to_load: I) -> Result<(), LoadingError>
+    pub fn watch_resources<I, F>(&mut self, resources_to_load: I, load_resource: &'static F) -> Result<(), LoadingError>
     where
         I: Iterator<Item = (String, PathBuf)>,
+        F: Fn(PathBuf) -> Result<A, LoadingError> + Send + Sync,
     {
         let mut resources_to_watch = Vec::new();
 
-        self.request_resources_parallel(resources_to_load.map(|resource| {
-            resources_to_watch.push(resource.clone());
+        self.request_resources_parallel(
+            resources_to_load.map(|resource| {
+                resources_to_watch.push(resource.clone());
 
-            resource
-        }))?;
+                resource
+            }),
+            load_resource,
+        )?;
 
         self.resources_to_watch.extend(resources_to_watch);
 
         Ok(())
-    }
-
-    pub fn borrow_resource(&self, index: ResourceIndex) -> Option<&A> {
-        if index.index >= self.resources.len() {
-            None
-        } else {
-            match &self.resources[index.index] {
-                PossibleResource::Some(resource, generation) => {
-                    if index.generation == *generation {
-                        Some(resource)
-                    } else {
-                        None
-                    }
-                }
-                PossibleResource::None(_) => None,
-            }
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.resource_mapping.clear();
-        self.resources.clear();
     }
 }

@@ -30,16 +30,3 @@ impl Default for RankEntry {
 pub struct Rank {
     pub samples: Vec<RankEntry>,
 }
-
-impl Resource for Rank {
-    fn load_resource(path: &Path) -> Result<Rank, LoadingError>
-    where
-        Self: Sized,
-    {
-        let mut file = File::open(path).context(IOSnafu)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data).context(IOSnafu)?;
-
-        toml::from_str(&data).context(TomlParserDeSnafu)
-    }
-}

@@ -1,5 +1,5 @@
 use smallvec::SmallVec;
-use sound_engine::constants::SAMPLE_RATE;
+use sound_engine::SoundConfig;
 
 use crate::connection::{MidiBundle, MidiSocketType, SocketDirection, SocketType, StreamSocketType};
 use crate::errors::{NodeError, NodeOk, NodeResult};
@@ -10,12 +10,12 @@ use crate::property::PropertyType;
 use crate::traversal::traverser::Traverser;
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
-//                                                             50 ms
-const SAME_VALUE_LENGTH_THRESHOLD: i64 = (SAMPLE_RATE / 1000 * 50) as i64;
+const SAME_VALUE_LENGTH_THRESHOLD: u32 = 50; // ms
 
 #[derive(Debug, Clone)]
 struct PolyphonicInfo {
     duration_of_same_output: i64,
+
     last_output_value: f32,
     started_at: i64,
     active: bool,
@@ -43,6 +43,7 @@ struct Voice {
 
 #[derive(Debug, Clone)]
 pub struct PolyphonicNode {
+    same_value_length_threshold: i64,
     voices: Vec<Voice>,
     polyphony: u8,
     traverser: Traverser,
@@ -50,9 +51,10 @@ pub struct PolyphonicNode {
     current_time: i64,
 }
 
-impl Default for PolyphonicNode {
-    fn default() -> PolyphonicNode {
+impl PolyphonicNode {
+    pub fn new(sound_config: &SoundConfig) -> PolyphonicNode {
         PolyphonicNode {
+            same_value_length_threshold: (sound_config.sample_rate / 1000 * SAME_VALUE_LENGTH_THRESHOLD) as i64,
             voices: vec![],
             traverser: Traverser::default(),
             polyphony: 1,

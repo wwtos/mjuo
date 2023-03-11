@@ -14,7 +14,7 @@ const BUFFER_SIZE: usize = 64;
 #[derive(Debug, Clone)]
 pub struct RankPlayerNode {
     player: Option<RankPlayer>,
-    index: ResourceIndex,
+    index: Option<ResourceIndex>,
     polyphony: usize,
     midi_in: MidiBundle,
     buffer: [f32; BUFFER_SIZE],
@@ -25,10 +25,7 @@ impl Default for RankPlayerNode {
     fn default() -> Self {
         RankPlayerNode {
             player: None,
-            index: ResourceIndex {
-                index: 0,
-                generation: 0,
-            },
+            index: None,
             polyphony: 16,
             midi_in: SmallVec::new(),
             buffer: [0.0; BUFFER_SIZE],
@@ -55,7 +52,7 @@ impl Node for RankPlayerNode {
             self.polyphony = polyphony as usize;
         }
 
-        if let Some(Some(resource)) = state.props.get("rank").map(|rank| rank.clone().as_resource()) {
+        if let Some(resource) = state.props.get("rank").and_then(|rank| rank.clone().as_resource()) {
             let new_index = state
                 .global_state
                 .resources
@@ -63,14 +60,14 @@ impl Node for RankPlayerNode {
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource })?;
 
-            did_settings_change |= new_index != self.index;
-            self.index = new_index;
+            did_settings_change |= Some(new_index) != self.index;
+            self.index = Some(new_index);
         } else {
             did_settings_change = false;
         }
 
         if self.player.is_none() || did_settings_change {
-            let rank = state.global_state.resources.ranks.borrow_resource(self.index);
+            let rank = state.global_state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
                 let player = RankPlayer::new(&state.global_state.resources.samples, &rank, self.polyphony);

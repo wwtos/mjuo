@@ -1,3 +1,15 @@
+#[cfg(target_os = "linux")]
+pub mod alsa;
+#[cfg(target_os = "linux")]
+pub mod alsa_midi;
+pub mod midir;
+#[cfg(target_os = "linux")]
+pub mod pulse;
+
+pub mod cpal;
+
+use std::error::Error;
+
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,15 +22,21 @@ use node_engine::{
     global_state::GlobalState,
     state::NodeEngineState,
 };
-use resource_manager::{LoadingError, Resource, ResourceManager};
+use resource_manager::{LoadingError, ResourceManager};
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use walkdir::WalkDir;
 
 use crate::migrations::migrate;
+use crate::resource::rank::load_rank;
+use crate::resource::sample::load_sample;
+use crate::resource::wavetable::load_wavetable;
 
 pub mod midi;
+
+pub const BUFFER_SIZE: usize = 256;
+pub const SAMPLE_RATE: u32 = 48_000;
 
 const AUDIO_EXTENSIONS: &'static [&'static str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
@@ -40,13 +58,15 @@ pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
     Ok(())
 }
 
-fn load_resources<T>(
+fn load_resources<T, F>(
     path: &Path,
     resources: &mut ResourceManager<T>,
     valid_extensions: &[&str],
+    load_sample: &'static F,
 ) -> Result<(), LoadingError>
 where
-    T: Resource + Send + Sync + Debug + 'static,
+    T: Send + Sync + Debug + 'static,
+    F: Fn(PathBuf) -> Result<T, LoadingError> + Send + Sync,
 {
     let asset_list = WalkDir::new(path)
         .follow_links(true)
@@ -71,7 +91,7 @@ where
             (asset_key, PathBuf::from(asset.path()))
         });
 
-    resources.watch_resources(asset_list)
+    resources.watch_resources(asset_list, load_sample)
 }
 
 pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), NodeError> {
@@ -94,18 +114,37 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
         &path.join("samples"),
         &mut global_state.resources.samples,
         AUDIO_EXTENSIONS,
+        &load_sample,
     )
     .context(LoadingSnafu)?;
     load_resources(
         &path.join("wavetables"),
         &mut global_state.resources.wavetables,
         AUDIO_EXTENSIONS,
+        &load_wavetable,
     )
     .context(LoadingSnafu)?;
-    load_resources(&path.join("ranks"), &mut global_state.resources.ranks, &["toml"]).context(LoadingSnafu)?;
+    load_resources(
+        &path.join("ranks"),
+        &mut global_state.resources.ranks,
+        &["toml"],
+        &load_rank,
+    )
+    .context(LoadingSnafu)?;
 
     // TODO: version handling and migrations here
     state.apply_json(json["state"].take(), global_state)?;
 
     Ok(())
+}
+
+pub trait AudioClientBackend {
+    fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn Error>>;
+    fn connect(&mut self) -> Result<(), Box<dyn Error>>;
+    fn drain(&self) -> Result<(), Box<dyn Error>>;
+}
+
+pub trait MidiClientBackend {
+    fn read(&self) -> Result<Vec<u8>, Box<dyn Error>>;
+    fn connect(&mut self) -> Result<(), Box<dyn Error>>;
 }

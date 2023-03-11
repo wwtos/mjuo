@@ -4,8 +4,9 @@ use psimple::Simple;
 use pulse::sample::Spec;
 use pulse::stream::Direction;
 
-use crate::backend::AudioClientBackend;
-use crate::constants::{BUFFER_SIZE, SAMPLE_RATE};
+use crate::io::SAMPLE_RATE;
+
+use super::{AudioClientBackend, BUFFER_SIZE};
 
 pub struct PulseClientBackend {
     pub pulse_spec: Option<pulse::sample::Spec>,

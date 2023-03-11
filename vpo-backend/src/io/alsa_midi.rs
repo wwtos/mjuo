@@ -2,9 +2,8 @@ use std::error::Error;
 use std::io::Read;
 
 use alsa::{Direction, Rawmidi};
-use simple_error::bail;
 
-use crate::backend::MidiClientBackend;
+use crate::io::MidiClientBackend;
 
 pub struct AlsaMidiClientBackend {
     client: Option<Rawmidi>,
@@ -23,7 +22,7 @@ impl MidiClientBackend for AlsaMidiClientBackend {
         let bytes_result = if let Some(client) = &self.client {
             client.io().read(&mut out)
         } else {
-            bail!("Midi backend not initialized");
+            return Err("Midi backend not initialized".into());
         };
 
         let bytes_read = match bytes_result {

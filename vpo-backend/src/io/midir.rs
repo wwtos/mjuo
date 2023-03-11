@@ -3,7 +3,7 @@ use std::{error::Error, sync::mpsc::Receiver};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
-use crate::backend::MidiClientBackend;
+use super::MidiClientBackend;
 
 pub struct MidirMidiClientBackend {
     client: MidiInputConnection<()>,

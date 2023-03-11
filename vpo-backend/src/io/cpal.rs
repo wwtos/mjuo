@@ -5,9 +5,7 @@ use cpal::{
 use ringbuf::{Producer, RingBuffer};
 use std::error;
 
-use crate::constants::BUFFER_SIZE;
-
-use super::AudioClientBackend;
+use super::{AudioClientBackend, BUFFER_SIZE};
 
 pub struct CpalBackend {
     latency: f32,

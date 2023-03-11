@@ -3,13 +3,11 @@ use core::fmt;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::constants::SAMPLE_RATE;
-
-use crate::error::NodeError;
-use crate::node::{AudioNode, InputType, OutputType};
 use crate::wave::interpolate::interpolate_osc;
 use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
+
+const SAMPLE_RATE: u32 = 48_000;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Waveform {

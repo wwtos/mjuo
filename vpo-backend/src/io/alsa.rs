@@ -1,3 +1,7 @@
+use alsa::{
+    pcm::{Access, Format, HwParams},
+    Direction, ValueOr, PCM,
+};
 use std::{
     error,
     sync::mpsc::{channel, Sender},
@@ -5,13 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::constants::{BUFFER_SIZE, SAMPLE_RATE};
-use alsa::{
-    pcm::{Access, Format, HwParams},
-    Direction, ValueOr, PCM,
-};
-
-use super::AudioClientBackend;
+use super::{AudioClientBackend, BUFFER_SIZE, SAMPLE_RATE};
 
 pub struct AlsaAudioBackend {
     sender: Option<Sender<[f32; BUFFER_SIZE]>>,

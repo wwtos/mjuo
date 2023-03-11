@@ -11,7 +11,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct WavetableNode {
     oscillator: Option<WavetableOscillator>,
-    index: ResourceIndex,
+    index: Option<ResourceIndex>,
     config: SoundConfig,
 }
 
@@ -19,10 +19,7 @@ impl WavetableNode {
     pub fn new(config: &SoundConfig) -> Self {
         WavetableNode {
             oscillator: None,
-            index: ResourceIndex {
-                index: 0,
-                generation: 0,
-            },
+            index: None,
             config: config.clone(),
         }
     }
@@ -40,14 +37,18 @@ impl Node for WavetableNode {
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource })?;
 
-            did_index_change = new_index != self.index;
-            self.index = new_index;
+            did_index_change = Some(new_index) != self.index;
+            self.index = Some(new_index);
         } else {
             did_index_change = false;
         }
 
         if self.oscillator.is_none() || did_index_change {
-            let wavetable = state.global_state.resources.wavetables.borrow_resource(self.index);
+            let wavetable = state
+                .global_state
+                .resources
+                .wavetables
+                .borrow_resource(self.index.unwrap());
 
             if let Some(wavetable) = wavetable {
                 self.oscillator = Some(WavetableOscillator::new(self.config.clone(), &wavetable));
@@ -74,7 +75,7 @@ impl Node for WavetableNode {
                 .global_state
                 .resources
                 .wavetables
-                .borrow_resource(self.index)
+                .borrow_resource(self.index.unwrap())
                 .unwrap();
 
             streams_out[0] = player.get_next_sample(wavetable);

@@ -7,11 +7,13 @@ version = "0.1.0"
 
 [dependencies]
 async-std = "1.10.0"
+console_error_panic_hook = {version = "0.1.6", optional = true}
 hyper = "0.14.18"
 ipc = {path = "./ipc"}
 lazy_static = "1.4.0"
 midir = "0.8"
 node-engine = {path = "./node-engine"}
+regex = "1.7"
 resource-manager = {path = "./resource-manager"}
 rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
 routerify = "3.0.0"
@@ -23,13 +25,21 @@ snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
 strum = "0.24.0"
 strum_macros = "0.24"
+toml = "0.5"
 walkdir = "2"
 
-[target.x86_64-unknown-linux-gnu]
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=lld",
-]
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[target.'cfg(unix)'.dependencies]
+alsa = {version = "0.6.0"}
+psimple = {package = "libpulse-simple-binding", version = "2.24.1"}
+pulse = {package = "libpulse-binding", version = "2.25.0"}
+
+[target.'cfg(any(unix,windows))'.dependencies]
+cpal = "0.14.0"
+ringbuf = "0.2.8"
+rodio = "0.16.0"
 
 [profile.dev]
 opt-level = 1
@@ -39,11 +49,7 @@ overflow-checks = true
 codegen-units = 256
 opt-level = 3
 
-[profile.release-x86_64-pc-windows-gnu]
-inherits = "release"
-opt-level = 3
-
-[profile.release-x86_64-unknown-linux-gnu]
+[profile.linux]
 inherits = "release"
 opt-level = 3
 

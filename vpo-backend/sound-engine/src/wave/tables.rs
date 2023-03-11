@@ -1,10 +1,12 @@
-use crate::constants::{PI, SAMPLE_RATE, TWO_PI};
+use crate::constants::{PI, TWO_PI};
 use lazy_static::lazy_static;
 
 pub const WAVETABLE_SIZE: usize = 256;
 pub const WAVETABLE_MASK: usize = 0xFF;
 pub const BASE_FREQUENCY: f32 = 8.0;
 pub const FREQUENCY_STEPS: usize = 5000;
+
+const SAMPLE_RATE: u32 = 48_000;
 
 lazy_static! {
     pub static ref SINE_VALUES: Vec<[f32; WAVETABLE_SIZE]> = {

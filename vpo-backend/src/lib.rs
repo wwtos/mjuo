@@ -4,18 +4,18 @@ use async_std::{
     channel::{unbounded, Receiver, Sender},
     task::block_on,
 };
+use io::{
+    alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend, BUFFER_SIZE,
+};
 use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
 use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
-use sound_engine::{
-    backend::{alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend},
-    constants::BUFFER_SIZE,
-    midi::{messages::MidiData, parse::MidiParser},
-};
+use sound_engine::midi::{messages::MidiData, parse::MidiParser};
 
 pub mod io;
 pub mod migrations;
+pub mod resource;
 pub mod routes;
 pub mod util;
 
