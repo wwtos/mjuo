@@ -13,18 +13,18 @@ pub struct InputsNode {
 
 impl InputsNode {
     pub fn set_inputs(&mut self, inputs: Vec<SocketType>) {
-        self.dirty = true;
-        self.inputs = inputs;
-
         let midi_inputs = inputs
             .iter()
             .filter(|input| matches!(input, SocketType::Midi(_)))
             .count();
 
         let value_inputs = inputs
-            .into_iter()
+            .iter()
             .filter(|input| matches!(input, SocketType::Value(_)))
             .count();
+
+        self.dirty = true;
+        self.inputs = inputs;
 
         self.midis.resize(midi_inputs, None);
         self.values.resize(value_inputs, None);
@@ -51,7 +51,7 @@ impl Node for InputsNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
+        _state: NodeProcessState,
         streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {

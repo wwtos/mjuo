@@ -75,10 +75,14 @@ impl Node for StreamExpressionNode {
         let expression = state
             .props
             .get("expression")
-            .and_then(|x| x.as_string())
+            .and_then(|x| x.clone().as_string())
             .unwrap_or("".into());
 
-        let values_in_count = state.props.get("values_in_count").and_then(|x| x.as_integer()).unwrap() as usize;
+        let values_in_count = state
+            .props
+            .get("values_in_count")
+            .and_then(|x| x.clone().as_integer())
+            .unwrap() as usize;
 
         for i in 0..values_in_count {
             let new_socket_type = state

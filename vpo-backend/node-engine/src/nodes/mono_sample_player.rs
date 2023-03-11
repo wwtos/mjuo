@@ -73,7 +73,7 @@ impl Node for MonoSamplePlayerNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[f32],
+        _streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
         if let Some(player) = &mut self.player {
@@ -101,13 +101,13 @@ impl Node for MonoSamplePlayerNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [engaged] = values_in;
-
-        if let Some(engaged) = engaged.and_then(|x| x.as_boolean()) {
-            if engaged {
-                self.played = true;
-            } else {
-                self.released = true;
+        if let [Some(engaged)] = values_in {
+            if let Some(engaged) = engaged.clone().as_boolean() {
+                if engaged {
+                    self.played = true;
+                } else {
+                    self.released = true;
+                }
             }
         }
     }

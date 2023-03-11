@@ -93,7 +93,7 @@ impl Node for RankPlayerNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.player {
             let samples = &state.global_state.resources.samples;
 
@@ -134,7 +134,7 @@ impl Node for RankPlayerNode {
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        let value = midi_in[0].unwrap();
+        let value = midi_in[0].clone().unwrap();
 
         self.midi_in = value;
     }

@@ -56,7 +56,7 @@ impl Node for PortamentoNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(&mut self, _state: NodeProcessState, _streams_in: &[f32], _streams_out: &mut [f32]) -> NodeResult<()> {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
@@ -76,30 +76,30 @@ impl Node for PortamentoNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [gate, frequency, speed] = values_in;
-
-        if let Some(gate) = gate.and_then(|x| x.as_boolean()) {
-            if !self.engaged {
-                self.value_out = Some(Primitive::Float(self.ramp.get_to()));
-                self.ramp.set_position(self.ramp.get_to());
+        if let [gate, frequency, speed] = values_in {
+            if let Some(gate) = gate.clone().and_then(|x| x.as_boolean()) {
+                if !self.engaged {
+                    self.value_out = Some(Primitive::Float(self.ramp.get_to()));
+                    self.ramp.set_position(self.ramp.get_to());
+                }
             }
-        }
 
-        if let Some(frequency) = frequency.and_then(|x| x.as_float()) {
-            if self.engaged {
+            if let Some(frequency) = frequency.clone().and_then(|x| x.as_float()) {
+                if self.engaged {
+                    self.ramp
+                        .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
+                        .unwrap();
+                } else {
+                    self.value_out = Some(Primitive::Float(frequency));
+                }
+            }
+
+            if let Some(speed) = speed.clone().and_then(|x| x.as_float()) {
+                self.speed = speed;
                 self.ramp
-                    .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
+                    .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
                     .unwrap();
-            } else {
-                self.value_out = Some(Primitive::Float(frequency));
             }
-        }
-
-        if let Some(speed) = speed.and_then(|x| x.as_float()) {
-            self.speed = speed;
-            self.ramp
-                .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
-                .unwrap();
         }
 
         self.active = true;

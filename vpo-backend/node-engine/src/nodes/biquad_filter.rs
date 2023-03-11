@@ -56,20 +56,20 @@ impl Node for BiquadFilterNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [frequency, resonance] = values_in;
+        if let [frequency, resonance] = &values_in {
+            if let Some(frequency) = frequency.clone().and_then(|f| f.as_float()) {
+                self.filter.set_frequency(frequency.max(1.0));
+            }
 
-        if let Some(frequency) = frequency.and_then(|f| f.as_float()) {
-            self.filter.set_frequency(frequency.max(1.0));
-        }
-
-        if let Some(resonance) = resonance.and_then(|r| r.as_float()) {
-            self.filter.set_q(resonance);
+            if let Some(resonance) = resonance.clone().and_then(|r| r.as_float()) {
+                self.filter.set_q(resonance);
+            }
         }
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
+        _state: NodeProcessState,
         streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {

@@ -55,8 +55,8 @@ impl Node for OscillatorNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[f32],
+        _state: NodeProcessState,
+        _streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
         streams_out[0] = self.oscillator.process();
@@ -65,10 +65,10 @@ impl Node for OscillatorNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [frequency] = values_in;
-
-        if let Some(frequency) = frequency.and_then(|x| x.as_float()) {
-            self.oscillator.set_frequency(frequency);
+        if let [Some(frequency)] = values_in {
+            if let Some(frequency) = frequency.clone().as_float() {
+                self.oscillator.set_frequency(frequency);
+            }
         }
     }
 }

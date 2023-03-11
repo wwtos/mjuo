@@ -32,32 +32,32 @@ impl Node for EnvelopeNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [gate, attack, decay, sustain, release] = values_in;
+        if let [gate, attack, decay, sustain, release] = values_in {
+            if let Some(gate) = gate.clone().and_then(|gate| gate.as_float()) {
+                self.gate = gate;
+            }
 
-        if let Some(gate) = gate.and_then(|gate| gate.as_float()) {
-            self.gate = gate;
-        }
+            if let Some(attack) = attack.clone().and_then(|attack| attack.as_float()) {
+                self.envelope.attack = attack;
+            }
 
-        if let Some(attack) = attack.and_then(|attack| attack.as_float()) {
-            self.envelope.attack = attack;
-        }
+            if let Some(decay) = decay.clone().and_then(|decay| decay.as_float()) {
+                self.envelope.decay = decay;
+            }
 
-        if let Some(decay) = decay.and_then(|decay| decay.as_float()) {
-            self.envelope.decay = decay;
-        }
+            if let Some(sustain) = sustain.clone().and_then(|sustain| sustain.as_float()) {
+                self.envelope.sustain = sustain;
+            }
 
-        if let Some(sustain) = attack.and_then(|sustain| sustain.as_float()) {
-            self.envelope.sustain = sustain;
-        }
-
-        if let Some(release) = release.and_then(|release| release.as_float()) {
-            self.envelope.release = release;
+            if let Some(release) = release.clone().and_then(|release| release.as_float()) {
+                self.envelope.release = release;
+            }
         }
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
+        _state: NodeProcessState,
         _streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {

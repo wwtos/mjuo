@@ -1,49 +1,21 @@
 use std::collections::HashMap;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use snafu::ResultExt;
 
 use crate::{
-    connection::{
-        MidiBundle, MidiSocketType, Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType,
-    },
+    connection::{SocketDirection, SocketType},
     errors::{JsonParserSnafu, NodeError, NodeOk},
-    graph_manager::{GraphIndex, GraphManager},
-    node::{Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow},
-    node_graph::NodeGraph,
-    nodes::{
-        inputs::InputsNode,
-        outputs::OutputsNode,
-        placeholder::Placeholder,
-        variants::{variant_to_name, NodeVariant},
-    },
+    graph_manager::GraphIndex,
+    node::{NodeIndex, NodeRow},
     property::Property,
-    socket_registry::SocketRegistry,
 };
-
-fn serialize_node_prop<S>(node: &NodeVariant, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&variant_to_name(node))
-}
-
-fn deserialize_node_prop<'de, D>(deserializer: D) -> Result<NodeVariant, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let variant_name: String = serde::Deserialize::deserialize(deserializer)?;
-
-    Ok(NodeVariant::Placeholder(Placeholder::new(variant_name)))
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeWrapper {
-    #[serde(serialize_with = "serialize_node_prop")]
-    #[serde(deserialize_with = "deserialize_node_prop")]
-    pub(crate) node: NodeVariant,
+    node_type: String,
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
@@ -53,17 +25,10 @@ pub struct NodeWrapper {
 }
 
 impl NodeWrapper {
-    pub fn new(mut node: NodeVariant, state: NodeInitState) -> Result<NodeOk<NodeWrapper>, NodeError> {
-        let name = variant_to_name(&node);
-
-        let init_result = node.init(state)?;
-        // TODO: check validity of node_rows here (no socket duplicates)
-
+    pub fn new(node_type: String, node_rows: Vec<NodeRow>) -> Result<NodeOk<NodeWrapper>, NodeError> {
         // extract properties from result from `init`
         // this fills the properties with the default values
-        let properties = init_result
-            .value
-            .node_rows
+        let properties = node_rows
             .iter()
             .filter_map(|row| match row {
                 NodeRow::Property(name, _, default) => Some((name, default)),
@@ -75,9 +40,9 @@ impl NodeWrapper {
             });
 
         let mut wrapper = NodeWrapper {
-            node,
+            node_type: node_type.clone(),
             default_overrides: Vec::new(),
-            node_rows: init_result.value.node_rows,
+            node_rows,
             properties,
             ui_data: HashMap::new(),
             child_graph_index: None,
@@ -88,71 +53,15 @@ impl NodeWrapper {
         wrapper.ui_data.insert("x".to_string(), json! { 0.0_f32 });
         wrapper.ui_data.insert("y".to_string(), json! { 0.0_f32 });
 
-        wrapper.ui_data.insert("title".to_string(), json! { name });
+        wrapper
+            .ui_data
+            .insert("title".to_string(), json! {{ "name": node_type }});
 
-        Ok(NodeOk {
-            value: wrapper,
-            warnings: init_result.warnings,
-        })
+        NodeOk::no_warnings(wrapper)
     }
 
     pub fn uses_child_graph(&self) -> bool {
         self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph))
-    }
-
-    pub fn init_child_graph(
-        &mut self,
-        index: GraphIndex,
-        graph_manager: &GraphManager,
-        inputs: Vec<SocketType>,
-        outputs: Vec<SocketType>,
-        state: NodeInitState,
-    ) -> Result<(), NodeError> {
-        self.set_child_graph_index(index);
-
-        let mut new_inputs_node = InputsNode::default();
-        let mut new_outputs_node = OutputsNode::default();
-
-        new_inputs_node.set_inputs(inputs);
-        new_outputs_node.set_outputs(outputs);
-
-        let child_graph = &mut graph_manager.get_graph(index)?.graph.borrow_mut();
-
-        let NodeInitState {
-            props,
-            registry,
-            script_engine,
-            global_state,
-        } = state;
-
-        let (input_index, _) = child_graph
-            .add_node(
-                NodeVariant::InputsNode(new_inputs_node),
-                NodeInitState {
-                    props,
-                    registry,
-                    script_engine,
-                    global_state,
-                },
-            )
-            .unwrap()
-            .value;
-        let (output_index, _) = child_graph
-            .add_node(
-                NodeVariant::OutputsNode(new_outputs_node),
-                NodeInitState {
-                    props,
-                    registry,
-                    script_engine,
-                    global_state,
-                },
-            )
-            .unwrap()
-            .value;
-
-        self.child_graph_io_indexes = Some((input_index, output_index));
-
-        Ok(())
     }
 
     pub fn set_child_graph_index(&mut self, index: GraphIndex) {
@@ -207,6 +116,7 @@ impl NodeWrapper {
         self.ui_data.insert(key, value);
     }
 
+    /// Guaranteed to be in order based on local node rows
     pub fn list_input_sockets(&self) -> Vec<SocketType> {
         self.node_rows
             .iter()
@@ -255,12 +165,12 @@ impl NodeWrapper {
         self.list_output_sockets().iter().any(|&socket| socket == socket_type)
     }
 
-    pub fn get_default(&self, socket_type: &SocketType) -> Option<NodeRow> {
+    pub fn get_default(&self, socket_type: SocketType) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
             let type_and_direction = (*override_row).clone().to_type_and_direction();
 
             if let Some((override_type, override_direction)) = type_and_direction {
-                socket_type == &override_type && SocketDirection::Input == override_direction
+                socket_type == override_type && SocketDirection::Input == override_direction
             } else {
                 false
             }
@@ -276,7 +186,7 @@ impl NodeWrapper {
                 let type_and_direction = (*node_row).clone().to_type_and_direction();
 
                 if let Some((override_type, override_direction)) = type_and_direction {
-                    socket_type == &override_type && SocketDirection::Input == override_direction
+                    socket_type == override_type && SocketDirection::Input == override_direction
                 } else {
                     false
                 }
@@ -295,22 +205,8 @@ impl NodeWrapper {
         Ok(())
     }
 
-    pub fn get_child_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
-        self.node.get_child_graph_socket_list(registry)
-    }
-
-    pub fn node_init_graph(&mut self, graph: &mut NodeGraph) {
-        let (input_node, output_node) = &self.child_graph_io_indexes.unwrap();
-
-        self.node.init_graph(graph, *input_node, *output_node);
-    }
-
     pub fn get_node_type(&self) -> String {
-        variant_to_name(&self.node)
-    }
-
-    pub fn linked_to_ui(&self) -> bool {
-        self.node.linked_to_ui()
+        self.node_type.clone()
     }
 
     pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {

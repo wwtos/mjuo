@@ -68,7 +68,7 @@ impl Node for WavetableNode {
         ])
     }
 
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
             let wavetable = state
                 .global_state
@@ -84,10 +84,10 @@ impl Node for WavetableNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        let [frequency] = values_in;
-
-        if let Some(oscillator) = &mut self.oscillator {
-            oscillator.set_frequency(frequency.and_then(|x| x.as_float()).unwrap());
+        if let [frequency] = values_in {
+            if let Some(oscillator) = &mut self.oscillator {
+                oscillator.set_frequency(frequency.clone().and_then(|x| x.as_float()).unwrap());
+            }
         }
     }
 }

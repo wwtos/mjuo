@@ -28,16 +28,16 @@ impl Default for MidiToValuesNode {
 
 impl Node for MidiToValuesNode {
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midi_in = ProcessState::Unprocessed(midi_in[0].unwrap());
+        self.midi_in = ProcessState::Unprocessed(midi_in[0].clone().unwrap());
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
+        _state: NodeProcessState,
+        _streams_in: &[f32],
+        _streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
-        match self.midi_in {
+        match &self.midi_in {
             ProcessState::Unprocessed(midi_in) => {
                 for data in midi_in {
                     match data {
@@ -46,8 +46,8 @@ impl Node for MidiToValuesNode {
                             note,
                             velocity,
                         } => {
-                            self.frequency = 440.0 * f32::powf(2.0, (note as f32 - 69.0) / 12.0);
-                            self.velocity = (velocity as f32) / 127.0;
+                            self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
+                            self.velocity = (*velocity as f32) / 127.0;
                             self.gate = true;
                         }
                         MidiData::NoteOff {

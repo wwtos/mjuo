@@ -91,8 +91,8 @@ impl Node for MidiFilterNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
+        _streams_in: &[f32],
+        _streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
         let mut warnings = WarningBuilder::new();
 
@@ -148,7 +148,7 @@ impl Node for MidiFilterNode {
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midi_state = ProcessState::Unprocessed(midi_in[0].unwrap());
+        self.midi_state = ProcessState::Unprocessed(midi_in[0].clone().unwrap());
     }
 
     fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {

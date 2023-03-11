@@ -9,11 +9,13 @@ pub struct MidiInNode {
     midi_in: MidiBundle,
 }
 
-impl Node for MidiInNode {
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midi_in = midi_in[0].unwrap();
+impl MidiInNode {
+    pub fn set_midi_output(&mut self, midi_in: MidiBundle) {
+        self.midi_in = midi_in;
     }
+}
 
+impl Node for MidiInNode {
     fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
         if !self.midi_in.is_empty() {
             midi_out[0] = Some(self.midi_in.clone());

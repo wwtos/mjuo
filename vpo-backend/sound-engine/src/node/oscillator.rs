@@ -1,3 +1,5 @@
+use core::fmt;
+
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -45,12 +47,18 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
 ///
 /// # Outputs
 /// `out` - Mono waveform out.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Oscillator {
     phase: f32,
     frequency: f32,
     output_out: f32,
     waveform: &'static Vec<[f32; WAVETABLE_SIZE]>,
+}
+
+impl fmt::Debug for Oscillator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Oscillator {{...}}")
+    }
 }
 
 impl Oscillator {

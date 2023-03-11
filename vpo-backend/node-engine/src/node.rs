@@ -19,7 +19,6 @@ use crate::global_state::GlobalState;
 use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::socket_registry::SocketRegistry;
-use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -79,6 +78,7 @@ pub struct InitResult {
     pub did_rows_change: bool,
     pub node_rows: Vec<NodeRow>,
     pub changed_properties: Option<HashMap<String, Property>>,
+    pub child_graph_io: Option<Vec<(SocketType, SocketDirection)>>,
 }
 
 impl InitResult {
@@ -87,6 +87,7 @@ impl InitResult {
             did_rows_change: false,
             node_rows,
             changed_properties: None,
+            child_graph_io: None,
         })
     }
 }
@@ -101,8 +102,13 @@ pub struct NodeInitState<'a> {
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub script_engine: &'a Engine,
-    pub child_graph: Option<(&'a mut NodeGraph, &'a Traverser)>,
     pub global_state: &'a GlobalState,
+}
+
+pub struct NodeGraphAndIo<'a> {
+    graph: &'a NodeGraph,
+    input_index: NodeIndex,
+    output_index: NodeIndex,
 }
 
 /// Node trait
@@ -118,13 +124,12 @@ pub struct NodeProcessState<'a> {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait Node: Debug + Clone {
+    /// Must be a pure function
     fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
 
-    fn get_child_graph_socket_list(&self, registry: &mut SocketRegistry) -> Vec<(SocketType, SocketDirection)> {
-        vec![]
+    fn post_init(&mut self, init_state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<()> {
+        NodeOk::no_warnings(())
     }
-
-    fn init_graph(&mut self, graph: &mut NodeGraph, input_node: NodeIndex, output_node: NodeIndex) {}
 
     fn linked_to_ui(&self) -> bool {
         false

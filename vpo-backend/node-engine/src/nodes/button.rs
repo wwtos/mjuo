@@ -48,7 +48,7 @@ impl Node for ButtonNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.input = ProcessState::Unprocessed(values_in[0].unwrap().as_boolean().unwrap());
+        self.input = ProcessState::Unprocessed(values_in[0].clone().unwrap().as_boolean().unwrap());
     }
 
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
