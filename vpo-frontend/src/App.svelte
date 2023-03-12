@@ -17,9 +17,13 @@
     import { BehaviorSubject } from "rxjs";
     import { onMount } from "svelte";
     import FileEditor from "./file-editor/FileEditor.svelte";
+    import registerWasmEngine from "audio-worklet:./wasm_engine.js";
 
-    const ipc = (window as any).ipcRenderer;
-    let newIpcSocket: any = new IPCSocket(ipc);
+    const ipc = window["ipcRenderer"];
+    const audioContext = new AudioContext();
+    registerWasmEngine(audioContext);
+
+    let newIpcSocket = new IPCSocket(ipc);
 
     ipcSocket.next(newIpcSocket);
     graphManager.setIpcSocket(newIpcSocket);

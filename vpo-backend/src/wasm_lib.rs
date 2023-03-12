@@ -17,8 +17,6 @@ use wasm_bindgen::prelude::*;
 
 use crate::routes::route;
 
-const BUFFER_SIZE: usize = 256;
-
 pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
     let mut messages: Vec<MidiData> = Vec::new();
 
@@ -39,14 +37,15 @@ pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
 pub struct State {
     global_state: GlobalState,
     engine_state: NodeEngineState,
+    buffer_size: usize,
     midi_parser: MidiParser,
-    buffer_index: usize,
-    audio_out: [f32; BUFFER_SIZE],
+    current_time: usize,
+    audio_out: Vec<f32>,
 }
 
 #[wasm_bindgen]
 impl State {
-    pub fn new(sample_rate: u32) -> State {
+    pub fn new(sample_rate: u32, buffer_size: usize) -> State {
         let sound_config = SoundConfig { sample_rate };
 
         let global_state = GlobalState {
@@ -62,9 +61,10 @@ impl State {
         State {
             global_state,
             engine_state,
+            buffer_size,
             midi_parser,
-            buffer_index: 0,
-            audio_out: [0_f32; BUFFER_SIZE],
+            current_time: 0,
+            audio_out: vec![0_f32; buffer_size],
         }
     }
 
@@ -72,7 +72,9 @@ impl State {
         self.audio_out.as_ptr()
     }
 
-    pub fn step(&mut self, message_in: Option<String>, midi_in: Uint8Array) -> String {
+    pub fn step(&mut self, message_in: Option<String>, midi_in: Uint8Array, buffer_size: usize) -> String {
+        self.audio_out.resize(buffer_size, 0.0);
+
         let to_server = SendBuffer {
             buffer: Mutex::new(vec![]),
         };
@@ -105,7 +107,7 @@ impl State {
         let mut midi = get_midi(midi_in, &mut self.midi_parser);
 
         for (i, sample) in self.audio_out.iter_mut().enumerate() {
-            let current_time = (self.buffer_index * BUFFER_SIZE + i) as i64;
+            let current_time = (self.current_time) as i64;
 
             *sample = self
                 .engine_state
@@ -114,6 +116,8 @@ impl State {
             if !midi.is_empty() {
                 midi = Vec::new();
             }
+
+            self.current_time += 1;
         }
 
         let responses = to_server.buffer.lock().unwrap();
