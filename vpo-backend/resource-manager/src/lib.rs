@@ -79,6 +79,7 @@ where
     Ok(ResourceId::from_str(&resource_id).unwrap())
 }
 
+#[derive(Debug)]
 pub struct ResourceManager<A> {
     resources: GenVec<A>,
     resource_mapping: HashMap<String, ResourceIndex>,

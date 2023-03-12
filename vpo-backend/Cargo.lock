@@ -1973,11 +1973,13 @@ dependencies = [
  "cpal",
  "futures",
  "ipc",
+ "js-sys",
  "lazy_static",
  "libpulse-binding",
  "libpulse-simple-binding",
  "midir",
  "node-engine",
+ "once_cell",
  "regex",
  "resource-manager",
  "rhai",
@@ -1991,6 +1993,7 @@ dependencies = [
  "sound-engine",
  "toml",
  "walkdir",
+ "wasm-bindgen",
 ]
 
 [[package]]

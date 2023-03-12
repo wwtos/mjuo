@@ -8,7 +8,7 @@ use sound_engine::{
     SoundConfig,
 };
 
-#[derive(Default, Serialize)]
+#[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
     pub samples: ResourceManager<Sample>,
@@ -16,7 +16,7 @@ pub struct Resources {
     pub ranks: ResourceManager<Rank>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobalState {
     pub active_project: Option<PathBuf>,

@@ -91,7 +91,7 @@ pub enum HistoryAction {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HistoryActionBundle {
     pub actions: Vec<HistoryAction>,
 }
@@ -102,6 +102,7 @@ pub struct AssetBundle<'a> {
     // pub wavetables: &'a ResourceManager<Wavetable>,
 }
 
+#[derive(Debug)]
 pub struct NodeEngineState {
     history: Vec<HistoryActionBundle>,
     place_in_history: usize,

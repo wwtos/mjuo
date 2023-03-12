@@ -7,7 +7,7 @@ use serde_json::Value;
 
 use crate::connection::{MidiSocketType, SocketType, StreamSocketType, ValueSocketType};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryValue {
     pub template: String,
@@ -16,7 +16,7 @@ pub struct RegistryValue {
     pub uid: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SocketRegistry {
     name_to_socket_type: HashMap<String, RegistryValue>,
