@@ -1,10 +1,10 @@
 <script lang="ts">
-    import SplitView from "../layout/SplitView.svelte";
-    import TreeView from "../ui/TreeView.svelte";
-    import { SplitDirection } from "../layout/enums";
+    import SplitView from "../../lib/components/layout/SplitView.svelte";
+    import TreeView from "../../lib/components/TreeView.svelte";
+    import { SplitDirection } from "../../lib/components/layout/enums";
     import FileView from "./FileView.svelte";
-    import type { TreeItem } from "../ui/tree-types";
-    import { globalState } from "../node-editor/state";
+    import type { TreeItem } from "../../lib/components/tree-types";
+    import { globalState } from "../../../../vpo-frontend/src/node-editor/state";
 
     export let width: number = 400;
     export let height: number = 400;

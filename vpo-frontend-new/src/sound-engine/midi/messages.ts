@@ -1,4 +1,4 @@
-import type { DiscriminatedUnion } from "../../util/discriminated-union";
+import type { DiscriminatedUnion } from "../../lib/util/discriminated-union";
 
 export interface Timecode {
     hours: number,

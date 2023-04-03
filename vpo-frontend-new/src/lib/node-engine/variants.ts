@@ -1,4 +1,4 @@
-import { i18n } from '../i18n.js';
+import { i18n } from '../../../../vpo-frontend/src/i18n.js';
 
 export interface NodeVariant {
     name: string,
