@@ -1,4 +1,4 @@
-import { DiscriminatedUnion, match } from "../util/discriminated-union"
+import { type DiscriminatedUnion, match } from "../util/discriminated-union";
 
 export interface Index {
     index: number,

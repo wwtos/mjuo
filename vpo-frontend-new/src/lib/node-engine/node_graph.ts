@@ -1,5 +1,5 @@
-import { NodeRow, NodeWrapper, NODE_WIDTH, SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
-import { InputSideConnection, OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
+import { NodeRow, type NodeWrapper, NODE_WIDTH, type SocketValue, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
+import { type InputSideConnection, type OutputSideConnection, Connection, SocketType, SocketDirection } from "./connection";
 import type { IPCSocket } from "../util/socket";
 import { BehaviorSubject, Observable } from "rxjs";
 import { distinctUntilChanged, filter, map } from "rxjs/operators";
@@ -7,7 +7,7 @@ import { deepEqual, shallowEqual } from "fast-equals";
 import { matchOrElse } from "../util/discriminated-union";
 import type { Property } from "./property";
 import { Index } from "../ddgg/gen_vec";
-import { Graph, Vertex, VertexIndex } from "../ddgg/graph";
+import { Graph, type Vertex, type VertexIndex } from "../ddgg/graph";
 import { isDefined } from "../util/rxjs_extensions";
 
 // import {Node, VertexIndex, GenerationalNode} from "./node";
@@ -39,6 +39,8 @@ export class NodeGraph {
         this.changedNodes = [];
 
         this.graphIndex = graphIndex;
+
+        this.selectedNodes = [];
     }
 
     getNode (index: VertexIndex): (NodeWrapper | undefined) {
@@ -56,11 +58,8 @@ export class NodeGraph {
     }
 
     applyJson(json: {
-        graphIndex: Index,
         nodes: Graph<NodeWrapper, NodeConnection>
     }) {
-        this.graphIndex = json.graphIndex;
-
         this.nodes = json.nodes;
 
         this.update();

@@ -1,5 +1,4 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { i18n } from "../i18n";
 import type { SocketType } from "./connection";
 import { map } from "rxjs/operators";
 import { matchOrElse } from "../util/discriminated-union";

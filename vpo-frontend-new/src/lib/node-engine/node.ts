@@ -1,5 +1,5 @@
-import { InputSideConnection, MidiSocketType, NodeRefSocketType, OutputSideConnection,
-         Primitive, SocketDirection, SocketType, StreamSocketType, ValueSocketType } from "./connection";
+import type { MidiSocketType, NodeRefSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType } from "./connection";
+import { SocketDirection } from "./connection";
 import type { Property, PropertyType } from "./property";
 import type { MidiData } from "../sound-engine/midi/messages";
 import { type DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
@@ -149,22 +149,6 @@ export type SocketValue = DiscriminatedUnion<"variant", {
     Midi: { data: MidiData[] },
     None: {}
 }>;
-
-export class InitResult {
-    did_rows_change: boolean;
-    /* Vec<NodeRow> */
-    node_rows: Array <NodeRow> ;
-    /* Option<HashMap<String, Property>> */
-    changed_properties ? : {
-        [key: string]: Property
-    }
-
-    constructor(obj) {
-        for (var i in obj) {
-            this[i] = obj[i];
-        }
-    }
-}
 
 export interface UiData {
     x: number;

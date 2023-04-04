@@ -2,7 +2,7 @@ import type { Index } from "../ddgg/gen_vec";
 import type { VertexIndex } from "../ddgg/graph";
 import type { Connection } from "../node-engine/connection";
 import type { NodeWrapper, UiData } from "../node-engine/node";
-import { NodeGraph } from "../node-engine/node_graph";
+import type { NodeGraph } from "../node-engine/node_graph";
 
 export class IPCSocket {
     ipcRenderer: any;
@@ -10,7 +10,7 @@ export class IPCSocket {
     constructor(ipcRenderer: any) {
         this.ipcRenderer = ipcRenderer;
 
-        this.onMessage(([message]) => {
+        this.onMessage(([message]: [any]) => {
             if (message?.action === "io/getSaveLocation") {
                 this.ipcRenderer.send("action", {
                     title: "Select a folder to put your project files in",

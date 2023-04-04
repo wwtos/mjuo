@@ -1,7 +1,7 @@
 import { deepEqual } from "fast-equals";
 import { Index } from "../ddgg/gen_vec";
 import type { VertexIndex } from "../ddgg/graph";
-import { DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
+import { type DiscriminatedUnion, match, matchOrElse } from "../util/discriminated-union";
 import type { NodeConnection } from "./node_graph";
 
 

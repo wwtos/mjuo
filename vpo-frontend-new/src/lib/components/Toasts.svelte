@@ -1,10 +1,10 @@
 <script lang="ts">
     import type { IPCSocket } from "../util/socket";
-    import { SvelteToast, toast } from "@zerodevx/svelte-toast";
+    import { SvelteToast, toast } from "@zerodevx/svelte-toast/";
 
     export let ipcSocket: IPCSocket;
 
-    ipcSocket.onMessage(([message]) => {
+    ipcSocket.onMessage(([message]: [any]) => {
         if (message.action === "toast/error") {
             toast.push(message.payload, {
                 theme: {

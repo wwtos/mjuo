@@ -1,8 +1,8 @@
 <!-- thanks to vscode for inspiring this window design! -->
-<script type="ts">
-    import { onMount } from 'svelte';
-    import {SplitDirection} from "./enums";
-    
+<script lang="ts">
+    import { onMount } from "svelte";
+    import { SplitDirection } from "./enums";
+
     export let direction: SplitDirection;
     export let width: number;
     export let height: number;
@@ -22,11 +22,11 @@
     }
 
     let firstWidth: number, firstHeight: number;
-    let container: HTMLElement | undefined;
+    let container: HTMLElement;
 
     let currentlyResizingDivider = false;
 
-    function dividerMousedown () {
+    function dividerMousedown() {
         if (canResize) {
             currentlyResizingDivider = true;
         }
@@ -38,20 +38,20 @@
                 firstWidth = Math.floor(width * initialSplitRatio);
 
                 firstHeight = height;
-            break;
+                break;
             case SplitDirection.HORIZONTAL:
                 firstHeight = Math.floor(height * initialSplitRatio);
 
                 firstWidth = width;
-            break;
+                break;
         }
     } else {
         firstWidth = fixedWidth;
     }
 
     onMount(async () => {
-        window.addEventListener("mousemove", e => {
-            let {clientX, clientY} = e;
+        window.addEventListener("mousemove", (e) => {
+            let { clientX, clientY } = e;
 
             if (currentlyResizingDivider) {
                 e.preventDefault(); // stop the text from being selected during drag
@@ -66,63 +66,101 @@
             }
         });
 
-        window.addEventListener("mouseup", function() {
+        window.addEventListener("mouseup", function () {
             currentlyResizingDivider = false;
         });
     });
 </script>
 
 {#if direction === SplitDirection.VERTICAL}
-<div class="container vertical-split" style="width: {width}px; height: {height}px" bind:this={container}>
-    {#if canResize}
-        <div class="divider-parent">
-            <div class="divider divider-vertical" class:dragging={currentlyResizingDivider} style="left: {firstWidth - 2}px; height: {height}px" on:mousedown={dividerMousedown}></div>
-        </div>
-    {/if}
-    <svelte:component this={firstPanel} width={firstWidth} height={height} {...firstState} />
-    <svelte:component this={secondPanel} width={width - firstWidth} height={height} {...secondState} />
-</div>
+    <div
+        class="container vertical-split"
+        style="width: {width}px; height: {height}px"
+        bind:this={container}
+    >
+        {#if canResize}
+            <div class="divider-parent">
+                <div
+                    class="divider divider-vertical"
+                    class:dragging={currentlyResizingDivider}
+                    style="left: {firstWidth - 2}px; height: {height}px"
+                    on:mousedown={dividerMousedown}
+                />
+            </div>
+        {/if}
+        <svelte:component
+            this={firstPanel}
+            width={firstWidth}
+            {height}
+            {...firstState}
+        />
+        <svelte:component
+            this={secondPanel}
+            width={width - firstWidth}
+            {height}
+            {...secondState}
+        />
+    </div>
 {:else if direction === SplitDirection.HORIZONTAL}
-<div class="container horizontal-split" style="width: {width}px; height: {height}px" bind:this={container}>
-    {#if canResize}
-        <div class="divider-parent">
-            <div class="divider divider-horizontal" class:dragging={currentlyResizingDivider} style="top: {firstHeight - 2}px; width: {width}px" on:mousedown={dividerMousedown}></div>
-        </div>
-    {/if}
-    <svelte:component this={firstPanel} width={width} height={firstHeight} {...firstState} />
-    <svelte:component this={secondPanel} width={width} height={height - firstHeight} {...secondState} />
-</div>
+    <div
+        class="container horizontal-split"
+        style="width: {width}px; height: {height}px"
+        bind:this={container}
+    >
+        {#if canResize}
+            <div class="divider-parent">
+                <div
+                    class="divider divider-horizontal"
+                    class:dragging={currentlyResizingDivider}
+                    style="top: {firstHeight - 2}px; width: {width}px"
+                    on:mousedown={dividerMousedown}
+                />
+            </div>
+        {/if}
+        <svelte:component
+            this={firstPanel}
+            {width}
+            height={firstHeight}
+            {...firstState}
+        />
+        <svelte:component
+            this={secondPanel}
+            {width}
+            height={height - firstHeight}
+            {...secondState}
+        />
+    </div>
 {/if}
 
+<style>
+    .container.horizontal-split {
+        display: flex;
+        flex-direction: column;
+    }
 
-<style>    
-.container.horizontal-split {
-    display: flex;
-    flex-direction: column;
-}
+    .container.vertical-split {
+        display: flex;
+        flex-direction: row;
+    }
 
-.container.vertical-split {
-    display: flex;
-    flex-direction: row;
-}
+    .divider-parent {
+        position: relative;
+    }
 
-.divider-parent {
-    position: relative;
-}
+    .divider {
+        position: absolute;
+        z-index: 10;
+        transition: background-color 0.2s;
+    }
 
-.divider {
-    position: absolute;
-    z-index: 10;
-    transition: background-color 0.2s;
-}
+    .divider.divider-vertical {
+        top: 0px;
+        width: 4px;
+    }
 
-.divider.divider-vertical {
-    top: 0px;
-    width: 4px;
-}
-
-.divider:hover, .divider.dragging {
-    background-color: lightskyblue;
-    cursor: ew-resize;
-}
+    .divider:hover,
+    .divider.dragging {
+        background-color: lightskyblue;
+        cursor: ew-resize;
+    }
 </style>
