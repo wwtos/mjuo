@@ -1,11 +1,10 @@
 <script>
+    import { page } from "$app/stores";
     import {
         FolderIcon,
         GitPullRequestIcon,
         LayersIcon,
     } from "svelte-feather-icons";
-
-    import { activeEditor } from "./state";
 
     export let width = 48;
 </script>
@@ -13,29 +12,26 @@
 <nav style="min-width: {width}px">
     <div>
         <ul>
-            <li
-                class:active={$activeEditor === "nodes"}
-                on:click={() => activeEditor.next("nodes")}
-            >
-                <span style="padding-left: 2px">
-                    <GitPullRequestIcon size="30" strokeWidth="1.5" />
-                </span>
+            <li class:active={$page.url.pathname === "/node_editor"}>
+                <a href="/node_editor">
+                    <span style="padding-left: 2px">
+                        <GitPullRequestIcon size="30" strokeWidth={1.5} />
+                    </span>
+                </a>
             </li>
-            <li
-                class:active={$activeEditor === "ui"}
-                on:click={() => activeEditor.next("ui")}
-            >
-                <span style="padding-left: 2px">
-                    <LayersIcon size="30" strokeWidth="1.5" />
-                </span>
+            <li class:active={$page.url.pathname === "/ui_editor"}>
+                <a href="/ui_editor">
+                    <span style="padding-left: 2px">
+                        <LayersIcon size="30" strokeWidth={1.5} />
+                    </span>
+                </a>
             </li>
-            <li
-                class:active={$activeEditor === "files"}
-                on:click={() => activeEditor.next("files")}
-            >
-                <span style="padding-left: 2px">
-                    <FolderIcon size="30" strokeWidth="1.5" />
-                </span>
+            <li class:active={$page.url.pathname === "/file_editor"}>
+                <a href="/file_editor">
+                    <span style="padding-left: 2px">
+                        <FolderIcon size="30" strokeWidth={1.5} />
+                    </span>
+                </a>
             </li>
         </ul>
     </div>
@@ -68,5 +64,9 @@
         color: #eee;
         border-left: 2px solid #eee;
         padding-left: 6px;
+    }
+
+    a {
+        color: inherit;
     }
 </style>

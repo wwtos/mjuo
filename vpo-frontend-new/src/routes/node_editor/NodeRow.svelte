@@ -1,17 +1,22 @@
 <script lang="ts">
+    import type { Index } from "$lib/ddgg/gen_vec";
     import {
-        SocketType,
         SocketDirection,
         type Primitive,
-    } from "../node-engine/connection";
-    import { NodeRow, NodeWrapper, SocketValue } from "../node-engine/node";
-    import type { NodeGraph } from "../node-engine/node_graph";
-    import { fixDigits } from "../util/fix-digits";
+        SocketType,
+    } from "$lib/node-engine/connection";
+    import {
+        type NodeWrapper,
+        type SocketValue,
+        NodeRow,
+    } from "$lib/node-engine/node";
+    import type { NodeGraph } from "$lib/node-engine/node_graph";
+    import { match, matchOrElse } from "$lib/util/discriminated-union";
+    import { fixDigits } from "$lib/util/fix-digits";
+    import { deepEqual } from "fast-equals";
     import { BehaviorSubject, Observable } from "rxjs";
 
     import Socket from "./Socket.svelte";
-    import { match, matchOrElse } from "../util/discriminated-union";
-    import type { Index } from "../ddgg/gen_vec";
 
     export let type: SocketType;
     export let label: BehaviorSubject<string>;
@@ -26,23 +31,25 @@
             ? nodes.getNodeInputConnection(nodeIndex, type)
             : new Observable();
 
-    let socketDefault: BehaviorSubject<SocketValue> = new BehaviorSubject({
+    const none: SocketValue = {
         variant: "None",
-    });
+    };
+
+    let socketDefault: BehaviorSubject<SocketValue> = new BehaviorSubject(none);
 
     nodes
         .getNodeSocketDefault(nodeIndex, type, direction)
         .subscribe(socketDefault);
 
-    function updateOverrides(event) {
-        const newValue = event.target.value;
+    function updateOverrides(this: HTMLInputElement, event: Event) {
+        const newValue = this.value;
 
         const newValueParsed = matchOrElse(
             socketDefault.getValue(),
             {
                 Stream: (): SocketValue => {
                     const num = parseFloat(newValue);
-                    event.target.value = num;
+                    this.value = num + "";
 
                     return { variant: "Stream", data: isNaN(num) ? 0.0 : num };
                 },
@@ -52,17 +59,17 @@
                         data: match(primitiveType, {
                             String: (): Primitive => ({
                                 variant: "String",
-                                data: event.target.value,
+                                data: this.value,
                             }),
                             Int: (_) => {
                                 const num = parseInt(newValue);
-                                event.target.value = num;
+                                this.value = num + "";
 
                                 return { variant: "Int", data: num };
                             },
                             Float: (_) => {
                                 const num = parseFloat(newValue);
-                                event.target.value = num;
+                                this.value = num + "";
 
                                 return {
                                     variant: "Float",
@@ -72,7 +79,7 @@
                             // booleans are special
                             Boolean: (_) => ({
                                 variant: "Boolean",
-                                data: event.target.checked,
+                                data: this.checked,
                             }),
                         }),
                     };
@@ -88,15 +95,15 @@
             const {
                 socketType: overrideSocketType,
                 direction: overrideDirection,
-            } = NodeRow.getTypeAndDirection(defaultOverride);
+            } = NodeRow.getTypeAndDirection(defaultOverride) ?? {};
 
             return (
-                SocketType.areEqual(type, overrideSocketType) &&
+                deepEqual(type, overrideSocketType) &&
                 direction === overrideDirection
             );
         });
 
-        if (override) {
+        if (override && override.data) {
             override.data[1] = (newValueParsed as any).data;
         } else {
             nodeWrapper.defaultOverrides = [

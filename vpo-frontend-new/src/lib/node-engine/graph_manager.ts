@@ -1,6 +1,6 @@
+import type { IpcSocket } from "$lib/ipc/socket";
 import type { Index } from "../ddgg/gen_vec";
 import { Graph, type VertexIndex } from "../ddgg/graph";
-import type { IPCSocket } from "../util/socket";
 import type { NodeWrapper } from "./node";
 import { type NodeConnection, NodeGraph } from "./node_graph";
 
@@ -8,12 +8,12 @@ export type ConnectedThrough = VertexIndex;
 
 export class GraphManager {
     nodeGraphs: Graph<NodeGraph, ConnectedThrough>;
-    ipcSocket: IPCSocket;
+    ipcSocket: IpcSocket;
     ipcListenerRegistered: boolean = false;
     graphWaitingFor: Index | null = null;
     graphWaitingForEvent: Function | null = null;
 
-    constructor(ipcSocket: IPCSocket) {
+    constructor(ipcSocket: IpcSocket) {
         this.nodeGraphs = {edges: {vec: []}, verticies: {vec: []}};
         this.ipcSocket = ipcSocket;
     }
@@ -42,9 +42,9 @@ export class GraphManager {
         }
     }
 
-    async getGraph(graphIndex: Index)/*: NodeGraph*/ {
+    async getGraph(graphIndex: Index): Promise<NodeGraph> {
         if (Graph.getVertex(this.nodeGraphs, graphIndex)) {
-            return Graph.getVertex(this.nodeGraphs, graphIndex);
+            return Graph.getVertexData(this.nodeGraphs, graphIndex) as NodeGraph;
         } else {
             if (!this.ipcListenerRegistered) {
                 this.ipcSocket.onMessage(this.onMessage.bind(this));
@@ -77,7 +77,7 @@ export class GraphManager {
             Graph.getVertexData(this.nodeGraphs, graphIndex)?.applyJson(graph.payload);
         }
 
-        return Graph.getVertexData(this.nodeGraphs, graphIndex);
+        return Graph.getVertexData(this.nodeGraphs, graphIndex) as NodeGraph;
     }
 
     getRootGraph() {
@@ -92,6 +92,6 @@ export class GraphManager {
             };
         }
 
-        return Graph.getVertexData(this.nodeGraphs, {index: 0, generation: 0});
+        return Graph.getVertexData(this.nodeGraphs, {index: 0, generation: 0}) as NodeGraph;
     }
 }

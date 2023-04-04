@@ -1,87 +1,87 @@
 export interface NodeVariant {
-    name: string,
+    translationKey: string,
     internal: string,
     category: string
 }
 
 export const variants: NodeVariant[] = [
     {
-        name: i18n.t("nodes.GainGraphNode"),
+        translationKey: "node-gain",
         internal: "GainGraphNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.OscillatorNode"),
+        translationKey: "node-oscillator",
         internal: "OscillatorNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.MidiToValuesNode"),
+        translationKey: "node-midi-to-values",
         internal: "MidiToValuesNode",
         category: "midi"
     },
     {
-        name: i18n.t("nodes.EnvelopeNode"),
+        translationKey: "node-envelope",
         internal: "EnvelopeNode",
         category: "base"
     },
     {
-        name: i18n.t("nodes.BiquadFilterNode"),
+        translationKey: "node-filter-biquad",
         internal: "BiquadFilterNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.MixerNode"),
+        translationKey: "node-mixer",
         internal: "MixerNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.ExpressionNode"),
+        translationKey: "node-expression",
         internal: "ExpressionNode",
         category: "scripting"
     },
     {
-        name: i18n.t("nodes.FunctionNode"),
+        translationKey: "node-function",
         internal: "FunctionNode",
         category: "base"
     },
     {
-        name: i18n.t("nodes.StreamExpressionNode"),
+        translationKey: "node-expression-stream",
         internal: "StreamExpressionNode",
         category: "scripting"
     },
     {
-        name: i18n.t("nodes.PolyphonicNode"),
+        translationKey: "node-polyphonic",
         internal: "PolyphonicNode",
         category: "base"
     },
     {
-        name: i18n.t("nodes.MidiFilterNode"),
+        translationKey: "node-filter-midi",
         internal: "MidiFilterNode",
         category: "midi"
     },
     {
-        name: i18n.t("nodes.MonoSamplePlayerNode"),
+        translationKey: "node-sample-player-mono",
         internal: "MonoSamplePlayerNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.WavetableNode"),
+        translationKey: "node-wavetable-oscillator",
         internal: "WavetableNode",
         category: "audio"
     },
     {
-        name: i18n.t("nodes.PortamentoNode"),
+        translationKey: "node-portamento",
         internal: "PortamentoNode",
         category: "base"
     },
     {
-        name: i18n.t("nodes.ButtonNode"),
+        translationKey: "node-button",
         internal: "ButtonNode",
         category: "ui"
     },
     {
-        name: i18n.t("nodes.RankPlayer"),
+        translationKey: "node-rank-player",
         internal: "RankPlayerNode",
         category: "audio"
     }

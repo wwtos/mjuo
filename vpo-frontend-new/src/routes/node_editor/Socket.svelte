@@ -1,7 +1,7 @@
 <script lang="ts">
     import { createEventDispatcher } from "svelte";
 
-    import { SocketType, SocketDirection } from "../node-engine/connection";
+    import { SocketType, SocketDirection } from "$lib/node-engine/connection";
 
     const dispatch = createEventDispatcher();
 

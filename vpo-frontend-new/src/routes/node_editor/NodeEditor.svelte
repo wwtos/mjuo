@@ -1,45 +1,42 @@
 <script lang="ts">
     import Node from "./Node.svelte";
     import ConnectionUI from "./Connection.svelte";
-    import { graphManager } from "./state";
     import { onMount } from "svelte";
-    import type { NodeGraph } from "../node-engine/node_graph";
-    import { NodeWrapper, NODE_WIDTH } from "../node-engine/node";
-    import {
-        SocketDirection,
-        socketToKey,
-        Connection,
-        SocketType,
-    } from "../node-engine/connection";
-    import type { IPCSocket } from "../util/socket";
-    import panzoom from "panzoom";
-    import {
-        transformMouse,
-        transformMouseRelativeToEditor,
-    } from "../util/mouse-transforms";
+    import panzoom, { type PanZoom } from "panzoom";
     import type { BehaviorSubject, Subscription } from "rxjs";
     import type { SocketEvent } from "./socket";
     import NodeCreationMenu from "./NodeCreationMenu.svelte";
     import Breadcrumb from "./Breadcrumb.svelte";
-    import type { Index } from "../ddgg/gen_vec";
-    import type { VertexIndex } from "../ddgg/graph";
     import { deselectAll } from "./editor-utils";
+    import type { IpcSocket } from "$lib/ipc/socket";
+    import type { NodeGraph } from "$lib/node-engine/node_graph";
+    import type { Vertex, VertexIndex } from "$lib/ddgg/graph";
+    import {
+        SocketDirection,
+        SocketType,
+        Connection,
+    } from "$lib/node-engine/connection";
+    import {
+        transformMouse,
+        transformMouseRelativeToEditor,
+    } from "$lib/util/mouse-transforms";
+    import { NODE_WIDTH, type NodeWrapper } from "$lib/node-engine/node";
+    import type { GraphManager } from "$lib/node-engine/graph_manager";
+    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
 
     export let width = 400;
     export let height = 400;
 
-    export let ipcSocket: IPCSocket;
-
+    export let ipcSocket: IpcSocket;
     export let activeGraph: BehaviorSubject<NodeGraph>;
-    let previousSubscriptions: Array<Subscription> = [];
+    export let graphManager: GraphManager;
+    export let socketRegistry: SocketRegistry;
 
-    // TODO: remove debugging VVV
-    window["ipcSocket"] = ipcSocket;
-    $: window["graph"] = $activeGraph;
+    let previousSubscriptions: Array<Subscription> = [];
 
     let nodeTypeToCreate: string;
 
-    let zoomer;
+    let zoomer: PanZoom;
 
     ipcSocket.requestGraph({ index: 0, generation: 0 });
 
@@ -47,9 +44,12 @@
     let nodeContainer: HTMLDivElement;
 
     // node being actively dragged as well as the mouse offset
-    let draggedNode: null | VertexIndex = null;
+    let draggedState: {
+        node: VertexIndex;
+        offset: [number, number];
+    } | null = null;
+
     let draggedNodeWasDragged = false;
-    let draggedOffset: null | [number, number] = null;
     let createNodeMenu = {
         visible: false,
         x: 0,
@@ -77,7 +77,7 @@
 
     let selectedNodes: VertexIndex[] = [];
 
-    const onKeydown = (event) => {
+    const onKeydown = (event: KeyboardEvent) => {
         if (event.ctrlKey) {
             switch (event.key) {
                 case "z":
@@ -107,7 +107,7 @@
         }
     };
 
-    const onMousemove = ({ clientX, clientY }) => {
+    const onMousemove = ({ clientX, clientY }: MouseEvent) => {
         // convert window coordinates to editor coordinates
         let [mouseX, mouseY] = transformMouseRelativeToEditor(
             editor,
@@ -117,18 +117,18 @@
         );
 
         // if the mouse was moved and we are dragging a node, update that node's position
-        if (draggedNode) {
-            let node = $activeGraph.getNode(draggedNode);
+        if (draggedState) {
+            let node = $activeGraph.getNode(draggedState.node) as NodeWrapper;
 
             draggedNodeWasDragged = true;
 
             node.uiData = {
                 ...node.uiData,
-                x: mouseX - draggedOffset[0],
-                y: mouseY - draggedOffset[1],
+                x: mouseX - draggedState.offset[0],
+                y: mouseY - draggedState.offset[1],
             };
 
-            $activeGraph.updateNode(draggedNode);
+            $activeGraph.updateNode(draggedState.node);
             $activeGraph.update();
         } else if (connectionBeingCreated) {
             connectionBeingCreated.x2 = mouseX;
@@ -149,8 +149,8 @@
     };
 
     const onMouseup = () => {
-        if (draggedNode && draggedNodeWasDragged) {
-            $activeGraph.markNodeAsUpdated(draggedNode);
+        if (draggedState && draggedNodeWasDragged) {
+            $activeGraph.markNodeAsUpdated(draggedState.node);
             $activeGraph.update();
 
             draggedNodeWasDragged = false;
@@ -159,7 +159,7 @@
         $activeGraph.writeChangedNodesToServer();
 
         zoomer.resume();
-        draggedNode = null;
+        draggedState = null;
         connectionBeingCreated = null;
     };
 
@@ -216,10 +216,12 @@
 
             zoomer.pause();
 
-            draggedNode = index;
+            let node = $activeGraph.getNode(index) as NodeWrapper;
 
-            let node = $activeGraph.getNode(draggedNode);
-            draggedOffset = [mouseX - node.uiData.x, mouseY - node.uiData.y];
+            draggedState = {
+                node: index,
+                offset: [mouseX - node.uiData.x, mouseY - node.uiData.y],
+            };
 
             let touchedNodes = deselectAll($activeGraph);
 
@@ -228,10 +230,7 @@
                 selected: true,
             };
 
-            ipcSocket.updateNodesUi($activeGraph, [
-                ...touchedNodes,
-                draggedNode,
-            ]);
+            ipcSocket.updateNodesUi($activeGraph, [...touchedNodes, index]);
         }
     }
 
@@ -369,7 +368,9 @@
         };
     }
 
-    async function breadcrumbChangeGraph(event: CustomEvent<{ index: Index }>) {
+    async function breadcrumbChangeGraph(
+        event: CustomEvent<{ index: VertexIndex }>
+    ) {
         while (
             path.length > 1 &&
             path[path.length - 1].index.index !== event.detail.index.index
@@ -383,7 +384,7 @@
         path = path;
     }
 
-    async function changeGraphTo(graphIndex: Index, nodeTitle: string) {
+    async function changeGraphTo(graphIndex: VertexIndex, nodeTitle: string) {
         let graph = await graphManager.getGraph(graphIndex);
 
         activeGraph.next(graph);
@@ -395,8 +396,6 @@
             },
         ];
     }
-
-    window["changeGraphTo"] = changeGraphTo;
 
     function changeGraph(e: CustomEvent<any>) {
         const graphIndex = e.detail.graphIndex;
@@ -448,6 +447,7 @@
                     wrapper={node}
                     nodeIndex={index}
                     onMousedown={handleNodeMousedown}
+                    {socketRegistry}
                     on:socketMousedown={handleSocketMousedown}
                     on:socketMouseup={handleSocketMouseup}
                     on:changeGraph={changeGraph}
@@ -468,17 +468,6 @@
 </div>
 
 <style>
-    select {
-        background-color: white;
-    }
-
-    .new-node {
-        height: 50px;
-        position: absolute;
-        background-color: lightgray;
-        padding: 4px;
-    }
-
     .editor {
         overflow: hidden;
         background-color: #fafafa;

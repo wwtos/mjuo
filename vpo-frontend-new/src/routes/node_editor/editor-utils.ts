@@ -1,6 +1,5 @@
-import { VertexIndex } from '../ddgg/graph';
-import { NodeGraph } from '../node-engine/node_graph';
-
+import type { VertexIndex } from "$lib/ddgg/graph";
+import type { NodeGraph } from "$lib/node-engine/node_graph";
 
 export function deselectAll(graph: NodeGraph): VertexIndex[] {
     const currentNodes = graph.nodeStore.getValue();

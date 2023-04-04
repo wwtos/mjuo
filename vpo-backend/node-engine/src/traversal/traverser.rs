@@ -1,5 +1,3 @@
-use std::mem;
-
 use arr_macro::arr;
 use ddgg::Edge;
 use rhai::Engine;
@@ -22,7 +20,6 @@ struct NodeState {
     stream_index: usize,
     midi_index: usize,
     value_index: usize,
-    defaults_in: Vec<NodeRow>,
     linked_to_ui: bool,
     stream_inputs: usize,
     stream_outputs: usize,
@@ -38,11 +35,11 @@ struct NodeState {
 #[derive(Debug, Clone)]
 pub struct Traverser {
     nodes: Vec<NodeState>,
-    streams: Vec<f32>,
+    stream_inputs: Vec<f32>,
     stream_output_mappings: Vec<(usize, usize)>,
-    midi: Vec<Option<MidiBundle>>,
+    midi_inputs: Vec<Option<MidiBundle>>,
     midi_output_mappings: Vec<(usize, usize)>,
-    values: Vec<Option<Primitive>>,
+    value_inputs: Vec<Option<Primitive>>,
     value_output_mappings: Vec<(usize, usize)>,
 }
 
@@ -56,11 +53,11 @@ impl Traverser {
     pub fn new() -> Self {
         Traverser {
             nodes: vec![],
-            streams: vec![],
+            stream_inputs: vec![],
             stream_output_mappings: vec![],
-            midi: vec![],
+            midi_inputs: vec![],
             midi_output_mappings: vec![],
-            values: vec![],
+            value_inputs: vec![],
             value_output_mappings: vec![],
         }
     }
@@ -75,11 +72,11 @@ impl Traverser {
         let traversal_order = calculate_graph_traverse_order(graph);
 
         self.nodes.clear();
-        self.streams.clear();
+        self.stream_inputs.clear();
         self.stream_output_mappings.clear();
-        self.midi.clear();
+        self.midi_inputs.clear();
         self.midi_output_mappings.clear();
-        self.values.clear();
+        self.value_inputs.clear();
         self.value_output_mappings.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
@@ -150,10 +147,9 @@ impl Traverser {
             self.nodes.push(NodeState {
                 node: variant,
                 node_index: *index,
-                stream_index: self.streams.len(),
-                midi_index: self.midi.len(),
-                value_index: self.values.len(),
-                defaults_in: vec![],
+                stream_index: self.stream_inputs.len(),
+                midi_index: self.midi_inputs.len(),
+                value_index: self.value_inputs.len(),
                 linked_to_ui,
                 stream_inputs: stream_input_defaults.len(),
                 stream_outputs: stream_outputs,
@@ -166,9 +162,12 @@ impl Traverser {
                 value_output_mappings: 0,
             });
 
-            self.streams.extend(stream_input_defaults);
-            self.midi.extend(midi_input_defaults.into_iter().map(|x| Some(x)));
-            self.values.extend(value_input_defaults.into_iter().map(|x| Some(x)));
+            // populate the input lists with the defaults (which will be read every time)
+            self.stream_inputs.extend(stream_input_defaults);
+            self.midi_inputs
+                .extend(midi_input_defaults.into_iter().map(|x| Some(x)));
+            self.value_inputs
+                .extend(value_input_defaults.into_iter().map(|x| Some(x)));
         }
 
         // now that we know the indexes of all the nodes, we can populate the output mappings
@@ -272,9 +271,12 @@ impl Traverser {
             let midi_input_index = node.midi_index;
             let value_input_index = node.value_index;
 
-            let midi_inputs = &self.midi[midi_input_index..(midi_input_index + node.midi_inputs)];
-            let value_inputs = &self.values[value_input_index..(value_input_index + node.value_inputs)];
+            // get input slices
+            let midi_inputs = &self.midi_inputs[midi_input_index..(midi_input_index + node.midi_inputs)];
+            let value_inputs = &self.value_inputs[value_input_index..(value_input_index + node.value_inputs)];
+            let stream_inputs = &mut self.stream_inputs[stream_input_index..(stream_input_index + node.stream_inputs)];
 
+            // process the node
             if midi_inputs.iter().any(|midi_input| midi_input.is_some()) {
                 node.node.accept_midi_inputs(midi_inputs);
             }
@@ -282,8 +284,6 @@ impl Traverser {
             if value_inputs.iter().any(|value_input| value_input.is_some()) {
                 node.node.accept_value_inputs(value_inputs);
             }
-
-            let stream_inputs = &mut self.streams[stream_input_index..(stream_input_index + node.stream_inputs)];
 
             let res = node.node.process(
                 NodeProcessState {
@@ -304,25 +304,38 @@ impl Traverser {
             node.node.get_value_outputs(&mut value_staging[0..node.value_outputs]);
 
             // now, send the outputs to where they need to go
-            for i in 0..node.stream_output_mappings {
+            for _ in 0..node.stream_output_mappings {
                 let mapping = self.stream_output_mappings[stream_output_mappings_i];
-                self.streams[mapping.1] = mem::replace(&mut stream_staging[mapping.0], 0.0);
+                self.stream_inputs[mapping.1] = stream_staging[mapping.0];
 
                 stream_output_mappings_i += 1;
             }
 
-            for i in 0..node.midi_output_mappings {
+            for _ in 0..node.midi_output_mappings {
                 let mapping = self.midi_output_mappings[midi_output_mappings_i];
-                self.midi[mapping.1] = mem::replace(&mut midi_staging[mapping.0], None);
+                self.midi_inputs[mapping.1] = midi_staging[mapping.0].clone();
 
                 midi_output_mappings_i += 1;
             }
 
-            for i in 0..node.value_output_mappings {
+            for _ in 0..node.value_output_mappings {
                 let mapping = self.value_output_mappings[value_output_mappings_i];
-                self.values[mapping.1] = mem::replace(&mut value_staging[mapping.0], None);
+                self.value_inputs[mapping.1] = value_staging[mapping.0].clone();
 
                 value_output_mappings_i += 1;
+            }
+
+            // Reset staging
+            for i in 0..node.stream_outputs {
+                stream_staging[i] = 0.0;
+            }
+
+            for i in 0..node.midi_outputs {
+                midi_staging[i] = None;
+            }
+
+            for i in 0..node.value_outputs {
+                value_staging[i] = None;
             }
         }
 

@@ -1,10 +1,10 @@
 <script lang="ts">
-    import type { NodeGraph } from "../node-engine/node_graph";
-    import type { NodeWrapper } from "../node-engine/node";
-    import type { Property, PropertyType } from "../node-engine/property";
-    import { matchOrElse } from "../util/discriminated-union";
+    import type { VertexIndex } from "$lib/ddgg/graph";
+    import type { NodeWrapper } from "$lib/node-engine/node";
+    import type { NodeGraph } from "$lib/node-engine/node_graph";
+    import type { Property, PropertyType } from "$lib/node-engine/property";
+    import { matchOrElse } from "$lib/util/discriminated-union";
     import { deepEqual } from "fast-equals";
-    import type { VertexIndex } from "../ddgg/graph";
 
     export let nodeWrapper: NodeWrapper;
     export let nodeIndex: VertexIndex;
@@ -14,20 +14,20 @@
 
     let value = nodes.getNodePropertyValue(nodeIndex, propName);
 
-    function updateProperties(event) {
-        const newValue = event.target.value;
+    function updateProperties(this: HTMLSelectElement, event: Event) {
+        const newValue = this.value;
 
         const newValueParsed = matchOrElse(
             propType,
             {
                 MultipleChoice: (_): Property => {
-                    event.target.value = newValue;
+                    this.value = newValue;
 
                     return { variant: "MultipleChoice", data: newValue };
                 },
                 Integer: (): Property => {
                     const newValueParsed = parseInt(newValue);
-                    event.target.value = newValueParsed;
+                    this.value = newValueParsed + "";
 
                     return { variant: "Integer", data: newValueParsed };
                 },
@@ -63,14 +63,14 @@
         }
     }
 
-    $: dataAsResource = $value.data as { namespace: string; resource: string };
-    $: dataAsAny = $value.data as any;
+    $: dataAsResource = $value?.data as { namespace: string; resource: string };
+    $: dataAsAny = $value?.data as any;
 </script>
 
 <div class="container">
     {#if propType.variant === "MultipleChoice"}
         <select
-            value={$value.data}
+            value={$value?.data}
             on:mousedown={(e) => e.stopPropagation()}
             on:input={updateProperties}
         >
@@ -83,7 +83,7 @@
             <label>
                 <input
                     type="number"
-                    value={$value.data}
+                    value={$value?.data}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
@@ -98,7 +98,7 @@
             <label>
                 <input
                     type="text"
-                    value={$value.data}
+                    value={$value?.data}
                     title={propName}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}

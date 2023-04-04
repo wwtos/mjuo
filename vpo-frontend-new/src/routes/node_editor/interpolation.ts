@@ -1,40 +1,39 @@
 import { BehaviorSubject, Observable } from "rxjs";
-import { i18n } from "../i18n";
-import type { SocketType } from "../node-engine/connection";
-import { match } from "../util/discriminated-union";
-import { socketRegistry } from "./state";
+import type { SocketType } from "$lib/node-engine/connection";
+import { match } from "$lib/util/discriminated-union";
+import type { SocketRegistry } from "$lib/node-engine/socket_registry";
 
-export function socketTypeToString(socketType: SocketType): BehaviorSubject<string> {
+export function socketTypeToString(registry: SocketRegistry, socketType: SocketType, localize: Function): BehaviorSubject<string> {
     let response = match(socketType, {
         Stream: ({ data: stream }): string | Observable<string> => match(stream, {
-            Audio: () => i18n.t("socketType.stream.audio"),
-            Gate: () => i18n.t("socketType.stream.gate"),
-            Gain: () => i18n.t("socketType.stream.gain"),
-            Detune: () => i18n.t("socketType.stream.detune"),
-            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Audio: () => localize("socket-audio"),
+            Gate: () => localize("socketType.stream.gate"),
+            Gain: () => localize("socketType.stream.gain"),
+            Detune: () => localize("socketType.stream.detune"),
+            Dynamic: ({ data: uid }) => registry.getSocketInterpolation(uid)
         }),
         Midi: ({ data: midi }): string | Observable<string> => match(midi, {
-            Default: () => i18n.t("socketType.midi.default"),
-            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Default: () => localize("socketType.midi.default"),
+            Dynamic: ({ data: uid }) => registry.getSocketInterpolation(uid)
         }),
         Value: ({ data: value }): string | Observable<string> => match(value, {
-            Default: () => i18n.t("socketType.value.default"),
-            Gain: () => i18n.t("socketType.value.gain"),
-            Frequency: () => i18n.t("socketType.value.frequency"),
-            Resonance: () => i18n.t("socketType.value.resonance"),
-            Gate: () => i18n.t("socketType.value.gate"),
-            Attack: () => i18n.t("socketType.value.attack"),
-            Decay: () => i18n.t("socketType.value.decay"),
-            Sustain: () => i18n.t("socketType.value.sustain"),
-            Release: () => i18n.t("socketType.value.release"),
-            Speed: () => i18n.t("socketType.value.speed"),
-            State: () => i18n.t("socketType.value.state"),
-            UiState: () => i18n.t("socketType.value.uiState"),
-            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Default: () => localize("socketType.value.default"),
+            Gain: () => localize("socketType.value.gain"),
+            Frequency: () => localize("socketType.value.frequency"),
+            Resonance: () => localize("socketType.value.resonance"),
+            Gate: () => localize("socketType.value.gate"),
+            Attack: () => localize("socketType.value.attack"),
+            Decay: () => localize("socketType.value.decay"),
+            Sustain: () => localize("socketType.value.sustain"),
+            Release: () => localize("socketType.value.release"),
+            Speed: () => localize("socketType.value.speed"),
+            State: () => localize("socketType.value.state"),
+            UiState: () => localize("socketType.value.uiState"),
+            Dynamic: ({ data: uid }) => registry.getSocketInterpolation(uid)
         }),
         NodeRef: ({ data: nodeRef }): string | Observable<string> => match(nodeRef, {
-            Button: () => i18n.t("socketType.noderef.button"),
-            Dynamic: ({ data: uid }) => socketRegistry.getValue().getSocketInterpolation(uid)
+            Button: () => localize("socketType.noderef.button"),
+            Dynamic: ({ data: uid }) => registry.getSocketInterpolation(uid)
         }),
         MethodCall: () => "Method call",
     });

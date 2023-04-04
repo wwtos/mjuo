@@ -1,21 +1,24 @@
 <script lang="ts">
     import NodeRowUI from "./NodeRow.svelte";
-    import type { NodeWrapper, SocketValue } from "../node-engine/node";
-    import type { NodeGraph } from "../node-engine/node_graph";
-    import {
-        SocketType,
-        SocketDirection,
-        socketToKey,
-    } from "../node-engine/connection";
     import { socketTypeToString } from "./interpolation";
     import NodePropertyRow from "./NodePropertyRow.svelte";
-    import { i18n } from "../i18n.js";
-    import type { Property, PropertyType } from "../node-engine/property";
     import { createEventDispatcher } from "svelte";
-    import { DiscriminatedUnion, match } from "../util/discriminated-union";
     import type { SocketEvent } from "./socket";
-    import type { Index } from "../ddgg/gen_vec";
-    import type { VertexIndex } from "../ddgg/graph";
+    import type { NodeGraph } from "$lib/node-engine/node_graph";
+    import type { NodeWrapper, SocketValue } from "$lib/node-engine/node";
+    import type { VertexIndex } from "$lib/ddgg/graph";
+    import {
+        match,
+        type DiscriminatedUnion,
+    } from "$lib/util/discriminated-union";
+    import {
+        SocketDirection,
+        socketToKey,
+        type SocketType,
+    } from "$lib/node-engine/connection";
+    import type { Property, PropertyType } from "$lib/node-engine/property";
+    import { localize } from "@nubolab-ffwd/svelte-fluent";
+    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
 
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
@@ -24,7 +27,8 @@
 
     export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;
-    export let nodeIndex: Index;
+    export let nodeIndex: VertexIndex;
+    export let socketRegistry: SocketRegistry;
 
     const dispatch = createEventDispatcher();
 
@@ -143,7 +147,7 @@
                 graphIndex: wrapper.childGraphIndex,
                 nodeTitle:
                     wrapper.uiData.title && wrapper.uiData.title.length > 0
-                        ? i18n.t("nodes." + wrapper.uiData.title)
+                        ? $localize("node-" + wrapper.uiData.title)
                         : " ",
             });
         }
@@ -174,7 +178,7 @@
 >
     <div class="node-title">
         {wrapper.uiData.title && wrapper.uiData.title.length > 0
-            ? i18n.t("nodes." + wrapper.uiData.title)
+            ? $localize("node-" + wrapper.uiData.title)
             : " "}
     </div>
 
@@ -184,7 +188,11 @@
                 {nodes}
                 type={row.socketType}
                 direction={row.socketDirection}
-                label={socketTypeToString(row.socketType)}
+                label={socketTypeToString(
+                    socketRegistry,
+                    row.socketType,
+                    $localize
+                )}
                 polyphonic={row.polyphonic}
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}

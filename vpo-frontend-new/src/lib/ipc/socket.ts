@@ -1,37 +1,13 @@
-import type { Index } from "../ddgg/gen_vec";
-import type { VertexIndex } from "../ddgg/graph";
-import type { Connection } from "../node-engine/connection";
-import type { NodeWrapper, UiData } from "../node-engine/node";
-import type { NodeGraph } from "../node-engine/node_graph";
+import type { Index } from "$lib/ddgg/gen_vec";
+import type { VertexIndex } from "$lib/ddgg/graph";
+import type { Connection } from "$lib/node-engine/connection";
+import type { UiData } from "$lib/node-engine/node";
+import type { NodeGraph } from "$lib/node-engine/node_graph";
 
-export class IPCSocket {
-    ipcRenderer: any;
+export abstract class IpcSocket {
+    abstract send(json: object): void;
 
-    constructor(ipcRenderer: any) {
-        this.ipcRenderer = ipcRenderer;
-
-        this.onMessage(([message]: [any]) => {
-            if (message?.action === "io/getSaveLocation") {
-                this.ipcRenderer.send("action", {
-                    title: "Select a folder to put your project files in",
-                    action: "io/openSaveDialog"
-                });
-            } else if (message?.action === "io/loaded") {
-                location.reload();
-            }
-        })
-    }
-
-    send(json: object) {
-        console.log("sending", json);
-        this.ipcRenderer.send("send", json);
-    }
-
-    onMessage(f: Function) {
-        this.ipcRenderer.on("receive", function(_: object, message: object) {
-            f(message);
-        });
-    }
+    abstract onMessage(f: Function): void;
 
     createNode (graphIndex: Index, type: string, uiData?: UiData) {
         this.send({
@@ -145,10 +121,29 @@ export class IPCSocket {
                 }
             });
         } else {
-            this.ipcRenderer.send("action", {
-                title: "Please select a project",
-                action: "io/openLoadDialog"
+            this.send({
+                "action": "io/load",
             });
         }        
+    }
+}
+
+export class WebIpcSocket extends IpcSocket {
+    socket: WebSocket;
+
+    constructor (address: string | URL) {
+        super();
+
+        this.socket = new WebSocket(address);
+    }
+
+    send (json: object) {
+        this.socket.send(JSON.stringify(json));
+    }
+
+    onMessage(f: Function) {
+        this.socket.addEventListener("message", message => {
+            f(JSON.parse(message.data));
+        });
     }
 }

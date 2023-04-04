@@ -13,11 +13,11 @@ socket-sustain = Sustain
 socket-value = Value
 socket-variable-numbered = x{ $id }
 
-node-biquad-filter = Filter (12db/octave)
 node-envelope = Envelope
 node-expression = Expression
 node-expression-stream = Stream Expression
 node-filter-midi = Midi Filter
+node-filter-biquad = Filter (12db/octave)
 node-function = Function
 node-gain = Gain
 node-midi-in = Midi In

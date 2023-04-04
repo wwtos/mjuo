@@ -31,7 +31,7 @@ export class SocketRegistry {
         );
     }
 
-    getSocketInterpolation (uidToLookFor: number): Observable<string> {
+    getSocketInterpolation (uidToLookFor: number): Observable<[string, any]> {
         return this.nameToSocketType$.pipe(
             map(nameToSocketType => {
                 const entry = Object.values(nameToSocketType).find(entry => {
@@ -52,9 +52,9 @@ export class SocketRegistry {
                 });
 
                 if (entry) {
-                    return i18n.t("customSockets." + entry.template, entry.associatedData);
+                    return ["socket-" + entry.template, entry.associatedData];
                 } else {
-                    return "";
+                    return ["", undefined];
                 }
             })
         );
