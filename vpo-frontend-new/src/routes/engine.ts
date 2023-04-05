@@ -11,13 +11,14 @@ export class Engine {
     }
 
     send(message: string) {
-        this.worklet.port.postMessage(message);
+        this.worklet.port.postMessage({
+            type: "message",
+            payload: message
+        });
     }
 }
 
-export async function constructEngine() {
-    const context = new AudioContext();
-
+export async function constructEngine(context: AudioContext) {
     await context.audioWorklet.addModule(workletUrl);
     const module = await fetch(wasmUrl).then(res => res.arrayBuffer());
 

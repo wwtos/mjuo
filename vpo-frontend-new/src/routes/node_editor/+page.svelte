@@ -8,8 +8,8 @@
 
     let dimensions = data.windowDimensions;
 
-    let width = $dimensions.width;
-    let height = $dimensions.height;
+    $: width = $dimensions.width;
+    $: height = $dimensions.height;
 
     let activeGraph: BehaviorSubject<NodeGraph> = new BehaviorSubject(
         data.graphManager.getRootGraph()
@@ -17,7 +17,7 @@
 </script>
 
 <NodeEditor
-    {width}
+    width={width - 48}
     {height}
     {activeGraph}
     graphManager={data.graphManager}

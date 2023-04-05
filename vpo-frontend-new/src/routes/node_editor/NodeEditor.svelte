@@ -420,7 +420,7 @@
     style="width: {width}px; height: {height}px"
     bind:this={editor}
     on:keydown={onKeydown}
-    on:contextmenu={onContextMenu}
+    on:contextmenu|preventDefault={onContextMenu}
 >
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
         <div style="position: absolute; height: 0px; z-index: -10">

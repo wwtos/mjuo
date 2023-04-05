@@ -7,18 +7,19 @@
     import Toasts from "$lib/components/Toasts.svelte";
     import type { PageData } from "./$types";
     import type { IpcAction } from "$lib/ipc/action";
-    import { setContext } from "svelte";
     import { constructEngine } from "./engine";
-    import type { WasmIpcSocket } from "$lib/ipc/socket";
+    import { onMount } from "svelte";
 
     export let data: PageData;
 
     const bundle = new FluentBundle("en");
     bundle.addResource(new FluentResource(enTranslations));
 
-    constructEngine().then((engine) => {
+    const context = new AudioContext();
+
+    constructEngine(context).then((engine) => {
         console.log(engine);
-        (data.socket as WasmIpcSocket).setEngine(engine);
+        data.socket.setEngine(engine);
     });
 
     function onWindowKeydown(event: KeyboardEvent) {
@@ -34,11 +35,9 @@
         }
     }
 
-    function onWindowResize(this: Window) {
-        data.windowDimensions.set({
-            width: this.innerWidth - 1,
-            height: this.innerHeight - 3,
-        });
+    function onWindowClick() {
+        context.resume();
+        console.log("resumed context");
     }
 
     function registerSocketEvents() {
@@ -55,10 +54,30 @@
         });
     }
 
+    function setWindowDimensions(event: Event) {
+        const target = event.target as Window;
+
+        data.windowDimensions.set({
+            width: target.innerWidth - 1,
+            height: target.innerHeight - 3,
+        });
+    }
+
+    onMount(() => {
+        data.windowDimensions.set({
+            width: window.innerWidth - 1,
+            height: window.innerHeight - 3,
+        });
+    });
+
     registerSocketEvents();
 </script>
 
-<svelte:window on:keydown={onWindowKeydown} on:resize={onWindowResize} />
+<svelte:window
+    on:keydown={onWindowKeydown}
+    on:resize={setWindowDimensions}
+    on:click={onWindowClick}
+/>
 
 <FluentProvider bundles={[bundle]}>
     <Toasts />

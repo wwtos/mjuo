@@ -119,9 +119,8 @@ impl NodeEngineState {
     pub fn new(global_state: &GlobalState) -> Result<NodeEngineState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
-        let mut graph_manager = GraphManager::new();
+        let mut graph_manager: GraphManager = GraphManager::new();
         let mut socket_registry = SocketRegistry::new();
-        let scripting_engine = Engine::new();
 
         SocketType::register_defaults(&mut socket_registry);
 
@@ -135,6 +134,8 @@ impl NodeEngineState {
 
             (output_node.0, midi_in_node.0)
         };
+
+        let scripting_engine: Engine = Engine::new_raw();
 
         graph_manager
             .recalculate_traversal_for_graph(

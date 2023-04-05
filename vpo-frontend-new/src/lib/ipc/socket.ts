@@ -174,13 +174,13 @@ export class WasmIpcSocket extends IpcSocket {
     setEngine (engine: Engine) {
         this.engine = engine;
 
-        engine.worklet.port.addEventListener("message", message => {
+        engine.worklet.port.onmessage = (message) => {
             const data = JSON.parse(message.data);
 
             for (var listener of this.eventListeners) {
                 listener(data);
             }
-        });
+        };
 
         this.flushMessages();
     }

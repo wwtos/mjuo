@@ -1,7 +1,9 @@
+#[cfg(any(windows, unix))]
 use thiserror::Error;
 
 use crate::ipc_message::IPCMessage;
 
+#[cfg(any(windows, unix))]
 #[derive(Error, Debug)]
 pub enum IPCError {
     #[error("Channel send error")]

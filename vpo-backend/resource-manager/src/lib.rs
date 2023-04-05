@@ -11,6 +11,8 @@ use std::{
 use ddgg::{GenVec, Index};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::Snafu;
+
+#[cfg(any(unix, windows))]
 use threadpool::ThreadPool;
 
 #[derive(Debug, Snafu)]
@@ -150,6 +152,7 @@ impl<A> ResourceManager<A> {
     }
 }
 
+#[cfg(any(unix, windows))]
 impl<A> ResourceManager<A>
 where
     A: Debug + Send + Sync + 'static,
