@@ -8,11 +8,18 @@
     import type { PageData } from "./$types";
     import type { IpcAction } from "$lib/ipc/action";
     import { setContext } from "svelte";
+    import { constructEngine } from "./engine";
+    import type { WasmIpcSocket } from "$lib/ipc/socket";
 
     export let data: PageData;
 
     const bundle = new FluentBundle("en");
     bundle.addResource(new FluentResource(enTranslations));
+
+    constructEngine().then((engine) => {
+        console.log(engine);
+        (data.socket as WasmIpcSocket).setEngine(engine);
+    });
 
     function onWindowKeydown(event: KeyboardEvent) {
         if (event.ctrlKey) {

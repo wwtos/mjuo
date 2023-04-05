@@ -15,7 +15,7 @@ use sound_engine::{
 };
 use wasm_bindgen::prelude::*;
 
-use crate::routes::route;
+use crate::{routes::route, utils::set_panic_hook};
 
 pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
     let mut messages: Vec<MidiData> = Vec::new();
@@ -37,16 +37,16 @@ pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
 pub struct State {
     global_state: GlobalState,
     engine_state: NodeEngineState,
-    buffer_size: usize,
     midi_parser: MidiParser,
-    current_time: usize,
-    audio_out: Vec<f32>,
+    current_time: i64,
 }
 
 #[wasm_bindgen]
 impl State {
-    pub fn new(sample_rate: u32, buffer_size: usize) -> State {
+    pub fn new(sample_rate: u32) -> State {
         let sound_config = SoundConfig { sample_rate };
+
+        set_panic_hook();
 
         let global_state = GlobalState {
             active_project: None,
@@ -61,20 +61,12 @@ impl State {
         State {
             global_state,
             engine_state,
-            buffer_size,
             midi_parser,
             current_time: 0,
-            audio_out: vec![0_f32; buffer_size],
         }
     }
 
-    pub fn audio_pointer(&self) -> *const f32 {
-        self.audio_out.as_ptr()
-    }
-
-    pub fn step(&mut self, message_in: Option<String>, midi_in: Uint8Array, buffer_size: usize) -> String {
-        self.audio_out.resize(buffer_size, 0.0);
-
+    pub fn step(&mut self, message_in: Option<String>, midi_in: Uint8Array, audio_out: &mut [f32]) -> String {
         let to_server = SendBuffer {
             buffer: Mutex::new(vec![]),
         };
@@ -106,12 +98,10 @@ impl State {
 
         let mut midi = get_midi(midi_in, &mut self.midi_parser);
 
-        for (i, sample) in self.audio_out.iter_mut().enumerate() {
-            let current_time = (self.current_time) as i64;
-
+        for sample in audio_out.iter_mut() {
             *sample = self
                 .engine_state
-                .step(current_time, SmallVec::from(midi.clone()), &self.global_state);
+                .step(self.current_time, SmallVec::from(midi.clone()), &self.global_state);
 
             if !midi.is_empty() {
                 midi = Vec::new();

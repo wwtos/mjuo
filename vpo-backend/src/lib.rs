@@ -6,6 +6,8 @@ pub mod resource;
 pub mod routes;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
+pub mod utils;
+#[cfg(target_arch = "wasm32")]
 pub mod wasm_lib;
 
 #[cfg(any(windows, unix))]

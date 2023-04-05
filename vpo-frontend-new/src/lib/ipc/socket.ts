@@ -3,6 +3,7 @@ import type { VertexIndex } from "$lib/ddgg/graph";
 import type { Connection } from "$lib/node-engine/connection";
 import type { UiData } from "$lib/node-engine/node";
 import type { NodeGraph } from "$lib/node-engine/node_graph";
+import type { Engine } from "../../routes/engine";
 
 export abstract class IpcSocket {
     abstract send(json: object): void;
@@ -145,5 +146,52 @@ export class WebIpcSocket extends IpcSocket {
         this.socket.addEventListener("message", message => {
             f(JSON.parse(message.data));
         });
+    }
+}
+
+export class WasmIpcSocket extends IpcSocket {
+    messages: string[];
+    eventListeners: Function[];
+    engine: Engine | undefined;
+
+    constructor() {
+        super();
+
+        this.messages = [];
+        this.eventListeners = [];
+    }
+
+    send (json: object) {
+        this.messages.push(JSON.stringify(json));
+
+        this.flushMessages();
+    }
+
+    onMessage(f: Function) {
+        this.eventListeners.push(f);
+    }
+
+    setEngine (engine: Engine) {
+        this.engine = engine;
+
+        engine.worklet.port.addEventListener("message", message => {
+            const data = JSON.parse(message.data);
+
+            for (var listener of this.eventListeners) {
+                listener(data);
+            }
+        });
+
+        this.flushMessages();
+    }
+
+    flushMessages () {
+        if (this.engine) {
+            while (this.messages.length > 0) {
+                const message = this.messages.splice(0, 1)[0];
+
+                this.engine.send(message);
+            }
+        }
     }
 }
