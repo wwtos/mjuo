@@ -121,7 +121,7 @@ impl NodeRuntime for RankPlayerNode {
 }
 
 impl Node for RankPlayerNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "rank".into(),
@@ -132,8 +132,8 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input("midi", SmallVec::new()),
-            stream_output("audio", 0.0),
+            midi_input(register("midi"), SmallVec::new()),
+            stream_output(register("audio"), 0.0),
         ])
     }
 }

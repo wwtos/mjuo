@@ -41,16 +41,16 @@ impl NodeRuntime for MixerNode {
 }
 
 impl Node for MixerNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            stream_output("audio", 0.0),
+            stream_output(register("audio"), 0.0),
         ];
 
         if let Some(Property::Integer(input_count)) = props.get("input_count") {
             for i in 0..(*input_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered("socket-input-numbered", i + 1, SocketType::Stream, 1),
+                    Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Stream, 1),
                     SocketValue::Stream(0.0),
                 ));
             }

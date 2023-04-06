@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -7,15 +9,17 @@ use crate::{
     errors::{NodeError, NodeOk, NodeResult},
     node::{NodeIndex, NodeRow},
     node_wrapper::NodeWrapper,
+    nodes::variants::variant_io,
+    socket_registry::SocketRegistry,
 };
 
-pub type NodeGraphDiff<'a> = GraphDiff<NodeWrapper, NodeConnection<'a>>;
+pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeConnection<'a> {
-    pub from_socket: Socket<'a>,
-    pub to_socket: Socket<'a>,
+pub struct NodeConnection {
+    pub from_socket: Socket,
+    pub to_socket: Socket,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,23 +30,31 @@ pub struct ConnectionIndex(pub EdgeIndex);
 /// This is the main structure for describing the graph (see traverser for actually processing the graph)
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeGraph<'a> {
-    nodes: Graph<NodeWrapper, NodeConnection<'a>>,
+pub struct NodeGraph {
+    nodes: Graph<NodeWrapper, NodeConnection>,
 }
 
-pub(crate) fn create_new_node(node_type: String, node_rows: Vec<NodeRow>) -> NodeResult<NodeWrapper> {
+pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeWrapper> {
+    let node_rows = variant_io(&node_type, HashMap::new(), &mut |name: &str| {
+        registry.register_socket(name)
+    })?
+    .node_rows;
     let new_node = NodeWrapper::new(node_type, node_rows)?;
 
     Ok(NodeOk::new(new_node.value, new_node.warnings))
 }
 
-impl<'a> NodeGraph<'a> {
-    pub fn new() -> NodeGraph<'a> {
+impl NodeGraph {
+    pub fn new() -> NodeGraph {
         NodeGraph { nodes: Graph::new() }
     }
 
-    pub fn add_node(&mut self, node_type: String, node_rows: Vec<NodeRow>) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type, node_rows)?;
+    pub fn add_node(
+        &mut self,
+        node_type: String,
+        registry: &mut SocketRegistry,
+    ) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
+        let new_node = create_new_node(node_type, registry)?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value)?;
 
@@ -263,7 +275,7 @@ impl<'a> NodeGraph<'a> {
     }
 }
 
-impl<'a> Default for NodeGraph<'a> {
+impl Default for NodeGraph {
     fn default() -> Self {
         Self::new()
     }

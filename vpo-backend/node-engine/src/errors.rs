@@ -6,7 +6,7 @@ use snafu::Snafu;
 
 use serde_json;
 
-use crate::connection::{OwnedSocket, SocketDirection, SocketType};
+use crate::connection::{Socket, SocketDirection, SocketType};
 use crate::graph_manager::GlobalNodeIndex;
 use crate::node::{NodeIndex, NodeRow};
 
@@ -22,9 +22,9 @@ pub enum NodeError {
     #[snafu(display("Graph has more than one parent, cannot remove"))]
     GraphHasOtherParents,
     #[snafu(display("Connection between {from:?} and {to:?} already exists"))]
-    AlreadyConnected { from: OwnedSocket, to: OwnedSocket },
+    AlreadyConnected { from: Socket, to: Socket },
     #[snafu(display("Input socket already occupied (Input {socket:?})"))]
-    InputSocketOccupied { socket: OwnedSocket },
+    InputSocketOccupied { socket: Socket },
     #[snafu(display("Socket is not connected to any node"))]
     NotConnected,
     #[snafu(display("Node does not exist in graph (index `{node_index}`)"))]
@@ -36,7 +36,7 @@ pub enum NodeError {
     #[snafu(display("Node index `{index}` out of bounds"))]
     IndexOutOfBounds { index: usize },
     #[snafu(display("Socket type `{socket:?}` does not exist on node"))]
-    SocketDoesNotExist { socket: OwnedSocket },
+    SocketDoesNotExist { socket: Socket },
     #[snafu(display("Socket types `{from:?}` and `{to:?}` are incompatible"))]
     IncompatibleSocketTypes { from: SocketType, to: SocketType },
     #[snafu(display("Json parser error: `{source}`"))]
@@ -106,7 +106,7 @@ impl From<WarningInContext> for NodeWarning {
 pub struct NodeErrorContext {
     pub graph: Option<u64>,
     pub index: Option<NodeIndex>,
-    pub socket: Option<OwnedSocket>,
+    pub socket: Option<Socket>,
     pub direction: Option<SocketDirection>,
     pub node_row: Option<NodeRow>,
 }

@@ -17,15 +17,15 @@ use crate::property::{Property, PropertyType};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
-pub enum NodeRow<'a> {
+pub enum NodeRow {
     // type, value, polyphonic?
-    Input(Socket<'a>, SocketValue),
-    Output(Socket<'a>, SocketValue),
+    Input(Socket, SocketValue),
+    Output(Socket, SocketValue),
     Property(String, PropertyType, Property),
     InnerGraph,
 }
 
-impl<'a> NodeRow<'a> {
+impl NodeRow {
     pub fn to_socket_and_direction(&self) -> Option<(Socket, SocketDirection)> {
         match self {
             NodeRow::Input(socket, _) => Some((*socket, SocketDirection::Input)),
@@ -43,39 +43,33 @@ impl<'a> NodeRow<'a> {
     }
 }
 
-pub fn stream_input(name: &'static str, default: f32) -> NodeRow {
-    NodeRow::Input(
-        Socket::Simple(name, SocketType::Stream, 1),
-        SocketValue::Stream(default),
-    )
+pub fn stream_input(uid: u32, default: f32) -> NodeRow {
+    NodeRow::Input(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::Stream(default))
 }
 
-pub fn midi_input(name: &'static str, default: MidiBundle) -> NodeRow {
-    NodeRow::Input(Socket::Simple(name, SocketType::Midi, 1), SocketValue::Midi(default))
+pub fn midi_input(uid: u32, default: MidiBundle) -> NodeRow {
+    NodeRow::Input(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::Midi(default))
 }
 
-pub fn value_input(name: &'static str, default: Primitive) -> NodeRow {
-    NodeRow::Input(Socket::Simple(name, SocketType::Value, 1), SocketValue::Value(default))
+pub fn value_input(uid: u32, default: Primitive) -> NodeRow {
+    NodeRow::Input(Socket::Simple(uid, SocketType::Value, 1), SocketValue::Value(default))
 }
 
-pub fn stream_output(name: &'static str, default: f32) -> NodeRow {
-    NodeRow::Output(
-        Socket::Simple(name, SocketType::Stream, 1),
-        SocketValue::Stream(default),
-    )
+pub fn stream_output(uid: u32, default: f32) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::Stream(default))
 }
 
-pub fn midi_output(name: &'static str, default: MidiBundle) -> NodeRow {
-    NodeRow::Output(Socket::Simple(name, SocketType::Midi, 1), SocketValue::Midi(default))
+pub fn midi_output(uid: u32, default: MidiBundle) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::Midi(default))
 }
 
-pub fn value_output(name: &'static str, default: Primitive) -> NodeRow {
-    NodeRow::Output(Socket::Simple(name, SocketType::Value, 1), SocketValue::Value(default))
+pub fn value_output(uid: u32, default: Primitive) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Value, 1), SocketValue::Value(default))
 }
 
 pub struct NodeIo {
-    node_rows: Vec<NodeRow>,
-    child_graph_io: Option<Vec<(Socket, SocketDirection)>>,
+    pub node_rows: Vec<NodeRow>,
+    pub child_graph_io: Option<Vec<(Socket, SocketDirection)>>,
 }
 
 impl NodeIo {
@@ -162,7 +156,7 @@ pub trait NodeRuntime: Debug + Clone {
 /// internal state
 pub trait Node: NodeRuntime {
     /// Called at least every time a property is changed
-    fn get_io(props: HashMap<String, Property>) -> NodeIo;
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]

@@ -60,14 +60,14 @@ impl NodeRuntime for EnvelopeNode {
 }
 
 impl Node for EnvelopeNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            value_input("gate", Primitive::Boolean(false)),
-            stream_output("gain", 0.0),
-            value_input("attack", Primitive::Float(0.01)),
-            value_input("decay", Primitive::Float(0.3)),
-            value_input("sustain", Primitive::Float(0.8)),
-            value_input("release", Primitive::Float(0.5)),
+            value_input(register("gate"), Primitive::Boolean(false)),
+            stream_output(register("gain"), 0.0),
+            value_input(register("attack"), Primitive::Float(0.01)),
+            value_input(register("decay"), Primitive::Float(0.3)),
+            value_input(register("sustain"), Primitive::Float(0.8)),
+            value_input(register("release"), Primitive::Float(0.5)),
         ])
     }
 }

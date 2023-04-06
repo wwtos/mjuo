@@ -144,15 +144,15 @@ impl NodeRuntime for MidiFilterNode {
 }
 
 impl Node for MidiFilterNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", SmallVec::new()),
+            midi_input(register("midi"), SmallVec::new()),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            midi_output("midi", SmallVec::new()),
+            midi_output(register("midi"), SmallVec::new()),
         ])
     }
 }

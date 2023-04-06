@@ -88,7 +88,7 @@ impl NodeRuntime for StreamExpressionNode {
 }
 
 impl Node for StreamExpressionNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(
@@ -101,13 +101,13 @@ impl Node for StreamExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            stream_output("audio", 0.0),
+            stream_output(register("audio"), 0.0),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
             for i in 0..(*values_in_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered("socket-variable-numbered", i + 1, SocketType::Value, 1),
+                    Socket::Numbered(register("socket-variable-numbered"), i + 1, SocketType::Value, 1),
                     SocketValue::Value(Primitive::Float(0.0)),
                 ));
             }

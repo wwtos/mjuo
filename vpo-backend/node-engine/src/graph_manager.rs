@@ -6,17 +6,18 @@ use serde::{Deserialize, Serialize};
 use crate::connection::Socket;
 use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
 use crate::node_graph::NodeGraphDiff;
+use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidations;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 #[derive(Debug, Clone)]
-enum DiffElement<'a> {
-    GraphManagerDiff(GraphDiff<NodeGraphWrapper<'a>, ConnectedThrough>),
-    ChildGraphDiff(GraphIndex, NodeGraphDiff<'a>),
+enum DiffElement {
+    GraphManagerDiff(GraphDiff<NodeGraphWrapper, ConnectedThrough>),
+    ChildGraphDiff(GraphIndex, NodeGraphDiff),
 }
 
 #[derive(Debug, Clone)]
-pub struct GraphManagerDiff<'a>(Vec<DiffElement<'a>>);
+pub struct GraphManagerDiff(Vec<DiffElement>);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphIndex(pub VertexIndex);
@@ -34,18 +35,18 @@ pub struct GlobalNodeIndex {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeGraphWrapper<'a> {
-    pub graph: RefCell<NodeGraph<'a>>,
+pub struct NodeGraphWrapper {
+    pub graph: RefCell<NodeGraph>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct GraphManager<'a> {
-    node_graphs: Graph<NodeGraphWrapper<'a>, ConnectedThrough>,
+pub struct GraphManager {
+    node_graphs: Graph<NodeGraphWrapper, ConnectedThrough>,
     root_index: GraphIndex,
 }
 
-impl<'a> GraphManager<'a> {
+impl GraphManager {
     pub fn new() -> Self {
         let mut graph = Graph::new();
         let (root_index, _) = graph
@@ -152,17 +153,18 @@ impl<'a> GraphManager<'a> {
     }
 }
 
-impl<'a> GraphManager<'a> {
+impl GraphManager {
     pub fn create_node(
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
+        registry: &mut SocketRegistry,
     ) -> NodeResult<(GraphManagerDiff, ActionInvalidations)> {
         let mut warnings = WarningBuilder::new();
 
         let mut diff = vec![];
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
-        let creation_result = graph.add_node(node_type.into(), vec![])?;
+        let creation_result = graph.add_node(node_type.into(), registry)?;
 
         let new_node_index = creation_result.value.0;
         warnings.append_warnings(creation_result.warnings);

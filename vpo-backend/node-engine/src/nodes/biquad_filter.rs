@@ -63,7 +63,7 @@ impl NodeRuntime for BiquadFilterNode {
 }
 
 impl Node for BiquadFilterNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 NodeRow::Property(
@@ -77,10 +77,10 @@ impl Node for BiquadFilterNode {
                     ]),
                     Property::MultipleChoice("lowpass".to_string()),
                 ),
-                stream_input("audio", 0.0),
-                value_input("frequency", Primitive::Float(20000.0)),
-                value_input("resonance", Primitive::Float(0.707)),
-                stream_output("audio", 0.0),
+                stream_input(register("audio"), 0.0),
+                value_input(register("frequency"), Primitive::Float(20000.0)),
+                value_input(register("resonance"), Primitive::Float(0.707)),
+                stream_output(register("audio"), 0.0),
             ],
             child_graph_io: None,
         }

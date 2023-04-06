@@ -56,11 +56,11 @@ impl NodeRuntime for ButtonNode {
 }
 
 impl Node for ButtonNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                value_input("state", Primitive::Boolean(false)),
-                value_output("state", Primitive::Boolean(false)),
+                value_input(register("state"), Primitive::Boolean(false)),
+                value_output(register("state"), Primitive::Boolean(false)),
             ],
             child_graph_io: None,
         }

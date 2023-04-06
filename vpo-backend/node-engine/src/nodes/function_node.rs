@@ -71,16 +71,22 @@ impl NodeRuntime for FunctionNode {
 }
 
 impl Node for FunctionNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                stream_input("audio", 0.0),
+                stream_input(register("audio"), 0.0),
                 NodeRow::InnerGraph,
-                stream_output("audio", 0.0),
+                stream_output(register("audio"), 0.0),
             ],
             child_graph_io: Some(vec![
-                (Socket::Simple("audio", SocketType::Stream, 1), SocketDirection::Input),
-                (Socket::Simple("audio", SocketType::Stream, 1), SocketDirection::Output),
+                (
+                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    SocketDirection::Input,
+                ),
+                (
+                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    SocketDirection::Output,
+                ),
             ]),
         }
     }

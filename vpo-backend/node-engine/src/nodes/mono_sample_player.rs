@@ -99,7 +99,7 @@ impl NodeRuntime for MonoSamplePlayerNode {
 }
 
 impl Node for MonoSamplePlayerNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "sample".into(),
@@ -109,8 +109,8 @@ impl Node for MonoSamplePlayerNode {
                     resource: "".into(),
                 }),
             ),
-            value_input("value", Primitive::Boolean(false)),
-            stream_output("audio", 0.0),
+            value_input(register("value"), Primitive::Boolean(false)),
+            stream_output(register("audio"), 0.0),
         ])
     }
 }

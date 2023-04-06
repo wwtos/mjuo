@@ -14,6 +14,7 @@ use crate::{
     node_graph::NodeConnection,
     nodes::variants::NodeVariant,
     property::Property,
+    socket_registry::SocketRegistry,
     traversal::traverser::Traverser,
 };
 use rhai::Engine;
@@ -114,21 +115,24 @@ pub struct NodeEngineState {
     midi_in_node: NodeIndex,
     current_time: i64,
     root_traverser: Traverser,
+    socket_registry: SocketRegistry,
 }
 
 impl NodeEngineState {
     pub fn new(global_state: &GlobalState) -> Result<NodeEngineState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
-        let mut graph_manager: GraphManager = GraphManager::new();
+
+        let graph_manager: GraphManager = GraphManager::new();
+        let mut socket_registry = SocketRegistry::default();
 
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, midi_in_node) = {
             let mut graph = graph_manager.get_graph(root_graph_index)?.graph.borrow_mut();
 
-            let output_node = graph.add_node("OutputNode".into(), vec![]).unwrap().value;
-            let midi_in_node = graph.add_node("MidiInNode".into(), vec![]).unwrap().value;
+            let output_node = graph.add_node("OutputNode".into(), &mut socket_registry).unwrap().value;
+            let midi_in_node = graph.add_node("MidiInNode".into(), &mut socket_registry).unwrap().value;
 
             (output_node.0, midi_in_node.0)
         };
@@ -149,6 +153,7 @@ impl NodeEngineState {
             midi_in_node,
             current_time: 0,
             root_traverser,
+            socket_registry,
         })
     }
 
@@ -172,6 +177,10 @@ impl NodeEngineState {
         &mut self.scripting_engine
     }
 
+    pub fn get_registry(&self) -> &SocketRegistry {
+        &self.socket_registry
+    }
+
     pub fn notify_parents_of_graph_change(&mut self, graph_index: GraphIndex) -> Result<(), NodeError> {
         if graph_index != self.graph_manager.root_index() {
             let parent_nodes = self.graph_manager.get_graph_parents(graph_index)?;
@@ -191,7 +200,7 @@ impl NodeEngineState {
         Ok(())
     }
 
-    pub fn step(&mut self, current_time: i64, midi_in: MidiBundle, global_state: &GlobalState) -> f32 {
+    pub fn step(&mut self, midi_in: MidiBundle, global_state: &GlobalState) -> f32 {
         let root_graph = self
             .graph_manager
             .get_graph_mut(self.graph_manager.root_index())
@@ -210,7 +219,8 @@ impl NodeEngineState {
 
         let traversal_errors = self
             .root_traverser
-            .traverse(current_time, &self.scripting_engine, global_state);
+            .traverse(self.current_time, &self.scripting_engine, global_state);
+        self.current_time += 1;
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);
@@ -285,7 +295,7 @@ impl NodeEngineState {
                 &self.scripting_engine,
                 global_state,
                 self.current_time,
-            );
+            )?;
         }
 
         for graph_operated_on in graphs_operated_on {
@@ -416,7 +426,7 @@ impl NodeEngineState {
             } => {
                 let (diff, invalidations) = self
                     .graph_manager
-                    .create_node(&node_type, graph_index)
+                    .create_node(&node_type, graph_index, &mut self.socket_registry)
                     .append_warnings(&mut warnings)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)

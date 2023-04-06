@@ -78,7 +78,7 @@ impl NodeRuntime for WavetableNode {
 }
 
 impl Node for WavetableNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "wavetable".into(),
@@ -88,8 +88,8 @@ impl Node for WavetableNode {
                     resource: "".into(),
                 }),
             ),
-            value_input("frequency", Primitive::Float(440.0)),
-            stream_output("audio", 0.0),
+            value_input(register("frequency"), Primitive::Float(440.0)),
+            stream_output(register("audio"), 0.0),
         ])
     }
 }

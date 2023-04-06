@@ -22,7 +22,7 @@ impl NodeRuntime for MidiInNode {
 }
 
 impl Node for MidiInNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
-        NodeIo::simple(vec![midi_output("midi", SmallVec::new())])
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![midi_output(register("midi"), SmallVec::new())])
     }
 }

@@ -35,7 +35,7 @@ pub fn send_graph_updates(
     Ok(())
 }
 
-pub fn send_registry_updates(registry: &mut SocketRegistry, to_server: &Sender<IPCMessage>) -> Result<(), NodeError> {
+pub fn send_registry_updates(registry: &SocketRegistry, to_server: &Sender<IPCMessage>) -> Result<(), NodeError> {
     let json = serde_json::to_value(registry).context(JsonParserSnafu)?;
 
     block_on(async {

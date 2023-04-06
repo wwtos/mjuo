@@ -34,11 +34,11 @@ impl NodeRuntime for GainGraphNode {
 }
 
 impl Node for GainGraphNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            stream_input("audio", 0.0),
-            stream_input("gain", 0.0),
-            stream_output("audio", 0.0),
+            stream_input(register("audio"), 0.0),
+            stream_input(register("gain"), 0.0),
+            stream_output(register("audio"), 0.0),
         ])
     }
 }

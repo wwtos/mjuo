@@ -22,7 +22,7 @@ impl Placeholder {
 impl NodeRuntime for Placeholder {}
 
 impl Node for Placeholder {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         unreachable!("Placeholder never replaced after deserialization")
     }
 }

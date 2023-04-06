@@ -75,11 +75,11 @@ impl NodeRuntime for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", SmallVec::new()),
-            value_output("frequency", Primitive::Float(440.0)),
-            value_output("gate", Primitive::Boolean(false)),
+            midi_input(register("midi"), SmallVec::new()),
+            value_output(register("frequency"), Primitive::Float(440.0)),
+            value_output(register("gate"), Primitive::Boolean(false)),
         ])
     }
 }
