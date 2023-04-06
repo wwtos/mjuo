@@ -1,6 +1,8 @@
 use resource_manager::ResourceId;
 use serde::{Deserialize, Serialize};
 
+use crate::connection::Socket;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "variant", content = "data")]
 pub enum PropertyType {
@@ -21,6 +23,7 @@ pub enum Property {
     Bool(bool),
     MultipleChoice(String),
     Resource(ResourceId),
+    SocketList(Vec<Socket>),
 }
 
 impl Property {

@@ -1,12 +1,7 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::sampling::sample_player::SamplePlayer;
 
-use crate::{
-    connection::{Primitive, StreamSocketType, ValueSocketType},
-    errors::{NodeError, NodeOk},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct MonoSamplePlayerNode {
@@ -27,8 +22,8 @@ impl Default for MonoSamplePlayerNode {
     }
 }
 
-impl Node for MonoSamplePlayerNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for MonoSamplePlayerNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
         if let Some(Some(resource)) = state.props.get("sample").map(|sample| sample.clone().as_resource()) {
@@ -57,18 +52,7 @@ impl Node for MonoSamplePlayerNode {
             }
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "sample".into(),
-                PropertyType::Resource("samples".into()),
-                Property::Resource(ResourceId {
-                    namespace: "samples".into(),
-                    resource: "".into(),
-                }),
-            ),
-            NodeRow::ValueInput(ValueSocketType::Default, Primitive::Boolean(false), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(
@@ -111,5 +95,22 @@ impl Node for MonoSamplePlayerNode {
                 }
             }
         }
+    }
+}
+
+impl Node for MonoSamplePlayerNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        NodeIo::simple(vec![
+            NodeRow::Property(
+                "sample".into(),
+                PropertyType::Resource("samples".into()),
+                Property::Resource(ResourceId {
+                    namespace: "samples".into(),
+                    resource: "".into(),
+                }),
+            ),
+            value_input("value", Primitive::Boolean(false)),
+            stream_output("audio", 0.0),
+        ])
     }
 }

@@ -6,7 +6,7 @@ use snafu::Snafu;
 
 use serde_json;
 
-use crate::connection::{SocketDirection, SocketType};
+use crate::connection::{OwnedSocket, SocketDirection, SocketType};
 use crate::graph_manager::GlobalNodeIndex;
 use crate::node::{NodeIndex, NodeRow};
 
@@ -21,10 +21,10 @@ pub enum NodeError {
     GraphDoesNotExist { graph_index: u64 },
     #[snafu(display("Graph has more than one parent, cannot remove"))]
     GraphHasOtherParents,
-    #[snafu(display("Connection between {from} and {to} already exists"))]
-    AlreadyConnected { from: SocketType, to: SocketType },
-    #[snafu(display("Input socket already occupied (Input {socket_type})"))]
-    InputSocketOccupied { socket_type: SocketType },
+    #[snafu(display("Connection between {from:?} and {to:?} already exists"))]
+    AlreadyConnected { from: OwnedSocket, to: OwnedSocket },
+    #[snafu(display("Input socket already occupied (Input {socket:?})"))]
+    InputSocketOccupied { socket: OwnedSocket },
     #[snafu(display("Socket is not connected to any node"))]
     NotConnected,
     #[snafu(display("Node does not exist in graph (index `{node_index}`)"))]
@@ -35,9 +35,9 @@ pub enum NodeError {
     MismatchedNodeIndex { current: NodeIndex, incoming: NodeIndex },
     #[snafu(display("Node index `{index}` out of bounds"))]
     IndexOutOfBounds { index: usize },
-    #[snafu(display("Socket type `{socket_type}` does not exist on node"))]
-    SocketDoesNotExist { socket_type: SocketType },
-    #[snafu(display("Socket types `{from}` and `{to}` are incompatible"))]
+    #[snafu(display("Socket type `{socket:?}` does not exist on node"))]
+    SocketDoesNotExist { socket: OwnedSocket },
+    #[snafu(display("Socket types `{from:?}` and `{to:?}` are incompatible"))]
     IncompatibleSocketTypes { from: SocketType, to: SocketType },
     #[snafu(display("Json parser error: `{source}`"))]
     JsonParserError { source: serde_json::error::Error },
@@ -106,7 +106,7 @@ impl From<WarningInContext> for NodeWarning {
 pub struct NodeErrorContext {
     pub graph: Option<u64>,
     pub index: Option<NodeIndex>,
-    pub socket: Option<SocketType>,
+    pub socket: Option<OwnedSocket>,
     pub direction: Option<SocketDirection>,
     pub node_row: Option<NodeRow>,
 }

@@ -2,24 +2,21 @@ use std::cell::RefCell;
 
 use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
 use serde::{Deserialize, Serialize};
-use sound_engine::SoundConfig;
 
-use crate::connection::SocketType;
+use crate::connection::Socket;
 use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
-use crate::node::NodeInitState;
 use crate::node_graph::NodeGraphDiff;
 use crate::state::ActionInvalidations;
-use crate::traversal::traverser::Traverser;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 #[derive(Debug, Clone)]
-enum DiffElement {
-    GraphManagerDiff(GraphDiff<NodeGraphWrapper, ConnectedThrough>),
-    ChildGraphDiff(GraphIndex, NodeGraphDiff),
+enum DiffElement<'a> {
+    GraphManagerDiff(GraphDiff<NodeGraphWrapper<'a>, ConnectedThrough>),
+    ChildGraphDiff(GraphIndex, NodeGraphDiff<'a>),
 }
 
 #[derive(Debug, Clone)]
-pub struct GraphManagerDiff(Vec<DiffElement>);
+pub struct GraphManagerDiff<'a>(Vec<DiffElement<'a>>);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphIndex(pub VertexIndex);
@@ -37,26 +34,23 @@ pub struct GlobalNodeIndex {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeGraphWrapper {
-    pub graph: RefCell<NodeGraph>,
-    #[serde(skip)]
-    pub traverser: Traverser,
+pub struct NodeGraphWrapper<'a> {
+    pub graph: RefCell<NodeGraph<'a>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct GraphManager {
-    node_graphs: Graph<NodeGraphWrapper, ConnectedThrough>,
+pub struct GraphManager<'a> {
+    node_graphs: Graph<NodeGraphWrapper<'a>, ConnectedThrough>,
     root_index: GraphIndex,
 }
 
-impl GraphManager {
+impl<'a> GraphManager<'a> {
     pub fn new() -> Self {
         let mut graph = Graph::new();
         let (root_index, _) = graph
             .add_vertex(NodeGraphWrapper {
                 graph: RefCell::new(NodeGraph::new()),
-                traverser: Traverser::default(),
             })
             .unwrap();
 
@@ -69,7 +63,6 @@ impl GraphManager {
     pub fn new_graph(&mut self) -> Result<(GraphIndex, GraphManagerDiff), NodeError> {
         let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraphWrapper {
             graph: RefCell::new(NodeGraph::new()),
-            traverser: Traverser::default(),
         })?;
 
         let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(add_diff)]);
@@ -157,36 +150,15 @@ impl GraphManager {
             .collect::<Result<Vec<GlobalNodeIndex>, GraphError>>()
             .map_err(|err| err.into())
     }
-
-    pub fn recalculate_traversal_for_graph(
-        &mut self,
-        index: GraphIndex,
-        state: NodeInitState,
-    ) -> Result<(), NodeError> {
-        let mut graph_wrapper = self.get_graph_mut(index)?;
-
-        // set the new traverser
-        graph_wrapper.traverser = Traverser::get_traverser(&mut graph_wrapper.graph.borrow_mut(), state)?;
-
-        Ok(())
-    }
 }
 
-impl GraphManager {
+impl<'a> GraphManager<'a> {
     pub fn create_node(
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
-        state: NodeInitState,
     ) -> NodeResult<(GraphManagerDiff, ActionInvalidations)> {
         let mut warnings = WarningBuilder::new();
-
-        let NodeInitState {
-            props,
-            registry,
-            script_engine,
-            global_state,
-        } = state;
 
         let mut diff = vec![];
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
@@ -248,9 +220,9 @@ impl GraphManager {
     pub fn connect_nodes(
         &mut self,
         from: GlobalNodeIndex,
-        from_socket_type: SocketType,
+        from_socket_type: Socket,
         to: GlobalNodeIndex,
-        to_socket_type: SocketType,
+        to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidations), NodeError> {
         if from.graph_index != to.graph_index {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
@@ -275,9 +247,9 @@ impl GraphManager {
     pub fn disconnect_nodes(
         &mut self,
         from: GlobalNodeIndex,
-        from_socket_type: SocketType,
+        from_socket_type: Socket,
         to: GlobalNodeIndex,
-        to_socket_type: SocketType,
+        to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidations), NodeError> {
         if from.graph_index != to.graph_index {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
@@ -390,31 +362,5 @@ impl GraphManager {
         }
 
         Ok(invalidations)
-    }
-
-    pub fn post_deserialization(&mut self, state: NodeInitState, sound_config: &SoundConfig) -> Result<(), NodeError> {
-        let NodeInitState {
-            props,
-            registry,
-            script_engine,
-            global_state,
-        } = state;
-
-        let indexes: Vec<VertexIndex> = self.node_graphs.vertex_indexes().collect();
-
-        for graph_wrapper_index in &indexes {
-            let graph_wrapper = self.get_graph_mut(GraphIndex(*graph_wrapper_index))?;
-            graph_wrapper.traverser = Traverser::get_traverser(
-                &mut graph_wrapper.graph.borrow_mut(),
-                NodeInitState {
-                    props,
-                    registry,
-                    script_engine,
-                    global_state,
-                },
-            )?;
-        }
-
-        Ok(())
     }
 }

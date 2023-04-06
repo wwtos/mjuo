@@ -34,8 +34,8 @@ pub fn route(
                 node_index: connection.to_node,
             },
             data: NodeConnection {
-                from_socket_type: connection.data.from_socket_type,
-                to_socket_type: connection.data.to_socket_type,
+                from_socket: connection.data.from_socket,
+                to_socket: connection.data.to_socket,
             },
         }]),
         global_state,

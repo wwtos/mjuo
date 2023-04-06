@@ -1,9 +1,4 @@
-use serde_json::json;
-
-use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct MixerNode {
@@ -24,7 +19,7 @@ impl Default for MixerNode {
     }
 }
 
-impl Node for MixerNode {
+impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
         state: NodeProcessState,
@@ -36,42 +31,31 @@ impl Node for MixerNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(Property::Integer(input_count)) = state.props.get("input_count") {
             self.input_count = *input_count;
         }
 
+        InitResult::nothing()
+    }
+}
+
+impl Node for MixerNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
+            stream_output("audio", 0.0),
         ];
-        let did_rows_change = self.input_count != self.last_input_count;
-        self.last_input_count = self.input_count;
 
-        for i in 0..self.input_count {
-            node_rows.push(NodeRow::StreamInput(
-                state
-                    .registry
-                    .register_socket(
-                        format!("stream.mixer.{}", i),
-                        SocketType::Stream(StreamSocketType::Audio),
-                        "stream.mixer".to_string(),
-                        Some(json! {{ "input_number": i + 1 }}),
-                    )
-                    .unwrap()
-                    .0
-                    .as_stream()
-                    .unwrap(),
-                0.0,
-                false,
-            ));
+        if let Some(Property::Integer(input_count)) = props.get("input_count") {
+            for i in 0..(*input_count) {
+                node_rows.push(NodeRow::Input(
+                    Socket::Numbered("socket-input-numbered", i + 1, SocketType::Stream, 1),
+                    SocketValue::Stream(0.0),
+                ));
+            }
         }
 
-        NodeOk::no_warnings(InitResult {
-            did_rows_change,
-            node_rows,
-            changed_properties: None,
-            child_graph_io: None,
-        })
+        NodeIo::simple(node_rows)
     }
 }

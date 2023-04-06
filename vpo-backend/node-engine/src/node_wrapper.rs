@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use snafu::ResultExt;
 
 use crate::{
-    connection::{SocketDirection, SocketType},
+    connection::{Socket, SocketDirection},
     errors::{JsonParserSnafu, NodeError, NodeOk},
     graph_manager::GraphIndex,
     node::{NodeIndex, NodeRow},
@@ -72,6 +72,16 @@ impl NodeWrapper {
         &self.child_graph_index
     }
 
+    pub fn get_child_graph_info(&self) -> Option<(GraphIndex, (NodeIndex, NodeIndex))> {
+        if let Some(index) = self.child_graph_index {
+            if let Some(child_graph_indexes) = self.child_graph_io_indexes {
+                return Some((index, child_graph_indexes));
+            }
+        }
+
+        None
+    }
+
     pub fn get_property(&self, name: &str) -> Option<Property> {
         self.properties.get(name).cloned()
     }
@@ -117,60 +127,48 @@ impl NodeWrapper {
     }
 
     /// Guaranteed to be in order based on local node rows
-    pub fn list_input_sockets(&self) -> Vec<SocketType> {
+    pub fn list_input_sockets(&self) -> Vec<Socket> {
         self.node_rows
             .iter()
-            .filter_map(|row| match row {
-                NodeRow::StreamInput(stream_input_type, ..) => Some(SocketType::Stream(stream_input_type.clone())),
-                NodeRow::MidiInput(midi_input_type, ..) => Some(SocketType::Midi(midi_input_type.clone())),
-                NodeRow::ValueInput(value_input_type, ..) => Some(SocketType::Value(value_input_type.clone())),
-                NodeRow::NodeRefInput(node_ref_input_type, ..) => {
-                    Some(SocketType::NodeRef(node_ref_input_type.clone()))
+            .filter_map(|row| {
+                let (socket, direction) = row.to_socket_and_direction()?;
+
+                match direction {
+                    SocketDirection::Input => Some(socket),
+                    SocketDirection::Output => None,
                 }
-                NodeRow::StreamOutput(..) => None,
-                NodeRow::MidiOutput(..) => None,
-                NodeRow::ValueOutput(..) => None,
-                NodeRow::NodeRefOutput(..) => None,
-                NodeRow::Property(..) => None,
-                NodeRow::InnerGraph => None,
             })
             .collect()
     }
 
-    pub fn list_output_sockets(&self) -> Vec<SocketType> {
+    pub fn list_output_sockets(&self) -> Vec<Socket> {
         self.node_rows
             .iter()
-            .filter_map(|row| match row {
-                NodeRow::StreamInput(..) => None,
-                NodeRow::MidiInput(..) => None,
-                NodeRow::ValueInput(..) => None,
-                NodeRow::NodeRefInput(..) => None,
-                NodeRow::StreamOutput(stream_output_type, ..) => Some(SocketType::Stream(stream_output_type.clone())),
-                NodeRow::MidiOutput(midi_output_type, ..) => Some(SocketType::Midi(midi_output_type.clone())),
-                NodeRow::ValueOutput(value_output_type, ..) => Some(SocketType::Value(value_output_type.clone())),
-                NodeRow::NodeRefOutput(node_ref_output_type, ..) => {
-                    Some(SocketType::NodeRef(node_ref_output_type.clone()))
+            .filter_map(|row| {
+                let (socket, direction) = row.to_socket_and_direction()?;
+
+                match direction {
+                    SocketDirection::Input => None,
+                    SocketDirection::Output => Some(socket),
                 }
-                NodeRow::Property(..) => None,
-                NodeRow::InnerGraph => None,
             })
             .collect()
     }
 
-    pub fn has_input_socket(&self, socket_type: SocketType) -> bool {
-        self.list_input_sockets().iter().any(|&socket| socket == socket_type)
+    pub fn has_input_socket(&self, to_find: Socket) -> bool {
+        self.list_input_sockets().iter().any(|&socket| socket == to_find)
     }
 
-    pub fn has_output_socket(&self, socket_type: SocketType) -> bool {
-        self.list_output_sockets().iter().any(|&socket| socket == socket_type)
+    pub fn has_output_socket(&self, to_find: Socket) -> bool {
+        self.list_output_sockets().iter().any(|&socket| socket == to_find)
     }
 
-    pub fn get_default(&self, socket_type: SocketType) -> Option<NodeRow> {
+    pub fn get_default(&self, to_find: Socket) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
-            let type_and_direction = (*override_row).clone().to_type_and_direction();
+            let type_and_direction = (*override_row).clone().to_socket_and_direction();
 
             if let Some((override_type, override_direction)) = type_and_direction {
-                socket_type == override_type && SocketDirection::Input == override_direction
+                to_find == override_type && SocketDirection::Input == override_direction
             } else {
                 false
             }
@@ -183,10 +181,10 @@ impl NodeWrapper {
         self.node_rows
             .iter()
             .find(|node_row| {
-                let type_and_direction = (*node_row).clone().to_type_and_direction();
+                let type_and_direction = (*node_row).clone().to_socket_and_direction();
 
                 if let Some((override_type, override_direction)) = type_and_direction {
-                    socket_type == override_type && SocketDirection::Input == override_direction
+                    to_find == override_type && SocketDirection::Input == override_direction
                 } else {
                     false
                 }

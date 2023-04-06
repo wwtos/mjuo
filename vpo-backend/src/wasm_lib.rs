@@ -38,7 +38,6 @@ pub struct State {
     global_state: GlobalState,
     engine_state: NodeEngineState,
     midi_parser: MidiParser,
-    current_time: i64,
 }
 
 #[wasm_bindgen]
@@ -62,7 +61,6 @@ impl State {
             global_state,
             engine_state,
             midi_parser,
-            current_time: 0,
         }
     }
 
@@ -99,15 +97,11 @@ impl State {
         let mut midi = get_midi(midi_in, &mut self.midi_parser);
 
         for sample in audio_out.iter_mut() {
-            *sample = self
-                .engine_state
-                .step(self.current_time, SmallVec::from(midi.clone()), &self.global_state);
+            *sample = self.engine_state.step(SmallVec::from(midi.clone()), &self.global_state);
 
             if !midi.is_empty() {
                 midi = Vec::new();
             }
-
-            self.current_time += 1;
         }
 
         let responses = to_server.buffer.lock().unwrap();

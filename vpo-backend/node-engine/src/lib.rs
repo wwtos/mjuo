@@ -7,7 +7,6 @@ pub mod node_graph;
 pub mod node_wrapper;
 pub mod nodes;
 pub mod property;
-pub mod socket_registry;
 pub mod state;
 pub mod traversal;
 pub mod ui;
@@ -16,5 +15,3 @@ pub mod ui;
 pub mod graph_manager_tests;
 #[cfg(test)]
 pub mod graph_tests;
-#[cfg(test)]
-pub mod socket_registry_tests;

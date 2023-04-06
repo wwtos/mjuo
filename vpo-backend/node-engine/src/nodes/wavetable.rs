@@ -1,12 +1,7 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
 
-use crate::{
-    connection::{Primitive, StreamSocketType, ValueSocketType},
-    errors::{NodeError, NodeOk, NodeResult},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct WavetableNode {
@@ -25,8 +20,8 @@ impl WavetableNode {
     }
 }
 
-impl Node for WavetableNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for WavetableNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
         if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
@@ -55,18 +50,7 @@ impl Node for WavetableNode {
             }
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "wavetable".into(),
-                PropertyType::Resource("wavetables".into()),
-                Property::Resource(ResourceId {
-                    namespace: "wavetables".into(),
-                    resource: "".into(),
-                }),
-            ),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
@@ -90,5 +74,22 @@ impl Node for WavetableNode {
                 oscillator.set_frequency(frequency.clone().and_then(|x| x.as_float()).unwrap());
             }
         }
+    }
+}
+
+impl Node for WavetableNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        NodeIo::simple(vec![
+            NodeRow::Property(
+                "wavetable".into(),
+                PropertyType::Resource("wavetables".into()),
+                Property::Resource(ResourceId {
+                    namespace: "wavetables".into(),
+                    resource: "".into(),
+                }),
+            ),
+            value_input("frequency", Primitive::Float(440.0)),
+            stream_output("audio", 0.0),
+        ])
     }
 }

@@ -17,6 +17,7 @@ pub mod outputs;
 pub mod placeholder;
 pub mod polyphonic;
 pub mod portamento;
+pub mod prelude;
 pub mod rank_player;
 pub mod stream_expression;
 pub mod util;

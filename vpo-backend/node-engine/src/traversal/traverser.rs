@@ -6,8 +6,9 @@ use crate::{
     connection::{MidiBundle, Primitive, SocketType},
     errors::{ErrorsAndWarnings, NodeError, WarningBuilder},
     global_state::GlobalState,
-    node::{Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow},
-    node_graph::{NodeConnection, NodeGraph},
+    graph_manager::{GraphIndex, GraphManager},
+    node::{NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
+    node_graph::NodeConnection,
     nodes::variants::{new_variant, NodeVariant},
 };
 
@@ -62,14 +63,30 @@ impl Traverser {
         }
     }
 
-    pub fn get_traverser(graph: &mut NodeGraph, init_state: NodeInitState) -> Result<Traverser, NodeError> {
+    pub fn get_traverser(
+        graph_index: GraphIndex,
+        graph_manager: &GraphManager,
+        script_engine: &Engine,
+        global_state: &GlobalState,
+        current_time: i64,
+    ) -> Result<Traverser, NodeError> {
         let mut traverser = Traverser::new();
 
-        traverser.init_graph(graph, init_state).map(|()| traverser)
+        traverser
+            .init_graph(graph_index, graph_manager, script_engine, global_state, current_time)
+            .map(|()| traverser)
     }
 
-    pub fn init_graph(&mut self, graph: &mut NodeGraph, init_state: NodeInitState) -> Result<(), NodeError> {
-        let traversal_order = calculate_graph_traverse_order(graph);
+    pub fn init_graph(
+        &mut self,
+        graph_index: GraphIndex,
+        graph_manager: &GraphManager,
+        script_engine: &Engine,
+        global_state: &GlobalState,
+        current_time: i64,
+    ) -> Result<(), NodeError> {
+        let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
+        let traversal_order = calculate_graph_traverse_order(&graph);
 
         self.nodes.clear();
         self.stream_inputs.clear();
@@ -82,24 +99,31 @@ impl Traverser {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: WarningBuilder = WarningBuilder::new();
 
-        let NodeInitState {
-            props,
-            registry,
-            script_engine,
-            global_state,
-        } = init_state;
-
         for index in &traversal_order {
             // create and init the node
-            let node_wrapper = graph.get_node_mut(*index)?;
+            let node_wrapper = graph.get_node(*index)?;
 
-            let mut variant = new_variant(&node_wrapper.get_node_type(), &init_state.global_state.sound_config)?;
-            let init_result_res = variant.init(NodeInitState {
-                props,
-                registry,
-                script_engine,
-                global_state,
-            });
+            let mut variant = new_variant(&node_wrapper.get_node_type(), &global_state.sound_config)?;
+
+            // extract the graph and child io indexes, if any
+            let child_graph_info = node_wrapper
+                .get_child_graph_info()
+                .map(|(graph_index, child_io_indexes)| NodeGraphAndIo {
+                    graph: graph_index,
+                    input_index: child_io_indexes.0,
+                    output_index: child_io_indexes.1,
+                });
+
+            let init_result_res = variant.init(
+                NodeInitState {
+                    props: node_wrapper.get_properties(),
+                    script_engine,
+                    global_state,
+                    current_time,
+                    graph_manager,
+                },
+                child_graph_info,
+            );
 
             let init_result = match init_result_res {
                 Ok(init_result) => init_result,
@@ -110,7 +134,6 @@ impl Traverser {
             };
 
             warnings.append_warnings(init_result.warnings);
-            node_wrapper.set_node_rows(init_result.value.node_rows);
 
             // create a list of its default inputs and count the outputs
             let mut stream_input_defaults = vec![];
@@ -122,21 +145,23 @@ impl Traverser {
             let mut value_outputs = 0;
 
             for socket_type in node_wrapper.list_input_sockets() {
-                let default = node_wrapper.get_default(socket_type).unwrap();
+                let default_row = node_wrapper.get_default(socket_type).unwrap();
 
-                match default {
-                    NodeRow::StreamInput(_, default, _) => stream_input_defaults.push(default),
-                    NodeRow::MidiInput(_, default, _) => midi_input_defaults.push(default),
-                    NodeRow::ValueInput(_, default, _) => value_input_defaults.push(default),
-                    _ => {}
+                if let NodeRow::Input(socket, default) = default_row {
+                    match socket.socket_type() {
+                        SocketType::Stream => stream_input_defaults.push(default.as_stream().unwrap()),
+                        SocketType::Midi => midi_input_defaults.push(default.as_midi().unwrap()),
+                        SocketType::Value => value_input_defaults.push(default.as_value().unwrap()),
+                        _ => {}
+                    }
                 }
             }
 
-            for socket_type in node_wrapper.list_output_sockets() {
-                match socket_type {
-                    SocketType::Stream(_) => stream_outputs += 1,
-                    SocketType::Midi(_) => midi_outputs += 1,
-                    SocketType::Value(_) => value_outputs += 1,
+            for socket in node_wrapper.list_output_sockets() {
+                match socket.socket_type() {
+                    SocketType::Stream => stream_outputs += 1,
+                    SocketType::Midi => midi_outputs += 1,
+                    SocketType::Value => value_outputs += 1,
                     _ => {}
                 }
             }
@@ -182,8 +207,8 @@ impl Traverser {
             let midi_mapping_len = self.midi_output_mappings.len();
             let value_mapping_len = self.value_output_mappings.len();
 
-            for socket_type in node_wrapper.list_output_sockets() {
-                let connection_indexes = graph.get_output_connection_indexes(*index, socket_type);
+            for socket in node_wrapper.list_output_sockets() {
+                let connection_indexes = graph.get_output_connection_indexes(*index, socket);
 
                 if let Ok(indexes) = connection_indexes {
                     let connections: Vec<&Edge<NodeConnection>> = indexes
@@ -200,17 +225,17 @@ impl Traverser {
                         let mut other_value_index = 0;
 
                         for input in to.list_input_sockets() {
-                            if input == socket_type {
+                            if input == socket {
                                 let to_local_node = self.nodes.iter().find(|x| x.node_index == to_index).unwrap();
 
-                                match socket_type {
-                                    SocketType::Stream(_) => self
+                                match socket.socket_type() {
+                                    SocketType::Stream => self
                                         .stream_output_mappings
                                         .push((stream_index, to_local_node.stream_index + other_stream_index)),
-                                    SocketType::Midi(_) => self
+                                    SocketType::Midi => self
                                         .midi_output_mappings
                                         .push((midi_index, other_midi_index + to_local_node.midi_index)),
-                                    SocketType::Value(_) => self
+                                    SocketType::Value => self
                                         .value_output_mappings
                                         .push((value_index, other_value_index + to_local_node.value_index)),
                                     _ => {}
@@ -219,20 +244,20 @@ impl Traverser {
                                 break;
                             }
 
-                            match socket_type {
-                                SocketType::Stream(_) => other_stream_index += 1,
-                                SocketType::Midi(_) => other_midi_index += 1,
-                                SocketType::Value(_) => other_value_index += 1,
+                            match socket.socket_type() {
+                                SocketType::Stream => other_stream_index += 1,
+                                SocketType::Midi => other_midi_index += 1,
+                                SocketType::Value => other_value_index += 1,
                                 _ => {}
                             }
                         }
                     }
                 }
 
-                match socket_type {
-                    SocketType::Stream(_) => stream_index += 1,
-                    SocketType::Midi(_) => midi_index += 1,
-                    SocketType::Value(_) => value_index += 1,
+                match socket.socket_type() {
+                    SocketType::Stream => stream_index += 1,
+                    SocketType::Midi => midi_index += 1,
+                    SocketType::Value => value_index += 1,
                     _ => {}
                 }
             }

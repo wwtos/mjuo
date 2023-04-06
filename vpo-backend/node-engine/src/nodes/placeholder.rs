@@ -1,5 +1,4 @@
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct Placeholder {
@@ -20,8 +19,10 @@ impl Placeholder {
 ///
 /// This holds the place during the deserialization process -- the code later
 /// goes through and converts it into a proper node
+impl NodeRuntime for Placeholder {}
+
 impl Node for Placeholder {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        unreachable!("placeholder node being initialized!")
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        unreachable!("Placeholder never replaced after deserialization")
     }
 }

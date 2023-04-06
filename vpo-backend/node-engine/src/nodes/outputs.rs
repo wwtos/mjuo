@@ -1,38 +1,12 @@
-use crate::{
-    connection::{MidiBundle, Primitive, SocketDirection, SocketType},
-    errors::{NodeError, NodeOk},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
-    outputs: Vec<SocketType>,
     values: Vec<Option<Primitive>>,
     midis: Vec<Option<MidiBundle>>,
-    dirty: bool,
 }
 
-impl OutputsNode {
-    pub fn set_outputs(&mut self, outputs: Vec<SocketType>) {
-        let midi_outputs = outputs
-            .iter()
-            .filter(|output| matches!(output, SocketType::Midi(_)))
-            .count();
-
-        let value_outputs = outputs
-            .iter()
-            .filter(|output| matches!(output, SocketType::Value(_)))
-            .count();
-
-        self.dirty = true;
-        self.outputs = outputs;
-
-        self.midis.resize(midi_outputs, None);
-        self.values.resize(value_outputs, None);
-    }
-}
-
-impl Node for OutputsNode {
+impl NodeRuntime for OutputsNode {
     fn process(
         &mut self,
         _state: NodeProcessState,
@@ -60,18 +34,37 @@ impl Node for OutputsNode {
         values_out.clone_from_slice(&self.values[..]);
     }
 
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        let node_rows = self
-            .outputs
-            .iter()
-            .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input, false))
-            .collect::<Vec<NodeRow>>();
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        if let Some(Property::SocketList(sockets)) = state.props.get("socket_list") {
+            let midi_outputs = sockets
+                .iter()
+                .filter(|output| output.socket_type() == SocketType::Midi)
+                .count();
 
-        NodeOk::no_warnings(InitResult {
-            did_rows_change: self.dirty,
-            node_rows,
-            changed_properties: None,
-            child_graph_io: None,
-        })
+            let value_outputs = sockets
+                .iter()
+                .filter(|output| output.socket_type() == SocketType::Value)
+                .count();
+
+            self.midis.resize(midi_outputs, None);
+            self.values.resize(value_outputs, None);
+        }
+
+        InitResult::nothing()
+    }
+}
+
+impl Node for OutputsNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
+            NodeIo::simple(
+                sockets
+                    .iter()
+                    .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input))
+                    .collect::<Vec<NodeRow>>(),
+            )
+        } else {
+            NodeIo::simple(vec![])
+        }
     }
 }

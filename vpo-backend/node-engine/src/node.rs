@@ -7,96 +7,104 @@ use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 
-use crate::connection::{
-    MidiBundle, MidiSocketType, NodeRefSocketType, Primitive, SocketDirection, SocketType, StreamSocketType,
-    ValueSocketType,
-};
+use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue};
 
-use crate::errors::{NodeError, NodeOk, NodeResult};
+use crate::errors::{NodeOk, NodeResult};
 use crate::global_state::GlobalState;
-use crate::node_graph::NodeGraph;
+use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::property::{Property, PropertyType};
-use crate::socket_registry::SocketRegistry;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
-pub enum NodeRow {
+pub enum NodeRow<'a> {
     // type, value, polyphonic?
-    StreamInput(StreamSocketType, f32, bool),
-    MidiInput(MidiSocketType, MidiBundle, bool),
-    ValueInput(ValueSocketType, Primitive, bool),
-    NodeRefInput(NodeRefSocketType, bool),
-    StreamOutput(StreamSocketType, f32, bool),
-    MidiOutput(MidiSocketType, MidiBundle, bool),
-    ValueOutput(ValueSocketType, Primitive, bool),
-    NodeRefOutput(NodeRefSocketType, bool),
+    Input(Socket<'a>, SocketValue),
+    Output(Socket<'a>, SocketValue),
     Property(String, PropertyType, Property),
     InnerGraph,
 }
 
-impl NodeRow {
-    pub fn to_type_and_direction(self) -> Option<(SocketType, SocketDirection)> {
+impl<'a> NodeRow<'a> {
+    pub fn to_socket_and_direction(&self) -> Option<(Socket, SocketDirection)> {
         match self {
-            NodeRow::StreamInput(stream_type, ..) => Some((SocketType::Stream(stream_type), SocketDirection::Input)),
-            NodeRow::MidiInput(midi_type, ..) => Some((SocketType::Midi(midi_type), SocketDirection::Input)),
-            NodeRow::ValueInput(value_type, ..) => Some((SocketType::Value(value_type), SocketDirection::Input)),
-            NodeRow::NodeRefInput(node_ref_type, ..) => {
-                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Input))
-            }
-            NodeRow::StreamOutput(stream_type, ..) => Some((SocketType::Stream(stream_type), SocketDirection::Output)),
-            NodeRow::MidiOutput(midi_type, ..) => Some((SocketType::Midi(midi_type), SocketDirection::Output)),
-            NodeRow::ValueOutput(value_type, ..) => Some((SocketType::Value(value_type), SocketDirection::Output)),
-            NodeRow::NodeRefOutput(node_ref_type, ..) => {
-                Some((SocketType::NodeRef(node_ref_type), SocketDirection::Output))
-            }
+            NodeRow::Input(socket, _) => Some((*socket, SocketDirection::Input)),
+            NodeRow::Output(socket, _) => Some((*socket, SocketDirection::Output)),
             NodeRow::Property(..) => None,
             NodeRow::InnerGraph => None,
         }
     }
 
-    pub fn from_type_and_direction(socket_type: SocketType, direction: SocketDirection, polyphonic: bool) -> Self {
+    pub fn from_type_and_direction(socket: Socket, direction: SocketDirection) -> Self {
         match direction {
-            SocketDirection::Input => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamInput(stream_type, 0.0, polyphonic),
-                SocketType::Midi(midi_type) => NodeRow::MidiInput(midi_type, SmallVec::new(), polyphonic),
-                SocketType::Value(value_type) => NodeRow::ValueInput(value_type, Primitive::Float(0.0), polyphonic),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefInput(node_ref_type, polyphonic),
-            },
-            SocketDirection::Output => match socket_type {
-                SocketType::Stream(stream_type) => NodeRow::StreamOutput(stream_type, 0.0, polyphonic),
-                SocketType::Midi(midi_type) => NodeRow::MidiOutput(midi_type, SmallVec::new(), polyphonic),
-                SocketType::Value(value_type) => NodeRow::ValueOutput(value_type, Primitive::Float(0.0), polyphonic),
-                SocketType::NodeRef(node_ref_type) => NodeRow::NodeRefOutput(node_ref_type, polyphonic),
-            },
+            SocketDirection::Input => NodeRow::Input(socket, SocketValue::None),
+            SocketDirection::Output => NodeRow::Output(socket, SocketValue::None),
+        }
+    }
+}
+
+pub fn stream_input(name: &'static str, default: f32) -> NodeRow {
+    NodeRow::Input(
+        Socket::Simple(name, SocketType::Stream, 1),
+        SocketValue::Stream(default),
+    )
+}
+
+pub fn midi_input(name: &'static str, default: MidiBundle) -> NodeRow {
+    NodeRow::Input(Socket::Simple(name, SocketType::Midi, 1), SocketValue::Midi(default))
+}
+
+pub fn value_input(name: &'static str, default: Primitive) -> NodeRow {
+    NodeRow::Input(Socket::Simple(name, SocketType::Value, 1), SocketValue::Value(default))
+}
+
+pub fn stream_output(name: &'static str, default: f32) -> NodeRow {
+    NodeRow::Output(
+        Socket::Simple(name, SocketType::Stream, 1),
+        SocketValue::Stream(default),
+    )
+}
+
+pub fn midi_output(name: &'static str, default: MidiBundle) -> NodeRow {
+    NodeRow::Output(Socket::Simple(name, SocketType::Midi, 1), SocketValue::Midi(default))
+}
+
+pub fn value_output(name: &'static str, default: Primitive) -> NodeRow {
+    NodeRow::Output(Socket::Simple(name, SocketType::Value, 1), SocketValue::Value(default))
+}
+
+pub struct NodeIo {
+    node_rows: Vec<NodeRow>,
+    child_graph_io: Option<Vec<(Socket, SocketDirection)>>,
+}
+
+impl NodeIo {
+    pub fn simple(node_rows: Vec<NodeRow>) -> NodeIo {
+        NodeIo {
+            node_rows,
+            child_graph_io: None,
         }
     }
 }
 
 pub struct InitResult {
-    pub did_rows_change: bool,
-    pub node_rows: Vec<NodeRow>,
     pub changed_properties: Option<HashMap<String, Property>>,
-    pub child_graph_io: Option<Vec<(SocketType, SocketDirection)>>,
 }
 
 impl InitResult {
-    pub fn simple(node_rows: Vec<NodeRow>) -> NodeResult<InitResult> {
+    pub fn nothing() -> NodeResult<InitResult> {
         NodeOk::no_warnings(InitResult {
-            did_rows_change: false,
-            node_rows,
             changed_properties: None,
-            child_graph_io: None,
         })
     }
 }
 
 pub struct NodeInitState<'a> {
     pub props: &'a HashMap<String, Property>,
-    pub registry: &'a mut SocketRegistry,
     pub script_engine: &'a Engine,
     pub global_state: &'a GlobalState,
+    pub graph_manager: &'a GraphManager,
+    pub current_time: i64,
 }
 
 pub struct NodeProcessState<'a> {
@@ -105,13 +113,13 @@ pub struct NodeProcessState<'a> {
     pub global_state: &'a GlobalState,
 }
 
-pub struct NodeGraphAndIo<'a> {
-    pub graph: &'a NodeGraph,
+pub struct NodeGraphAndIo {
+    pub graph: GraphIndex,
     pub input_index: NodeIndex,
     pub output_index: NodeIndex,
 }
 
-/// Node trait
+/// NodeRuntime trait
 ///
 /// This is the most fundamental building block of a graph node network.
 /// It is the part of the graph that does the actual thinking. Data is presented to it
@@ -123,12 +131,9 @@ pub struct NodeGraphAndIo<'a> {
 /// what properties it has, what sockets it has available to
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
-pub trait Node: Debug + Clone {
-    /// Must be a pure function
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError>;
-
-    fn post_init(&mut self, init_state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<()> {
-        NodeOk::no_warnings(())
+pub trait NodeRuntime: Debug + Clone {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        InitResult::nothing()
     }
 
     fn linked_to_ui(&self) -> bool {
@@ -151,6 +156,13 @@ pub trait Node: Debug + Clone {
 
     /// Return outgoing value data (ordered based on rows returned from `init`)
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {}
+}
+
+/// A static method returning a node's IO list. Note this is dynamic, but it cannot be dependent on
+/// internal state
+pub trait Node: NodeRuntime {
+    /// Called at least every time a property is changed
+    fn get_io(props: HashMap<String, Property>) -> NodeIo;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]

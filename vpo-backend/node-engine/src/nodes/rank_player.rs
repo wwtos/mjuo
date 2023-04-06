@@ -2,12 +2,7 @@ use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
 use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
 
-use crate::{
-    connection::{MidiBundle, MidiSocketType, StreamSocketType},
-    errors::{NodeError, NodeOk, NodeResult},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 const BUFFER_SIZE: usize = 64;
 
@@ -34,8 +29,8 @@ impl Default for RankPlayerNode {
     }
 }
 
-impl Node for RankPlayerNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for RankPlayerNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
 
         if let Some(polyphony) = state
@@ -75,19 +70,7 @@ impl Node for RankPlayerNode {
             }
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "rank".into(),
-                PropertyType::Resource("ranks".into()),
-                Property::Resource(ResourceId {
-                    namespace: "ranks".into(),
-                    resource: "".into(),
-                }),
-            ),
-            NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
@@ -134,5 +117,23 @@ impl Node for RankPlayerNode {
         let value = midi_in[0].clone().unwrap();
 
         self.midi_in = value;
+    }
+}
+
+impl Node for RankPlayerNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        NodeIo::simple(vec![
+            NodeRow::Property(
+                "rank".into(),
+                PropertyType::Resource("ranks".into()),
+                Property::Resource(ResourceId {
+                    namespace: "ranks".into(),
+                    resource: "".into(),
+                }),
+            ),
+            NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
+            midi_input("midi", SmallVec::new()),
+            stream_output("audio", 0.0),
+        ])
     }
 }

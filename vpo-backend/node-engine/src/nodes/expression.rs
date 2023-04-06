@@ -1,12 +1,6 @@
-use std::cmp::Ordering;
-
 use rhai::{Dynamic, Scope, AST};
-use serde_json::json;
 
-use crate::connection::{Primitive, SocketType, ValueSocketType};
-use crate::errors::{NodeError, NodeOk, NodeWarning, WarningBuilder};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ExpressionNode {
@@ -35,7 +29,7 @@ impl ExpressionNode {
     }
 }
 
-impl Node for ExpressionNode {
+impl NodeRuntime for ExpressionNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         self.have_values_changed = false;
 
@@ -103,24 +97,9 @@ impl Node for ExpressionNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_rows_change = false;
         let mut warnings = WarningBuilder::new();
-
-        // these are the rows it always has
-        let mut node_rows: Vec<NodeRow> = vec![
-            NodeRow::Property(
-                "expression".to_string(),
-                PropertyType::String,
-                Property::String("".to_string()),
-            ),
-            NodeRow::Property(
-                "values_in_count".to_string(),
-                PropertyType::Integer,
-                Property::Integer(0),
-            ),
-            NodeRow::ValueOutput(ValueSocketType::Default, Primitive::Float(0.0), false),
-        ];
 
         let mut expression = "";
         if let Some(Property::String(new_expression)) = state.props.get("expression") {
@@ -128,63 +107,9 @@ impl Node for ExpressionNode {
         }
 
         if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
-            let values_in_count = *values_in_count as usize;
-
-            match values_in_count.cmp(&self.values_in.len()) {
-                Ordering::Less => {
-                    // if smaller, see how many we need to remove
-                    let to_remove = self.values_in.len() - values_in_count;
-
-                    for _ in 0..to_remove {
-                        self.values_in.pop();
-                    }
-
-                    did_rows_change = true;
-                }
-                Ordering::Equal => {
-                    // if it's the same, we don't need to do anything
-                }
-                Ordering::Greater => {
-                    // if bigger, add some accordingly
-                    for i in self.values_in.len()..values_in_count {
-                        // get ID for socket
-                        let new_socket_uid = state
-                            .registry
-                            .register_socket(
-                                format!("value.expression.{}", i),
-                                SocketType::Value(ValueSocketType::Default),
-                                "value.expression".to_string(),
-                                Some(json! {{ "input_number": i + 1 }}),
-                            )
-                            .unwrap()
-                            .1;
-
-                        // add a socket -> local index mapping
-                        self.values_in.push(Primitive::Float(0.0));
-                    }
-
-                    did_rows_change = true;
-                }
-            }
+            self.values_in.resize(*values_in_count as usize, Primitive::Float(0.0));
         } else {
             self.values_in.clear();
-        }
-
-        for i in 0..self.values_in.len() {
-            let new_socket_type = state
-                .registry
-                .register_socket(
-                    format!("value.expression.{}", i),
-                    SocketType::Value(ValueSocketType::Default),
-                    "value.expression".to_string(),
-                    Some(json! {{ "input_number": i + 1 }}),
-                )
-                .unwrap()
-                .0
-                .as_value()
-                .unwrap();
-
-            node_rows.push(NodeRow::ValueInput(new_socket_type, Primitive::Float(0.0), false));
         }
 
         // compile the expression and collect any errors
@@ -201,14 +126,36 @@ impl Node for ExpressionNode {
 
         self.have_values_changed = true;
 
-        Ok(NodeOk::new(
-            InitResult {
-                did_rows_change,
-                node_rows,
-                changed_properties: None,
-                child_graph_io: None,
-            },
-            warnings.into_warnings(),
-        ))
+        InitResult::nothing()
+    }
+}
+
+impl Node for ExpressionNode {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+        // these are the rows it always has
+        let mut node_rows: Vec<NodeRow> = vec![
+            NodeRow::Property(
+                "expression".to_string(),
+                PropertyType::String,
+                Property::String("".to_string()),
+            ),
+            NodeRow::Property(
+                "values_in_count".to_string(),
+                PropertyType::Integer,
+                Property::Integer(0),
+            ),
+            value_output("default", Primitive::Float(0.0)),
+        ];
+
+        if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
+            for i in 0..(*values_in_count) {
+                node_rows.push(NodeRow::Input(
+                    Socket::Numbered("socket-variable-numbered", i + 1, SocketType::Value, 1),
+                    SocketValue::Value(Primitive::Float(0.0)),
+                ));
+            }
+        }
+
+        NodeIo::simple(node_rows)
     }
 }
