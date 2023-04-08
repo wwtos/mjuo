@@ -12,17 +12,17 @@
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { Vertex, VertexIndex } from "$lib/ddgg/graph";
     import {
-        SocketDirection,
-        SocketType,
-        Connection,
-    } from "$lib/node-engine/connection";
-    import {
         transformMouse,
         transformMouseRelativeToEditor,
     } from "$lib/util/mouse-transforms";
     import { NODE_WIDTH, type NodeWrapper } from "$lib/node-engine/node";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
     import type { SocketRegistry } from "$lib/node-engine/socket_registry";
+    import type {
+        Socket,
+        SocketDirection,
+        Connection,
+    } from "$lib/node-engine/connection";
 
     export let width = 400;
     export let height = 400;
@@ -66,7 +66,7 @@
     let connectionBeingCreatedFrom: {
         index: VertexIndex;
         direction: SocketDirection;
-        socket: SocketType;
+        socket: Socket;
     };
     let path = [
         {
@@ -244,11 +244,11 @@
 
         let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
 
-        if (e.direction === SocketDirection.Input) {
+        if (e.direction.variant === "Input") {
             // see if it's already connected, in which case we're disconnecting it
-            let connection = $activeGraph.getNodeInputConnectionImmediate(
+            let connection = $activeGraph.getNodeInputConnection(
                 e.vertexIndex,
-                e.type
+                e.socket
             );
 
             // check if we are already connected
@@ -257,8 +257,8 @@
                     fromNode: connection.fromNode,
                     toNode: e.vertexIndex,
                     data: {
-                        fromSocketType: connection.fromSocketType,
-                        toSocketType: connection.toSocketType,
+                        fromSocket: connection.fromSocket,
+                        toSocket: connection.toSocket,
                     },
                 };
 
@@ -270,15 +270,15 @@
                 // add the connection line back for connecting to something else
                 connectionBeingCreatedFrom = {
                     index: connection.fromNode,
-                    direction: SocketDirection.Output,
-                    socket: connection.fromSocketType,
+                    direction: { variant: "Output" },
+                    socket: connection.fromSocket,
                 };
 
                 const fromNode = $activeGraph.getNode(connection.fromNode);
                 const fromNodeXY = $activeGraph.getNodeSocketXy(
                     connection.fromNode,
-                    connection.fromSocketType,
-                    SocketDirection.Output
+                    connection.fromSocket,
+                    { variant: "Output" }
                 );
 
                 connectionBeingCreated = {
@@ -295,7 +295,7 @@
         connectionBeingCreatedFrom = {
             index: e.vertexIndex,
             direction: e.direction,
-            socket: e.type,
+            socket: e.socket,
         };
 
         connectionBeingCreated = {
@@ -320,13 +320,13 @@
 
         // if the user started dragging from the input side, be sure to
         // connect the output to the input, not the input to the output
-        if (connectionBeingCreatedFrom.direction === SocketDirection.Input) {
+        if (connectionBeingCreatedFrom.direction.variant === "Input") {
             newConnection = {
                 fromNode: e.vertexIndex,
                 toNode: connectionBeingCreatedFrom.index,
                 data: {
-                    fromSocketType: e.type,
-                    toSocketType: connectionBeingCreatedFrom.socket,
+                    fromSocket: e.socket,
+                    toSocket: connectionBeingCreatedFrom.socket,
                 },
             };
         } else {
@@ -334,8 +334,8 @@
                 fromNode: connectionBeingCreatedFrom.index,
                 toNode: e.vertexIndex,
                 data: {
-                    fromSocketType: connectionBeingCreatedFrom.socket,
-                    toSocketType: e.type,
+                    fromSocket: connectionBeingCreatedFrom.socket,
+                    toSocket: e.socket,
                 },
             };
         }
@@ -351,13 +351,13 @@
     } {
         const fromXY = $activeGraph.getNodeSocketXy(
             connection.fromNode,
-            connection.data.fromSocketType,
-            SocketDirection.Output
+            connection.data.fromSocket,
+            { variant: "Output" }
         );
         const toXY = $activeGraph.getNodeSocketXy(
             connection.toNode,
-            connection.data.toSocketType,
-            SocketDirection.Input
+            connection.data.toSocket,
+            { variant: "Input" }
         );
 
         return {
@@ -428,7 +428,7 @@
                 <ConnectionUI {...connectionToPoints(connection)} />
             {/each}
             {#if connectionBeingCreated}
-                {#if connectionBeingCreatedFrom.direction === SocketDirection.Input}
+                {#if connectionBeingCreatedFrom.direction.variant === "Input"}
                     <ConnectionUI
                         x1={connectionBeingCreated.x2}
                         y1={connectionBeingCreated.y2}
@@ -447,7 +447,7 @@
                     wrapper={node}
                     nodeIndex={index}
                     onMousedown={handleNodeMousedown}
-                    {socketRegistry}
+                    registry={socketRegistry}
                     on:socketMousedown={handleSocketMousedown}
                     on:socketMouseup={handleSocketMouseup}
                     on:changeGraph={changeGraph}

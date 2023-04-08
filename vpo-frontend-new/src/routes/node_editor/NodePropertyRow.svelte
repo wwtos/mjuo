@@ -11,8 +11,7 @@
     export let propName: string;
     export let propType: PropertyType;
     export let nodes: NodeGraph;
-
-    let value = nodes.getNodePropertyValue(nodeIndex, propName);
+    export let value: Property;
 
     function updateProperties(this: HTMLSelectElement, event: Event) {
         const newValue = this.value;
@@ -63,14 +62,14 @@
         }
     }
 
-    $: dataAsResource = $value?.data as { namespace: string; resource: string };
-    $: dataAsAny = $value?.data as any;
+    $: dataAsResource = value?.data as { namespace: string; resource: string };
+    $: dataAsAny = value?.data as any;
 </script>
 
 <div class="container">
     {#if propType.variant === "MultipleChoice"}
         <select
-            value={$value?.data}
+            value={value.data}
             on:mousedown={(e) => e.stopPropagation()}
             on:input={updateProperties}
         >
@@ -83,7 +82,7 @@
             <label>
                 <input
                     type="number"
-                    value={$value?.data}
+                    value={value.data}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
                     on:keydown={(event) => event.stopPropagation()}
@@ -98,11 +97,11 @@
             <label>
                 <input
                     type="text"
-                    value={$value?.data}
+                    value={value.data}
                     title={propName}
-                    on:mousedown={(e) => e.stopPropagation()}
+                    on:mousedown|stopPropagation
                     on:change={updateProperties}
-                    on:keydown={(event) => event.stopPropagation()}
+                    on:keydown|stopPropagation
                 />
                 {#if dataAsAny.length < 15}
                     <div>
@@ -120,9 +119,9 @@
                         ":" +
                         dataAsResource.resource}
                     title={propName}
-                    on:mousedown={(e) => e.stopPropagation()}
+                    on:mousedown|stopPropagation
                     on:change={updateProperties}
-                    on:keydown={(event) => event.stopPropagation()}
+                    on:keydown|stopPropagation
                 />
                 {#if (dataAsResource.namespace + ":" + dataAsResource.resource).length < 15}
                     <div>

@@ -23,8 +23,8 @@ pub fn route(
     let graph_index: GraphIndex =
         serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
 
+    send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, graph_index, to_server)?;
-    send_registry_updates(state.get_registry(), to_server).unwrap();
     send_global_state_updates(global_state, to_server)?;
 
     Ok(None)

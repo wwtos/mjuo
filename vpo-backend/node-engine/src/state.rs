@@ -4,6 +4,7 @@ use resource_manager::ResourceManager;
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use sound_engine::{sampling::sample::Sample, SoundConfig};
+use web_sys::console;
 
 use crate::{
     connection::MidiBundle,
@@ -288,7 +289,7 @@ impl NodeEngineState {
             nodes_created.extend(action_result.nodes_created);
         }
 
-        if !graphs_to_reindex.is_empty() {
+        if !graphs_to_reindex.is_empty() || !defaults_to_update.is_empty() {
             self.root_traverser.init_graph(
                 self.root_graph_index,
                 &self.graph_manager,

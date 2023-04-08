@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct SocketRegistry {
     name_to_socket_type: HashMap<String, u32>,
+    #[serde(skip)]
     uid_counter: u32,
 }
 

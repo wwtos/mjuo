@@ -53,9 +53,7 @@ impl NodeWrapper {
         wrapper.ui_data.insert("x".to_string(), json! { 0.0_f32 });
         wrapper.ui_data.insert("y".to_string(), json! { 0.0_f32 });
 
-        wrapper
-            .ui_data
-            .insert("title".to_string(), json! {{ "name": node_type }});
+        wrapper.ui_data.insert("title".to_string(), json! { node_type });
 
         NodeOk::no_warnings(wrapper)
     }

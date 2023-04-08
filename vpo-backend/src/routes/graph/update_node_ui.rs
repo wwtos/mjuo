@@ -45,8 +45,8 @@ pub fn route(
         }
     }
 
-    send_graph_updates(state, payload.graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;
+    send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(None)
 }

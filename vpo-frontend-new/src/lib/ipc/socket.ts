@@ -177,8 +177,10 @@ export class WasmIpcSocket extends IpcSocket {
         engine.worklet.port.onmessage = (message) => {
             const data = JSON.parse(message.data);
 
-            for (var listener of this.eventListeners) {
-                listener(data);
+            for (let message of data) {
+                for (let listener of this.eventListeners) {
+                    listener(message);
+                }
             }
         };
 
@@ -186,9 +188,10 @@ export class WasmIpcSocket extends IpcSocket {
     }
 
     flushMessages () {
-        if (this.engine) {
+        if (this.engine && this.engine.context.state === "running") {
             while (this.messages.length > 0) {
                 const message = this.messages.splice(0, 1)[0];
+                console.log("sending", JSON.parse(message));
 
                 this.engine.send(message);
             }

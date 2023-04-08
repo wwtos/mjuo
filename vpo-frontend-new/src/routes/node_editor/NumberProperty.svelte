@@ -1,22 +1,9 @@
-<script>
-    export let onchange = function () {};
-    export let value;
+<script lang="ts">
+    export let value: number;
     export let step = 1;
-
-    let firstTime = true;
-
-    $: {
-        if (!firstTime && value !== undefined) {
-            onchange(value);
-        }
-
-        if (firstTime) {
-            firstTime = false;
-        }
-    }
 </script>
 
-<input type="number" bind:value {step} />
+<input type="number" {value} {step} on:change />
 
 <style>
     input {

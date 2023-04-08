@@ -18,7 +18,6 @@
     const context = new AudioContext();
 
     constructEngine(context).then((engine) => {
-        console.log(engine);
         data.socket.setEngine(engine);
     });
 
@@ -35,14 +34,16 @@
         }
     }
 
-    function onWindowClick() {
-        context.resume();
-        console.log("resumed context");
+    async function onWindowClick() {
+        if (context.state !== "running") {
+            await context.resume();
+            data.socket.flushMessages();
+        }
     }
 
     function registerSocketEvents() {
         data.socket.onMessage((message: IpcAction) => {
-            console.log("received", data);
+            console.log("received", message);
 
             if (message.action === "graph/updateGraph") {
                 data.graphManager.applyJson(message.payload);

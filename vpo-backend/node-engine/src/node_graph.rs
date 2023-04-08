@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     connection::{InputSideConnection, OutputSideConnection, Socket},
     errors::{NodeError, NodeOk, NodeResult},
-    node::{NodeIndex, NodeRow},
+    node::NodeIndex,
     node_wrapper::NodeWrapper,
     nodes::variants::variant_io,
     socket_registry::SocketRegistry,
@@ -188,8 +188,8 @@ impl NodeGraph {
         Ok(matching.last().map(|index| *index))
     }
 
-    pub fn get_input_side_connections(&self, from_index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_from();
+    pub fn get_input_side_connections(&self, index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
+        let edge_indexes = self.nodes.get_vertex(index.0)?.get_connections_from();
 
         let matching: Vec<InputSideConnection> = edge_indexes
             .iter()

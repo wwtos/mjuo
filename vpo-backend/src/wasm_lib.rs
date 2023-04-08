@@ -7,7 +7,7 @@ use node_engine::{
     global_state::{GlobalState, Resources},
     state::NodeEngineState,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 use smallvec::SmallVec;
 use sound_engine::{
     midi::{messages::MidiData, parse::MidiParser},
@@ -104,16 +104,15 @@ impl State {
             }
         }
 
-        let responses = to_server.buffer.lock().unwrap();
+        let mut responses = to_server.buffer.lock().unwrap();
 
-        let response = match responses.first() {
-            Some(message) => {
-                let IPCMessage::Json(message) = message;
-                serde_json::to_string(message).unwrap()
-            }
-            None => "".into(),
-        };
+        let responses_json: Vec<Value> = responses
+            .iter()
+            .map(|IPCMessage::Json(response)| response.clone())
+            .collect();
 
-        response
+        responses.clear();
+
+        serde_json::to_string(&responses_json).unwrap()
     }
 }

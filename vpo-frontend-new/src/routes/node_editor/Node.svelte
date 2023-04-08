@@ -1,25 +1,26 @@
 <script lang="ts">
-    import NodeRowUI from "./NodeRow.svelte";
-    import { socketTypeToString } from "./interpolation";
     import NodePropertyRow from "./NodePropertyRow.svelte";
     import { createEventDispatcher } from "svelte";
-    import type { SocketEvent } from "./socket";
+    import type { OverrideUpdateEvent, SocketEvent } from "./socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
-    import type { NodeWrapper, SocketValue } from "$lib/node-engine/node";
-    import type { VertexIndex } from "$lib/ddgg/graph";
+    import type { NodeWrapper, NodeRow } from "$lib/node-engine/node";
     import {
         match,
         type DiscriminatedUnion,
+        matchOrElse,
     } from "$lib/util/discriminated-union";
-    import {
-        SocketDirection,
-        socketToKey,
-        type SocketType,
-    } from "$lib/node-engine/connection";
     import type { Property, PropertyType } from "$lib/node-engine/property";
     import { localize } from "@nubolab-ffwd/svelte-fluent";
     import type { SocketRegistry } from "$lib/node-engine/socket_registry";
-
+    import type {
+        Socket,
+        SocketDirection,
+        SocketType,
+        SocketValue,
+    } from "$lib/node-engine/connection";
+    import type { VertexIndex } from "$lib/ddgg/graph";
+    import UiNodeRow from "./UiNodeRow.svelte";
+    import { deepEqual } from "fast-equals";
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
 
@@ -28,7 +29,7 @@
     export let nodes: NodeGraph;
     export let wrapper: NodeWrapper;
     export let nodeIndex: VertexIndex;
-    export let socketRegistry: SocketRegistry;
+    export let registry: SocketRegistry;
 
     const dispatch = createEventDispatcher();
 
@@ -36,15 +37,14 @@
         "variant",
         {
             SocketRow: {
-                socketType: SocketType;
+                socket: Socket;
                 socketDirection: SocketDirection;
                 value: SocketValue;
-                polyphonic: boolean;
             };
             PropertyRow: {
                 propName: string;
                 propType: PropertyType;
-                defaultValue: Property;
+                propValue: Property;
             };
             InnerGraphRow: {};
         }
@@ -53,73 +53,30 @@
     let sockets: ReducedRowType[] = [];
     $: sockets = wrapper.nodeRows.map((nodeRow) =>
         match(nodeRow, {
-            StreamInput: ({
-                data: [streamInput, defaultValue, polyphonic],
-            }): ReducedRowType => ({
+            Input: ({ data: [socket, defaultValue] }): ReducedRowType => ({
                 variant: "SocketRow",
-                socketType: { variant: "Stream", data: streamInput },
-                socketDirection: SocketDirection.Input,
-                value: { variant: "Stream", data: defaultValue },
-                polyphonic,
+                socket,
+                socketDirection: { variant: "Input" },
+                value: nodes.getNodeSocketDefault(nodeIndex, socket, {
+                    variant: "Input",
+                }),
             }),
-            MidiInput: ({ data: [midiInput, defaultValue, polyphonic] }) => ({
+            Output: ({ data: [socket, defaultValue] }) => ({
                 variant: "SocketRow",
-                socketType: { variant: "Midi", data: midiInput },
-                socketDirection: SocketDirection.Input,
-                value: { variant: "Midi", data: defaultValue },
-                polyphonic,
+                socket,
+                socketDirection: { variant: "Output" },
+                value: nodes.getNodeSocketDefault(nodeIndex, socket, {
+                    variant: "Output",
+                }),
             }),
-            ValueInput: ({ data: [valueInput, defaultValue, polyphonic] }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "Value", data: valueInput },
-                socketDirection: SocketDirection.Input,
-                value: { variant: "Primitive", data: defaultValue },
-                polyphonic,
-            }),
-            NodeRefInput: ({ data: [nodeRefInput, polyphonic] }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "NodeRef", data: nodeRefInput },
-                socketDirection: SocketDirection.Input,
-                value: { variant: "None" },
-                polyphonic,
-            }),
-            StreamOutput: ({
-                data: [streamOutput, defaultValue, polyphonic],
-            }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "Stream", data: streamOutput },
-                socketDirection: SocketDirection.Output,
-                value: { variant: "Stream", data: defaultValue },
-                polyphonic,
-            }),
-            MidiOutput: ({ data: [midiOutput, defaultValue, polyphonic] }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "Midi", data: midiOutput },
-                socketDirection: SocketDirection.Output,
-                value: { variant: "Midi", data: defaultValue },
-                polyphonic,
-            }),
-            ValueOutput: ({
-                data: [valueOutput, defaultValue, polyphonic],
-            }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "Value", data: valueOutput },
-                socketDirection: SocketDirection.Output,
-                value: { variant: "Primitive", data: defaultValue },
-                polyphonic,
-            }),
-            NodeRefOutput: ({ data: [nodeRefOutput, polyphonic] }) => ({
-                variant: "SocketRow",
-                socketType: { variant: "NodeRef", data: nodeRefOutput },
-                socketDirection: SocketDirection.Output,
-                value: { variant: "None" },
-                polyphonic,
-            }),
-            Property: ({ data: [propName, propType, defaultValue] }) => ({
+            Property: ({ data: [propName, propType, _defaultValue] }) => ({
                 variant: "PropertyRow",
                 propName,
                 propType,
-                defaultValue,
+                propValue: nodes.getNodePropertyValue(nodeIndex, propName) ?? {
+                    variant: "String",
+                    data: "",
+                },
             }),
             InnerGraph: () => ({ variant: "InnerGraphRow" }),
         })
@@ -135,7 +92,7 @@
 
     function rowToKey(row: ReducedRowType): string {
         return row.variant === "SocketRow"
-            ? socketToKey(row.socketType, row.socketDirection)
+            ? JSON.stringify([row.socket, row.socketDirection])
             : row.variant === "PropertyRow"
             ? "prop." + row.propName
             : "innerGraph";
@@ -166,6 +123,44 @@
             vertexIndex: { ...nodeIndex },
         });
     }
+
+    function onOverrideUpdate(event: CustomEvent<OverrideUpdateEvent>) {
+        const index = wrapper.defaultOverrides.findIndex((row) => {
+            return matchOrElse(
+                row,
+                {
+                    Input: ({ data: [socket] }) => {
+                        return (
+                            event.detail.direction.variant === "Input" &&
+                            deepEqual(event.detail.socket, socket)
+                        );
+                    },
+                    Output: ({ data: [socket] }) => {
+                        return (
+                            event.detail.direction.variant === "Output" &&
+                            deepEqual(event.detail.socket, socket)
+                        );
+                    },
+                },
+                () => false
+            );
+        });
+
+        if (index !== -1) {
+            wrapper.defaultOverrides[index] = {
+                variant: event.detail.direction.variant,
+                data: [event.detail.socket, event.detail.newValue],
+            };
+        } else {
+            wrapper.defaultOverrides.push({
+                variant: event.detail.direction.variant,
+                data: [event.detail.socket, event.detail.newValue],
+            });
+        }
+
+        nodes.markNodeAsUpdated(nodeIndex);
+        nodes.writeChangedNodesToServer();
+    }
 </script>
 
 <div
@@ -184,19 +179,17 @@
 
     {#each sockets as row (rowToKey(row))}
         {#if row.variant === "SocketRow"}
-            <NodeRowUI
+            <UiNodeRow
                 {nodes}
-                type={row.socketType}
+                socket={row.socket}
                 direction={row.socketDirection}
-                label={socketTypeToString(
-                    socketRegistry,
-                    row.socketType,
-                    $localize
+                label={$localize(
+                    ...registry.getSocketInterpolation(row.socket)
                 )}
-                polyphonic={row.polyphonic}
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}
-                nodeWrapper={wrapper}
+                on:overrideUpdate={onOverrideUpdate}
+                value={row.value}
                 {nodeIndex}
             />
         {:else if row.variant === "PropertyRow"}
@@ -205,6 +198,7 @@
                 nodeWrapper={wrapper}
                 propName={row.propName}
                 propType={row.propType}
+                value={row.propValue}
                 {nodeIndex}
             />
         {:else}

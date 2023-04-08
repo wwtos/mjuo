@@ -6,20 +6,18 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone)]
 pub struct OscillatorNode {
     oscillator: Oscillator,
-    audio_out: f32,
 }
 
 impl Default for OscillatorNode {
     fn default() -> Self {
         OscillatorNode {
             oscillator: Oscillator::new(Waveform::Square),
-            audio_out: 0_f32,
         }
     }
 }
 
 impl NodeRuntime for OscillatorNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(waveform) = state.props.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
@@ -52,7 +50,7 @@ impl NodeRuntime for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("frequency"), Primitive::Float(440.0)),
             stream_output(register("audio"), 0.0),

@@ -1,12 +1,13 @@
 <script lang="ts">
+    import { Socket, type SocketDirection } from "$lib/node-engine/connection";
     import { createEventDispatcher } from "svelte";
-
-    import { SocketType, SocketDirection } from "$lib/node-engine/connection";
 
     const dispatch = createEventDispatcher();
 
     export let direction: SocketDirection;
-    export let type: SocketType;
+    export let socket: Socket;
+
+    $: type = Socket.socketType(socket);
 
     function socketMousedown(event: MouseEvent) {
         event.preventDefault();
@@ -14,7 +15,7 @@
 
         dispatch("socketMousedown", {
             event,
-            type,
+            socket,
             direction,
         });
     }
@@ -22,15 +23,15 @@
     function socketMouseupRaw(event: MouseEvent) {
         dispatch("socketMouseup", {
             event,
-            type,
+            socket,
             direction,
         });
     }
 </script>
 
 <div
-    class:output={direction === SocketDirection.Output}
-    class:input={direction === SocketDirection.Input}
+    class:output={direction.variant === "Output"}
+    class:input={direction.variant === "Input"}
     class="socket-container"
 >
     {#if type.variant === "Stream"}
