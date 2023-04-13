@@ -30,7 +30,7 @@ impl NodeRuntime for PipePlayerNode {
             let new_index = state
                 .global_state
                 .resources
-                .samples
+                .pipes
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource })?;
 
@@ -41,11 +41,7 @@ impl NodeRuntime for PipePlayerNode {
         }
 
         if self.player.is_none() || did_index_change {
-            let sample = state
-                .global_state
-                .resources
-                .samples
-                .borrow_resource(self.index.unwrap());
+            let sample = state.global_state.resources.pipes.borrow_resource(self.index.unwrap());
 
             if let Some(sample) = sample {
                 self.player = Some(PipePlayer::new(&sample));
@@ -65,7 +61,7 @@ impl NodeRuntime for PipePlayerNode {
             let sample = state
                 .global_state
                 .resources
-                .samples
+                .pipes
                 .borrow_resource(self.index.unwrap())
                 .unwrap();
 

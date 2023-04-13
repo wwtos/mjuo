@@ -19,11 +19,16 @@ use sound_engine::{
     midi::{messages::MidiData, parse::MidiParser},
     SoundConfig,
 };
+use symphonia::core::io::MediaSource;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     errors::{EngineError, LoadingSnafu},
-    resource::{rank::load_rank, sample::load_pipe, wavetable::load_wavetable},
+    resource::{
+        rank::{load_rank, parse_rank},
+        sample::load_pipe,
+        wavetable::load_wavetable,
+    },
     routes::route,
     utils::set_panic_hook,
 };
@@ -143,18 +148,18 @@ impl State {
 
         match parent.to_str().unwrap() {
             "ranks" => {
-                let co
-                let rank = load_rank(&mut resource.to_vec().as_slice()).context(LoadingSnafu)?;
+                let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
+                let rank = parse_rank(&config).context(LoadingSnafu)?;
 
                 self.global_state.resources.ranks.add_resource(rank);
             }
             "pipes" => {
-                let associated_resource =
-                    associated_resource.map(|config_raw| Box::new(Cursor::new(resource.to_vec())));
+                let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
+                let sample = associated_resource.map(|config_raw| resource.to_vec());
 
-                let sample = load_pipe(config, associated_resource)?;
+                let pipe = load_pipe(config, sample)?;
 
-                self.global_state.resources.samples.add_resource(sample);
+                self.global_state.resources.pipes.add_resource(pipe);
             }
             "wavetables" => {
                 let wavetable = load_wavetable(Box::new(Cursor::new(resource.to_vec())))?;

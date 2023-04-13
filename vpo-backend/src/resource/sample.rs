@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    io::Read,
+    io::{Cursor, Read},
     path::Path,
 };
 
@@ -30,11 +30,11 @@ fn save_sample_metadata(path: &Path, metadata: &Pipe) -> Result<(), LoadingError
     fs::write(path, toml::to_string(metadata).context(TomlParserSerSnafu)?).context(IOSnafu)
 }
 
-pub fn load_pipe(config: String, resource: Option<Box<dyn MediaSource>>) -> Result<Pipe, EngineError> {
+pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, EngineError> {
     let mut pipe = parse_pipe_config(&config).context(LoadingSnafu)?;
 
     if let Some(sample) = resource {
-        let (buffer, spec) = decode_audio(sample, Hint::new())?;
+        let (buffer, spec) = decode_audio(Box::new(Cursor::new(sample)), Hint::new())?;
 
         let sample_rate = spec.rate;
         let channels = spec.channels.count();

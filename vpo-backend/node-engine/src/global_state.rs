@@ -11,7 +11,7 @@ use sound_engine::{
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
-    pub samples: ResourceManager<Pipe>,
+    pub pipes: ResourceManager<Pipe>,
     pub wavetables: ResourceManager<Wavetable>,
     pub ranks: ResourceManager<Rank>,
 }
@@ -35,7 +35,7 @@ impl GlobalState {
 
     pub fn reset(&mut self) {
         self.resources.ranks.clear();
-        self.resources.samples.clear();
+        self.resources.pipes.clear();
         self.resources.wavetables.clear();
     }
 }
