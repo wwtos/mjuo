@@ -1,19 +1,19 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::sampling::sample_player::SamplePlayer;
+use sound_engine::sampling::pipe_player::PipePlayer;
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct MonoSamplePlayerNode {
-    player: Option<SamplePlayer>,
+pub struct PipePlayerNode {
+    player: Option<PipePlayer>,
     released: bool,
     played: bool,
     index: Option<ResourceIndex>,
 }
 
-impl Default for MonoSamplePlayerNode {
+impl Default for PipePlayerNode {
     fn default() -> Self {
-        MonoSamplePlayerNode {
+        PipePlayerNode {
             player: None,
             released: false,
             played: false,
@@ -22,7 +22,7 @@ impl Default for MonoSamplePlayerNode {
     }
 }
 
-impl NodeRuntime for MonoSamplePlayerNode {
+impl NodeRuntime for PipePlayerNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
@@ -48,7 +48,7 @@ impl NodeRuntime for MonoSamplePlayerNode {
                 .borrow_resource(self.index.unwrap());
 
             if let Some(sample) = sample {
-                self.player = Some(SamplePlayer::new(&sample));
+                self.player = Some(PipePlayer::new(&sample));
             }
         }
 
@@ -98,7 +98,7 @@ impl NodeRuntime for MonoSamplePlayerNode {
     }
 }
 
-impl Node for MonoSamplePlayerNode {
+impl Node for PipePlayerNode {
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(

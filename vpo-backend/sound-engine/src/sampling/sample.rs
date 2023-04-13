@@ -2,7 +2,7 @@ use crate::{midi::messages::Note, MonoSample};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Sample {
+pub struct Pipe {
     pub loop_start: usize,
     pub loop_end: usize,
     pub decay_index: usize,
@@ -15,11 +15,9 @@ pub struct Sample {
     pub cents: i16,
     #[serde(skip)]
     pub buffer: MonoSample,
-    #[serde(skip)]
-    pub crossfade_buffer: MonoSample,
 }
 
-impl Default for Sample {
+impl Default for Pipe {
     fn default() -> Self {
         Self {
             loop_start: 0,
@@ -33,7 +31,6 @@ impl Default for Sample {
             note: 69,
             cents: 0,
             buffer: MonoSample::default(),
-            crossfade_buffer: MonoSample::default(),
         }
     }
 }

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use resource_manager::ResourceManager;
 use serde_json::{json, Value};
 use snafu::ResultExt;
-use sound_engine::{sampling::sample::Sample, SoundConfig};
+use sound_engine::{sampling::sample::Pipe, SoundConfig};
 use web_sys::console;
 
 use crate::{
@@ -100,7 +100,7 @@ pub struct HistoryActionBundle {
 
 #[derive(Clone)]
 pub struct AssetBundle<'a> {
-    pub samples: &'a ResourceManager<Sample>,
+    pub samples: &'a ResourceManager<Pipe>,
     // pub wavetables: &'a ResourceManager<Wavetable>,
 }
 

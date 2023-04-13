@@ -6,7 +6,7 @@ use crate::{
 use super::{
     interpolate::{hermite_interpolate, lerp},
     phase_calculator::PhaseCalculator,
-    sample::Sample,
+    sample::Pipe,
 };
 
 #[derive(Debug, Clone)]
@@ -27,7 +27,7 @@ enum QueuedAction {
 const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
-pub struct SamplePlayer {
+pub struct PipePlayer {
     sample_length: usize,
     max_amp: f32,
     amplitude_calc_window: usize,
@@ -51,8 +51,8 @@ pub struct SamplePlayer {
     attack_envelope_indexes: [usize; ENVELOPE_POINTS],
 }
 
-impl SamplePlayer {
-    pub fn new(sample: &Sample) -> SamplePlayer {
+impl PipePlayer {
+    pub fn new(sample: &Pipe) -> PipePlayer {
         let buffer_rate = sample.buffer.sample_rate;
         let sample_length = sample.buffer.audio_raw.len();
         let audio = &sample.buffer.audio_raw;
@@ -91,7 +91,7 @@ impl SamplePlayer {
             envelope_points[target_amp_index] = closest_index;
         }
 
-        SamplePlayer {
+        PipePlayer {
             sample_length,
             max_amp: peak_amp,
             amplitude_calc_window,
@@ -111,7 +111,7 @@ impl SamplePlayer {
         }
     }
 
-    pub fn play(&mut self, sample: &Sample) {
+    pub fn play(&mut self, sample: &Pipe) {
         let current_location = self.audio_position as usize;
 
         if current_location < 2 {
@@ -177,7 +177,7 @@ impl SamplePlayer {
         }
     }
 
-    pub fn release(&mut self, sample: &Sample) {
+    pub fn release(&mut self, sample: &Pipe) {
         match self.state {
             State::Crossfading => {
                 self.queued_action = QueuedAction::Release;
@@ -213,7 +213,7 @@ impl SamplePlayer {
         }
     }
 
-    pub fn next_sample(&mut self, sample: &Sample) -> f32 {
+    pub fn next_sample(&mut self, sample: &Pipe) -> f32 {
         match self.state {
             State::Crossfading => {
                 let (out, done) = self.next_sample_crossfade(sample);
@@ -260,7 +260,7 @@ impl SamplePlayer {
         }
     }
 
-    fn next_sample_normal(&mut self, sample: &Sample) -> f32 {
+    fn next_sample_normal(&mut self, sample: &Pipe) -> f32 {
         let audio_pos = self.audio_position as usize;
 
         let audio = &sample.buffer.audio_raw;
@@ -275,7 +275,7 @@ impl SamplePlayer {
         hermite_interpolate(x0, x1, x2, x3, self.audio_position.fract())
     }
 
-    fn next_sample_crossfade(&mut self, sample: &Sample) -> (f32, bool) {
+    fn next_sample_crossfade(&mut self, sample: &Pipe) -> (f32, bool) {
         let crossfade_factor = (self.crossfade_position - self.crossfade_start) / self.crossfade_length;
 
         let cf_amp = (1.0 - crossfade_factor) * self.crossfade_amplitude;

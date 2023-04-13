@@ -1,9 +1,9 @@
-use super::{rank::Rank, sample::Sample, sample_player::SamplePlayer};
+use super::{pipe_player::PipePlayer, rank::Rank, sample::Pipe};
 use resource_manager::{ResourceIndex, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
-    player: Option<SamplePlayer>,
+    player: Option<PipePlayer>,
     active: bool,
     note: u8,
 }
@@ -26,7 +26,7 @@ pub struct RankPlayer {
 }
 
 impl RankPlayer {
-    pub fn new(samples: &ResourceManager<Sample>, rank: &Rank, polyphony: usize) -> RankPlayer {
+    pub fn new(samples: &ResourceManager<Pipe>, rank: &Rank, polyphony: usize) -> RankPlayer {
         let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
         for sample in &rank.samples {
@@ -65,7 +65,7 @@ impl RankPlayer {
         0
     }
 
-    pub fn play_note(&mut self, note: u8, samples: &ResourceManager<Sample>) {
+    pub fn play_note(&mut self, note: u8, samples: &ResourceManager<Pipe>) {
         if let Some(sample_index) = self.note_to_resource_map[note as usize] {
             let open_voice = self.find_open_voice(note);
 
@@ -78,13 +78,13 @@ impl RankPlayer {
                 if note == voice_note {
                     player.play(sample);
                 } else {
-                    *player = SamplePlayer::new(sample);
+                    *player = PipePlayer::new(sample);
                     player.play(sample);
 
                     self.voices[open_voice].note = note;
                 }
             } else {
-                let mut player = SamplePlayer::new(sample);
+                let mut player = PipePlayer::new(sample);
                 player.play(sample);
 
                 self.voices[open_voice].player = Some(player);
@@ -93,7 +93,7 @@ impl RankPlayer {
         }
     }
 
-    pub fn release_note(&mut self, note: u8, samples: &ResourceManager<Sample>) {
+    pub fn release_note(&mut self, note: u8, samples: &ResourceManager<Pipe>) {
         for voice in &mut self.voices {
             if voice.note == note {
                 if let Some(player) = &mut voice.player {
@@ -107,7 +107,7 @@ impl RankPlayer {
         }
     }
 
-    pub fn next_sample(&mut self, samples: &ResourceManager<Sample>) -> f32 {
+    pub fn next_sample(&mut self, samples: &ResourceManager<Pipe>) -> f32 {
         let mut output_sum = 0.0;
 
         for voice in &mut self.voices {

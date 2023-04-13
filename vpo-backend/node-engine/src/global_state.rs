@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use resource_manager::ResourceManager;
 use serde::Serialize;
 use sound_engine::{
-    sampling::{rank::Rank, sample::Sample},
+    sampling::{rank::Rank, sample::Pipe},
     wave::wavetable::Wavetable,
     SoundConfig,
 };
@@ -11,7 +11,7 @@ use sound_engine::{
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
-    pub samples: ResourceManager<Sample>,
+    pub samples: ResourceManager<Pipe>,
     pub wavetables: ResourceManager<Wavetable>,
     pub ranks: ResourceManager<Rank>,
 }
