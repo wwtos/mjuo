@@ -134,7 +134,7 @@ impl<A> ResourceManager<A> {
         self.resource_mapping.keys().cloned().collect()
     }
 
-    fn add_resource(&mut self, resource: A) -> ResourceIndex {
+    pub fn add_resource(&mut self, resource: A) -> ResourceIndex {
         ResourceIndex(self.resources.add(resource))
     }
 

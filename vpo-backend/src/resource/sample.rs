@@ -1,65 +1,60 @@
 use std::{
     fs::{self, File},
-    io::{BufReader, Read},
-    path::{Path, PathBuf},
+    io::Read,
+    path::Path,
 };
 
 use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
-use rodio::{Decoder, Source};
 use snafu::ResultExt;
 use sound_engine::{
     sampling::{envelope::calc_sample_metadata, sample::Sample},
     util::lerp,
     MonoSample,
 };
+use symphonia::core::{io::MediaSource, probe::Hint};
+
+use crate::errors::{EngineError, LoadingSnafu};
+
+use super::util::decode_audio;
+
+fn parse_sample_file(contents: &str) -> Result<Sample, LoadingError> {
+    toml::from_str(contents).context(TomlParserDeSnafu)
+}
 
 fn read_sample_file(path: &Path) -> Result<Sample, LoadingError> {
     let mut file = File::open(path).context(IOSnafu)?;
     let mut data = String::new();
     file.read_to_string(&mut data).context(IOSnafu)?;
 
-    toml::from_str(&data).context(TomlParserDeSnafu)
+    parse_sample_file(&data)
 }
 
 fn save_sample_metadata(path: &Path, metadata: &Sample) -> Result<(), LoadingError> {
     fs::write(path, toml::to_string(metadata).context(TomlParserSerSnafu)?).context(IOSnafu)
 }
 
-pub fn load_sample(path: PathBuf) -> Result<Sample, LoadingError> {
-    println!("loading: {:?}", path);
-    let file = BufReader::new(File::open(&path).context(IOSnafu)?);
-    let source = Decoder::new(file).unwrap();
+pub fn load_sample(resource: Box<dyn MediaSource>, config: Option<String>) -> Result<Sample, EngineError> {
+    let (buffer, spec) = decode_audio(resource, Hint::new())?;
 
-    let sample_rate = source.sample_rate();
-    let channels = source.channels();
-    let length = source.size_hint().0;
+    let sample_rate = spec.rate;
+    let channels = spec.channels.count();
 
-    let mut buffer: Vec<f32> = Vec::with_capacity(length);
-    buffer.extend(source.map(|x| x as f32 / i16::MAX as f32).step_by(channels as usize));
+    let mut sample = Sample::default();
 
     // next, get the sample metadata (if it exists)
-    let mut sample: Sample = Sample::default();
-    let metadata_path = path.with_extension("toml");
-    if let Ok(does_exist) = path.with_extension("toml").try_exists() {
-        if does_exist {
-            sample = read_sample_file(&metadata_path)?;
-        } else {
-            let note_number = check_for_note_number(&path.file_stem().unwrap().to_string_lossy());
-            let possible_freq = note_number.map(|note| 440.0 * 2_f64.powf((note as i16 - 69) as f64 / 12.0));
+    if let Some(associated_resource) = config {
+        sample = parse_sample_file(&associated_resource).context(LoadingSnafu)?;
+    } else {
+        let metadata = calc_sample_metadata(&buffer, sample_rate, None);
 
-            let metadata = calc_sample_metadata(&buffer, sample_rate, possible_freq);
-
-            sample.decay_index = metadata.decay_index;
-            sample.sustain_index = metadata.sustain_index;
-            sample.release_index = metadata.release_index;
-            sample.loop_start = metadata.loop_start;
-            sample.loop_end = metadata.loop_end;
-            sample.note = metadata.note;
-            sample.cents = metadata.cents;
-
-            save_sample_metadata(&metadata_path, &sample)?;
-        }
+        sample.decay_index = metadata.decay_index;
+        sample.sustain_index = metadata.sustain_index;
+        sample.release_index = metadata.release_index;
+        sample.loop_start = metadata.loop_start;
+        sample.loop_end = metadata.loop_end;
+        sample.note = metadata.note;
+        sample.cents = metadata.cents;
     }
 
     sample.buffer = MonoSample {

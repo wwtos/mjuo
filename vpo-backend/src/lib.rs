@@ -1,7 +1,7 @@
+pub mod errors;
 #[cfg(any(windows, unix))]
 pub mod io;
 pub mod migrations;
-#[cfg(any(windows, unix))]
 pub mod resource;
 pub mod routes;
 pub mod util;

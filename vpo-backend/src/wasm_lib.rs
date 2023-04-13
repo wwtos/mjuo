@@ -1,21 +1,32 @@
-use std::{io::Write, sync::Mutex};
+use std::{
+    io::{Cursor, Write},
+    path::PathBuf,
+    sync::Mutex,
+};
 
 use futures::executor::block_on;
 use ipc::{ipc_message::IPCMessage, send_buffer::SendBuffer};
 use js_sys::Uint8Array;
 use node_engine::{
+    errors::{JsonParserSnafu, NodeError},
     global_state::{GlobalState, Resources},
     state::NodeEngineState,
 };
 use serde_json::{json, Value};
 use smallvec::SmallVec;
+use snafu::ResultExt;
 use sound_engine::{
     midi::{messages::MidiData, parse::MidiParser},
     SoundConfig,
 };
 use wasm_bindgen::prelude::*;
 
-use crate::{routes::route, utils::set_panic_hook};
+use crate::{
+    errors::{EngineError, LoadingSnafu},
+    resource::{rank::load_rank, sample::load_sample, wavetable::load_wavetable},
+    routes::route,
+    utils::set_panic_hook,
+};
 
 pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
     let mut messages: Vec<MidiData> = Vec::new();
@@ -114,5 +125,72 @@ impl State {
         responses.clear();
 
         serde_json::to_string(&responses_json).unwrap()
+    }
+
+    pub fn reset_state(&mut self) {
+        self.global_state.reset();
+    }
+
+    fn load_resource_with_error(
+        &mut self,
+        path_raw: String,
+        resource: Uint8Array,
+        config: Option<Uint8Array>,
+    ) -> Result<(), EngineError> {
+        let path = PathBuf::from(path_raw);
+
+        let parent = path.parent().unwrap();
+
+        match parent.to_str().unwrap() {
+            "ranks" => {
+                let rank = load_rank(&mut resource.to_vec().as_slice()).context(LoadingSnafu)?;
+
+                self.global_state.resources.ranks.add_resource(rank);
+            }
+            "samples" => {
+                let associated_resource =
+                    config.map(|config_raw| String::from_utf8_lossy(&config_raw.to_vec()).into_owned());
+
+                let sample = load_sample(Box::new(Cursor::new(resource.to_vec())), associated_resource)?;
+
+                self.global_state.resources.samples.add_resource(sample);
+            }
+            "wavetables" => {
+                let wavetable = load_wavetable(Box::new(Cursor::new(resource.to_vec())))?;
+
+                self.global_state.resources.wavetables.add_resource(wavetable);
+            }
+            _ => {}
+        };
+
+        Ok(())
+    }
+
+    pub fn load_resource(
+        &mut self,
+        path_raw: String,
+        resource: Uint8Array,
+        config: Option<Uint8Array>,
+    ) -> Option<String> {
+        match self.load_resource_with_error(path_raw, resource, config) {
+            Ok(()) => None,
+            Err(err) => Some(err.to_string()),
+        }
+    }
+
+    fn load_with_error(&mut self, state: String) -> Result<(), NodeError> {
+        let mut json: Value = serde_json::from_str(&state).context(JsonParserSnafu)?;
+
+        self.engine_state = NodeEngineState::new(&self.global_state).unwrap();
+        self.engine_state.apply_json(json["state"].take(), &self.global_state)?;
+
+        Ok(())
+    }
+
+    pub fn load(&mut self, state: String) -> Option<String> {
+        match self.load_with_error(state) {
+            Ok(()) => None,
+            Err(err) => Some(err.to_string()),
+        }
     }
 }

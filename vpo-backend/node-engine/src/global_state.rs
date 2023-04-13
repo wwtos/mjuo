@@ -32,4 +32,10 @@ impl GlobalState {
             sound_config,
         }
     }
+
+    pub fn reset(&mut self) {
+        self.resources.ranks.clear();
+        self.resources.samples.clear();
+        self.resources.wavetables.clear();
+    }
 }

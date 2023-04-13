@@ -132,7 +132,6 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     )
     .context(LoadingSnafu)?;
 
-    // TODO: version handling and migrations here
     state.apply_json(json["state"].take(), global_state)?;
 
     Ok(())

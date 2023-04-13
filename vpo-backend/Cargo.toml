@@ -21,6 +21,7 @@ serde_json = "1.0.74"
 smallvec = {version = "1.10", features = ["serde"]}
 snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
+symphonia = "0.5.2"
 toml = "0.5"
 walkdir = "2"
 
@@ -42,7 +43,6 @@ async-std = "1.10.0"
 cpal = "0.14.0"
 midir = "0.8"
 ringbuf = "0.2.8"
-rodio = "0.16.0"
 
 [profile.dev]
 opt-level = 1

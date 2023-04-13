@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { children } from "svelte/internal";
     import type { TreeItem } from "./tree-types";
     import TreeItemUi from "./TreeItemUi.svelte";
 
