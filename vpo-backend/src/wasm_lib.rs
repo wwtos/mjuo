@@ -19,16 +19,11 @@ use sound_engine::{
     midi::{messages::MidiData, parse::MidiParser},
     SoundConfig,
 };
-use symphonia::core::io::MediaSource;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     errors::{EngineError, LoadingSnafu},
-    resource::{
-        rank::{load_rank, parse_rank},
-        sample::load_pipe,
-        wavetable::load_wavetable,
-    },
+    resource::{rank::parse_rank, sample::load_pipe, wavetable::load_wavetable},
     routes::route,
     utils::set_panic_hook,
 };
@@ -155,7 +150,7 @@ impl State {
             }
             "pipes" => {
                 let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
-                let sample = associated_resource.map(|config_raw| resource.to_vec());
+                let sample = associated_resource.map(|sample| sample.to_vec());
 
                 let pipe = load_pipe(config, sample)?;
 

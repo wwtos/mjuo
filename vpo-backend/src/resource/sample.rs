@@ -8,11 +8,11 @@ use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
 use snafu::ResultExt;
 use sound_engine::{sampling::sample::Pipe, util::lerp, MonoSample};
-use symphonia::core::{io::MediaSource, probe::Hint};
+use symphonia::core::probe::Hint;
 
 use crate::errors::{EngineError, LoadingSnafu};
 
-use super::util::decode_audio;
+use super::util::{decode_audio, mix_to_mono};
 
 fn parse_pipe_config(contents: &str) -> Result<Pipe, LoadingError> {
     toml::from_str(contents).context(TomlParserDeSnafu)
@@ -39,8 +39,10 @@ pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, Engi
         let sample_rate = spec.rate;
         let channels = spec.channels.count();
 
+        let buffer_mono = mix_to_mono(&buffer, channels);
+
         pipe.buffer = MonoSample {
-            audio_raw: buffer,
+            audio_raw: buffer_mono,
             sample_rate,
         };
 

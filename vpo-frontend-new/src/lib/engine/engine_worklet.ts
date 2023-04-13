@@ -21,10 +21,9 @@ class RustEngineWorklet extends AudioWorkletProcessor {
 
             switch (type) {
                 case "midi":
-                    throw new Error("unimplemented");
-                    break;
+                    this.midiIn = data.payload;
                 case "resource":
-                    this.state.load_resource(data.payload.path, data.payload.resource, data.payload.config);
+                    this.state.load_resource(data.payload.path, data.payload.resource, data.payload.associated_resource);
                 case "message":
                     this.toInput = event.data.payload;
                     break;
