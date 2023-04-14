@@ -1,97 +1,35 @@
 {
-  "name": "vpo-frontend",
-  "productName": "vpo-frontend",
-  "version": "1.0.0",
-  "description": "My Electron application description",
-  "main": "dist/index.js",
-  "scripts": {
-    "start": "concurrently \"npm:svelte-dev\" \"electron-forge start\"",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
-    "lint": "echo \"No linting configured\"",
-    "main-build": "tsc --project ./tsconfig-main.json",
-    "main-watch": "tsc -w --project ./tsconfig-main.json",
-    "svelte-build": "rollup -c",
-    "svelte-dev": "rollup -c -w",
-    "svelte-ts-check": "svelte-check --tsconfig ./tsconfig-svelte.json",
-    "svelte-ts-watch": "svelte-check --watch --tsconfig ./tsconfig-svelte.json"
-  },
-  "keywords": [],
-  "author": {
-    "name": "smj-edison",
-    "email": "wis.wis.wer@gmail.com"
-  },
-  "license": "MIT",
-  "config": {
-    "forge": {
-      "packagerConfig": {},
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "vpo_frontend"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
-      ]
-    }
-  },
-  "dependencies": {
-    "concurrently": "^7.0.0",
-    "dependencies": "^0.0.1",
-    "electron-reload": "^2.0.0-alpha.1",
-    "electron-squirrel-startup": "^1.0.0",
-    "esm": "^3.2.25",
-    "fast-equals": "^4.0.1",
-    "i18next": "^21.6.16",
-    "panzoom": "^9.4.2",
-    "rollup-plugin-svelte": "^7.1.0",
-    "rollup-plugin-web-worker-loader": "^1.6.1",
-    "rxjs": "^6.6.7",
-    "safety-match": "^0.4.4",
-    "sirv-cli": "^2.0.2",
-    "svelte-i18next": "^1.2.2"
-  },
-  "devDependencies": {
-    "@electron-forge/cli": "^6.0.0-beta.61",
-    "@electron-forge/maker-deb": "^6.0.0-beta.61",
-    "@electron-forge/maker-rpm": "^6.0.0-beta.61",
-    "@electron-forge/maker-squirrel": "^6.0.0-beta.61",
-    "@electron-forge/maker-zip": "^6.0.0-beta.61",
-    "@rollup/plugin-commonjs": "^17.0.0",
-    "@rollup/plugin-json": "^4.1.0",
-    "@rollup/plugin-node-resolve": "^11.0.0",
-    "@rollup/plugin-typescript": "^8.0.0",
-    "@tsconfig/svelte": "^2.0.0",
-    "@types/rollup-plugin-css-only": "^3.1.0",
-    "@zerodevx/svelte-toast": "^0.7.1",
-    "electron": "16.0.6",
-    "electron-packager": "^16.0.0",
-    "rollup": "^2.3.4",
-    "rollup-plugin-css-only": "^3.1.0",
-    "rollup-plugin-livereload": "^2.0.0",
-    "rollup-plugin-svelte": "^7.0.0",
-    "rollup-plugin-terser": "^7.0.0",
-    "sirv": "^2.0.2",
-    "svelte": "^3.0.0",
-    "svelte-check": "^2.0.0",
-    "svelte-feather-icons": "^4.0.0",
-    "svelte-preprocess": "^4.0.0",
-    "tslib": "^2.0.0",
-    "typescript": "^4.0.0"
-  }
+	"name": "vpo-frontend",
+	"productName": "vpo-frontend",
+	"version": "0.0.1",
+	"private": true,
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@nubolab-ffwd/svelte-fluent": "^0.6.0",
+		"@sveltejs/adapter-auto": "^2.0.0",
+		"@sveltejs/adapter-static": "^2.0.1",
+		"@sveltejs/kit": "^1.5.0",
+		"svelte": "^3.54.0",
+		"svelte-check": "^3.0.1",
+		"svelte-feather-icons": "^4.0.0",
+		"tslib": "^2.4.1",
+		"typescript": "^5.0.0",
+		"vite": "^4.2.0"
+	},
+	"type": "module",
+	"dependencies": {
+		"@zerodevx/svelte-toast": "^0.9.3",
+		"fast-equals": "^5.0.1",
+		"i18next": "^22.4.14",
+		"jsdom": "^21.1.1",
+		"panzoom": "^9.4.3",
+		"rxjs": "^7.8.0",
+		"svelte-i18next": "^1.2.2"
+	}
 }
