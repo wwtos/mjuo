@@ -40,15 +40,6 @@ pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, Engi
         let sample_rate = spec.rate;
         let channels = spec.channels.count();
 
-        console::log_1(
-            &format!(
-                "Buffer len: {}, channels: {}, sample_rate: {}",
-                buffer.len(),
-                channels,
-                sample_rate
-            )
-            .into(),
-        );
         let buffer_mono = mix_to_mono(&buffer, channels);
 
         pipe.buffer = MonoSample {
