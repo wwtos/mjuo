@@ -141,10 +141,14 @@ impl State {
         let parent = path.iter().next().expect("resource needs to be in directory");
         let key = path.iter().skip(1).collect::<PathBuf>().to_string_lossy().to_string();
 
+        console::log_1(&format!("category: {}", parent.to_str().unwrap()).into());
+
         match parent.to_str().unwrap() {
             "ranks" => {
                 let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
                 let rank = parse_rank(&config).context(LoadingSnafu)?;
+
+                console::log_1(&format!("loading rank: {:?}", rank).into());
 
                 self.global_state.resources.ranks.add_resource(key, rank);
             }
@@ -175,7 +179,7 @@ impl State {
     ) -> Option<String> {
         match self.load_resource_with_error(path_raw, resource, config) {
             Ok(()) => None,
-            Err(err) => Some(err.to_string()),
+            Err(err) => Some(format!("{:?}", err)),
         }
     }
 

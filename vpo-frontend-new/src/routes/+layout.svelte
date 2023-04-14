@@ -101,9 +101,15 @@
                     data.socket.sendRaw(toSend);
                 });
             } else {
-                fetch(`/organ/${resourcePath}`)
-                    .then((data) => data.arrayBuffer())
-                    .then((buffer) => new Uint8Array(buffer));
+                fetchSharedBuffer(`/organ/${resourcePath}`).then((resource) => {
+                    const toSend = {
+                        type: "resource",
+                        resource,
+                        path: encodeResourceName(resourcePath),
+                    };
+
+                    data.socket.sendRaw(toSend);
+                });
             }
         }
     });

@@ -30,7 +30,7 @@ impl Default for RankPlayerNode {
 }
 
 impl NodeRuntime for RankPlayerNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
 
         if let Some(polyphony) = state
@@ -121,7 +121,7 @@ impl NodeRuntime for RankPlayerNode {
 }
 
 impl Node for RankPlayerNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "rank".into(),

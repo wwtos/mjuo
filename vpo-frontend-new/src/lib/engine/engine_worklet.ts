@@ -27,7 +27,11 @@ class RustEngineWorklet extends AudioWorkletProcessor {
                     const resource = new Uint8Array(data.resource);
                     const associatedResource = data.associatedResource && new Uint8Array(data.associatedResource);
 
-                    this.state.load_resource(data.path, resource, associatedResource);
+                    let err = this.state.load_resource(data.path, resource, associatedResource);
+
+                    if (err) {
+                        console.log("loading error: ", err);
+                    }
                     break;
                 case "message":
                     this.toInput.push(JSON.stringify(data.payload));

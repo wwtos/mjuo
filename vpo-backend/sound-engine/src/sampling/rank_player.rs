@@ -29,7 +29,7 @@ impl RankPlayer {
     pub fn new(samples: &ResourceManager<Pipe>, rank: &Rank, polyphony: usize) -> RankPlayer {
         let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
-        for sample in &rank.samples {
+        for sample in &rank.pipes {
             if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
                 note_to_resource_map[sample.note as usize] = Some(resource_index);
             }

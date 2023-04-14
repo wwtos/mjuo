@@ -23,5 +23,5 @@ impl Default for RankEntry {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Rank {
-    pub samples: Vec<RankEntry>,
+    pub pipes: Vec<RankEntry>,
 }
