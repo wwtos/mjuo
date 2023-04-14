@@ -29,16 +29,14 @@ use crate::{
     utils::set_panic_hook,
 };
 
-pub fn get_midi(midi: Uint8Array, parser: &mut MidiParser) -> Vec<MidiData> {
+pub fn get_midi(midi: Vec<u8>, parser: &mut MidiParser) -> Vec<MidiData> {
     let mut messages: Vec<MidiData> = Vec::new();
 
-    for i in 0..midi.length() {
-        parser.write(&[midi.at(i as i32).unwrap()]).unwrap();
+    parser.write(&midi).unwrap();
 
-        while !parser.parsed.is_empty() {
-            let message = parser.parsed.remove(0);
-            messages.push(message);
-        }
+    while !parser.parsed.is_empty() {
+        let message = parser.parsed.remove(0);
+        messages.push(message);
     }
 
     messages
@@ -106,7 +104,7 @@ impl State {
             }
         }
 
-        let mut midi = get_midi(midi_in, &mut self.midi_parser);
+        let mut midi = get_midi(midi_in.to_vec(), &mut self.midi_parser);
 
         for sample in audio_out.iter_mut() {
             *sample = self.engine_state.step(SmallVec::from(midi.clone()), &self.global_state);

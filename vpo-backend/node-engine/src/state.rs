@@ -207,14 +207,16 @@ impl NodeEngineState {
             .get_graph_mut(self.graph_manager.root_index())
             .unwrap();
 
-        let midi_in_node = self.root_traverser.get_node_mut(self.midi_in_node);
+        if !midi_in.is_empty() {
+            let midi_in_node = self.root_traverser.get_node_mut(self.midi_in_node);
 
-        match midi_in_node {
-            Some(NodeVariant::MidiInNode(node)) => {
-                node.set_midi_output(midi_in);
-            }
-            _ => {
-                unreachable!("Root input midi node is not midi node")
+            match midi_in_node {
+                Some(NodeVariant::MidiInNode(node)) => {
+                    node.set_midi_output(midi_in);
+                }
+                _ => {
+                    unreachable!("Root input midi node is not midi node")
+                }
             }
         }
 

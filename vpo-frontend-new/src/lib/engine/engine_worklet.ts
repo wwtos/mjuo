@@ -3,7 +3,7 @@ import { initSync, State } from "../wasm/vpo_backend";
 class RustEngineWorklet extends AudioWorkletProcessor {
     state: State;
     toInput: string[];
-    midiIn: Uint8Array;
+    midiIn: Uint8Array[];
 
     constructor(options?: AudioWorkletNodeOptions) {
         super();
@@ -13,7 +13,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         initSync(module);
 
         this.state = State.new(44100);
-        this.midiIn = new Uint8Array();
+        this.midiIn = [];
 
         this.port.onmessage = (event) => {
             const data = event.data.payload;
@@ -21,12 +21,14 @@ class RustEngineWorklet extends AudioWorkletProcessor {
 
             switch (type) {
                 case "midi":
-                    this.midiIn = data.payload;
+                    this.midiIn.push(data.payload);
+                    break;
                 case "resource":
                     const resource = new Uint8Array(data.resource);
                     const associatedResource = data.associatedResource && new Uint8Array(data.associatedResource);
 
                     this.state.load_resource(data.path, resource, associatedResource);
+                    break;
                 case "message":
                     this.toInput.push(JSON.stringify(data.payload));
                     break;
@@ -37,13 +39,11 @@ class RustEngineWorklet extends AudioWorkletProcessor {
     }
 
     process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
-        let result = this.state.step(this.toInput.pop(), this.midiIn, outputs[0][0]);
+        let result = this.state.step(this.toInput.splice(0, 1)[0], this.midiIn.splice(0, 1)[0] ?? new Uint8Array(), outputs[0][0]);
 
         if (result.length > 0) {
             this.port.postMessage(result);
         }
-
-        this.midiIn = new Uint8Array();
 
         for (let i = 1; i < outputs[0].length; i++) {
             for (let j = 0; j < outputs[0][i].length; j++) {

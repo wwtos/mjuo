@@ -119,10 +119,7 @@
 
 <FluentProvider bundles={[bundle]}>
     <Toasts />
-    <div style="display: flex">
-        <SideNavbar />
-        <slot />
-    </div>
+    <slot />
 </FluentProvider>
 
 <style>
