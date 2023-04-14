@@ -61,8 +61,8 @@ export const variants: NodeVariant[] = [
         category: "midi"
     },
     {
-        translationKey: "node-sample-player-mono",
-        internal: "MonoSamplePlayerNode",
+        translationKey: "node-pipe-player",
+        internal: "PipePlayerNode",
         category: "audio"
     },
     {

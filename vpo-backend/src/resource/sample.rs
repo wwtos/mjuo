@@ -7,8 +7,9 @@ use std::{
 use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
 use snafu::ResultExt;
-use sound_engine::{sampling::sample::Pipe, util::lerp, MonoSample};
+use sound_engine::{sampling::sample::Pipe, MonoSample};
 use symphonia::core::probe::Hint;
+use web_sys::console;
 
 use crate::errors::{EngineError, LoadingSnafu};
 
@@ -39,27 +40,21 @@ pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, Engi
         let sample_rate = spec.rate;
         let channels = spec.channels.count();
 
+        console::log_1(
+            &format!(
+                "Buffer len: {}, channels: {}, sample_rate: {}",
+                buffer.len(),
+                channels,
+                sample_rate
+            )
+            .into(),
+        );
         let buffer_mono = mix_to_mono(&buffer, channels);
 
         pipe.buffer = MonoSample {
             audio_raw: buffer_mono,
             sample_rate,
         };
-
-        if pipe.crossfade > 0 {
-            // calculate crossfade here
-            let mut crossfade_audio: Vec<f32> = Vec::new();
-
-            let audio = &pipe.buffer.audio_raw;
-
-            for i in 0..pipe.crossfade {
-                crossfade_audio.push(lerp(
-                    audio[pipe.loop_end + i],
-                    audio[pipe.loop_start + i],
-                    i as f32 / pipe.crossfade as f32,
-                ));
-            }
-        }
     }
 
     Ok(pipe)

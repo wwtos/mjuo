@@ -10,7 +10,7 @@ export class Engine {
         this.worklet = worklet;
     }
 
-    send(message: string) {
+    send(message: object) {
         this.worklet.port.postMessage({
             type: "message",
             payload: message

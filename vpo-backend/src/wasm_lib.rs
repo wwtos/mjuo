@@ -20,6 +20,7 @@ use sound_engine::{
     SoundConfig,
 };
 use wasm_bindgen::prelude::*;
+use web_sys::console;
 
 use crate::{
     errors::{EngineError, LoadingSnafu},
@@ -139,14 +140,15 @@ impl State {
     ) -> Result<(), EngineError> {
         let path = PathBuf::from(path_raw);
 
-        let parent = path.parent().unwrap();
+        let parent = path.iter().next().expect("resource needs to be in directory");
+        let key = path.iter().skip(1).collect::<PathBuf>().to_string_lossy().to_string();
 
         match parent.to_str().unwrap() {
             "ranks" => {
                 let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
                 let rank = parse_rank(&config).context(LoadingSnafu)?;
 
-                self.global_state.resources.ranks.add_resource(rank);
+                self.global_state.resources.ranks.add_resource(key, rank);
             }
             "pipes" => {
                 let config = String::from_utf8_lossy(&resource.to_vec()).into_owned();
@@ -154,12 +156,12 @@ impl State {
 
                 let pipe = load_pipe(config, sample)?;
 
-                self.global_state.resources.pipes.add_resource(pipe);
+                self.global_state.resources.pipes.add_resource(key, pipe);
             }
             "wavetables" => {
                 let wavetable = load_wavetable(Box::new(Cursor::new(resource.to_vec())))?;
 
-                self.global_state.resources.wavetables.add_resource(wavetable);
+                self.global_state.resources.wavetables.add_resource(key, wavetable);
             }
             _ => {}
         };

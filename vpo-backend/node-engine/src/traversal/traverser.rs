@@ -150,6 +150,26 @@ impl Traverser {
                 Ok(init_result) => init_result,
                 Err(err) => {
                     errors.push((*index, err));
+
+                    // make sure the node is still in the array
+                    self.nodes.push(NodeState {
+                        node: variant,
+                        node_index: *index,
+                        stream_index: 0,
+                        midi_index: 0,
+                        value_index: 0,
+                        linked_to_ui: false,
+                        stream_input_count: 0,
+                        stream_output_count: 0,
+                        stream_output_mappings: 0,
+                        midi_input_count: 0,
+                        midi_output_count: 0,
+                        midi_output_mappings: 0,
+                        value_input_count: 0,
+                        value_output_count: 0,
+                        value_output_mappings: 0,
+                    });
+
                     continue;
                 }
             };
@@ -320,9 +340,11 @@ impl Traverser {
             local_node.value_output_mappings = self.value_output_mappings.len() - value_mapping_len;
         }
 
-        self.reset_needed = true;
+        if !errors.is_empty() {
+            console::log_1(&format!("errors: {:#?}", errors).into());
+        }
 
-        console::log_1(&format!("here: {:#?}", self).into());
+        self.reset_needed = true;
 
         Ok(())
     }

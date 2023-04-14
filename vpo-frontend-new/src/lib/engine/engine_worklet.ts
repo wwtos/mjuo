@@ -2,7 +2,7 @@ import { initSync, State } from "../wasm/vpo_backend";
 
 class RustEngineWorklet extends AudioWorkletProcessor {
     state: State;
-    toInput: string | undefined;
+    toInput: string[];
     midiIn: Uint8Array;
 
     constructor(options?: AudioWorkletNodeOptions) {
@@ -16,35 +16,39 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         this.midiIn = new Uint8Array();
 
         this.port.onmessage = (event) => {
-            const data = event.data;
+            const data = event.data.payload;
             let type = data.type;
 
             switch (type) {
                 case "midi":
                     this.midiIn = data.payload;
                 case "resource":
-                    this.state.load_resource(data.payload.path, data.payload.resource, data.payload.associated_resource);
+                    const resource = new Uint8Array(data.resource);
+                    const associatedResource = data.associatedResource && new Uint8Array(data.associatedResource);
+
+                    this.state.load_resource(data.path, resource, associatedResource);
                 case "message":
-                    this.toInput = event.data.payload;
+                    this.toInput.push(JSON.stringify(data.payload));
                     break;
             }
         };
+
+        this.toInput = [];
     }
 
     process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
-        let result = this.state.step(this.toInput, this.midiIn, outputs[0][0]);
+        let result = this.state.step(this.toInput.pop(), this.midiIn, outputs[0][0]);
 
-        this.toInput = undefined;
+        if (result.length > 0) {
+            this.port.postMessage(result);
+        }
+
         this.midiIn = new Uint8Array();
 
         for (let i = 1; i < outputs[0].length; i++) {
             for (let j = 0; j < outputs[0][i].length; j++) {
                 outputs[0][i][j] = outputs[0][0][j];
             }
-        }
-
-        if (result.length > 0) {
-            this.port.postMessage(result);
         }
 
         return true;

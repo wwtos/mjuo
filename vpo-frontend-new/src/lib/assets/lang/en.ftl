@@ -29,6 +29,6 @@ node-OutputNode = Output
 node-outputs = Outputs
 node-polyphonic = Polyphonic
 node-portamento = Portamento
+node-pipe-player = Pipe Player
 node-rank-player = Rank Player
-node-sample-player-mono = Mono Sample Player
 node-wavetable-oscillator = Wavetable Oscillator

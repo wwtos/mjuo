@@ -11,7 +11,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{routes::RouteReturn, util::send_graph_updates, Sender};
+use crate::{
+    routes::RouteReturn,
+    util::{send_global_state_updates, send_graph_updates},
+    Sender,
+};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,6 +67,7 @@ pub fn route(
     )?;
 
     send_graph_updates(state, graph_index, to_server)?;
+    send_global_state_updates(global_state, to_server)?;
 
     Ok(Some(RouteReturn {
         graph_to_reindex: Some(graph_index),

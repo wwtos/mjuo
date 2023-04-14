@@ -53,7 +53,7 @@
             "StreamExpressionNode": "Stream Expression",
             "PolyphonicNode": "Polyphonic",
             "MidiFilterNode": "Midi Filter",
-            "MonoSamplePlayerNode": "Mono Sample Player",
+            "PipePlayerNode": "Pipe Player",
             "WavetableNode": "Wavetable Oscillator",
             "PortamentoNode": "Portamento",
             "ButtonNode": "Button",

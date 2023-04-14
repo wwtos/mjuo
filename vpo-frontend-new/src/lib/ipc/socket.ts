@@ -150,7 +150,7 @@ export class WebIpcSocket extends IpcSocket {
 }
 
 export class WasmIpcSocket extends IpcSocket {
-    messages: string[];
+    messages: object[];
     eventListeners: Function[];
     engine: Engine | undefined;
 
@@ -162,7 +162,16 @@ export class WasmIpcSocket extends IpcSocket {
     }
 
     send (json: object) {
-        this.messages.push(JSON.stringify(json));
+        this.messages.push({
+            type: "message",
+            payload: json
+        });
+
+        this.flushMessages();
+    }
+
+    sendRaw (json: object) {
+        this.messages.push(json);
 
         this.flushMessages();
     }
@@ -191,7 +200,7 @@ export class WasmIpcSocket extends IpcSocket {
         if (this.engine && this.engine.context.state === "running") {
             while (this.messages.length > 0) {
                 const message = this.messages.splice(0, 1)[0];
-                console.log("sending", JSON.parse(message));
+                console.log("sending", message);
 
                 this.engine.send(message);
             }

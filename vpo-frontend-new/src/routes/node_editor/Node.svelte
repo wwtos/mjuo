@@ -170,6 +170,7 @@
     on:mousedown={onMousedownRaw}
     class:selected={wrapper.uiData.selected}
     bind:this={node}
+    on:dblclick|stopPropagation
 >
     <div class="node-title">
         {wrapper.uiData.title && wrapper.uiData.title.length > 0

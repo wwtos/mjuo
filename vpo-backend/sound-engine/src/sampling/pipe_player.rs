@@ -24,6 +24,8 @@ enum QueuedAction {
     None,
 }
 
+use web_sys::console;
+
 const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
@@ -52,24 +54,26 @@ pub struct PipePlayer {
 }
 
 impl PipePlayer {
-    pub fn new(sample: &Pipe) -> PipePlayer {
-        let buffer_rate = sample.buffer.sample_rate;
-        let sample_length = sample.buffer.audio_raw.len();
-        let audio = &sample.buffer.audio_raw;
+    pub fn new(pipe: &Pipe) -> PipePlayer {
+        console::log_1(&format!("Pipe: {:?}", pipe).into());
 
-        let freq = (440.0 / 32.0) * 2_f32.powf((sample.note - 9) as f32 / 12.0 + (sample.cents as f32 / 1200.0));
+        let buffer_rate = pipe.buffer.sample_rate;
+        let sample_length = pipe.buffer.audio_raw.len();
+        let audio = &pipe.buffer.audio_raw;
+
+        let freq = (440.0 / 32.0) * 2_f32.powf((pipe.note - 9) as f32 / 12.0 + (pipe.cents as f32 / 1200.0));
         let amplitude_calc_window = (buffer_rate as f32 / freq) as usize * 2;
 
         let phase_calculator = PhaseCalculator::new(freq, buffer_rate);
 
-        let release_phase = phase_calculator
-            .calc_phase(&audio[sample.release_index..(sample.release_index + phase_calculator.window())]);
+        let release_phase =
+            phase_calculator.calc_phase(&audio[pipe.release_index..(pipe.release_index + phase_calculator.window())]);
 
         // Find different amplitudes in attack section. This allows quickly jumping to a needed
         // amplitude in the attack section (used for reattacking, amplitude is matched with the current
         // audio amplitude in the release phase)
         let mut envelope_points = [0; ENVELOPE_POINTS];
-        let peak_amp = amp32(&audio[sample.decay_index..(sample.decay_index + amplitude_calc_window)]);
+        let peak_amp = amp32(&audio[pipe.decay_index..(pipe.decay_index + amplitude_calc_window)]);
 
         for target_amp_index in 0..ENVELOPE_POINTS {
             let target_amp = target_amp_index as f32 / ENVELOPE_POINTS as f32 * peak_amp;
@@ -77,7 +81,7 @@ impl PipePlayer {
             let mut closest_index = 0;
             let mut closest_score = f32::INFINITY;
 
-            for i in (0..sample.decay_index).step_by(5) {
+            for i in (0..pipe.decay_index).step_by(5) {
                 let amp = amp32(&audio[i..(i + amplitude_calc_window)]);
 
                 let amp_diff = (amp - target_amp).abs();
@@ -119,6 +123,7 @@ impl PipePlayer {
         }
 
         match self.state {
+            // Since we were just releasing, this is a case of reattacking
             State::Releasing => {
                 let audio = &sample.buffer.audio_raw;
 

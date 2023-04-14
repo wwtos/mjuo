@@ -1099,6 +1099,7 @@ dependencies = [
  "smartstring",
  "snafu",
  "sound-engine",
+ "wasm-bindgen",
  "web-sys",
 ]
 
@@ -1729,6 +1730,7 @@ dependencies = [
  "simple-error",
  "snafu",
  "toml",
+ "web-sys",
 ]
 
 [[package]]

@@ -24,7 +24,7 @@ pub fn decode_audio(source: Box<dyn MediaSource>, hint: Hint) -> Result<(Vec<f32
         .context(SymphoniaSnafu)?;
 
     let mut format = probed.format;
-    let track_def = format.default_track().unwrap();
+    let track_def = format.default_track().expect("No default track when parsing audio");
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track_def.codec_params, &decoder_opts)
@@ -85,7 +85,7 @@ pub fn mix_to_mono(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
     let mut result: Vec<f32> = Vec::with_capacity(duration);
 
     // mix to mono
-    for i in (0..duration).step_by(channel_count) {
+    for i in (0..audio.len()).step_by(channel_count) {
         let mut sum = 0.0;
 
         for j in 0..channel_count {

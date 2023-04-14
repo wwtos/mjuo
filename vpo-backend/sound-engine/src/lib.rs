@@ -32,7 +32,11 @@ pub struct MonoSample {
 
 impl Debug for MonoSample {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[Mono audio sample]")
+        write!(
+            f,
+            "[Mono audio sample, {:.2}s]",
+            self.audio_raw.len() as f32 / self.sample_rate as f32
+        )
     }
 }
 

@@ -134,8 +134,12 @@ impl<A> ResourceManager<A> {
         self.resource_mapping.keys().cloned().collect()
     }
 
-    pub fn add_resource(&mut self, resource: A) -> ResourceIndex {
-        ResourceIndex(self.resources.add(resource))
+    pub fn add_resource(&mut self, key: String, resource: A) -> ResourceIndex {
+        let index = ResourceIndex(self.resources.add(resource));
+
+        self.resource_mapping.insert(key, index);
+
+        index
     }
 
     pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {

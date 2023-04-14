@@ -10,6 +10,8 @@
     import { constructEngine } from "./engine";
     import { onMount } from "svelte";
 
+    import { fetchSharedBuffer } from "$lib/util/fetch-shared-buffer";
+
     export let data: PageData;
 
     const bundle = new FluentBundle("en");
@@ -20,6 +22,10 @@
     constructEngine(context).then((engine) => {
         data.socket.setEngine(engine);
     });
+
+    function getOrgan(organ: string) {
+        return fetch(`/${organ}/resources.json`).then((data) => data.json());
+    }
 
     function onWindowKeydown(event: KeyboardEvent) {
         if (event.ctrlKey) {
@@ -64,11 +70,42 @@
         });
     }
 
-    onMount(() => {
+    function encodeResourceName(name: string) {
+        return name.split("/").map(encodeURIComponent).join("/");
+    }
+
+    onMount(async () => {
         data.windowDimensions.set({
             width: window.innerWidth - 1,
             height: window.innerHeight - 3,
         });
+
+        const resources = await getOrgan("organ");
+
+        for (let resourcePath of resources) {
+            if (Array.isArray(resourcePath)) {
+                Promise.all(
+                    resourcePath.map((subresource) =>
+                        fetchSharedBuffer(
+                            `/organ/${encodeResourceName(subresource)}`
+                        )
+                    )
+                ).then(([resource, associatedResource]) => {
+                    const toSend = {
+                        type: "resource",
+                        resource,
+                        associatedResource,
+                        path: resourcePath[0],
+                    };
+
+                    data.socket.sendRaw(toSend);
+                });
+            } else {
+                fetch(`/organ/${resourcePath}`)
+                    .then((data) => data.arrayBuffer())
+                    .then((buffer) => new Uint8Array(buffer));
+            }
+        }
     });
 
     registerSocketEvents();

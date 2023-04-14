@@ -26,7 +26,7 @@ impl NodeRuntime for PipePlayerNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
-        if let Some(Some(resource)) = state.props.get("sample").map(|sample| sample.clone().as_resource()) {
+        if let Some(Some(resource)) = state.props.get("pipe").map(|pipe| pipe.clone().as_resource()) {
             let new_index = state
                 .global_state
                 .resources
@@ -41,10 +41,10 @@ impl NodeRuntime for PipePlayerNode {
         }
 
         if self.player.is_none() || did_index_change {
-            let sample = state.global_state.resources.pipes.borrow_resource(self.index.unwrap());
+            let pipe = state.global_state.resources.pipes.borrow_resource(self.index.unwrap());
 
-            if let Some(sample) = sample {
-                self.player = Some(PipePlayer::new(&sample));
+            if let Some(pipe) = pipe {
+                self.player = Some(PipePlayer::new(&pipe));
             }
         }
 
@@ -57,25 +57,20 @@ impl NodeRuntime for PipePlayerNode {
         _streams_in: &[f32],
         streams_out: &mut [f32],
     ) -> Result<NodeOk<()>, NodeError> {
-        if let Some(player) = &mut self.player {
-            let sample = state
-                .global_state
-                .resources
-                .pipes
-                .borrow_resource(self.index.unwrap())
-                .unwrap();
+        if let (Some(player), Some(index)) = (&mut self.player, &self.index) {
+            let pipe = state.global_state.resources.pipes.borrow_resource(*index).unwrap();
 
             if self.played {
-                player.play(sample);
+                player.play(pipe);
                 self.played = false;
             }
 
             if self.released {
-                player.release(sample);
+                player.release(pipe);
                 self.released = false;
             }
 
-            streams_out[0] = player.next_sample(&sample);
+            streams_out[0] = player.next_sample(&pipe);
         }
 
         NodeOk::no_warnings(())
@@ -98,10 +93,10 @@ impl Node for PipePlayerNode {
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
-                "sample".into(),
-                PropertyType::Resource("samples".into()),
+                "pipe".into(),
+                PropertyType::Resource("pipes".into()),
                 Property::Resource(ResourceId {
-                    namespace: "samples".into(),
+                    namespace: "pipes".into(),
                     resource: "".into(),
                 }),
             ),
