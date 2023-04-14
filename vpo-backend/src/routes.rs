@@ -1,9 +1,10 @@
 pub mod graph;
 
-use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{errors::NodeError, global_state::GlobalState, graph_manager::GraphIndex, state::NodeEngineState};
 use serde_json::Value;
+
+use crate::Sender;
 #[derive(Default)]
 pub struct RouteReturn {
     pub graph_to_reindex: Option<GraphIndex>,
@@ -32,7 +33,9 @@ pub fn route(
                 "graph/disconnectNode" => graph::disconnect_node::route(json, to_server, state, global_state),
                 "graph/undo" => graph::undo::route(json, to_server, state, global_state),
                 "graph/redo" => graph::redo::route(json, to_server, state, global_state),
+                #[cfg(any(unix, windows))]
                 "io/save" => graph::save::route(json, to_server, state, global_state),
+                #[cfg(any(unix, windows))]
                 "io/load" => graph::load::route(json, to_server, state, global_state),
                 _ => Ok(None),
             };

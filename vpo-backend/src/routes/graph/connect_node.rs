@@ -1,4 +1,3 @@
-use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     connection::Connection,
@@ -11,7 +10,7 @@ use node_engine::{
 use serde_json::Value;
 use snafu::ResultExt;
 
-use crate::{routes::RouteReturn, util::send_graph_updates};
+use crate::{routes::RouteReturn, util::send_graph_updates, Sender};
 
 pub fn route(
     mut msg: Value,
@@ -35,8 +34,8 @@ pub fn route(
                 node_index: connection.to_node,
             },
             data: NodeConnection {
-                from_socket_type: connection.data.from_socket_type,
-                to_socket_type: connection.data.to_socket_type,
+                from_socket: connection.data.from_socket,
+                to_socket: connection.data.to_socket,
             },
         }]),
         global_state,

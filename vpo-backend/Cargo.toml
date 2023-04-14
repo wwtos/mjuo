@@ -6,30 +6,48 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-std = "1.10.0"
-hyper = "0.14.18"
+console_error_panic_hook = {version = "0.1.6", optional = true}
+futures = "0.3.27"
 ipc = {path = "./ipc"}
 lazy_static = "1.4.0"
-midir = "0.8"
 node-engine = {path = "./node-engine"}
+once_cell = "1.17.1"
+regex = "1.7"
 resource-manager = {path = "./resource-manager"}
-rhai = {version = "1.7.0", features = ["f32_float", "only_i32"]}
-routerify = "3.0.0"
+rhai = {version = "1.7.0", default-features = false, features = ["f32_float", "only_i32", "std"]}
 semver = "1.0.14"
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"
 smallvec = {version = "1.10", features = ["serde"]}
 snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
-strum = "0.24.0"
-strum_macros = "0.24"
+symphonia = "0.5.2"
+toml = "0.5"
 walkdir = "2"
 
-[target.x86_64-unknown-linux-gnu]
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=lld",
-]
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[target.'cfg(target_arch="wasm32")'.dependencies]
+js-sys = "0.3.61"
+wasm-bindgen = "0.2.63"
+web-sys = {version = "0.3.61", features = ["console"]}
+
+[package.metadata.wasm-pack.profile.dev.wasm-bindgen]
+debug-js-glue = true
+demangle-name-section = true
+dwarf-debug-info = true
+
+[target.'cfg(unix)'.dependencies]
+alsa = {version = "0.6.0"}
+psimple = {package = "libpulse-simple-binding", version = "2.24.1"}
+pulse = {package = "libpulse-binding", version = "2.25.0"}
+
+[target.'cfg(any(unix,windows))'.dependencies]
+async-std = "1.10.0"
+cpal = "0.14.0"
+midir = "0.8"
+ringbuf = "0.2.8"
 
 [profile.dev]
 opt-level = 1
@@ -39,11 +57,7 @@ overflow-checks = true
 codegen-units = 256
 opt-level = 3
 
-[profile.release-x86_64-pc-windows-gnu]
-inherits = "release"
-opt-level = 3
-
-[profile.release-x86_64-unknown-linux-gnu]
+[profile.linux]
 inherits = "release"
 opt-level = 3
 

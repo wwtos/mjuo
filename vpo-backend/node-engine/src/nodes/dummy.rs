@@ -1,13 +1,12 @@
-use crate::{
-    errors::{NodeError, NodeOk},
-    node::{InitResult, Node, NodeInitState},
-};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct DummyNode {}
 
+impl NodeRuntime for DummyNode {}
+
 impl Node for DummyNode {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![])
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![])
     }
 }

@@ -1,10 +1,9 @@
+use std::collections::HashMap;
+
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
 use sound_engine::SoundConfig;
 
-use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct BiquadFilterNode {
@@ -19,8 +18,8 @@ impl BiquadFilterNode {
     }
 }
 
-impl Node for BiquadFilterNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for BiquadFilterNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         self.filter.reset();
 
         if let Some(Property::MultipleChoice(filter_type)) = state.props.get("filter_type") {
@@ -36,23 +35,7 @@ impl Node for BiquadFilterNode {
             self.filter.set_filter_type(BiquadFilterType::Lowpass);
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "filter_type".to_string(),
-                PropertyType::MultipleChoice(vec![
-                    "lowpass".to_string(),
-                    "highpass".to_string(),
-                    "bandpass".to_string(),
-                    "notch".to_string(),
-                    "allpass".to_string(),
-                ]),
-                Property::MultipleChoice("lowpass".to_string()),
-            ),
-            NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(20000.0), false),
-            NodeRow::ValueInput(ValueSocketType::Resonance, Primitive::Float(0.707), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
+        InitResult::nothing()
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
@@ -76,5 +59,30 @@ impl Node for BiquadFilterNode {
         streams_out[0] = self.filter.filter_audio(streams_in[0]);
 
         NodeOk::no_warnings(())
+    }
+}
+
+impl Node for BiquadFilterNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo {
+            node_rows: vec![
+                NodeRow::Property(
+                    "filter_type".to_string(),
+                    PropertyType::MultipleChoice(vec![
+                        "lowpass".to_string(),
+                        "highpass".to_string(),
+                        "bandpass".to_string(),
+                        "notch".to_string(),
+                        "allpass".to_string(),
+                    ]),
+                    Property::MultipleChoice("lowpass".to_string()),
+                ),
+                stream_input(register("audio"), 0.0),
+                value_input(register("frequency"), Primitive::Float(20000.0)),
+                value_input(register("resonance"), Primitive::Float(0.707)),
+                stream_output(register("audio"), 0.0),
+            ],
+            child_graph_io: None,
+        }
     }
 }

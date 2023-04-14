@@ -1,24 +1,21 @@
 use ddgg::GraphError;
 use lazy_static::lazy_static;
-use rhai::Engine;
 use smallvec::SmallVec;
-use sound_engine::SoundConfig;
 
-use crate::connection::{MidiSocketType, Primitive, SocketType, StreamSocketType, ValueSocketType};
+use crate::connection::{Primitive, Socket, SocketType};
 use crate::errors::NodeError;
-use crate::global_state::GlobalState;
-use crate::node::NodeRow;
+use crate::node::{midi_input, stream_input, stream_output, value_output, NodeRow};
 use crate::node_graph::NodeGraph;
 use crate::socket_registry::SocketRegistry;
 
 lazy_static! {
     pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
         vec![
-            NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
-            NodeRow::StreamInput(StreamSocketType::Detune, 0.0, false),
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-            NodeRow::ValueOutput(ValueSocketType::Gain, Primitive::Float(0.0), false),
+            stream_input(0, 0.0),
+            stream_input(1, 0.0),
+            midi_input(2, SmallVec::new()),
+            stream_output(0, 0.0),
+            value_output(3, Primitive::Float(0.0)),
         ]
     };
 }
@@ -27,11 +24,9 @@ lazy_static! {
 fn graph_node_crud() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add a new node
-    let (first_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (first_node_index, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
 
     // check that the node exists
     assert!(graph.get_node(first_node_index).is_ok());
@@ -51,7 +46,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(first_node_index).is_err());
 
     // now add a second node
-    let (second_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (second_node_index, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
 
     // as it took the place of the first one, let's make sure we can't try to
     // retrieve the old one and get the new one
@@ -72,7 +67,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(second_node_index).is_ok());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    graph.add_node("TestNode".into(), &mut registry).unwrap().value;
 
     assert_eq!(graph.len(), 2);
 
@@ -83,20 +78,18 @@ fn graph_node_crud() {
 fn graph_connecting() {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new(SoundConfig::default());
 
     // add two new nodes
-    let (first_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
-    let (second_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
-    let (third_node_index, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (first_node_index, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
+    let (second_node_index, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
+    let (third_node_index, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
     let from_node = graph.get_node(first_node_index).unwrap();
 
     assert_eq!(
-        from_node.has_output_socket(SocketType::Midi(MidiSocketType::Default)),
+        from_node.has_output_socket(Socket::Simple(2, SocketType::Midi, 1)),
         false
     );
 
@@ -106,16 +99,16 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
+                    Socket::Simple(2, SocketType::Midi, 1),
                     second_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
+                    Socket::Simple(2, SocketType::Midi, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::SocketDoesNotExist {
-                socket_type: SocketType::Midi(MidiSocketType::Default)
+                socket: Socket::Simple(2, SocketType::Midi, 1),
             }
         )
     );
@@ -124,7 +117,7 @@ fn graph_connecting() {
     let to_node = graph.get_node(first_node_index).unwrap();
 
     assert_eq!(
-        to_node.has_input_socket(SocketType::Stream(StreamSocketType::Dynamic(2))),
+        to_node.has_input_socket(Socket::Simple(99, SocketType::Stream, 1)),
         false
     );
 
@@ -134,16 +127,16 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    Socket::Simple(0, SocketType::Stream, 1),
                     second_node_index,
-                    SocketType::Stream(StreamSocketType::Dynamic(2)),
+                    Socket::Simple(99, SocketType::Stream, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::SocketDoesNotExist {
-                socket_type: SocketType::Stream(StreamSocketType::Dynamic(2))
+                socket: Socket::Simple(99, SocketType::Stream, 1)
             }
         )
     );
@@ -155,17 +148,17 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    Socket::Simple(0, SocketType::Stream, 1),
                     second_node_index,
-                    SocketType::Midi(MidiSocketType::Default),
+                    Socket::Simple(2, SocketType::Midi, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::IncompatibleSocketTypes {
-                from: SocketType::Stream(StreamSocketType::Audio),
-                to: SocketType::Midi(MidiSocketType::Default)
+                from: SocketType::Stream,
+                to: SocketType::Midi
             }
         )
     );
@@ -175,9 +168,9 @@ fn graph_connecting() {
         graph
             .connect(
                 first_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
+                Socket::Simple(0, SocketType::Stream, 1),
                 second_node_index,
-                SocketType::Stream(StreamSocketType::Audio),
+                Socket::Simple(0, SocketType::Stream, 1),
             )
             .is_ok(),
         true
@@ -190,17 +183,17 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    Socket::Simple(0, SocketType::Stream, 1),
                     second_node_index,
-                    SocketType::Stream(StreamSocketType::Audio),
+                    Socket::Simple(0, SocketType::Stream, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::AlreadyConnected {
-                from: SocketType::Stream(StreamSocketType::Audio),
-                to: SocketType::Stream(StreamSocketType::Audio)
+                from: Socket::Simple(0, SocketType::Stream, 1),
+                to: Socket::Simple(0, SocketType::Stream, 1)
             }
         )
     );
@@ -209,9 +202,9 @@ fn graph_connecting() {
     graph
         .connect(
             third_node_index,
-            SocketType::Stream(StreamSocketType::Audio),
+            Socket::Simple(0, SocketType::Stream, 1),
             second_node_index,
-            SocketType::Stream(StreamSocketType::Audio),
+            Socket::Simple(0, SocketType::Stream, 1),
         )
         .unwrap_err();
 
@@ -219,9 +212,9 @@ fn graph_connecting() {
     graph
         .connect(
             third_node_index,
-            SocketType::Stream(StreamSocketType::Audio),
+            Socket::Simple(0, SocketType::Stream, 1),
             second_node_index,
-            SocketType::Stream(StreamSocketType::Detune),
+            Socket::Simple(1, SocketType::Stream, 1),
         )
         .unwrap();
 }
@@ -232,18 +225,16 @@ fn graph_connecting() {
 fn hanging_connections() -> Result<(), NodeError> {
     let mut graph = NodeGraph::new();
     let mut registry = SocketRegistry::new();
-    let scripting_engine = Engine::new();
-    let global_state = &GlobalState::new(SoundConfig::default());
 
     // set up a simple network
-    let (first_node, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
-    let (second_node, _) = graph.add_node("TestNode".into(), TEST_NODE_ROWS.clone()).unwrap().value;
+    let (first_node, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
+    let (second_node, _) = graph.add_node("TestNode".into(), &mut registry).unwrap().value;
 
     graph.connect(
         first_node,
-        SocketType::Stream(StreamSocketType::Audio),
+        Socket::Simple(0, SocketType::Stream, 1),
         second_node,
-        SocketType::Stream(StreamSocketType::Audio),
+        Socket::Simple(0, SocketType::Stream, 1),
     )?;
 
     assert_eq!(graph.get_output_side_connections(first_node)?.len(), 1); // it should be connected here

@@ -3,12 +3,7 @@ use sound_engine::{
     SoundConfig,
 };
 
-use crate::{
-    connection::{Primitive, ValueSocketType},
-    errors::{NodeError, NodeOk, NodeResult},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct PortamentoNode {
@@ -31,8 +26,8 @@ impl PortamentoNode {
     }
 }
 
-impl Node for PortamentoNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for PortamentoNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(ramp_type) = state.props.get("ramp_type") {
             let ramp_type = ramp_type.clone().as_multiple_choice().unwrap();
 
@@ -43,17 +38,7 @@ impl Node for PortamentoNode {
             };
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "ramp_type".into(),
-                PropertyType::MultipleChoice(vec!["exponential".into(), "linear".into()]),
-                Property::MultipleChoice("exponential".into()),
-            ),
-            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false), false),
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
-            NodeRow::ValueInput(ValueSocketType::Speed, Primitive::Float(0.2), false),
-            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(&mut self, _state: NodeProcessState, _streams_in: &[f32], _streams_out: &mut [f32]) -> NodeResult<()> {
@@ -107,5 +92,21 @@ impl Node for PortamentoNode {
 
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
         values_out[0] = self.value_out.clone();
+    }
+}
+
+impl Node for PortamentoNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            NodeRow::Property(
+                "ramp_type".into(),
+                PropertyType::MultipleChoice(vec!["exponential".into(), "linear".into()]),
+                Property::MultipleChoice("exponential".into()),
+            ),
+            value_input(register("gate"), Primitive::Boolean(false)),
+            value_input(register("frequency"), Primitive::Float(440.0)),
+            value_input(register("speed"), Primitive::Float(0.2)),
+            value_output(register("frequency"), Primitive::Float(440.0)),
+        ])
     }
 }

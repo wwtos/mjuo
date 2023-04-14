@@ -40,8 +40,8 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
             from_node: graph[edge.source()],
             to_node: graph[edge.target()],
             data: NodeConnection {
-                from_socket_type: weight.from_socket_type,
-                to_socket_type: weight.to_socket_type,
+                from_socket: weight.from_socket.clone(),
+                to_socket: weight.to_socket.clone(),
             },
         });
 

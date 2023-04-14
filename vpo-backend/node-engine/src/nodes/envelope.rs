@@ -1,9 +1,8 @@
 use sound_engine::node::envelope::Envelope;
 use sound_engine::SoundConfig;
 
-use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
+use crate::nodes::prelude::*;
+
 #[derive(Debug, Clone)]
 pub struct EnvelopeNode {
     envelope: Envelope,
@@ -19,16 +18,9 @@ impl EnvelopeNode {
     }
 }
 
-impl Node for EnvelopeNode {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::Gate, Primitive::Boolean(false), false),
-            NodeRow::StreamOutput(StreamSocketType::Gain, 0.0, false),
-            NodeRow::ValueInput(ValueSocketType::Attack, Primitive::Float(0.01), false),
-            NodeRow::ValueInput(ValueSocketType::Decay, Primitive::Float(0.3), false),
-            NodeRow::ValueInput(ValueSocketType::Sustain, Primitive::Float(0.8), false),
-            NodeRow::ValueInput(ValueSocketType::Release, Primitive::Float(0.5), false),
-        ])
+impl NodeRuntime for EnvelopeNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        InitResult::nothing()
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
@@ -64,5 +56,18 @@ impl Node for EnvelopeNode {
         streams_out[0] = self.envelope.process(self.gate);
 
         NodeOk::no_warnings(())
+    }
+}
+
+impl Node for EnvelopeNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            value_input(register("gate"), Primitive::Boolean(false)),
+            stream_output(register("gain"), 0.0),
+            value_input(register("attack"), Primitive::Float(0.01)),
+            value_input(register("decay"), Primitive::Float(0.3)),
+            value_input(register("sustain"), Primitive::Float(0.8)),
+            value_input(register("release"), Primitive::Float(0.5)),
+        ])
     }
 }

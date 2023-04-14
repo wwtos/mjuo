@@ -21,6 +21,7 @@ enum RawMessage {
 
 pub struct IPCServer {}
 
+#[cfg(any(windows, unix))]
 impl IPCServer {
     pub fn open(_to_server: Sender<IPCMessage>, from_main: Receiver<IPCMessage>, to_main: Sender<IPCMessage>) {
         block_on(async {

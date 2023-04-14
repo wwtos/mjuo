@@ -2,7 +2,6 @@ use std::fmt::Debug;
 
 use serde::Serialize;
 
-pub mod backend;
 pub mod error;
 pub mod midi;
 pub mod node;
@@ -33,7 +32,11 @@ pub struct MonoSample {
 
 impl Debug for MonoSample {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[Mono audio sample]")
+        write!(
+            f,
+            "[Mono audio sample, {:.2}s]",
+            self.audio_raw.len() as f32 / self.sample_rate as f32
+        )
     }
 }
 
@@ -59,6 +62,4 @@ pub mod constants {
     #[allow(clippy::excessive_precision)]
     pub const PI: f32 = 3.14159265358979323846264338327950288f32;
     pub const TWO_PI: f32 = PI * 2.0;
-    pub const BUFFER_SIZE: usize = 256;
-    pub const SAMPLE_RATE: u32 = 48_000;
 }

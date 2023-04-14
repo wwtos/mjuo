@@ -1,4 +1,3 @@
-use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserSnafu, NodeError},
@@ -14,6 +13,7 @@ use snafu::ResultExt;
 use crate::{
     routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
+    Sender,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -45,8 +45,8 @@ pub fn route(
         }
     }
 
-    send_graph_updates(state, payload.graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;
+    send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(None)
 }

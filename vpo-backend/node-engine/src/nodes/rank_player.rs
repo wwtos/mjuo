@@ -2,19 +2,14 @@ use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
 use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
 
-use crate::{
-    connection::{MidiBundle, MidiSocketType, StreamSocketType},
-    errors::{NodeError, NodeOk, NodeResult},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 const BUFFER_SIZE: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct RankPlayerNode {
     player: Option<RankPlayer>,
-    index: ResourceIndex,
+    index: Option<ResourceIndex>,
     polyphony: usize,
     midi_in: MidiBundle,
     buffer: [f32; BUFFER_SIZE],
@@ -25,10 +20,7 @@ impl Default for RankPlayerNode {
     fn default() -> Self {
         RankPlayerNode {
             player: None,
-            index: ResourceIndex {
-                index: 0,
-                generation: 0,
-            },
+            index: None,
             polyphony: 16,
             midi_in: SmallVec::new(),
             buffer: [0.0; BUFFER_SIZE],
@@ -37,8 +29,8 @@ impl Default for RankPlayerNode {
     }
 }
 
-impl Node for RankPlayerNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for RankPlayerNode {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
 
         if let Some(polyphony) = state
@@ -55,7 +47,7 @@ impl Node for RankPlayerNode {
             self.polyphony = polyphony as usize;
         }
 
-        if let Some(Some(resource)) = state.props.get("rank").map(|rank| rank.clone().as_resource()) {
+        if let Some(resource) = state.props.get("rank").and_then(|rank| rank.clone().as_resource()) {
             let new_index = state
                 .global_state
                 .resources
@@ -63,39 +55,27 @@ impl Node for RankPlayerNode {
                 .get_index(&resource.resource)
                 .ok_or(NodeError::MissingResource { resource })?;
 
-            did_settings_change |= new_index != self.index;
-            self.index = new_index;
+            did_settings_change |= Some(new_index) != self.index;
+            self.index = Some(new_index);
         } else {
             did_settings_change = false;
         }
 
         if self.player.is_none() || did_settings_change {
-            let rank = state.global_state.resources.ranks.borrow_resource(self.index);
+            let rank = state.global_state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(&state.global_state.resources.samples, &rank, self.polyphony);
+                let player = RankPlayer::new(&state.global_state.resources.pipes, &rank, self.polyphony);
                 self.player = Some(player);
             }
         }
 
-        InitResult::simple(vec![
-            NodeRow::Property(
-                "rank".into(),
-                PropertyType::Resource("ranks".into()),
-                Property::Resource(ResourceId {
-                    namespace: "ranks".into(),
-                    resource: "".into(),
-                }),
-            ),
-            NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.player {
-            let samples = &state.global_state.resources.samples;
+            let samples = &state.global_state.resources.pipes;
 
             if !self.midi_in.is_empty() {
                 for midi in &self.midi_in {
@@ -137,5 +117,23 @@ impl Node for RankPlayerNode {
         let value = midi_in[0].clone().unwrap();
 
         self.midi_in = value;
+    }
+}
+
+impl Node for RankPlayerNode {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            NodeRow::Property(
+                "rank".into(),
+                PropertyType::Resource("ranks".into()),
+                Property::Resource(ResourceId {
+                    namespace: "ranks".into(),
+                    resource: "".into(),
+                }),
+            ),
+            NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
+            midi_input(register("midi"), SmallVec::new()),
+            stream_output(register("audio"), 0.0),
+        ])
     }
 }

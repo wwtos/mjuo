@@ -1,15 +1,17 @@
-use std::mem;
+use std::collections::HashMap;
 
 use arr_macro::arr;
 use ddgg::Edge;
 use rhai::Engine;
+use web_sys::console;
 
 use crate::{
     connection::{MidiBundle, Primitive, SocketType},
     errors::{ErrorsAndWarnings, NodeError, WarningBuilder},
     global_state::GlobalState,
-    node::{Node, NodeIndex, NodeInitState, NodeProcessState, NodeRow},
-    node_graph::{NodeConnection, NodeGraph},
+    graph_manager::{GraphIndex, GraphManager},
+    node::{NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
+    node_graph::NodeConnection,
     nodes::variants::{new_variant, NodeVariant},
 };
 
@@ -22,28 +24,30 @@ struct NodeState {
     stream_index: usize,
     midi_index: usize,
     value_index: usize,
-    defaults_in: Vec<NodeRow>,
     linked_to_ui: bool,
-    stream_inputs: usize,
-    stream_outputs: usize,
+    stream_input_count: usize,
+    stream_output_count: usize,
     stream_output_mappings: usize,
-    midi_inputs: usize,
-    midi_outputs: usize,
+    midi_input_count: usize,
+    midi_output_count: usize,
     midi_output_mappings: usize,
-    value_inputs: usize,
-    value_outputs: usize,
+    value_input_count: usize,
+    value_output_count: usize,
     value_output_mappings: usize,
 }
 
 #[derive(Debug, Clone)]
 pub struct Traverser {
     nodes: Vec<NodeState>,
-    streams: Vec<f32>,
+    stream_inputs: Vec<f32>,
     stream_output_mappings: Vec<(usize, usize)>,
-    midi: Vec<Option<MidiBundle>>,
+    midi_inputs: Vec<Option<MidiBundle>>,
     midi_output_mappings: Vec<(usize, usize)>,
-    values: Vec<Option<Primitive>>,
+    value_inputs: Vec<Option<Primitive>>,
     value_output_mappings: Vec<(usize, usize)>,
+    midi_default_indexes: Vec<usize>,
+    value_default_indexes: Vec<usize>,
+    reset_needed: bool,
 }
 
 impl Default for Traverser {
@@ -56,64 +60,121 @@ impl Traverser {
     pub fn new() -> Self {
         Traverser {
             nodes: vec![],
-            streams: vec![],
+            stream_inputs: vec![],
             stream_output_mappings: vec![],
-            midi: vec![],
+            midi_inputs: vec![],
             midi_output_mappings: vec![],
-            values: vec![],
+            value_inputs: vec![],
             value_output_mappings: vec![],
+            midi_default_indexes: vec![],
+            value_default_indexes: vec![],
+            reset_needed: true,
         }
     }
 
-    pub fn get_traverser(graph: &mut NodeGraph, init_state: NodeInitState) -> Result<Traverser, NodeError> {
+    pub fn get_traverser(
+        graph_index: GraphIndex,
+        graph_manager: &GraphManager,
+        script_engine: &Engine,
+        global_state: &GlobalState,
+        current_time: i64,
+    ) -> Result<Traverser, NodeError> {
         let mut traverser = Traverser::new();
 
-        traverser.init_graph(graph, init_state).map(|()| traverser)
+        traverser
+            .init_graph(graph_index, graph_manager, script_engine, global_state, current_time)
+            .map(|()| traverser)
     }
 
-    pub fn init_graph(&mut self, graph: &mut NodeGraph, init_state: NodeInitState) -> Result<(), NodeError> {
-        let traversal_order = calculate_graph_traverse_order(graph);
+    pub fn init_graph(
+        &mut self,
+        graph_index: GraphIndex,
+        graph_manager: &GraphManager,
+        script_engine: &Engine,
+        global_state: &GlobalState,
+        current_time: i64,
+    ) -> Result<(), NodeError> {
+        let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
+        let traversal_order = calculate_graph_traverse_order(&graph);
+
+        let mut old_nodes = self.nodes.drain(0..).fold(HashMap::new(), |mut map, node| {
+            map.insert(node.node_index, node.node);
+
+            map
+        });
 
         self.nodes.clear();
-        self.streams.clear();
+        self.stream_inputs.clear();
         self.stream_output_mappings.clear();
-        self.midi.clear();
+        self.midi_inputs.clear();
         self.midi_output_mappings.clear();
-        self.values.clear();
+        self.value_inputs.clear();
         self.value_output_mappings.clear();
+        self.midi_default_indexes.clear();
+        self.value_default_indexes.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: WarningBuilder = WarningBuilder::new();
 
-        let NodeInitState {
-            props,
-            registry,
-            script_engine,
-            global_state,
-        } = init_state;
-
         for index in &traversal_order {
             // create and init the node
-            let node_wrapper = graph.get_node_mut(*index)?;
+            let node_wrapper = graph.get_node(*index)?;
 
-            let mut variant = new_variant(&node_wrapper.get_node_type(), &init_state.global_state.sound_config)?;
-            let init_result_res = variant.init(NodeInitState {
-                props,
-                registry,
-                script_engine,
-                global_state,
-            });
+            let mut variant = if let Some(previous_node) = old_nodes.remove(&index) {
+                previous_node
+            } else {
+                new_variant(&node_wrapper.get_node_type(), &global_state.sound_config)?
+            };
+
+            // extract the graph and child io indexes, if any
+            let child_graph_info = node_wrapper
+                .get_child_graph_info()
+                .map(|(graph_index, child_io_indexes)| NodeGraphAndIo {
+                    graph: graph_index,
+                    input_index: child_io_indexes.0,
+                    output_index: child_io_indexes.1,
+                });
+
+            let init_result_res = variant.init(
+                NodeInitState {
+                    props: node_wrapper.get_properties(),
+                    script_engine,
+                    global_state,
+                    current_time,
+                    graph_manager,
+                },
+                child_graph_info,
+            );
 
             let init_result = match init_result_res {
                 Ok(init_result) => init_result,
                 Err(err) => {
                     errors.push((*index, err));
+
+                    // make sure the node is still in the array
+                    self.nodes.push(NodeState {
+                        node: variant,
+                        node_index: *index,
+                        stream_index: 0,
+                        midi_index: 0,
+                        value_index: 0,
+                        linked_to_ui: false,
+                        stream_input_count: 0,
+                        stream_output_count: 0,
+                        stream_output_mappings: 0,
+                        midi_input_count: 0,
+                        midi_output_count: 0,
+                        midi_output_mappings: 0,
+                        value_input_count: 0,
+                        value_output_count: 0,
+                        value_output_mappings: 0,
+                    });
+
                     continue;
                 }
             };
 
             warnings.append_warnings(init_result.warnings);
-            node_wrapper.set_node_rows(init_result.value.node_rows);
 
             // create a list of its default inputs and count the outputs
             let mut stream_input_defaults = vec![];
@@ -125,21 +186,23 @@ impl Traverser {
             let mut value_outputs = 0;
 
             for socket_type in node_wrapper.list_input_sockets() {
-                let default = node_wrapper.get_default(socket_type).unwrap();
+                let default_row = node_wrapper.get_default(socket_type).unwrap();
 
-                match default {
-                    NodeRow::StreamInput(_, default, _) => stream_input_defaults.push(default),
-                    NodeRow::MidiInput(_, default, _) => midi_input_defaults.push(default),
-                    NodeRow::ValueInput(_, default, _) => value_input_defaults.push(default),
-                    _ => {}
+                if let NodeRow::Input(socket, default) = default_row {
+                    match socket.socket_type() {
+                        SocketType::Stream => stream_input_defaults.push(default.as_stream().unwrap()),
+                        SocketType::Midi => midi_input_defaults.push(default.as_midi().unwrap()),
+                        SocketType::Value => value_input_defaults.push(default.as_value().unwrap()),
+                        _ => {}
+                    }
                 }
             }
 
-            for socket_type in node_wrapper.list_output_sockets() {
-                match socket_type {
-                    SocketType::Stream(_) => stream_outputs += 1,
-                    SocketType::Midi(_) => midi_outputs += 1,
-                    SocketType::Value(_) => value_outputs += 1,
+            for socket in node_wrapper.list_output_sockets() {
+                match socket.socket_type() {
+                    SocketType::Stream => stream_outputs += 1,
+                    SocketType::Midi => midi_outputs += 1,
+                    SocketType::Value => value_outputs += 1,
                     _ => {}
                 }
             }
@@ -147,28 +210,60 @@ impl Traverser {
             let linked_to_ui = variant.linked_to_ui();
 
             // next, add the node
-            self.nodes.push(NodeState {
+            let new_node = NodeState {
                 node: variant,
                 node_index: *index,
-                stream_index: self.streams.len(),
-                midi_index: self.midi.len(),
-                value_index: self.values.len(),
-                defaults_in: vec![],
+                stream_index: self.stream_inputs.len(),
+                midi_index: self.midi_inputs.len(),
+                value_index: self.value_inputs.len(),
                 linked_to_ui,
-                stream_inputs: stream_input_defaults.len(),
-                stream_outputs: stream_outputs,
+                stream_input_count: stream_input_defaults.len(),
+                stream_output_count: stream_outputs,
                 stream_output_mappings: 0,
-                midi_inputs: midi_input_defaults.len(),
-                midi_outputs: midi_outputs,
+                midi_input_count: midi_input_defaults.len(),
+                midi_output_count: midi_outputs,
                 midi_output_mappings: 0,
-                value_inputs: midi_input_defaults.len(),
-                value_outputs: value_outputs,
+                value_input_count: value_input_defaults.len(),
+                value_output_count: value_outputs,
                 value_output_mappings: 0,
-            });
+            };
 
-            self.streams.extend(stream_input_defaults);
-            self.midi.extend(midi_input_defaults.into_iter().map(|x| Some(x)));
-            self.values.extend(value_input_defaults.into_iter().map(|x| Some(x)));
+            self.nodes.push(new_node);
+
+            // note the indexes of the defaults that need to be reset (so they aren't inputted
+            // every time)
+            let inputs = node_wrapper.list_input_sockets();
+            let connected = graph.get_input_side_connections(*index)?;
+
+            let mut midi_index = 0;
+            let mut value_index = 0;
+
+            for input in inputs {
+                if !connected.iter().any(|connection| connection.to_socket == input) {
+                    match input.socket_type() {
+                        SocketType::Midi => {
+                            self.midi_default_indexes.push(self.midi_inputs.len() + midi_index);
+                        }
+                        SocketType::Value => {
+                            self.value_default_indexes.push(self.value_inputs.len() + value_index);
+                        }
+                        SocketType::NodeRef | SocketType::Stream => {}
+                    }
+                }
+
+                match input.socket_type() {
+                    SocketType::Midi => midi_index += 1,
+                    SocketType::Value => value_index += 1,
+                    SocketType::NodeRef | SocketType::Stream => {}
+                }
+            }
+
+            // populate the inputs with the defaults (which will be read every time)
+            self.stream_inputs.extend(stream_input_defaults);
+            self.midi_inputs
+                .extend(midi_input_defaults.into_iter().map(|x| Some(x)));
+            self.value_inputs
+                .extend(value_input_defaults.into_iter().map(|x| Some(x)));
         }
 
         // now that we know the indexes of all the nodes, we can populate the output mappings
@@ -183,8 +278,8 @@ impl Traverser {
             let midi_mapping_len = self.midi_output_mappings.len();
             let value_mapping_len = self.value_output_mappings.len();
 
-            for socket_type in node_wrapper.list_output_sockets() {
-                let connection_indexes = graph.get_output_connection_indexes(*index, socket_type);
+            for socket in node_wrapper.list_output_sockets() {
+                let connection_indexes = graph.get_output_connection_indexes(*index, socket);
 
                 if let Ok(indexes) = connection_indexes {
                     let connections: Vec<&Edge<NodeConnection>> = indexes
@@ -201,17 +296,17 @@ impl Traverser {
                         let mut other_value_index = 0;
 
                         for input in to.list_input_sockets() {
-                            if input == socket_type {
+                            if input == socket {
                                 let to_local_node = self.nodes.iter().find(|x| x.node_index == to_index).unwrap();
 
-                                match socket_type {
-                                    SocketType::Stream(_) => self
+                                match socket.socket_type() {
+                                    SocketType::Stream => self
                                         .stream_output_mappings
                                         .push((stream_index, to_local_node.stream_index + other_stream_index)),
-                                    SocketType::Midi(_) => self
+                                    SocketType::Midi => self
                                         .midi_output_mappings
                                         .push((midi_index, other_midi_index + to_local_node.midi_index)),
-                                    SocketType::Value(_) => self
+                                    SocketType::Value => self
                                         .value_output_mappings
                                         .push((value_index, other_value_index + to_local_node.value_index)),
                                     _ => {}
@@ -220,20 +315,20 @@ impl Traverser {
                                 break;
                             }
 
-                            match socket_type {
-                                SocketType::Stream(_) => other_stream_index += 1,
-                                SocketType::Midi(_) => other_midi_index += 1,
-                                SocketType::Value(_) => other_value_index += 1,
+                            match socket.socket_type() {
+                                SocketType::Stream => other_stream_index += 1,
+                                SocketType::Midi => other_midi_index += 1,
+                                SocketType::Value => other_value_index += 1,
                                 _ => {}
                             }
                         }
                     }
                 }
 
-                match socket_type {
-                    SocketType::Stream(_) => stream_index += 1,
-                    SocketType::Midi(_) => midi_index += 1,
-                    SocketType::Value(_) => value_index += 1,
+                match socket.socket_type() {
+                    SocketType::Stream => stream_index += 1,
+                    SocketType::Midi => midi_index += 1,
+                    SocketType::Value => value_index += 1,
                     _ => {}
                 }
             }
@@ -245,7 +340,11 @@ impl Traverser {
             local_node.value_output_mappings = self.value_output_mappings.len() - value_mapping_len;
         }
 
-        println!("{:#?}", self);
+        if !errors.is_empty() {
+            console::log_1(&format!("errors: {:#?}", errors).into());
+        }
+
+        self.reset_needed = true;
 
         Ok(())
     }
@@ -272,9 +371,13 @@ impl Traverser {
             let midi_input_index = node.midi_index;
             let value_input_index = node.value_index;
 
-            let midi_inputs = &self.midi[midi_input_index..(midi_input_index + node.midi_inputs)];
-            let value_inputs = &self.values[value_input_index..(value_input_index + node.value_inputs)];
+            // get input slices
+            let midi_inputs = &self.midi_inputs[midi_input_index..(midi_input_index + node.midi_input_count)];
+            let value_inputs = &self.value_inputs[value_input_index..(value_input_index + node.value_input_count)];
+            let stream_inputs =
+                &mut self.stream_inputs[stream_input_index..(stream_input_index + node.stream_input_count)];
 
+            // process the node
             if midi_inputs.iter().any(|midi_input| midi_input.is_some()) {
                 node.node.accept_midi_inputs(midi_inputs);
             }
@@ -283,8 +386,6 @@ impl Traverser {
                 node.node.accept_value_inputs(value_inputs);
             }
 
-            let stream_inputs = &mut self.streams[stream_input_index..(stream_input_index + node.stream_inputs)];
-
             let res = node.node.process(
                 NodeProcessState {
                     current_time,
@@ -292,7 +393,7 @@ impl Traverser {
                     global_state,
                 },
                 stream_inputs,
-                &mut stream_staging[0..node.stream_outputs],
+                &mut stream_staging[0..node.stream_output_count],
             );
 
             match res {
@@ -300,33 +401,62 @@ impl Traverser {
                 Err(err) => errors.push((node.node_index, err)),
             }
 
-            node.node.get_midi_outputs(&mut midi_staging[0..node.midi_outputs]);
-            node.node.get_value_outputs(&mut value_staging[0..node.value_outputs]);
+            node.node.get_midi_outputs(&mut midi_staging[0..node.midi_output_count]);
+            node.node
+                .get_value_outputs(&mut value_staging[0..node.value_output_count]);
 
             // now, send the outputs to where they need to go
-            for i in 0..node.stream_output_mappings {
+            for _ in 0..node.stream_output_mappings {
                 let mapping = self.stream_output_mappings[stream_output_mappings_i];
-                self.streams[mapping.1] = mem::replace(&mut stream_staging[mapping.0], 0.0);
+                self.stream_inputs[mapping.1] = stream_staging[mapping.0];
 
                 stream_output_mappings_i += 1;
             }
 
-            for i in 0..node.midi_output_mappings {
+            for _ in 0..node.midi_output_mappings {
                 let mapping = self.midi_output_mappings[midi_output_mappings_i];
-                self.midi[mapping.1] = mem::replace(&mut midi_staging[mapping.0], None);
+                self.midi_inputs[mapping.1] = midi_staging[mapping.0].clone();
 
                 midi_output_mappings_i += 1;
             }
 
-            for i in 0..node.value_output_mappings {
+            for _ in 0..node.value_output_mappings {
                 let mapping = self.value_output_mappings[value_output_mappings_i];
-                self.values[mapping.1] = mem::replace(&mut value_staging[mapping.0], None);
+                self.value_inputs[mapping.1] = value_staging[mapping.0].clone();
 
                 value_output_mappings_i += 1;
             }
+
+            // Reset staging
+            for i in 0..node.stream_output_count {
+                stream_staging[i] = 0.0;
+            }
+
+            for i in 0..node.midi_output_count {
+                midi_staging[i] = None;
+            }
+
+            for i in 0..node.value_output_count {
+                value_staging[i] = None;
+            }
+        }
+
+        if self.reset_needed {
+            self.reset_default_inputs();
+            self.reset_needed = false;
         }
 
         Ok(())
+    }
+
+    fn reset_default_inputs(&mut self) {
+        for midi_index in &self.midi_default_indexes {
+            self.midi_inputs[*midi_index] = None;
+        }
+
+        for value_index in &self.value_default_indexes {
+            self.value_inputs[*value_index] = None;
+        }
     }
 
     pub fn get_node_mut(&mut self, index: NodeIndex) -> Option<&mut NodeVariant> {

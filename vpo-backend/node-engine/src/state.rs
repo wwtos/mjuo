@@ -3,18 +3,20 @@ use std::collections::HashMap;
 use resource_manager::ResourceManager;
 use serde_json::{json, Value};
 use snafu::ResultExt;
-use sound_engine::{sampling::sample::Sample, SoundConfig};
+use sound_engine::{sampling::sample::Pipe, SoundConfig};
+use web_sys::console;
 
 use crate::{
-    connection::{MidiBundle, SocketType},
+    connection::MidiBundle,
     errors::{JsonParserSnafu, NodeError, WarningBuilder, WarningProducer},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
-    node::{NodeIndex, NodeInitState, NodeRow},
+    node::{NodeIndex, NodeRow},
     node_graph::NodeConnection,
     nodes::variants::NodeVariant,
     property::Property,
     socket_registry::SocketRegistry,
+    traversal::traverser::Traverser,
 };
 use rhai::Engine;
 
@@ -91,72 +93,68 @@ pub enum HistoryAction {
     },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HistoryActionBundle {
     pub actions: Vec<HistoryAction>,
 }
 
 #[derive(Clone)]
 pub struct AssetBundle<'a> {
-    pub samples: &'a ResourceManager<Sample>,
+    pub samples: &'a ResourceManager<Pipe>,
     // pub wavetables: &'a ResourceManager<Wavetable>,
 }
 
+#[derive(Debug)]
 pub struct NodeEngineState {
     history: Vec<HistoryActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
     sound_config: SoundConfig,
-    socket_registry: SocketRegistry,
     scripting_engine: Engine,
     root_graph_index: GraphIndex,
     output_node: NodeIndex,
     midi_in_node: NodeIndex,
+    current_time: i64,
+    root_traverser: Traverser,
+    socket_registry: SocketRegistry,
 }
 
 impl NodeEngineState {
     pub fn new(global_state: &GlobalState) -> Result<NodeEngineState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
-        let mut graph_manager = GraphManager::new();
-        let mut socket_registry = SocketRegistry::new();
-        let scripting_engine = Engine::new();
 
-        SocketType::register_defaults(&mut socket_registry);
+        let graph_manager: GraphManager = GraphManager::new();
+        let mut socket_registry = SocketRegistry::default();
 
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, midi_in_node) = {
             let mut graph = graph_manager.get_graph(root_graph_index)?.graph.borrow_mut();
 
-            let output_node = graph.add_node("OutputNode".into(), vec![]).unwrap().value;
-            let midi_in_node = graph.add_node("MidiInNode".into(), vec![]).unwrap().value;
+            let output_node = graph.add_node("OutputNode".into(), &mut socket_registry).unwrap().value;
+            let midi_in_node = graph.add_node("MidiInNode".into(), &mut socket_registry).unwrap().value;
 
             (output_node.0, midi_in_node.0)
         };
 
-        graph_manager
-            .recalculate_traversal_for_graph(
-                root_graph_index,
-                NodeInitState {
-                    props: &HashMap::new(),
-                    registry: &mut socket_registry,
-                    script_engine: &scripting_engine,
-                    global_state,
-                },
-            )
-            .unwrap();
+        let scripting_engine: Engine = Engine::new_raw();
+        let mut root_traverser = Traverser::new();
+
+        root_traverser.init_graph(root_graph_index, &graph_manager, &scripting_engine, global_state, 0)?;
 
         Ok(NodeEngineState {
             history,
             place_in_history,
             graph_manager,
             sound_config: global_state.sound_config.clone(),
-            socket_registry,
             scripting_engine,
             root_graph_index,
             output_node,
             midi_in_node,
+            current_time: 0,
+            root_traverser,
+            socket_registry,
         })
     }
 
@@ -176,25 +174,12 @@ impl NodeEngineState {
     pub fn get_root_graph_index(&self) -> GraphIndex {
         self.root_graph_index
     }
-
-    pub fn get_registry(&mut self) -> &mut SocketRegistry {
-        &mut self.socket_registry
+    pub fn get_engine(&mut self) -> &mut Engine {
+        &mut self.scripting_engine
     }
 
-    pub fn get_registry_and_engine(&mut self) -> (&mut SocketRegistry, &mut Engine) {
-        (&mut self.socket_registry, &mut self.scripting_engine)
-    }
-
-    pub fn index_graph(&mut self, graph_index: GraphIndex, global_state: &GlobalState) -> Result<(), NodeError> {
-        self.graph_manager.recalculate_traversal_for_graph(
-            graph_index,
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: &mut self.socket_registry,
-                script_engine: &self.scripting_engine,
-                global_state,
-            },
-        )
+    pub fn get_registry(&self) -> &SocketRegistry {
+        &self.socket_registry
     }
 
     pub fn notify_parents_of_graph_change(&mut self, graph_index: GraphIndex) -> Result<(), NodeError> {
@@ -216,32 +201,35 @@ impl NodeEngineState {
         Ok(())
     }
 
-    pub fn step(&mut self, current_time: i64, midi_in: MidiBundle, global_state: &GlobalState) -> f32 {
+    pub fn step(&mut self, midi_in: MidiBundle, global_state: &GlobalState) -> f32 {
         let root_graph = self
             .graph_manager
             .get_graph_mut(self.graph_manager.root_index())
             .unwrap();
 
-        let midi_in_node = root_graph.traverser.get_node_mut(self.midi_in_node);
+        if !midi_in.is_empty() {
+            let midi_in_node = self.root_traverser.get_node_mut(self.midi_in_node);
 
-        match midi_in_node {
-            Some(NodeVariant::MidiInNode(node)) => {
-                node.set_midi_output(midi_in);
-            }
-            _ => {
-                unreachable!("Root input midi node is not midi node")
+            match midi_in_node {
+                Some(NodeVariant::MidiInNode(node)) => {
+                    node.set_midi_output(midi_in);
+                }
+                _ => {
+                    unreachable!("Root input midi node is not midi node")
+                }
             }
         }
 
-        let traversal_errors = root_graph
-            .traverser
-            .traverse(current_time, &self.scripting_engine, global_state);
+        let traversal_errors = self
+            .root_traverser
+            .traverse(self.current_time, &self.scripting_engine, global_state);
+        self.current_time += 1;
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);
         }
 
-        let output_node = root_graph.traverser.get_node_mut(self.output_node);
+        let output_node = self.root_traverser.get_node_mut(self.output_node);
 
         let output = match output_node {
             Some(NodeVariant::OutputNode(node)) => node.get_value_received(),
@@ -303,8 +291,14 @@ impl NodeEngineState {
             nodes_created.extend(action_result.nodes_created);
         }
 
-        for to_reindex in graphs_to_reindex {
-            self.index_graph(to_reindex, global_state).unwrap();
+        if !graphs_to_reindex.is_empty() || !defaults_to_update.is_empty() {
+            self.root_traverser.init_graph(
+                self.root_graph_index,
+                &self.graph_manager,
+                &self.scripting_engine,
+                global_state,
+                self.current_time,
+            )?;
         }
 
         for graph_operated_on in graphs_operated_on {
@@ -435,16 +429,7 @@ impl NodeEngineState {
             } => {
                 let (diff, invalidations) = self
                     .graph_manager
-                    .create_node(
-                        &node_type,
-                        graph_index,
-                        NodeInitState {
-                            props: &HashMap::new(),
-                            registry: &mut self.socket_registry,
-                            script_engine: &self.scripting_engine,
-                            global_state,
-                        },
-                    )
+                    .create_node(&node_type, graph_index, &mut self.socket_registry)
                     .append_warnings(&mut warnings)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
@@ -452,14 +437,14 @@ impl NodeEngineState {
             Action::ConnectNodes { from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .connect_nodes(from, data.from_socket_type, to, data.to_socket_type)?;
+                        .connect_nodes(from, data.from_socket, to, data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
             Action::DisconnectNodes { from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .disconnect_nodes(from, data.from_socket_type, to, data.to_socket_type)?;
+                        .disconnect_nodes(from, data.from_socket, to, data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
@@ -523,8 +508,6 @@ impl NodeEngineState {
 
                     node.replace_properties(after.clone())
                 };
-
-                self.index_graph(index.graph_index, global_state);
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
@@ -605,8 +588,6 @@ impl NodeEngineState {
                     node.set_properties(before.clone());
                 }
 
-                self.index_graph(index.graph_index, global_state);
-
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 HistoryAction::ChangeNodeProperties { index, before, after }
@@ -661,7 +642,6 @@ impl NodeEngineState {
     pub fn to_json(&self) -> Result<Value, NodeError> {
         Ok(json!({
             "graph_manager": self.graph_manager,
-            "socket_registry": self.socket_registry,
             "root_graph_index": self.root_graph_index,
             "output_node": self.output_node,
             "midi_in_node": self.midi_in_node
@@ -672,27 +652,16 @@ impl NodeEngineState {
         self.history.clear();
         self.place_in_history = 0;
         self.graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
-        self.socket_registry = serde_json::from_value(json["socket_registry"].take()).context(JsonParserSnafu)?;
         self.root_graph_index = serde_json::from_value(json["root_graph_index"].take()).context(JsonParserSnafu)?;
         self.output_node = serde_json::from_value(json["output_node"].take()).context(JsonParserSnafu)?;
         self.midi_in_node = serde_json::from_value(json["midi_in_node"].take()).context(JsonParserSnafu)?;
 
-        let NodeEngineState {
-            graph_manager,
-            ref mut socket_registry,
-            scripting_engine,
-            sound_config,
-            ..
-        } = self;
-
-        graph_manager.post_deserialization(
-            NodeInitState {
-                props: &HashMap::new(),
-                registry: socket_registry,
-                script_engine: scripting_engine,
-                global_state,
-            },
-            sound_config,
+        self.root_traverser.init_graph(
+            self.root_graph_index,
+            &self.graph_manager,
+            &self.scripting_engine,
+            global_state,
+            self.current_time,
         )?;
 
         Ok(())

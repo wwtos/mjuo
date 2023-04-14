@@ -1,34 +1,23 @@
 use sound_engine::node::oscillator::Oscillator;
 use sound_engine::node::oscillator::Waveform;
 
-use crate::connection::{Primitive, StreamSocketType, ValueSocketType};
-use crate::errors::NodeError;
-use crate::errors::NodeOk;
-use crate::node::InitResult;
-use crate::node::Node;
-use crate::node::NodeInitState;
-use crate::node::NodeProcessState;
-use crate::node::NodeRow;
-use crate::property::Property;
-use crate::property::PropertyType;
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct OscillatorNode {
     oscillator: Oscillator,
-    audio_out: f32,
 }
 
 impl Default for OscillatorNode {
     fn default() -> Self {
         OscillatorNode {
             oscillator: Oscillator::new(Waveform::Square),
-            audio_out: 0_f32,
         }
     }
 }
 
-impl Node for OscillatorNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+impl NodeRuntime for OscillatorNode {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(waveform) = state.props.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
@@ -37,20 +26,7 @@ impl Node for OscillatorNode {
             self.oscillator.set_phase(last_phase);
         }
 
-        InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-            NodeRow::Property(
-                "waveform".to_string(),
-                PropertyType::MultipleChoice(vec![
-                    "sine".to_string(),
-                    "sawtooth".to_string(),
-                    "square".to_string(),
-                    "triangle".to_string(),
-                ]),
-                Property::MultipleChoice("square".to_string()),
-            ),
-        ])
+        InitResult::nothing()
     }
 
     fn process(
@@ -70,5 +46,24 @@ impl Node for OscillatorNode {
                 self.oscillator.set_frequency(frequency);
             }
         }
+    }
+}
+
+impl Node for OscillatorNode {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            value_input(register("frequency"), Primitive::Float(440.0)),
+            stream_output(register("audio"), 0.0),
+            NodeRow::Property(
+                "waveform".to_string(),
+                PropertyType::MultipleChoice(vec![
+                    "sine".to_string(),
+                    "sawtooth".to_string(),
+                    "square".to_string(),
+                    "triangle".to_string(),
+                ]),
+                Property::MultipleChoice("square".to_string()),
+            ),
+        ])
     }
 }

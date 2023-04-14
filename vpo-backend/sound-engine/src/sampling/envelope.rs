@@ -1,6 +1,3 @@
-#[cfg(test)]
-use {super::sample::Sample, resource_manager::Resource, std::path::PathBuf};
-
 use std::{fs::File, io::Write};
 
 use nalgebra::DVector;
@@ -334,18 +331,4 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
         note,
         cents,
     }
-}
-
-#[test]
-fn envelopes_idx_test() {
-    let foo = Sample::load_resource(&PathBuf::from(
-        "/home/mason/python/dsp/sample-analysis/test-samples/069-A-nt.wav",
-    ))
-    .unwrap();
-
-    let audio = foo.buffer.audio_raw;
-
-    calc_sample_metadata(&audio, foo.buffer.sample_rate, None);
-
-    //envelopes_idx(&DVector::from(test_sig), 10);
 }

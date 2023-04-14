@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-use async_std::channel::Sender;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     errors::{JsonParserSnafu, NodeError},
@@ -13,10 +10,12 @@ use node_engine::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
+use std::collections::HashMap;
 
 use crate::{
     routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
+    Sender,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -81,8 +80,8 @@ pub fn route(
 
     state.commit(ActionBundle::new(actions), global_state)?;
 
-    send_graph_updates(state, payload.graph_index, to_server)?;
     send_registry_updates(state.get_registry(), to_server)?;
+    send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(None)
 }

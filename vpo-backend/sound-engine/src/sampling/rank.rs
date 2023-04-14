@@ -1,10 +1,5 @@
-use std::{fs::File, io::Read, path::Path};
-
-use resource_manager::{
-    deserialize_resource_id, serialize_resource_id, IOSnafu, LoadingError, Resource, ResourceId, TomlParserDeSnafu,
-};
+use resource_manager::{deserialize_resource_id, serialize_resource_id, ResourceId};
 use serde::{Deserialize, Serialize};
-use snafu::ResultExt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RankEntry {
@@ -28,18 +23,5 @@ impl Default for RankEntry {
 
 #[derive(Default, Debug, Serialize, Deserialize)]
 pub struct Rank {
-    pub samples: Vec<RankEntry>,
-}
-
-impl Resource for Rank {
-    fn load_resource(path: &Path) -> Result<Rank, LoadingError>
-    where
-        Self: Sized,
-    {
-        let mut file = File::open(path).context(IOSnafu)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data).context(IOSnafu)?;
-
-        toml::from_str(&data).context(TomlParserDeSnafu)
-    }
+    pub pipes: Vec<RankEntry>,
 }

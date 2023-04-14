@@ -1,17 +1,10 @@
 use smallvec::SmallVec;
-use sound_engine::constants::SAMPLE_RATE;
+use sound_engine::SoundConfig;
 
-use crate::connection::{MidiBundle, MidiSocketType, SocketDirection, SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk, NodeResult};
-use crate::node::{InitResult, Node, NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
-use crate::node_graph::NodeGraph;
-use crate::property::Property;
-use crate::property::PropertyType;
-use crate::traversal::traverser::Traverser;
+use crate::{nodes::prelude::*, traversal::traverser::Traverser};
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
-//                                                             50 ms
-const SAME_VALUE_LENGTH_THRESHOLD: i64 = (SAMPLE_RATE / 1000 * 50) as i64;
+const SAME_VALUE_LENGTH_THRESHOLD: u32 = 50; // ms
 
 #[derive(Debug, Clone)]
 struct PolyphonicInfo {
@@ -36,75 +29,59 @@ impl PolyphonicInfo {
 
 #[derive(Debug, Clone)]
 struct Voice {
-    graph: NodeGraph,
+    traverser: Traverser,
     info: PolyphonicInfo,
     is_first_time: bool,
 }
 
 #[derive(Debug, Clone)]
 pub struct PolyphonicNode {
+    same_value_length_threshold: i64,
     voices: Vec<Voice>,
     polyphony: u8,
     traverser: Traverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
-    current_time: i64,
 }
 
-impl Default for PolyphonicNode {
-    fn default() -> PolyphonicNode {
+impl PolyphonicNode {
+    pub fn new(sound_config: &SoundConfig) -> PolyphonicNode {
         PolyphonicNode {
+            same_value_length_threshold: (sound_config.sample_rate / 1000 * SAME_VALUE_LENGTH_THRESHOLD) as i64,
             voices: vec![],
             traverser: Traverser::default(),
             polyphony: 1,
             child_io_nodes: None,
-            current_time: 0,
         }
     }
 }
 
-impl Node for PolyphonicNode {
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        // if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
-        //     self.polyphony = (*polyphony).clamp(1, 255) as u8;
-        // }
+impl NodeRuntime for PolyphonicNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
+            self.polyphony = (*polyphony).clamp(1, 255) as u8;
+        }
 
-        // // TODO: this is pretty hacky
-        // if !self.voices.is_empty() {
-        //     for i in 0..self.polyphony {
-        //         if i as usize >= self.voices.len() {
-        //             self.voices.push(Voice {
-        //                 graph: self.voices[0].graph.clone(),
-        //                 info: PolyphonicInfo::new(self.current_time),
-        //                 is_first_time: true,
-        //             });
-        //         } else {
-        //             self.voices[i as usize] = Voice {
-        //                 graph: self.voices[0].graph.clone(),
-        //                 info: PolyphonicInfo::new(self.current_time),
-        //                 is_first_time: true,
-        //             };
-        //         }
-        //     }
+        if let Some(graph_and_io) = child_graph {
+            self.voices.truncate(self.polyphony as usize);
 
-        //     if self.voices.len() > self.polyphony as usize {
-        //         self.voices.truncate(self.polyphony as usize);
-        //     }
-        // }
+            while self.polyphony as usize > self.voices.len() {
+                self.voices.push(Voice {
+                    traverser: Traverser::get_traverser(
+                        graph_and_io.graph,
+                        state.graph_manager,
+                        state.script_engine,
+                        state.global_state,
+                        state.current_time,
+                    )?,
+                    info: PolyphonicInfo::new(state.current_time),
+                    is_first_time: true,
+                });
+            }
 
-        NodeOk::no_warnings(InitResult {
-            did_rows_change: false,
-            node_rows: vec![
-                NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-                NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
-                NodeRow::InnerGraph,
-                NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-            ],
-            changed_properties: None,
-            child_graph_io: Some(vec![
-                (SocketType::Midi(MidiSocketType::Default), SocketDirection::Input),
-                (SocketType::Stream(StreamSocketType::Audio), SocketDirection::Output),
-            ]),
-        })
+            self.child_io_nodes = Some((graph_and_io.input_index, graph_and_io.output_index));
+        }
+
+        InitResult::nothing()
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
@@ -230,37 +207,8 @@ impl Node for PolyphonicNode {
         // }
     }
 
-    fn post_init(&mut self, init_state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<()> {
-        // for i in 0..self.polyphony {
-        //     if i as usize >= self.voices.len() {
-        //         self.voices.push(Voice {
-        //             graph: graph.clone(),
-        //             info: PolyphonicInfo::new(self.current_time),
-        //             is_first_time: true,
-        //         });
-        //     } else {
-        //         self.voices[i as usize] = Voice {
-        //             graph: graph.clone(),
-        //             info: PolyphonicInfo::new(self.current_time),
-        //             is_first_time: true,
-        //         };
-        //     }
-        // }
-
-        // if self.voices.len() > self.polyphony as usize {
-        //     self.voices.truncate(self.polyphony as usize);
-        // }
-
-        // self.traverser = Traverser::get_traverser(graph).unwrap();
-        // self.child_io_nodes = Some((input_node, output_node));
-
-        NodeOk::no_warnings(())
-    }
-
     fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
-
-        // self.current_time = state.current_time;
 
         // let mut output = 0.0;
 
@@ -305,5 +253,28 @@ impl Node for PolyphonicNode {
         // streams_out[0] = output;
 
         NodeOk::no_warnings(())
+    }
+}
+
+impl Node for PolyphonicNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo {
+            node_rows: vec![
+                midi_input(register("default"), SmallVec::new()),
+                NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
+                NodeRow::InnerGraph,
+                stream_output(register("audio"), 0.0),
+            ],
+            child_graph_io: Some(vec![
+                (
+                    Socket::Simple(register("midi"), SocketType::Midi, 1),
+                    SocketDirection::Input,
+                ),
+                (
+                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    SocketDirection::Output,
+                ),
+            ]),
+        }
     }
 }

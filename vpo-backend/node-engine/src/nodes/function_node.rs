@@ -1,12 +1,8 @@
-use crate::connection::{SocketDirection, SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk, NodeResult};
-use crate::node::{InitResult, Node, NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow};
-use crate::node_graph::NodeGraph;
+use crate::nodes::prelude::*;
 use crate::traversal::traverser::Traverser;
 
 #[derive(Debug, Clone)]
 pub struct FunctionNode {
-    local_graph: NodeGraph,
     traverser: Traverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
@@ -14,44 +10,32 @@ pub struct FunctionNode {
 impl Default for FunctionNode {
     fn default() -> FunctionNode {
         FunctionNode {
-            local_graph: NodeGraph::new(),
             traverser: Traverser::default(),
             child_io_nodes: None,
         }
     }
 }
 
-impl Node for FunctionNode {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        NodeOk::no_warnings(InitResult {
-            did_rows_change: false,
-            node_rows: vec![
-                NodeRow::StreamInput(StreamSocketType::Audio, 0.0, false),
-                NodeRow::InnerGraph,
-                NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-            ],
-            changed_properties: None,
-            child_graph_io: Some(vec![
-                (SocketType::Stream(StreamSocketType::Audio), SocketDirection::Input),
-                (SocketType::Stream(StreamSocketType::Audio), SocketDirection::Output),
-            ]),
-        })
-    }
-
-    fn post_init(&mut self, init_state: NodeInitState, graph_and_io: Option<NodeGraphAndIo>) -> NodeResult<()> {
-        if let Some(graph_and_io) = graph_and_io {
+impl NodeRuntime for FunctionNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        if let Some(graph_and_io) = child_graph {
             let NodeGraphAndIo {
                 graph,
                 input_index,
                 output_index,
             } = graph_and_io;
 
-            self.local_graph = graph.clone();
-            self.traverser = Traverser::get_traverser(&mut self.local_graph, init_state)?;
+            self.traverser = Traverser::get_traverser(
+                graph_and_io.graph,
+                state.graph_manager,
+                state.script_engine,
+                state.global_state,
+                state.current_time,
+            )?;
             self.child_io_nodes = Some((input_index, output_index));
         }
 
-        NodeOk::no_warnings(())
+        InitResult::nothing()
     }
 
     fn process(
@@ -83,5 +67,27 @@ impl Node for FunctionNode {
         // self.is_first_time = false;
 
         NodeOk::no_warnings(())
+    }
+}
+
+impl Node for FunctionNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo {
+            node_rows: vec![
+                stream_input(register("audio"), 0.0),
+                NodeRow::InnerGraph,
+                stream_output(register("audio"), 0.0),
+            ],
+            child_graph_io: Some(vec![
+                (
+                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    SocketDirection::Input,
+                ),
+                (
+                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    SocketDirection::Output,
+                ),
+            ]),
+        }
     }
 }

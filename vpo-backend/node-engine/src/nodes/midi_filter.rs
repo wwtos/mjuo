@@ -1,12 +1,7 @@
 use rhai::{Dynamic, Scope, AST};
 use smallvec::SmallVec;
 
-use crate::{
-    connection::{MidiBundle, MidiSocketType},
-    errors::{NodeError, NodeOk, NodeResult, NodeWarning, WarningBuilder},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-    property::{Property, PropertyType},
-};
+use crate::nodes::prelude::*;
 
 use super::util::ProcessState;
 
@@ -59,8 +54,8 @@ fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     }
 }
 
-impl Node for MidiFilterNode {
-    fn init(&mut self, state: NodeInitState) -> NodeResult<InitResult> {
+impl NodeRuntime for MidiFilterNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut warnings = WarningBuilder::new();
 
         if let Some(Property::String(expression)) = state.props.get("expression") {
@@ -77,15 +72,7 @@ impl Node for MidiFilterNode {
             }
         }
 
-        InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::Property(
-                "expression".to_string(),
-                PropertyType::String,
-                Property::String("".to_string()),
-            ),
-            NodeRow::MidiOutput(MidiSocketType::Default, SmallVec::new(), false),
-        ])
+        InitResult::nothing()
     }
 
     fn process(
@@ -153,5 +140,19 @@ impl Node for MidiFilterNode {
 
     fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
         midi_out[0] = self.output.clone();
+    }
+}
+
+impl Node for MidiFilterNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            midi_input(register("midi"), SmallVec::new()),
+            NodeRow::Property(
+                "expression".to_string(),
+                PropertyType::String,
+                Property::String("".to_string()),
+            ),
+            midi_output(register("midi"), SmallVec::new()),
+        ])
     }
 }

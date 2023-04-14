@@ -1,9 +1,7 @@
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
-use crate::connection::{MidiBundle, MidiSocketType, Primitive, ValueSocketType};
-use crate::errors::{NodeError, NodeOk};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
+use crate::nodes::prelude::*;
 
 use super::util::ProcessState;
 
@@ -26,7 +24,7 @@ impl Default for MidiToValuesNode {
     }
 }
 
-impl Node for MidiToValuesNode {
+impl NodeRuntime for MidiToValuesNode {
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
         self.midi_in = ProcessState::Unprocessed(midi_in[0].clone().unwrap());
     }
@@ -60,6 +58,8 @@ impl Node for MidiToValuesNode {
                         _ => {}
                     }
                 }
+
+                self.midi_in = ProcessState::Processed;
             }
             ProcessState::Processed => self.midi_in = ProcessState::None,
             ProcessState::None => {}
@@ -68,18 +68,20 @@ impl Node for MidiToValuesNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![
-            NodeRow::MidiInput(MidiSocketType::Default, SmallVec::new(), false),
-            NodeRow::ValueOutput(ValueSocketType::Frequency, Primitive::Float(440.0), false),
-            NodeRow::ValueOutput(ValueSocketType::Gate, Primitive::Boolean(false), false),
-        ])
-    }
-
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
         if matches!(self.midi_in, ProcessState::Processed) {
             values_out[0] = Some(Primitive::Float(self.frequency));
             values_out[1] = Some(Primitive::Boolean(self.gate));
         }
+    }
+}
+
+impl Node for MidiToValuesNode {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo::simple(vec![
+            midi_input(register("midi"), SmallVec::new()),
+            value_output(register("frequency"), Primitive::Float(440.0)),
+            value_output(register("gate"), Primitive::Boolean(false)),
+        ])
     }
 }

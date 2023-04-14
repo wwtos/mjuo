@@ -16,5 +16,3 @@ pub mod ui;
 pub mod graph_manager_tests;
 #[cfg(test)]
 pub mod graph_tests;
-#[cfg(test)]
-pub mod socket_registry_tests;

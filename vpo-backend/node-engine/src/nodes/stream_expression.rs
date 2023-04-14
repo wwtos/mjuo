@@ -1,10 +1,6 @@
 use rhai::{Scope, AST};
-use serde_json::json;
 
-use crate::connection::{SocketType, StreamSocketType};
-use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning, WarningBuilder};
-use crate::node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow};
-use crate::property::{Property, PropertyType};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct StreamExpressionNode {
@@ -27,7 +23,7 @@ impl StreamExpressionNode {
     }
 }
 
-impl Node for StreamExpressionNode {
+impl NodeRuntime for StreamExpressionNode {
     fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             // start by rewinding the scope
@@ -53,24 +49,9 @@ impl Node for StreamExpressionNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_rows_change = false;
         let mut warnings = WarningBuilder::new();
-
-        // these are the rows it always has
-        let mut node_rows: Vec<NodeRow> = vec![
-            NodeRow::Property(
-                "expression".to_string(),
-                PropertyType::String,
-                Property::String("".to_string()),
-            ),
-            NodeRow::Property(
-                "values_in_count".to_string(),
-                PropertyType::Integer,
-                Property::Integer(0),
-            ),
-            NodeRow::StreamOutput(StreamSocketType::Audio, 0.0, false),
-        ];
 
         let expression = state
             .props
@@ -83,23 +64,6 @@ impl Node for StreamExpressionNode {
             .get("values_in_count")
             .and_then(|x| x.clone().as_integer())
             .unwrap() as usize;
-
-        for i in 0..values_in_count {
-            let new_socket_type = state
-                .registry
-                .register_socket(
-                    format!("stream.stream_expression.{}", i),
-                    SocketType::Stream(StreamSocketType::Audio),
-                    "stream.stream_expression".to_string(),
-                    Some(json! {{ "input_number": i + 1 }}),
-                )
-                .unwrap()
-                .0
-                .as_stream()
-                .unwrap();
-
-            node_rows.push(NodeRow::StreamInput(new_socket_type, 0.0, false));
-        }
 
         if expression.is_empty() {
             // if it's empty, don't compile it
@@ -119,14 +83,36 @@ impl Node for StreamExpressionNode {
             }
         }
 
-        Ok(NodeOk::new(
-            InitResult {
-                did_rows_change,
-                node_rows,
-                changed_properties: None,
-                child_graph_io: None,
-            },
-            warnings.into_warnings(),
-        ))
+        InitResult::nothing()
+    }
+}
+
+impl Node for StreamExpressionNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        // these are the rows it always has
+        let mut node_rows: Vec<NodeRow> = vec![
+            NodeRow::Property(
+                "expression".to_string(),
+                PropertyType::String,
+                Property::String("".to_string()),
+            ),
+            NodeRow::Property(
+                "values_in_count".to_string(),
+                PropertyType::Integer,
+                Property::Integer(0),
+            ),
+            stream_output(register("audio"), 0.0),
+        ];
+
+        if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
+            for i in 0..(*values_in_count) {
+                node_rows.push(NodeRow::Input(
+                    Socket::Numbered(register("socket-variable-numbered"), i + 1, SocketType::Value, 1),
+                    SocketValue::Value(Primitive::Float(0.0)),
+                ));
+            }
+        }
+
+        NodeIo::simple(node_rows)
     }
 }

@@ -1,8 +1,4 @@
-use crate::{
-    connection::{Primitive, ValueSocketType},
-    errors::{NodeError, NodeOk},
-    node::{InitResult, Node, NodeInitState, NodeProcessState, NodeRow},
-};
+use crate::nodes::prelude::*;
 
 use super::util::ProcessState;
 
@@ -21,12 +17,9 @@ impl ButtonNode {
     }
 }
 
-impl Node for ButtonNode {
-    fn init(&mut self, _state: NodeInitState) -> Result<NodeOk<InitResult>, NodeError> {
-        InitResult::simple(vec![
-            NodeRow::ValueInput(ValueSocketType::State, Primitive::Boolean(false), false),
-            NodeRow::ValueOutput(ValueSocketType::State, Primitive::Boolean(false), false),
-        ])
+impl NodeRuntime for ButtonNode {
+    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        InitResult::nothing()
     }
 
     fn process(
@@ -59,5 +52,17 @@ impl Node for ButtonNode {
 
     fn linked_to_ui(&self) -> bool {
         true
+    }
+}
+
+impl Node for ButtonNode {
+    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+        NodeIo {
+            node_rows: vec![
+                value_input(register("state"), Primitive::Boolean(false)),
+                value_output(register("state"), Primitive::Boolean(false)),
+            ],
+            child_graph_io: None,
+        }
     }
 }

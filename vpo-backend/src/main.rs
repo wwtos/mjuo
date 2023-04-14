@@ -7,7 +7,6 @@ use node_engine::global_state::GlobalState;
 
 use node_engine::state::NodeEngineState;
 use smallvec::SmallVec;
-use sound_engine::constants::{BUFFER_SIZE, SAMPLE_RATE};
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
 use vpo_backend::{connect_backend, connect_midi_backend, get_midi, handle_msg, start_ipc, write_to_file};
@@ -17,9 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, from_server) = start_ipc();
 
     // set up state
-    let sound_config = SoundConfig {
-        sample_rate: SAMPLE_RATE,
-    };
+    let sound_config = SoundConfig { sample_rate: 48_000 };
 
     let mut global_state = GlobalState::new(sound_config);
     let mut engine_state = NodeEngineState::new(&global_state).unwrap();
