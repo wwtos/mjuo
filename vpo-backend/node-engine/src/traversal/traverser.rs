@@ -37,7 +37,7 @@ struct NodeState {
 }
 
 #[derive(Debug, Clone)]
-pub struct Traverser {
+pub struct RealtimeTraverser {
     nodes: Vec<NodeState>,
     stream_inputs: Vec<f32>,
     stream_output_mappings: Vec<(usize, usize)>,
@@ -50,15 +50,15 @@ pub struct Traverser {
     reset_needed: bool,
 }
 
-impl Default for Traverser {
+impl Default for RealtimeTraverser {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Traverser {
+impl RealtimeTraverser {
     pub fn new() -> Self {
-        Traverser {
+        RealtimeTraverser {
             nodes: vec![],
             stream_inputs: vec![],
             stream_output_mappings: vec![],
@@ -78,8 +78,8 @@ impl Traverser {
         script_engine: &Engine,
         global_state: &GlobalState,
         current_time: i64,
-    ) -> Result<Traverser, NodeError> {
-        let mut traverser = Traverser::new();
+    ) -> Result<RealtimeTraverser, NodeError> {
+        let mut traverser = RealtimeTraverser::new();
 
         traverser
             .init_graph(graph_index, graph_manager, script_engine, global_state, current_time)
