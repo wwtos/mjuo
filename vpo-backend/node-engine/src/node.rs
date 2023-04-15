@@ -99,6 +99,7 @@ pub struct NodeInitState<'a> {
     pub global_state: &'a GlobalState,
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
+    pub buffer_size: usize,
 }
 
 pub struct NodeProcessState<'a> {

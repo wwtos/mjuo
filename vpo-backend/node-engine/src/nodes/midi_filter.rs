@@ -78,9 +78,9 @@ impl NodeRuntime for MidiFilterNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        _streams_in: &[f32],
-        _streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         let mut warnings = WarningBuilder::new();
 
         if let Some(filter) = &self.filter {

@@ -47,7 +47,7 @@ pub struct State {
 
 #[wasm_bindgen]
 impl State {
-    pub fn new(sample_rate: u32) -> State {
+    pub fn new(sample_rate: u32, buffer_size: usize) -> State {
         let sound_config = SoundConfig { sample_rate };
 
         set_panic_hook();
@@ -58,7 +58,7 @@ impl State {
             resources: Resources::default(),
         };
 
-        let engine_state = NodeEngineState::new(&global_state).unwrap();
+        let engine_state = NodeEngineState::new(&global_state, buffer_size).unwrap();
 
         let midi_parser = MidiParser::new();
 
@@ -101,13 +101,8 @@ impl State {
 
         let mut midi = get_midi(midi_in.to_vec(), &mut self.midi_parser);
 
-        for sample in audio_out.iter_mut() {
-            *sample = self.engine_state.step(SmallVec::from(midi.clone()), &self.global_state);
-
-            if !midi.is_empty() {
-                midi = Vec::new();
-            }
-        }
+        self.engine_state
+            .step(SmallVec::from(midi.clone()), &self.global_state, audio_out);
 
         let mut responses = to_server.buffer.lock().unwrap();
 
@@ -177,7 +172,7 @@ impl State {
     fn load_with_error(&mut self, state: String) -> Result<(), NodeError> {
         let mut json: Value = serde_json::from_str(&state).context(JsonParserSnafu)?;
 
-        self.engine_state = NodeEngineState::new(&self.global_state).unwrap();
+        self.engine_state = NodeEngineState::new(&self.global_state, self.engine_state.get_buffer_size()).unwrap();
         self.engine_state.apply_json(json["state"].take(), &self.global_state)?;
 
         Ok(())

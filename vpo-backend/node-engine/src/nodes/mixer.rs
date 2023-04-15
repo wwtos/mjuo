@@ -23,10 +23,16 @@ impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = streams_in.iter().sum::<f32>() / streams_in.len() as f32;
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
+        for (i, frame) in streams_out[0].iter_mut().enumerate() {
+            *frame = 0.0;
+
+            for stream_in in streams_in {
+                *frame += stream_in[i];
+            }
+        }
 
         NodeOk::no_warnings(())
     }

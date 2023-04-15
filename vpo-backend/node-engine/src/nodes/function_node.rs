@@ -1,16 +1,15 @@
-use crate::nodes::prelude::*;
-use crate::traversal::traverser::Traverser;
+use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
 
 #[derive(Debug, Clone)]
 pub struct FunctionNode {
-    traverser: Traverser,
+    traverser: BufferedTraverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
 impl Default for FunctionNode {
     fn default() -> FunctionNode {
         FunctionNode {
-            traverser: Traverser::default(),
+            traverser: BufferedTraverser::new(),
             child_io_nodes: None,
         }
     }
@@ -25,12 +24,13 @@ impl NodeRuntime for FunctionNode {
                 output_index,
             } = graph_and_io;
 
-            self.traverser = Traverser::get_traverser(
+            self.traverser = BufferedTraverser::get_traverser(
                 graph_and_io.graph,
                 state.graph_manager,
                 state.script_engine,
                 state.global_state,
                 state.current_time,
+                state.buffer_size,
             )?;
             self.child_io_nodes = Some((input_index, output_index));
         }
@@ -40,10 +40,10 @@ impl NodeRuntime for FunctionNode {
 
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[f32],
-        _streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
         // let subgraph_input_node = self.local_graph.get_node_mut(child_input_node).unwrap();

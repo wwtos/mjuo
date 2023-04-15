@@ -24,10 +24,10 @@ impl NodeRuntime for ButtonNode {
 
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[f32],
-        _streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         self.input = match self.input {
             ProcessState::Unprocessed(new_value) => {
                 self.state = new_value;

@@ -24,33 +24,41 @@ impl StreamExpressionNode {
 }
 
 impl NodeRuntime for StreamExpressionNode {
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
-            // start by rewinding the scope
-            self.scope.rewind(0);
+            for (i, frame) in streams_out[0].iter_mut().enumerate() {
+                // start by rewinding the scope
+                self.scope.rewind(0);
 
-            // add inputs to scope
-            for (i, val) in streams_in.iter().enumerate() {
-                self.scope.push(format!("x{}", i + 1), *val);
-            }
-
-            // now we run the expression!
-            let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
-
-            // convert the output to a usuable form
-            match result {
-                Ok(output) => {
-                    streams_out[0] = output;
+                // add inputs to scope
+                for (j, val) in streams_in.iter().enumerate() {
+                    self.scope.push(format!("x{}", j + 1), val[i]);
                 }
-                Err(_) => {}
+
+                // now we run the expression!
+                let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
+
+                // convert the output to a usuable form
+                match result {
+                    Ok(output) => {
+                        *frame = output;
+                    }
+                    Err(_) => break,
+                }
             }
+
+            self.scope.rewind(0);
         }
 
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let mut did_rows_change = false;
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut warnings = WarningBuilder::new();
 
         let expression = state

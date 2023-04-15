@@ -1,7 +1,7 @@
 use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
-use crate::{nodes::prelude::*, traversal::traverser::Traverser};
+use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 const SAME_VALUE_LENGTH_THRESHOLD: u32 = 50; // ms
@@ -29,7 +29,7 @@ impl PolyphonicInfo {
 
 #[derive(Debug, Clone)]
 struct Voice {
-    traverser: Traverser,
+    traverser: BufferedTraverser,
     info: PolyphonicInfo,
     is_first_time: bool,
 }
@@ -39,7 +39,7 @@ pub struct PolyphonicNode {
     same_value_length_threshold: i64,
     voices: Vec<Voice>,
     polyphony: u8,
-    traverser: Traverser,
+    traverser: BufferedTraverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
@@ -48,7 +48,7 @@ impl PolyphonicNode {
         PolyphonicNode {
             same_value_length_threshold: (sound_config.sample_rate / 1000 * SAME_VALUE_LENGTH_THRESHOLD) as i64,
             voices: vec![],
-            traverser: Traverser::default(),
+            traverser: BufferedTraverser::new(),
             polyphony: 1,
             child_io_nodes: None,
         }
@@ -66,12 +66,13 @@ impl NodeRuntime for PolyphonicNode {
 
             while self.polyphony as usize > self.voices.len() {
                 self.voices.push(Voice {
-                    traverser: Traverser::get_traverser(
+                    traverser: BufferedTraverser::get_traverser(
                         graph_and_io.graph,
                         state.graph_manager,
                         state.script_engine,
                         state.global_state,
                         state.current_time,
+                        state.buffer_size,
                     )?,
                     info: PolyphonicInfo::new(state.current_time),
                     is_first_time: true,
@@ -207,7 +208,12 @@ impl NodeRuntime for PolyphonicNode {
         // }
     }
 
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
         // let mut output = 0.0;

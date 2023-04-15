@@ -52,11 +52,13 @@ impl NodeRuntime for BiquadFilterNode {
 
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
     ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = self.filter.filter_audio(streams_in[0]);
+        for i in 0..streams_in[0].len() {
+            streams_out[0][i] = self.filter.filter_audio(streams_in[0][i]);
+        }
 
         NodeOk::no_warnings(())
     }

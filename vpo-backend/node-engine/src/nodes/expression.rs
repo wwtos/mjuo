@@ -44,9 +44,9 @@ impl NodeRuntime for ExpressionNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         let mut warnings = WarningBuilder::new();
 
         self.value_out = None;

@@ -19,7 +19,7 @@ impl EnvelopeNode {
 }
 
 impl NodeRuntime for EnvelopeNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 
@@ -50,17 +50,19 @@ impl NodeRuntime for EnvelopeNode {
     fn process(
         &mut self,
         _state: NodeProcessState,
-        _streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = self.envelope.process(self.gate);
+        _streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
+        for frame in streams_out[0].iter_mut() {
+            *frame = self.envelope.process(self.gate);
+        }
 
         NodeOk::no_warnings(())
     }
 }
 
 impl Node for EnvelopeNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("gate"), Primitive::Boolean(false)),
             stream_output(register("gain"), 0.0),

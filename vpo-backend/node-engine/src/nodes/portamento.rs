@@ -41,7 +41,12 @@ impl NodeRuntime for PortamentoNode {
         InitResult::nothing()
     }
 
-    fn process(&mut self, _state: NodeProcessState, _streams_in: &[f32], _streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         if self.engaged && self.active {
             let out = self.ramp.process();
 

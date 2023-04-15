@@ -1,6 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::sampling::pipe_player::PipePlayer;
-use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -55,9 +54,9 @@ impl NodeRuntime for PipePlayerNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        _streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         if let (Some(player), Some(index)) = (&mut self.player, &self.index) {
             let pipe = state.global_state.resources.pipes.borrow_resource(*index).unwrap();
 
@@ -71,7 +70,9 @@ impl NodeRuntime for PipePlayerNode {
                 self.released = false;
             }
 
-            streams_out[0] = player.next_sample(&pipe);
+            for frame in streams_out[0].iter_mut() {
+                *frame = player.next_sample(&pipe);
+            }
         }
 
         NodeOk::no_warnings(())

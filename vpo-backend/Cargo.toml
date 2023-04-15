@@ -38,6 +38,9 @@ debug-js-glue = true
 demangle-name-section = true
 dwarf-debug-info = true
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [target.'cfg(unix)'.dependencies]
 alsa = {version = "0.6.0"}
 psimple = {package = "libpulse-simple-binding", version = "2.24.1"}
@@ -52,7 +55,7 @@ symphonia = "0.5.2"
 
 [profile.release]
 lto = true
-opt-level = "s"
+opt-level = 3
 
 [profile.dev]
 opt-level = 1

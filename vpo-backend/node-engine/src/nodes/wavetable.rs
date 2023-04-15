@@ -53,7 +53,12 @@ impl NodeRuntime for WavetableNode {
         InitResult::nothing()
     }
 
-    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
             let wavetable = state
                 .global_state
@@ -62,7 +67,9 @@ impl NodeRuntime for WavetableNode {
                 .borrow_resource(self.index.unwrap())
                 .unwrap();
 
-            streams_out[0] = player.get_next_sample(wavetable);
+            for frame in streams_out[0].iter_mut() {
+                *frame = player.get_next_sample(wavetable);
+            }
         }
 
         NodeOk::no_warnings(())

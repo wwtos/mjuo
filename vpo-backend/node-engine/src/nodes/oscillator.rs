@@ -31,11 +31,13 @@ impl NodeRuntime for OscillatorNode {
 
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = self.oscillator.process();
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
+        for frame in streams_out[0].iter_mut() {
+            *frame = self.oscillator.process();
+        }
 
         NodeOk::no_warnings(())
     }
@@ -43,7 +45,7 @@ impl NodeRuntime for OscillatorNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let [Some(frequency)] = values_in {
             if let Some(frequency) = frequency.clone().as_float() {
-                self.oscillator.set_frequency(frequency);
+                self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
             }
         }
     }

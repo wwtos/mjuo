@@ -9,12 +9,10 @@ pub struct InputsNode {
 impl NodeRuntime for InputsNode {
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out.clone_from_slice(streams_in);
-
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         NodeOk::no_warnings(())
     }
 

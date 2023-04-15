@@ -1,4 +1,9 @@
-use std::{collections::HashMap, iter::repeat};
+use std::{
+    collections::HashMap,
+    iter::repeat,
+    mem,
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
 
 use arr_macro::arr;
 use rhai::Engine;
@@ -15,6 +20,7 @@ use crate::{
 
 use super::calculate_traversal_order::calculate_graph_traverse_order;
 
+#[derive(Debug, Clone)]
 struct AdvanceBy {
     pub inputs: usize,
     pub outputs: usize,
@@ -33,7 +39,8 @@ struct OutputLocations {
     pub value_outputs: Vec<Socket>,
 }
 
-pub struct Traverser {
+#[derive(Debug, Clone)]
+pub struct BufferedTraverser {
     buffer_size: usize,
     nodes: Vec<NodeVariant>,
     node_indexes: Vec<NodeIndex>,
@@ -48,7 +55,46 @@ pub struct Traverser {
     value_advance_by: Vec<AdvanceBy>,
 }
 
-impl Traverser {
+impl BufferedTraverser {
+    pub fn new() -> BufferedTraverser {
+        BufferedTraverser {
+            buffer_size: 0,
+            nodes: vec![],
+            node_indexes: vec![],
+            stream_outputs: vec![],
+            stream_input_mappings: vec![],
+            stream_advance_by: vec![],
+            midi_outputs: vec![],
+            midi_input_mappings: vec![],
+            midi_advance_by: vec![],
+            value_outputs: vec![],
+            value_input_mappings: vec![],
+            value_advance_by: vec![],
+        }
+    }
+
+    pub fn get_traverser(
+        graph_index: GraphIndex,
+        graph_manager: &GraphManager,
+        script_engine: &Engine,
+        global_state: &GlobalState,
+        current_time: i64,
+        buffer_size: usize,
+    ) -> Result<BufferedTraverser, NodeError> {
+        let mut traverser = BufferedTraverser::new();
+
+        traverser
+            .init_graph(
+                graph_index,
+                graph_manager,
+                script_engine,
+                global_state,
+                current_time,
+                buffer_size,
+            )
+            .map(|()| traverser)
+    }
+
     pub fn init_graph(
         &mut self,
         graph_index: GraphIndex,
@@ -110,6 +156,7 @@ impl Traverser {
                     global_state,
                     current_time,
                     graph_manager,
+                    buffer_size,
                 },
                 child_graph_info,
             );
@@ -189,16 +236,16 @@ impl Traverser {
             let value_defaults_index = self.value_outputs.len();
 
             // defaults are stored right before the node's outputs
-            for default in needed_stream_defaults {
+            for default in &needed_stream_defaults {
                 self.stream_outputs.extend(repeat(default).take(buffer_size));
             }
 
-            for default in needed_midi_defaults {
-                self.midi_outputs.push(Some(default));
+            for default in &needed_midi_defaults {
+                self.midi_outputs.push(Some(default.clone()));
             }
 
-            for default in needed_value_defaults {
-                self.value_outputs.push(Some(default));
+            for default in &needed_value_defaults {
+                self.value_outputs.push(Some(default.clone()));
             }
 
             node_to_location_mapping.insert(
@@ -206,24 +253,15 @@ impl Traverser {
                 OutputLocations {
                     stream_outputs_index: self.stream_outputs.len(),
                     stream_defaults_index,
-                    stream_outputs,
+                    stream_outputs: stream_outputs.clone(),
                     midi_outputs_index: self.midi_outputs.len(),
                     midi_defaults_index,
-                    midi_outputs,
+                    midi_outputs: midi_outputs.clone(),
                     value_outputs_index: self.value_outputs.len(),
                     value_defaults_index,
-                    value_outputs,
+                    value_outputs: value_outputs.clone(),
                 },
             );
-
-            for default in needed_stream_defaults {
-                self.stream_outputs.extend(repeat(default).take(buffer_size));
-            }
-
-            self.midi_outputs
-                .extend(needed_midi_defaults.iter().cloned().map(|x| Some(x)));
-            self.value_outputs
-                .extend(needed_value_defaults.iter().cloned().map(|x| Some(x)));
 
             // figure out how much the traverser needs to advance between each node
             self.stream_advance_by.push(AdvanceBy {
@@ -348,10 +386,7 @@ impl Traverser {
         current_time: i64,
         script_engine: &Engine,
         global_state: &GlobalState,
-        out: &mut [f32],
     ) -> Result<(), ErrorsAndWarnings> {
-        assert_eq!(out.len(), self.buffer_size);
-
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
@@ -364,13 +399,7 @@ impl Traverser {
         let mut value_outputs_i = 0;
         let mut stream_outputs_i = 0;
 
-        let mut midi_outputs: [Option<MidiBundle>; 128] = arr![None; 128];
-        let mut value_outputs: [Option<Primitive>; 128] = arr![None; 128];
         let mut stream_outputs: Vec<&mut [f32]> = Vec::with_capacity(128);
-
-        for frame in out {
-            *frame = 0.0;
-        }
 
         for (i, node) in self.nodes.iter_mut().enumerate() {
             let inputs = self.midi_advance_by[i].inputs;
@@ -378,7 +407,7 @@ impl Traverser {
             let mut should_input_midi = false;
 
             for j in 0..inputs {
-                midi_inputs[j] = self.midi_outputs[self.midi_input_mappings[midi_mapping_i]];
+                midi_inputs[j] = mem::replace(&mut self.midi_outputs[self.midi_input_mappings[midi_mapping_i]], None);
                 midi_mapping_i += 1;
 
                 should_input_midi |= midi_inputs[j].is_some();
@@ -395,7 +424,10 @@ impl Traverser {
             let mut should_input_value = false;
 
             for j in 0..inputs {
-                value_inputs[j] = self.value_outputs[self.value_input_mappings[value_mapping_i]];
+                value_inputs[j] = mem::replace(
+                    &mut self.value_outputs[self.value_input_mappings[value_mapping_i]],
+                    None,
+                );
                 value_mapping_i += 1;
 
                 should_input_value |= value_inputs[j].is_some();
@@ -406,31 +438,35 @@ impl Traverser {
             }
         }
 
-        for (node, advance_by) in self.nodes.iter_mut().zip(self.stream_advance_by) {
+        for (node, advance_by) in self.nodes.iter_mut().zip(&self.stream_advance_by) {
             let inputs = advance_by.inputs;
             let outputs = advance_by.outputs;
 
-            // build the list of inputs
-            for j in 0..inputs {
-                let output_index = self.stream_input_mappings[stream_mapping_i];
+            let ptr = self.stream_outputs.as_mut_ptr();
 
-                if stream_inputs.len() < j {
-                    stream_inputs.push(&self.stream_outputs[output_index..(output_index + self.buffer_size)]);
-                } else {
-                    stream_inputs[j] = &self.stream_outputs[output_index..(output_index + self.buffer_size)];
+            unsafe {
+                // build the list of inputs
+                for j in 0..inputs {
+                    let output_index = self.stream_input_mappings[stream_mapping_i];
+
+                    if stream_inputs.len() < j {
+                        stream_inputs.push(from_raw_parts(ptr.add(output_index), self.buffer_size));
+                    } else {
+                        stream_inputs[j] = from_raw_parts(ptr.add(output_index), self.buffer_size);
+                    }
+
+                    stream_mapping_i += 1;
                 }
 
-                stream_mapping_i += 1;
-            }
+                // ...and the list of outputs
+                for j in 0..outputs {
+                    let output_index = stream_outputs_i + advance_by.defaults + j * self.buffer_size;
 
-            // ...and the list of outputs
-            for j in 0..outputs {
-                let output_index = stream_outputs_i + advance_by.defaults + j * self.buffer_size;
-
-                if stream_outputs.len() < j {
-                    stream_outputs.push(&mut self.stream_outputs[output_index..(output_index + self.buffer_size)]);
-                } else {
-                    stream_outputs[j] = &mut self.stream_outputs[output_index..(output_index + self.buffer_size)];
+                    if stream_outputs.len() < j {
+                        stream_outputs.push(from_raw_parts_mut(ptr.add(output_index), self.buffer_size));
+                    } else {
+                        stream_outputs[j] = from_raw_parts_mut(ptr.add(output_index), self.buffer_size);
+                    }
                 }
             }
 
@@ -447,7 +483,7 @@ impl Traverser {
             stream_outputs_i += (advance_by.defaults + advance_by.outputs) * self.buffer_size;
         }
 
-        for (node, advance_by) in self.nodes.iter_mut().zip(self.midi_advance_by) {
+        for (node, advance_by) in self.nodes.iter_mut().zip(&self.midi_advance_by) {
             let outputs = advance_by.outputs;
             let output_index = midi_outputs_i + advance_by.defaults;
 
@@ -456,7 +492,7 @@ impl Traverser {
             midi_outputs_i += advance_by.defaults + advance_by.outputs;
         }
 
-        for (node, advance_by) in self.nodes.iter_mut().zip(self.value_advance_by) {
+        for (node, advance_by) in self.nodes.iter_mut().zip(&self.value_advance_by) {
             let outputs = advance_by.outputs;
             let output_index = value_outputs_i + advance_by.defaults;
 
@@ -466,5 +502,13 @@ impl Traverser {
         }
 
         Ok(())
+    }
+
+    pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {
+        self.nodes
+            .iter_mut()
+            .zip(&self.node_indexes)
+            .find(|(_, index)| *index == &index_to_find)
+            .map(|(node, _)| node)
     }
 }
