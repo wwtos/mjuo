@@ -135,7 +135,12 @@ pub trait NodeRuntime: Debug + Clone {
     }
 
     /// Process received data.
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         NodeOk::no_warnings(())
     }
 
