@@ -1,6 +1,7 @@
 use core::f32::consts::PI;
+use std::fmt::Debug;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PhaseCalculator {
     cos_sin_table: Vec<(f32, f32)>,
 }
@@ -42,5 +43,11 @@ impl PhaseCalculator {
 
     pub fn window(&self) -> usize {
         self.cos_sin_table.len()
+    }
+}
+
+impl Debug for PhaseCalculator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PhaseCalculator {{ cos_sin_table: [...] }}")
     }
 }

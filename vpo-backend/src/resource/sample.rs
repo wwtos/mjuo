@@ -1,19 +1,17 @@
 use std::{
     fs::{self, File},
-    io::{Cursor, Read},
+    io::Read,
     path::Path,
 };
 
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
 use snafu::ResultExt;
 use sound_engine::{sampling::sample::Pipe, MonoSample};
-use symphonia::core::probe::Hint;
 use web_sys::console;
 
 use crate::errors::{EngineError, LoadingSnafu};
-
-use super::util::{decode_audio, mix_to_mono};
 
 fn parse_pipe_config(contents: &str) -> Result<Pipe, LoadingError> {
     toml::from_str(contents).context(TomlParserDeSnafu)
@@ -35,15 +33,17 @@ pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, Engi
     let mut pipe = parse_pipe_config(&config).context(LoadingSnafu)?;
 
     if let Some(sample) = resource {
-        let (buffer, spec) = decode_audio(Box::new(Cursor::new(sample)), Hint::new())?;
+        let mut buffer: Vec<f32> = Vec::with_capacity(sample.len() / 4);
 
-        let sample_rate = spec.rate;
-        let channels = spec.channels.count();
+        for i in (0..sample.len()).step_by(4) {
+            let mut frame = &sample[i..(i + 4)];
+            buffer.push(frame.read_f32::<LittleEndian>().unwrap());
+        }
 
-        let buffer_mono = mix_to_mono(&buffer, channels);
+        let sample_rate = 48_000;
 
         pipe.buffer = MonoSample {
-            audio_raw: buffer_mono,
+            audio_raw: buffer,
             sample_rate,
         };
     }

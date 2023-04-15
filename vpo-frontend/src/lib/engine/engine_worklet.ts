@@ -12,7 +12,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         let { module } = options?.processorOptions;
         initSync(module);
 
-        this.state = State.new(44100);
+        this.state = State.new(48000);
         this.midiIn = [];
 
         this.port.onmessage = (event) => {

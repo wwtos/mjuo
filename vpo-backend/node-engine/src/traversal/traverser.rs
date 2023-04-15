@@ -146,35 +146,12 @@ impl Traverser {
                 child_graph_info,
             );
 
-            let init_result = match init_result_res {
-                Ok(init_result) => init_result,
+            match init_result_res {
+                Ok(init_result) => warnings.append_warnings(init_result.warnings),
                 Err(err) => {
                     errors.push((*index, err));
-
-                    // make sure the node is still in the array
-                    self.nodes.push(NodeState {
-                        node: variant,
-                        node_index: *index,
-                        stream_index: 0,
-                        midi_index: 0,
-                        value_index: 0,
-                        linked_to_ui: false,
-                        stream_input_count: 0,
-                        stream_output_count: 0,
-                        stream_output_mappings: 0,
-                        midi_input_count: 0,
-                        midi_output_count: 0,
-                        midi_output_mappings: 0,
-                        value_input_count: 0,
-                        value_output_count: 0,
-                        value_output_mappings: 0,
-                    });
-
-                    continue;
                 }
             };
-
-            warnings.append_warnings(init_result.warnings);
 
             // create a list of its default inputs and count the outputs
             let mut stream_input_defaults = vec![];
@@ -278,6 +255,7 @@ impl Traverser {
             let midi_mapping_len = self.midi_output_mappings.len();
             let value_mapping_len = self.value_output_mappings.len();
 
+            // where does this node connect to?
             for socket in node_wrapper.list_output_sockets() {
                 let connection_indexes = graph.get_output_connection_indexes(*index, socket);
 
@@ -295,8 +273,9 @@ impl Traverser {
                         let mut other_midi_index = 0;
                         let mut other_value_index = 0;
 
-                        for input in to.list_input_sockets() {
-                            if input == socket {
+                        // find this input on the "to" node, and get its index
+                        for other_input_socket in to.list_input_sockets() {
+                            if other_input_socket == connection.data.to_socket {
                                 let to_local_node = self.nodes.iter().find(|x| x.node_index == to_index).unwrap();
 
                                 match socket.socket_type() {
@@ -305,10 +284,10 @@ impl Traverser {
                                         .push((stream_index, to_local_node.stream_index + other_stream_index)),
                                     SocketType::Midi => self
                                         .midi_output_mappings
-                                        .push((midi_index, other_midi_index + to_local_node.midi_index)),
+                                        .push((midi_index, to_local_node.midi_index + other_midi_index)),
                                     SocketType::Value => self
                                         .value_output_mappings
-                                        .push((value_index, other_value_index + to_local_node.value_index)),
+                                        .push((value_index, to_local_node.value_index + other_value_index)),
                                     _ => {}
                                 }
 
@@ -343,6 +322,8 @@ impl Traverser {
         if !errors.is_empty() {
             console::log_1(&format!("errors: {:#?}", errors).into());
         }
+
+        // console::log_1(&format!("traverser: {:#?}", self).into());
 
         self.reset_needed = true;
 

@@ -1,7 +1,26 @@
-export async function fetchSharedBuffer(input: RequestInfo | URL, init?: RequestInit | undefined) {
+async function parseAudio(context: AudioContext, response: Response) {
+    const audioData = await context.decodeAudioData(await response.arrayBuffer());
+    const bufferOut = new SharedArrayBuffer(audioData.length * 4);
+    const tmpBuffer = new Float32Array(audioData.length);
+
+    audioData.copyFromChannel(tmpBuffer, 0);
+
+    (new Float32Array(bufferOut)).set(tmpBuffer);
+
+    return bufferOut;
+}
+
+export async function fetchSharedBuffer(context: AudioContext, input: string, init?: RequestInit | undefined) {
     const response = await fetch(input, init);
 
+    const resource = input.split("/").pop() ?? "";
+    const extension = resource.substring(resource.indexOf(".") + 1);
+
     if (!response.body) return;
+
+    if (extension === "wav" || extension === "ogg") {
+        return await parseAudio(context, response);
+    }
 
     const parts = [];
     let totalLength = 0;

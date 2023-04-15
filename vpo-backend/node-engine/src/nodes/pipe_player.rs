@@ -1,5 +1,6 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::sampling::pipe_player::PipePlayer;
+use web_sys::console;
 
 use crate::nodes::prelude::*;
 

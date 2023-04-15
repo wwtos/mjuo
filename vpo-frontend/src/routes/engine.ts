@@ -1,4 +1,4 @@
-import workletUrl from "$lib/engine/engine_worklet.ts?url";
+import workletUrl from "$lib/engine/engine_worklet.js?worker&url";
 import wasmUrl from "$lib/wasm/vpo_backend_bg.wasm?url";
 
 export class Engine {

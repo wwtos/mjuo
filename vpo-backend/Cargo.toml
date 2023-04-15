@@ -6,6 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+byteorder = "1.4.3"
 console_error_panic_hook = {version = "0.1.6", optional = true}
 futures = "0.3.27"
 ipc = {path = "./ipc"}
@@ -21,7 +22,6 @@ serde_json = "1.0.74"
 smallvec = {version = "1.10", features = ["serde"]}
 snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
-symphonia = "0.5.2"
 toml = "0.5"
 walkdir = "2"
 
@@ -48,6 +48,11 @@ async-std = "1.10.0"
 cpal = "0.14.0"
 midir = "0.8"
 ringbuf = "0.2.8"
+symphonia = "0.5.2"
+
+[profile.release]
+lto = true
+opt-level = "s"
 
 [profile.dev]
 opt-level = 1

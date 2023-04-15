@@ -24,8 +24,6 @@ enum QueuedAction {
     None,
 }
 
-use web_sys::console;
-
 const ENVELOPE_POINTS: usize = 8;
 
 #[derive(Debug, Clone)]
@@ -55,8 +53,6 @@ pub struct PipePlayer {
 
 impl PipePlayer {
     pub fn new(pipe: &Pipe) -> PipePlayer {
-        console::log_1(&format!("Pipe: {:?}", pipe).into());
-
         let buffer_rate = pipe.buffer.sample_rate;
         let sample_length = pipe.buffer.audio_raw.len();
         let audio = &pipe.buffer.audio_raw;

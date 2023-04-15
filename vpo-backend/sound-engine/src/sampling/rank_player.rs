@@ -1,5 +1,6 @@
 use super::{pipe_player::PipePlayer, rank::Rank, sample::Pipe};
 use resource_manager::{ResourceIndex, ResourceManager};
+use web_sys::console;
 
 #[derive(Debug, Clone)]
 struct Voice {
@@ -26,12 +27,14 @@ pub struct RankPlayer {
 }
 
 impl RankPlayer {
-    pub fn new(samples: &ResourceManager<Pipe>, rank: &Rank, polyphony: usize) -> RankPlayer {
+    pub fn new(pipes: &ResourceManager<Pipe>, rank: &Rank, polyphony: usize) -> RankPlayer {
         let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
         for sample in &rank.pipes {
-            if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
+            if let Some(resource_index) = pipes.get_index(&sample.resource.resource) {
                 note_to_resource_map[sample.note as usize] = Some(resource_index);
+            } else {
+                console::log_1(&format!("missing resource: {:?}", sample.resource.resource).into());
             }
         }
 
@@ -102,6 +105,31 @@ impl RankPlayer {
                         .unwrap();
 
                     player.release(sample);
+                }
+            }
+        }
+    }
+
+    pub fn next_buffered(&mut self, buffer: &mut [f32], pipes: &ResourceManager<Pipe>) {
+        for output in buffer.iter_mut() {
+            *output = 0.0;
+        }
+
+        for voice in &mut self.voices {
+            if voice.active {
+                if let Some(pipe_index) = self.note_to_resource_map[voice.note as usize] {
+                    if let Some(player) = &mut voice.player {
+                        for output in buffer.iter_mut() {
+                            let pipe = pipes.borrow_resource(pipe_index).unwrap();
+
+                            *output += player.next_sample(pipe);
+
+                            if player.is_done() {
+                                voice.active = false;
+                                player.reset();
+                            }
+                        }
+                    }
                 }
             }
         }

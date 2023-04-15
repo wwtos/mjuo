@@ -1,5 +1,6 @@
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
+use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -70,6 +71,8 @@ impl NodeRuntime for MidiToValuesNode {
 
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
         if matches!(self.midi_in, ProcessState::Processed) {
+            console::log_1(&format!("sending: {:?}", self.frequency).into());
+
             values_out[0] = Some(Primitive::Float(self.frequency));
             values_out[1] = Some(Primitive::Boolean(self.gate));
         }

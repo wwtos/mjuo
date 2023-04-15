@@ -1,6 +1,7 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
 use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
+use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -75,22 +76,20 @@ impl NodeRuntime for RankPlayerNode {
 
     fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
         if let Some(player) = &mut self.player {
-            let samples = &state.global_state.resources.pipes;
+            let pipes = &state.global_state.resources.pipes;
 
             if !self.midi_in.is_empty() {
                 for midi in &self.midi_in {
                     match midi {
                         MidiData::NoteOn { note, .. } => {
-                            player.play_note(*note, samples);
+                            player.play_note(*note, pipes);
                         }
                         MidiData::NoteOff { note, .. } => {
-                            player.release_note(*note, samples);
+                            player.release_note(*note, pipes);
                         }
                         _ => {}
                     }
                 }
-
-                println!("sending: {:?}", self.midi_in);
 
                 self.midi_in.clear();
             }
@@ -100,9 +99,7 @@ impl NodeRuntime for RankPlayerNode {
             }
 
             if self.buffer_position == 0 {
-                for i in 0..BUFFER_SIZE {
-                    self.buffer[i] = player.next_sample(samples);
-                }
+                player.next_buffered(&mut self.buffer, pipes);
             }
 
             streams_out[0] = self.buffer[self.buffer_position];

@@ -130,7 +130,7 @@ export class NodeGraph {
         if (node && node.connectionsFrom) {
             let connection = node.connectionsFrom
                 .map(([_, input_index]) => Graph.getEdge(this.nodes, input_index))
-                .filter(edge => edge && deepEqual(edge.data.fromSocket, socket))
+                .filter(edge => edge && deepEqual(edge.data.toSocket, socket))
                 .map(edge => (edge && 
                     {
                         fromSocket: edge.data.fromSocket,

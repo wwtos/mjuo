@@ -17,7 +17,10 @@
     const bundle = new FluentBundle("en");
     bundle.addResource(new FluentResource(enTranslations));
 
-    const context = new AudioContext();
+    const context = new AudioContext({
+        sampleRate: 48000,
+        latencyHint: "interactive",
+    });
 
     constructEngine(context).then((engine) => {
         data.socket.setEngine(engine);
@@ -87,6 +90,7 @@
                 Promise.all(
                     resourcePath.map((subresource) =>
                         fetchSharedBuffer(
+                            context,
                             `/organ/${encodeResourceName(subresource)}`
                         )
                     )
@@ -101,15 +105,17 @@
                     data.socket.sendRaw(toSend);
                 });
             } else {
-                fetchSharedBuffer(`/organ/${resourcePath}`).then((resource) => {
-                    const toSend = {
-                        type: "resource",
-                        resource,
-                        path: encodeResourceName(resourcePath),
-                    };
+                fetchSharedBuffer(context, `/organ/${resourcePath}`).then(
+                    (resource) => {
+                        const toSend = {
+                            type: "resource",
+                            resource,
+                            path: encodeResourceName(resourcePath),
+                        };
 
-                    data.socket.sendRaw(toSend);
-                });
+                        data.socket.sendRaw(toSend);
+                    }
+                );
             }
         }
     });

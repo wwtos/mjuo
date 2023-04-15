@@ -7,7 +7,6 @@ use sound_engine::{
     wave::wavetable::Wavetable,
     SoundConfig,
 };
-use web_sys::console;
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]

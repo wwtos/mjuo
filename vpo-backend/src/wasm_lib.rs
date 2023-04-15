@@ -1,8 +1,4 @@
-use std::{
-    io::{Cursor, Write},
-    path::PathBuf,
-    sync::Mutex,
-};
+use std::{io::Write, path::PathBuf, sync::Mutex};
 
 use futures::executor::block_on;
 use ipc::{ipc_message::IPCMessage, send_buffer::SendBuffer};
@@ -20,7 +16,6 @@ use sound_engine::{
     SoundConfig,
 };
 use wasm_bindgen::prelude::*;
-use web_sys::console;
 
 use crate::{
     errors::{EngineError, LoadingSnafu},
@@ -157,7 +152,7 @@ impl State {
                 self.global_state.resources.pipes.add_resource(key, pipe);
             }
             "wavetables" => {
-                let wavetable = load_wavetable(Box::new(Cursor::new(resource.to_vec())))?;
+                let wavetable = load_wavetable(resource.to_vec())?;
 
                 self.global_state.resources.wavetables.add_resource(key, wavetable);
             }
