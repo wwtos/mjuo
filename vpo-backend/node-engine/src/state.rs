@@ -236,7 +236,7 @@ impl NodeEngineState {
         let traversal_errors = self
             .root_traverser
             .traverse(self.current_time, &self.scripting_engine, global_state);
-        self.current_time += 1;
+        self.current_time += out.len() as i64;
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);

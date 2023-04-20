@@ -84,5 +84,10 @@ export const variants: NodeVariant[] = [
         translationKey: "node-rank-player",
         internal: "RankPlayerNode",
         category: "audio"
-    }
+    },
+    {
+        translationKey: "sequencer",
+        internal: "SequencerNode",
+        category: "midi"
+    },
 ];

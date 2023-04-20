@@ -26,6 +26,7 @@ impl NodeRuntime for OutputNode {
         streams_in: &[&[f32]],
         _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
+        self.values_received.resize(streams_in[0].len(), 0.0);
         self.values_received.clone_from_slice(streams_in[0]);
 
         NodeOk::no_warnings(())

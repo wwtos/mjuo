@@ -3,6 +3,7 @@ use std::{
     iter::repeat,
     mem,
     slice::{from_raw_parts, from_raw_parts_mut},
+    time::SystemTime,
 };
 
 use arr_macro::arr;
@@ -27,6 +28,7 @@ struct AdvanceBy {
     pub defaults: usize,
 }
 
+#[derive(Debug)]
 struct OutputLocations {
     pub stream_outputs_index: usize,
     pub stream_defaults_index: usize,
@@ -123,6 +125,15 @@ impl BufferedTraverser {
 
         self.nodes.clear();
         self.node_indexes.clear();
+        self.stream_outputs.clear();
+        self.stream_input_mappings.clear();
+        self.stream_advance_by.clear();
+        self.midi_outputs.clear();
+        self.midi_input_mappings.clear();
+        self.midi_advance_by.clear();
+        self.value_outputs.clear();
+        self.value_input_mappings.clear();
+        self.value_advance_by.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, Warnings)> = Vec::new();
@@ -378,6 +389,8 @@ impl BufferedTraverser {
             console::log_1(&format!("errors: {:#?}", errors).into());
         }
 
+        // console::log_1(&format!("Traverser state: {:#?}", self).into());
+
         Ok(())
     }
 
@@ -444,12 +457,26 @@ impl BufferedTraverser {
 
             let ptr = self.stream_outputs.as_mut_ptr();
 
+            // aliasing testing
+            // let mut alias_test = vec![false; self.stream_outputs.len()];
+
             unsafe {
                 // build the list of inputs
                 for j in 0..inputs {
                     let output_index = self.stream_input_mappings[stream_mapping_i];
+                    assert!(output_index + self.buffer_size <= self.stream_outputs.len());
 
-                    if stream_inputs.len() < j {
+                    // alias test
+                    // for i in output_index..(output_index + self.buffer_size) {
+                    //     if alias_test[i] == true {
+                    //         console::log_1(&format!("Aliasing at: {:?}", i).into());
+                    //         panic!("Aliasing!");
+                    //     }
+
+                    //     alias_test[i] = true;
+                    // }
+
+                    if stream_inputs.len() <= j {
                         stream_inputs.push(from_raw_parts(ptr.add(output_index), self.buffer_size));
                     } else {
                         stream_inputs[j] = from_raw_parts(ptr.add(output_index), self.buffer_size);
@@ -460,9 +487,21 @@ impl BufferedTraverser {
 
                 // ...and the list of outputs
                 for j in 0..outputs {
-                    let output_index = stream_outputs_i + advance_by.defaults + j * self.buffer_size;
+                    let output_index = stream_outputs_i + (advance_by.defaults + j) * self.buffer_size;
+                    assert!(output_index + self.buffer_size <= self.stream_outputs.len());
 
-                    if stream_outputs.len() < j {
+                    // alias test
+                    // for i in output_index..(output_index + self.buffer_size) {
+
+                    //     if alias_test[i] == true {
+                    //         console::log_1(&format!("Aliasing at: {}", i).into());
+                    //         panic!("Aliasing!");
+                    //     }
+
+                    //     alias_test[i] = true;
+                    // }
+
+                    if stream_outputs.len() <= j {
                         stream_outputs.push(from_raw_parts_mut(ptr.add(output_index), self.buffer_size));
                     } else {
                         stream_outputs[j] = from_raw_parts_mut(ptr.add(output_index), self.buffer_size);

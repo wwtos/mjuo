@@ -200,7 +200,10 @@ export class WasmIpcSocket extends IpcSocket {
         if (this.engine && this.engine.context.state === "running") {
             while (this.messages.length > 0) {
                 const message = this.messages.splice(0, 1)[0];
-                console.log("sending", message);
+
+                if ("type" in message && message["type"] !== "midi") {
+                    console.log("sending", message);
+                }   
 
                 this.engine.send(message);
             }

@@ -13,7 +13,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         let { module } = options?.processorOptions;
         initSync(module);
 
-        this.state = State.new(48000);
+        this.state = State.new(48000, 128);
         this.midiIn = [];
 
         this.port.onmessage = (event) => {
@@ -50,7 +50,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         const now = (new Date()).getTime();
 
         if (now - this.lastTime > 15) {
-            console.log("diff", now - this.lastTime);
+            console.log("lag (ms)", now - this.lastTime);
         }
 
         this.lastTime = now;
