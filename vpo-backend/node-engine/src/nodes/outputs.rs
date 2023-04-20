@@ -4,16 +4,30 @@ use crate::nodes::prelude::*;
 pub struct OutputsNode {
     values: Vec<Option<Primitive>>,
     midis: Vec<Option<MidiBundle>>,
+    streams: Vec<Vec<f32>>,
+}
+
+impl OutputsNode {
+    pub fn get_streams(&mut self) -> &Vec<Vec<f32>> {
+        &self.streams
+    }
 }
 
 impl NodeRuntime for OutputsNode {
     fn process(
         &mut self,
         _state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out.clone_from_slice(streams_in);
+        streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
+        let buffer_size = streams_in[0].len();
+
+        self.streams.resize_with(streams_in.len(), || vec![0.0; buffer_size]);
+
+        for (local_stream, stream_in) in self.streams.iter_mut().zip(streams_in) {
+            local_stream.resize(buffer_size, 0.0);
+            local_stream.copy_from_slice(*stream_in);
+        }
 
         NodeOk::no_warnings(())
     }
@@ -34,7 +48,7 @@ impl NodeRuntime for OutputsNode {
         values_out.clone_from_slice(&self.values[..]);
     }
 
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(Property::SocketList(sockets)) = state.props.get("socket_list") {
             let midi_outputs = sockets
                 .iter()
@@ -55,7 +69,7 @@ impl NodeRuntime for OutputsNode {
 }
 
 impl Node for OutputsNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

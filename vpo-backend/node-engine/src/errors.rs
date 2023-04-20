@@ -66,6 +66,8 @@ pub enum NodeError {
     VersionError { version: Version },
     #[snafu(display("Graph error: {error:?}"))]
     GraphError { error: GraphError },
+    #[snafu(display("Expected node type {expected}, got {actual}"))]
+    IncorrectNodeType { expected: String, actual: String },
 }
 
 impl NodeError {

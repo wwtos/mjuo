@@ -5,7 +5,6 @@ pub(super) use crate::node::{
     midi_input, midi_output, stream_input, stream_output, value_input, value_output, InitResult, Node, NodeGraphAndIo,
     NodeIndex, NodeInitState, NodeIo, NodeProcessState, NodeRow, NodeRuntime,
 };
-pub(super) use crate::node_graph::NodeGraph;
 pub(super) use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue},
     property::{Property, PropertyType},

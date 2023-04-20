@@ -1,5 +1,6 @@
 pub mod biquad_filter;
 pub mod button;
+pub mod chord_sequencer;
 pub mod dummy;
 pub mod envelope;
 pub mod expression;
@@ -14,7 +15,6 @@ pub mod oscillator;
 pub mod output;
 pub mod outputs;
 pub mod pipe_player;
-pub mod placeholder;
 pub mod polyphonic;
 pub mod portamento;
 pub mod prelude;

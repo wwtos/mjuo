@@ -10,11 +10,9 @@ impl NodeRuntime for InputsNode {
     fn process(
         &mut self,
         _state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out.clone_from_slice(streams_in);
-
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         NodeOk::no_warnings(())
     }
 
@@ -36,7 +34,7 @@ impl NodeRuntime for InputsNode {
 }
 
 impl Node for InputsNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

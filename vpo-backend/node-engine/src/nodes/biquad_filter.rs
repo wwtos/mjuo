@@ -19,7 +19,7 @@ impl BiquadFilterNode {
 }
 
 impl NodeRuntime for BiquadFilterNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         self.filter.reset();
 
         if let Some(Property::MultipleChoice(filter_type)) = state.props.get("filter_type") {
@@ -53,17 +53,19 @@ impl NodeRuntime for BiquadFilterNode {
     fn process(
         &mut self,
         _state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
     ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = self.filter.filter_audio(streams_in[0]);
+        for i in 0..streams_in[0].len() {
+            streams_out[0][i] = self.filter.filter_audio(streams_in[0][i]);
+        }
 
         NodeOk::no_warnings(())
     }
 }
 
 impl Node for BiquadFilterNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 NodeRow::Property(

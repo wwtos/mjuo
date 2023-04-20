@@ -99,6 +99,7 @@ pub struct NodeInitState<'a> {
     pub global_state: &'a GlobalState,
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
+    pub buffer_size: usize,
 }
 
 pub struct NodeProcessState<'a> {
@@ -135,7 +136,12 @@ pub trait NodeRuntime: Debug + Clone {
     }
 
     /// Process received data.
-    fn process(&mut self, state: NodeProcessState, streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         NodeOk::no_warnings(())
     }
 

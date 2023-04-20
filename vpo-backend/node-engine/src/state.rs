@@ -16,7 +16,7 @@ use crate::{
     nodes::variants::NodeVariant,
     property::Property,
     socket_registry::SocketRegistry,
-    traversal::traverser::Traverser,
+    traversal::buffered_traverser::BufferedTraverser,
 };
 use rhai::Engine;
 
@@ -115,12 +115,13 @@ pub struct NodeEngineState {
     output_node: NodeIndex,
     midi_in_node: NodeIndex,
     current_time: i64,
-    root_traverser: Traverser,
+    root_traverser: BufferedTraverser,
     socket_registry: SocketRegistry,
+    buffer_size: usize,
 }
 
 impl NodeEngineState {
-    pub fn new(global_state: &GlobalState) -> Result<NodeEngineState, NodeError> {
+    pub fn new(global_state: &GlobalState, buffer_size: usize) -> Result<NodeEngineState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
 
@@ -139,9 +140,16 @@ impl NodeEngineState {
         };
 
         let scripting_engine: Engine = Engine::new_raw();
-        let mut root_traverser = Traverser::new();
+        let mut root_traverser = BufferedTraverser::new();
 
-        root_traverser.init_graph(root_graph_index, &graph_manager, &scripting_engine, global_state, 0)?;
+        root_traverser.init_graph(
+            root_graph_index,
+            &graph_manager,
+            &scripting_engine,
+            global_state,
+            0,
+            buffer_size,
+        )?;
 
         Ok(NodeEngineState {
             history,
@@ -155,6 +163,7 @@ impl NodeEngineState {
             current_time: 0,
             root_traverser,
             socket_registry,
+            buffer_size,
         })
     }
 
@@ -182,6 +191,10 @@ impl NodeEngineState {
         &self.socket_registry
     }
 
+    pub fn get_buffer_size(&self) -> usize {
+        self.buffer_size
+    }
+
     pub fn notify_parents_of_graph_change(&mut self, graph_index: GraphIndex) -> Result<(), NodeError> {
         if graph_index != self.graph_manager.root_index() {
             let parent_nodes = self.graph_manager.get_graph_parents(graph_index)?;
@@ -201,7 +214,7 @@ impl NodeEngineState {
         Ok(())
     }
 
-    pub fn step(&mut self, midi_in: MidiBundle, global_state: &GlobalState) -> f32 {
+    pub fn step(&mut self, midi_in: MidiBundle, global_state: &GlobalState, out: &mut [f32]) {
         let root_graph = self
             .graph_manager
             .get_graph_mut(self.graph_manager.root_index())
@@ -223,7 +236,7 @@ impl NodeEngineState {
         let traversal_errors = self
             .root_traverser
             .traverse(self.current_time, &self.scripting_engine, global_state);
-        self.current_time += 1;
+        self.current_time += out.len() as i64;
 
         if let Err(errors) = traversal_errors {
             println!("{:?}", errors);
@@ -232,13 +245,13 @@ impl NodeEngineState {
         let output_node = self.root_traverser.get_node_mut(self.output_node);
 
         let output = match output_node {
-            Some(NodeVariant::OutputNode(node)) => node.get_value_received(),
+            Some(NodeVariant::OutputNode(node)) => node.get_values_received(),
             _ => {
                 unreachable!("Root input midi node is not midi node")
             }
         };
 
-        output
+        out.copy_from_slice(&output)
     }
 }
 
@@ -298,6 +311,7 @@ impl NodeEngineState {
                 &self.scripting_engine,
                 global_state,
                 self.current_time,
+                self.buffer_size,
             )?;
         }
 
@@ -662,6 +676,7 @@ impl NodeEngineState {
             &self.scripting_engine,
             global_state,
             self.current_time,
+            self.buffer_size,
         )?;
 
         Ok(())

@@ -36,7 +36,6 @@ web-sys = {version = "0.3.61", features = ["console"]}
 [package.metadata.wasm-pack.profile.dev.wasm-bindgen]
 debug-js-glue = true
 demangle-name-section = true
-dwarf-debug-info = true
 
 [target.'cfg(unix)'.dependencies]
 alsa = {version = "0.6.0"}
@@ -52,7 +51,7 @@ symphonia = "0.5.2"
 
 [profile.release]
 lto = true
-opt-level = "s"
+opt-level = 3
 
 [profile.dev]
 opt-level = 1

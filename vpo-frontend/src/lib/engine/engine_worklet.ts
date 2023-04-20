@@ -4,6 +4,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
     state: State;
     toInput: string[];
     midiIn: Uint8Array[];
+    lastTime: number;
 
     constructor(options?: AudioWorkletNodeOptions) {
         super();
@@ -12,7 +13,7 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         let { module } = options?.processorOptions;
         initSync(module);
 
-        this.state = State.new(48000);
+        this.state = State.new(48000, 128);
         this.midiIn = [];
 
         this.port.onmessage = (event) => {
@@ -40,10 +41,19 @@ class RustEngineWorklet extends AudioWorkletProcessor {
         };
 
         this.toInput = [];
+        this.lastTime = (new Date()).getTime();
     }
 
     process(_inputs: Float32Array[][], outputs: Float32Array[][]) {
-        let result = this.state.step(this.toInput.splice(0, 1)[0], this.midiIn.splice(0, 1)[0] ?? new Uint8Array(), outputs[0][0]);
+        const result = this.state.step(this.toInput.splice(0, 1)[0], this.midiIn.splice(0, 1)[0] ?? new Uint8Array(), outputs[0][0]);
+
+        const now = (new Date()).getTime();
+
+        if (now - this.lastTime > 15) {
+            console.log("lag (ms)", now - this.lastTime);
+        }
+
+        this.lastTime = now;
 
         if (result.length > 0) {
             this.port.postMessage(result);

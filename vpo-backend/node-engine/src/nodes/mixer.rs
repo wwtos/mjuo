@@ -1,41 +1,33 @@
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct MixerNode {
-    input_count: i32,
-    last_input_count: i32,
-    input_sum: f32,
-    output_audio: f32,
-}
+pub struct MixerNode {}
 
 impl Default for MixerNode {
     fn default() -> Self {
-        MixerNode {
-            input_count: 2,
-            last_input_count: 2,
-            input_sum: 0.0,
-            output_audio: 0.0,
-        }
+        MixerNode {}
     }
 }
 
 impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
-        streams_out[0] = streams_in.iter().sum::<f32>() / streams_in.len() as f32;
+        _state: NodeProcessState,
+        streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
+        for (i, frame) in streams_out[0].iter_mut().enumerate() {
+            *frame = 0.0;
+
+            for stream_in in streams_in {
+                *frame += stream_in[i];
+            }
+        }
 
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(Property::Integer(input_count)) = state.props.get("input_count") {
-            self.input_count = *input_count;
-        }
-
+    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 }

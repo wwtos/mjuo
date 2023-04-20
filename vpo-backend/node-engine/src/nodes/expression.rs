@@ -44,9 +44,9 @@ impl NodeRuntime for ExpressionNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[f32],
-        streams_out: &mut [f32],
-    ) -> Result<NodeOk<()>, NodeError> {
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         let mut warnings = WarningBuilder::new();
 
         self.value_out = None;
@@ -97,8 +97,7 @@ impl NodeRuntime for ExpressionNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let mut did_rows_change = false;
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut warnings = WarningBuilder::new();
 
         let mut expression = "";

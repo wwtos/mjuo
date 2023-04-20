@@ -7,7 +7,7 @@ use crate::sampling::util::sq;
 
 use super::{
     savitzky_golay::savgol_filter,
-    util::{abs, argmax, argmin, gradient, median, norm_signal, resample_to, rms, sign, std},
+    util::{abs, argmax, argmin, gradient, median, norm_signal, resample_to, rms, std},
 };
 
 pub struct SampleMetadata {
@@ -18,33 +18,6 @@ pub struct SampleMetadata {
     pub loop_end: usize,
     pub note: u8,
     pub cents: i16,
-}
-
-// https://stackoverflow.com/questions/34235530/how-to-get-high-and-low-envelope-of-a-signal
-fn envelopes_idx(signal: &DVector<f64>, dmax: usize) -> Vec<usize> {
-    // locals min
-    let mut lmax: Vec<usize> = Vec::new();
-
-    let mut last_sign = 0.0;
-    for i in 1..signal.len() {
-        let sign = sign(signal[i] - signal[i - 1]);
-
-        if last_sign - sign > 0.0 {
-            lmax.push(i);
-        }
-
-        last_sign = sign;
-    }
-
-    let mut chunked_lmax: Vec<usize> = Vec::new();
-    for (i, local_maximum) in lmax.chunks(dmax).enumerate() {
-        let mapped_chunk = DVector::from_iterator(local_maximum.len(), local_maximum.iter().map(|pos| signal[*pos]));
-        let local_maximum_pos = lmax[i * dmax + mapped_chunk.argmax().0];
-
-        chunked_lmax.push(local_maximum_pos);
-    }
-
-    chunked_lmax
 }
 
 pub fn calc_amp(signal: &[f64], window_width: usize) -> Vec<f64> {
@@ -69,7 +42,6 @@ struct LoopSettings {
     pub min_loop_length: f64,
     pub distance_between_loops: f64,
     pub quality_factor: f64,
-    pub final_pass_count: usize,
 }
 
 fn search_for_sustain(env_db: &[f64], settings: &EnvelopeSettings) -> usize {
@@ -164,7 +136,6 @@ fn find_loop_point(
         min_loop_length,
         distance_between_loops,
         quality_factor,
-        final_pass_count: _,
     } = loop_settings;
 
     let sample_deriv = gradient(sample);
@@ -305,7 +276,6 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
         min_loop_length: 1.5,
         distance_between_loops: 0.2,
         quality_factor: 10.0,
-        final_pass_count: 1000,
     };
 
     let loop_point = find_loop_point(

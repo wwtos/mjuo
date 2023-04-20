@@ -1,11 +1,8 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
 use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
-use web_sys::console;
 
 use crate::nodes::prelude::*;
-
-const BUFFER_SIZE: usize = 64;
 
 #[derive(Debug, Clone)]
 pub struct RankPlayerNode {
@@ -13,8 +10,6 @@ pub struct RankPlayerNode {
     index: Option<ResourceIndex>,
     polyphony: usize,
     midi_in: MidiBundle,
-    buffer: [f32; BUFFER_SIZE],
-    buffer_position: usize,
 }
 
 impl Default for RankPlayerNode {
@@ -24,8 +19,6 @@ impl Default for RankPlayerNode {
             index: None,
             polyphony: 16,
             midi_in: SmallVec::new(),
-            buffer: [0.0; BUFFER_SIZE],
-            buffer_position: 0,
         }
     }
 }
@@ -74,7 +67,12 @@ impl NodeRuntime for RankPlayerNode {
         InitResult::nothing()
     }
 
-    fn process(&mut self, state: NodeProcessState, _streams_in: &[f32], streams_out: &mut [f32]) -> NodeResult<()> {
+    fn process(
+        &mut self,
+        state: NodeProcessState,
+        _streams_in: &[&[f32]],
+        streams_out: &mut [&mut [f32]],
+    ) -> NodeResult<()> {
         if let Some(player) = &mut self.player {
             let pipes = &state.global_state.resources.pipes;
 
@@ -94,17 +92,11 @@ impl NodeRuntime for RankPlayerNode {
                 self.midi_in.clear();
             }
 
-            if self.buffer_position >= BUFFER_SIZE {
-                self.buffer_position = 0;
+            for frame in streams_out[0].iter_mut() {
+                *frame = 0.0;
             }
 
-            if self.buffer_position == 0 {
-                player.next_buffered(&mut self.buffer, pipes);
-            }
-
-            streams_out[0] = self.buffer[self.buffer_position];
-
-            self.buffer_position += 1;
+            player.next_buffered(streams_out[0], pipes);
         }
 
         NodeOk::no_warnings(())
