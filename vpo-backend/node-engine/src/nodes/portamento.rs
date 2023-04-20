@@ -27,7 +27,7 @@ impl PortamentoNode {
 }
 
 impl NodeRuntime for PortamentoNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(ramp_type) = state.props.get("ramp_type") {
             let ramp_type = ramp_type.clone().as_multiple_choice().unwrap();
 
@@ -43,9 +43,9 @@ impl NodeRuntime for PortamentoNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        _state: NodeProcessState,
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         if self.engaged && self.active {
             let out = self.ramp.process();
@@ -68,10 +68,12 @@ impl NodeRuntime for PortamentoNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let [gate, frequency, speed] = values_in {
             if let Some(gate) = gate.clone().and_then(|x| x.as_boolean()) {
-                if !self.engaged {
+                if self.engaged && !gate {
                     self.value_out = Some(Primitive::Float(self.ramp.get_to()));
                     self.ramp.set_position(self.ramp.get_to());
                 }
+
+                self.engaged = gate;
             }
 
             if let Some(frequency) = frequency.clone().and_then(|x| x.as_float()) {
@@ -101,7 +103,7 @@ impl NodeRuntime for PortamentoNode {
 }
 
 impl Node for PortamentoNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "ramp_type".into(),

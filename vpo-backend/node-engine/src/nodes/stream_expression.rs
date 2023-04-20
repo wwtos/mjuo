@@ -67,12 +67,6 @@ impl NodeRuntime for StreamExpressionNode {
             .and_then(|x| x.clone().as_string())
             .unwrap_or("".into());
 
-        let values_in_count = state
-            .props
-            .get("values_in_count")
-            .and_then(|x| x.clone().as_integer())
-            .unwrap() as usize;
-
         if expression.is_empty() {
             // if it's empty, don't compile it
             self.ast = None;

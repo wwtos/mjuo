@@ -19,7 +19,7 @@ impl NodeRuntime for FunctionNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(graph_and_io) = child_graph {
             let NodeGraphAndIo {
-                graph,
+                graph: _,
                 input_index,
                 output_index,
             } = graph_and_io;
@@ -40,9 +40,9 @@ impl NodeRuntime for FunctionNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        _state: NodeProcessState,
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
@@ -71,7 +71,7 @@ impl NodeRuntime for FunctionNode {
 }
 
 impl Node for FunctionNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 stream_input(register("audio"), 0.0),

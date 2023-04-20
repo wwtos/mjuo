@@ -24,9 +24,9 @@ impl NodeRuntime for MidiInNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        _state: NodeProcessState,
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         if !self.has_midi_been_processed {
             self.has_midi_been_processed = true;

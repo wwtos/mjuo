@@ -3,7 +3,6 @@ use std::{
     iter::repeat,
     mem,
     slice::{from_raw_parts, from_raw_parts_mut},
-    time::SystemTime,
 };
 
 use arr_macro::arr;
@@ -15,7 +14,7 @@ use crate::{
     errors::{ErrorsAndWarnings, NodeError, Warnings},
     global_state::GlobalState,
     graph_manager::{GraphIndex, GraphManager},
-    node::{NodeGraphAndIo, NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
+    node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
     nodes::variants::{new_variant, NodeVariant},
 };
 
@@ -151,14 +150,8 @@ impl BufferedTraverser {
                 new_variant(&node_wrapper.get_node_type(), &global_state.sound_config)?
             };
 
-            // extract the graph and child io indexes, if any
-            let child_graph_info = node_wrapper
-                .get_child_graph_info()
-                .map(|(graph_index, child_io_indexes)| NodeGraphAndIo {
-                    graph: graph_index,
-                    input_index: child_io_indexes.0,
-                    output_index: child_io_indexes.1,
-                });
+            // get the child graph info, if any
+            let child_graph_info = node_wrapper.get_child_graph_info();
 
             let init_result_res = variant.init(
                 NodeInitState {
@@ -469,8 +462,7 @@ impl BufferedTraverser {
                     // alias test
                     // for i in output_index..(output_index + self.buffer_size) {
                     //     if alias_test[i] == true {
-                    //         console::log_1(&format!("Aliasing at: {:?}", i).into());
-                    //         panic!("Aliasing!");
+                    //         panic!("Aliasing at: {:?}", i);
                     //     }
 
                     //     alias_test[i] = true;
@@ -494,8 +486,7 @@ impl BufferedTraverser {
                     // for i in output_index..(output_index + self.buffer_size) {
 
                     //     if alias_test[i] == true {
-                    //         console::log_1(&format!("Aliasing at: {}", i).into());
-                    //         panic!("Aliasing!");
+                    //         panic!("Aliasing at: {}", i);
                     //     }
 
                     //     alias_test[i] = true;

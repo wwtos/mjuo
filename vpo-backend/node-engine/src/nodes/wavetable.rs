@@ -21,7 +21,7 @@ impl WavetableNode {
 }
 
 impl NodeRuntime for WavetableNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
         if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
@@ -56,7 +56,7 @@ impl NodeRuntime for WavetableNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[&[f32]],
+        _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
@@ -85,7 +85,7 @@ impl NodeRuntime for WavetableNode {
 }
 
 impl Node for WavetableNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "wavetable".into(),

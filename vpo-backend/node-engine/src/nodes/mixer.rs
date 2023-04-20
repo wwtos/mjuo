@@ -1,28 +1,18 @@
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct MixerNode {
-    input_count: i32,
-    last_input_count: i32,
-    input_sum: f32,
-    output_audio: f32,
-}
+pub struct MixerNode {}
 
 impl Default for MixerNode {
     fn default() -> Self {
-        MixerNode {
-            input_count: 2,
-            last_input_count: 2,
-            input_sum: 0.0,
-            output_audio: 0.0,
-        }
+        MixerNode {}
     }
 }
 
 impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
-        state: NodeProcessState,
+        _state: NodeProcessState,
         streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
@@ -37,11 +27,7 @@ impl NodeRuntime for MixerNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(Property::Integer(input_count)) = state.props.get("input_count") {
-            self.input_count = *input_count;
-        }
-
+    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 }

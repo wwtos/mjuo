@@ -55,7 +55,7 @@ fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
 }
 
 impl NodeRuntime for MidiFilterNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut warnings = WarningBuilder::new();
 
         if let Some(Property::String(expression)) = state.props.get("expression") {
@@ -78,8 +78,8 @@ impl NodeRuntime for MidiFilterNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        _streams_in: &[&[f32]],
+        _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         let mut warnings = WarningBuilder::new();
 
@@ -144,7 +144,7 @@ impl NodeRuntime for MidiFilterNode {
 }
 
 impl Node for MidiFilterNode {
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             midi_input(register("midi"), SmallVec::new()),
             NodeRow::Property(

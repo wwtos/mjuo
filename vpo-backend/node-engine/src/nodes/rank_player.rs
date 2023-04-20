@@ -70,7 +70,7 @@ impl NodeRuntime for RankPlayerNode {
     fn process(
         &mut self,
         state: NodeProcessState,
-        streams_in: &[&[f32]],
+        _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         if let Some(player) = &mut self.player {

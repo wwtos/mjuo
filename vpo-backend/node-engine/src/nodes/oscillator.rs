@@ -31,8 +31,8 @@ impl NodeRuntime for OscillatorNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
+        _state: NodeProcessState,
+        _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         for frame in streams_out[0].iter_mut() {

@@ -8,7 +8,7 @@ use crate::{
     connection::{Socket, SocketDirection},
     errors::{JsonParserSnafu, NodeError, NodeOk},
     graph_manager::GraphIndex,
-    node::{NodeIndex, NodeRow},
+    node::{NodeGraphAndIo, NodeIndex, NodeRow},
     property::Property,
 };
 
@@ -70,10 +70,14 @@ impl NodeWrapper {
         &self.child_graph_index
     }
 
-    pub fn get_child_graph_info(&self) -> Option<(GraphIndex, (NodeIndex, NodeIndex))> {
+    pub fn get_child_graph_info(&self) -> Option<NodeGraphAndIo> {
         if let Some(index) = self.child_graph_index {
-            if let Some(child_graph_indexes) = self.child_graph_io_indexes {
-                return Some((index, child_graph_indexes));
+            if let Some((input_index, output_index)) = self.child_graph_io_indexes {
+                return Some(NodeGraphAndIo {
+                    graph: index,
+                    input_index,
+                    output_index,
+                });
             }
         }
 
@@ -203,17 +207,5 @@ impl NodeWrapper {
 
     pub fn get_node_type(&self) -> String {
         self.node_type.clone()
-    }
-
-    pub(crate) fn get_child_graph_io_indexes(&self) -> &Option<(NodeIndex, NodeIndex)> {
-        &self.child_graph_io_indexes
-    }
-
-    pub(crate) fn set_node_rows(&mut self, rows: Vec<NodeRow>) {
-        self.node_rows = rows;
-    }
-
-    pub(crate) fn get_node_rows(&self) -> &Vec<NodeRow> {
-        &self.node_rows
     }
 }
