@@ -7,11 +7,10 @@ use std::{
 
 use arr_macro::arr;
 use rhai::Engine;
-use web_sys::console;
 
 use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketType},
-    errors::{ErrorsAndWarnings, NodeError, Warnings},
+    errors::{NodeError, Warnings},
     global_state::GlobalState,
     graph_manager::{GraphIndex, GraphManager},
     node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
@@ -379,7 +378,7 @@ impl BufferedTraverser {
         }
 
         if !errors.is_empty() {
-            console::log_1(&format!("errors: {:#?}", errors).into());
+            println!("errors: {:#?}", errors);
         }
 
         // console::log_1(&format!("Traverser state: {:#?}", self).into());
@@ -387,12 +386,7 @@ impl BufferedTraverser {
         Ok(())
     }
 
-    pub fn traverse(
-        &mut self,
-        current_time: i64,
-        script_engine: &Engine,
-        global_state: &GlobalState,
-    ) -> Result<(), ErrorsAndWarnings> {
+    pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, global_state: &GlobalState) {
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
@@ -530,8 +524,6 @@ impl BufferedTraverser {
 
             value_outputs_i += advance_by.defaults + advance_by.outputs;
         }
-
-        Ok(())
     }
 
     pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {

@@ -17,11 +17,15 @@ pub type SamplePoint = i16;
 #[serde(rename_all = "camelCase")]
 pub struct SoundConfig {
     pub sample_rate: u32,
+    pub buffer_size: usize,
 }
 
 impl Default for SoundConfig {
     fn default() -> Self {
-        SoundConfig { sample_rate: 200 }
+        SoundConfig {
+            sample_rate: 200,
+            buffer_size: 1,
+        }
     }
 }
 

@@ -1,7 +1,3 @@
-#[cfg(target_os = "linux")]
-pub mod alsa;
-#[cfg(target_os = "linux")]
-pub mod alsa_midi;
 pub mod midir;
 #[cfg(target_os = "linux")]
 pub mod pulse;
@@ -29,8 +25,6 @@ use snafu::ResultExt;
 use walkdir::WalkDir;
 
 use crate::migrations::migrate;
-use crate::resource::rank::load_rank;
-use crate::resource::sample::load_sample;
 use crate::resource::wavetable::load_wavetable;
 
 pub mod midi;
@@ -108,11 +102,11 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     *state = NodeEngineState::new(global_state).unwrap();
-    global_state.resources.samples.clear();
+    global_state.resources.pipes.clear();
 
     load_resources(
-        &path.join("samples"),
-        &mut global_state.resources.samples,
+        &path.join("pipes"),
+        &mut global_state.resources.pipes,
         AUDIO_EXTENSIONS,
         &load_sample,
     )

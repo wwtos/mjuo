@@ -212,10 +212,7 @@ impl NodeRuntime for PolyphonicNode {
             if voice.info.active {
                 // if it's active, process it
                 self.traverser
-                    .traverse(state.current_time, state.script_engine, state.global_state)
-                    .map_err(|err| NodeError::InnerGraphErrors {
-                        errors_and_warnings: err,
-                    })?;
+                    .traverse(state.current_time, state.script_engine, state.global_state);
 
                 let subgraph_output_node = voice.traverser.get_node_mut(child_output_node).unwrap();
 

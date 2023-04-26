@@ -204,8 +204,7 @@ where
         let new_resources = Arc::try_unwrap(resources).unwrap().into_inner().unwrap();
 
         for (key, resource) in new_resources.into_iter() {
-            let resource_index = self.add_resource(resource);
-            self.resource_mapping.insert(key, resource_index);
+            self.add_resource(key, resource);
         }
 
         Ok(())

@@ -1,6 +1,5 @@
 use smallvec::{smallvec, SmallVec};
 use sound_engine::midi::messages::MidiData;
-use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -103,8 +102,6 @@ impl NodeRuntime for SequencerNode {
                     velocity: 127
                 }
             ]);
-
-            console::log_1(&format!("emitting {:?}", self.to_emit).into());
         } else {
             self.to_emit = None;
         }

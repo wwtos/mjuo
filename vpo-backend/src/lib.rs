@@ -10,21 +10,17 @@ pub mod utils;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_lib;
 
-#[cfg(any(windows, unix))]
-type Sender = async_std::channel::Sender;
+#[cfg(any(unix, windows))]
+type Sender<T> = async_std::channel::Sender<T>;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 
 use std::{error::Error, io::Write, thread};
 
 #[cfg(any(unix, windows))]
-use async_std::channel::{unbounded, Receiver, Sender};
+use async_std::channel::{unbounded, Receiver};
 use futures::executor::block_on;
 
-#[cfg(any(unix, windows))]
-use io::{
-    alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend, BUFFER_SIZE,
-};
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 #[cfg(any(unix, windows))]
@@ -33,7 +29,6 @@ use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
 use node_engine::{global_state::GlobalState, state::NodeEngineState};
 use routes::{route, RouteReturn};
 use serde_json::json;
-use sound_engine::midi::{messages::MidiData, parse::MidiParser};
 
 #[cfg(any(unix, windows))]
 pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
@@ -83,44 +78,11 @@ pub fn handle_msg(
 }
 
 #[cfg(any(unix, windows))]
-pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
-    backend.connect()?;
-
-    Ok(backend)
-}
-
-#[cfg(any(unix, windows))]
-pub fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn MidiClientBackend> = Box::new(AlsaMidiClientBackend::new());
-    backend.connect()?;
-
-    Ok(backend)
-}
-
-#[cfg(any(unix, windows))]
-pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiParser) -> Vec<MidiData> {
-    let midi_in = midi_backend.read().unwrap();
-    let mut messages: Vec<MidiData> = Vec::new();
-
-    if !midi_in.is_empty() {
-        parser.write_all(midi_in.as_slice()).unwrap();
-
-        while !parser.parsed.is_empty() {
-            let message = parser.parsed.remove(0);
-            messages.push(message);
-        }
-    }
-
-    messages
-}
-
-#[cfg(any(unix, windows))]
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {
-    let mut data_out = [0_u8; BUFFER_SIZE * 4];
+    let mut data_out = vec![0_u8; data.len() * 4];
 
     // TODO: would memcpy work here faster?
-    for i in 0..BUFFER_SIZE {
+    for i in 0..data.len() {
         let num = (data[i] as f32).to_le_bytes();
 
         data_out[i * 4] = num[0];

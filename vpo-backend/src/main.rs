@@ -17,9 +17,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // set up state
     let sound_config = SoundConfig { sample_rate: 48_000 };
+    let buffer_size = 128;
 
     let mut global_state = GlobalState::new(sound_config);
-    let mut engine_state = NodeEngineState::new(&global_state).unwrap();
+    let mut engine_state = NodeEngineState::new(&global_state, buffer_size).unwrap();
 
     let mut backend = connect_backend()?;
     let mut midi_backend = connect_midi_backend()?;
@@ -28,7 +29,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut buffer_index = 0;
     let start = Instant::now();
 
-    let mut output_file = File::create("out.raw").unwrap();
+    let mut output_file = File::create("out.pcm").unwrap();
 
     loop {
         let msg = from_server.try_recv();
@@ -43,10 +44,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             //println!("midi in main: {:?}", midi);
         }
 
-        let mut buffer = [0_f32; BUFFER_SIZE];
+        let mut buffer = vec![0_f32; buffer_size];
 
         for (i, sample) in buffer.iter_mut().enumerate() {
-            let current_time = (buffer_index * BUFFER_SIZE + i) as i64;
+            let current_time = (buffer_index * buffer_size + i) as i64;
 
             *sample = engine_state.step(current_time, SmallVec::from(midi.clone()), &global_state);
 
@@ -61,7 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         write_to_file(&mut output_file, &buffer)?;
 
         let now = Instant::now() - start;
-        let sample_duration = Duration::from_secs_f64(BUFFER_SIZE as f64 / SAMPLE_RATE as f64);
+        let sample_duration = Duration::from_secs_f64(buffer_size as f64 / SAMPLE_RATE as f64);
         let buffer_time = Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
 
         // println!("now: {:?}, now (buffer): {:?}", now, buffer_time);

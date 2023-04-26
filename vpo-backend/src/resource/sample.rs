@@ -4,12 +4,11 @@ use std::{
     path::Path,
 };
 
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt};
 use regex::Regex;
 use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
 use snafu::ResultExt;
 use sound_engine::{sampling::sample::Pipe, MonoSample};
-use web_sys::console;
 
 use crate::errors::{EngineError, LoadingSnafu};
 

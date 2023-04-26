@@ -1,91 +1,95 @@
+use std::{
+    error,
+    sync::{Arc, RwLock},
+};
+
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    SampleFormat, SampleRate,
+    Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use ringbuf::{Producer, RingBuffer};
-use std::error;
+use node_engine::{engine::NodeEngine, global_state::GlobalState};
+use smallvec::SmallVec;
+use snafu::{whatever, OptionExt, ResultExt};
 
-use super::{AudioClientBackend, BUFFER_SIZE};
+use crate::errors::EngineError;
+
+use super::BUFFER_SIZE;
 
 pub struct CpalBackend {
-    latency: f32,
-    producer: Option<Producer<f32>>,
+    device: Option<Device>,
+    producer: Option<rtrb::Producer<f32>>,
+    host: Host,
 }
 
 impl CpalBackend {
-    pub fn new(latency: f32) -> Result<CpalBackend, Box<dyn error::Error>> {
-        enumerate_devices()?;
-
-        Ok(CpalBackend {
-            latency,
-            producer: None,
-        })
-    }
-}
-
-impl AudioClientBackend for CpalBackend {
-    fn connect(&mut self) -> Result<(), Box<dyn error::Error>> {
+    pub fn new() -> Result<CpalBackend, EngineError> {
         let host = cpal::default_host();
 
-        let device = host.default_output_device().expect("failed to find output device");
-        println!("Output device: {}", device.name()?);
+        Ok(CpalBackend {
+            device: None,
+            producer: None,
+            host,
+        })
+    }
 
-        let config: cpal::StreamConfig = device
+    fn get_output_device_list(&self) -> Result<Vec<Device>, EngineError> {
+        Ok(self
+            .host
+            .output_devices()
+            .whatever_context("Could not enumerate devices")?
+            .collect())
+    }
+
+    fn connect(
+        &mut self,
+        device: Device,
+        engine: NodeEngine,
+        global_state: Arc<RwLock<GlobalState>>,
+        callback: impl FnMut(&mut [f32], usize) -> bool,
+    ) -> Result<(), EngineError> {
+        let configs = device.supported_output_configs();
+
+        let config = device
             .supported_output_configs()
-            .unwrap()
+            .whatever_context("Could not list supported output configs")?
             .find(|output_config| {
                 output_config.max_sample_rate() >= SampleRate(44_100)
                     && output_config.min_sample_rate() <= SampleRate(44_100)
                     && output_config.channels() >= 1
                     && output_config.sample_format() == SampleFormat::F32
             })
-            .unwrap()
-            .with_sample_rate(SampleRate(44_100))
-            .into();
+            .whatever_context("Could not build output config")?
+            .with_sample_rate(SampleRate(44_100));
 
         println!("Config: {:?}", config);
 
-        let latency_frames = (self.latency / 1_000.0) * config.sample_rate.0 as f32;
-        let latency_samples = latency_frames as usize * config.channels as usize;
-
-        let ring = RingBuffer::new(latency_samples * 2);
-        let (mut producer, mut consumer) = ring.split();
-
-        // Fill the samples with 0.0 equal to the length of the delay.
-        for _ in 0..latency_samples {
-            // The ring buffer has twice as much space as necessary to add latency here,
-            // so this should never fail
-            producer.push(0.0).unwrap();
-        }
-
-        self.producer = Some(producer);
-
-        let output_data_fn = move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
-            let mut input_fell_behind = false;
-            for sample in data {
-                *sample = match consumer.pop() {
-                    Some(s) => s,
-                    None => {
-                        input_fell_behind = true;
-                        0.0
-                    }
-                };
-            }
-            if input_fell_behind {
-                eprintln!("input stream fell behind: try increasing latency");
-            }
+        let output_stream = match config.sample_format() {
+            SampleFormat::F32 => self.build_output_callback(config.into(), device, engine, global_state)?,
+            _ => whatever!("I'm just working with f32 today, thank you very much"),
         };
 
-        let output_stream = device.build_output_stream(&config, output_data_fn, err_fn)?;
         println!("Successfully built streams.");
 
-        println!(
-            "Starting the input and output streams with `{}` milliseconds of latency.",
-            self.latency
-        );
-        output_stream.play()?;
+        output_stream.play();
 
         Ok(())
+    }
+
+    fn build_output_callback(
+        &mut self,
+        config: StreamConfig,
+        device: Device,
+        engine: NodeEngine,
+        global_state: Arc<RwLock<GlobalState>>,
+    ) -> Result<Stream, EngineError> {
+        Ok(device
+            .build_output_stream::<f32, _, _>(
+                &config,
+                move |mut out, info| engine.step(SmallVec::new(), &global_state.read().unwrap(), out),
+                |err| panic!("Callback error! {}", err),
+                None,
+            )
+            .whatever_context("Failed to build output stream")?)
     }
 
     fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn error::Error>> {
