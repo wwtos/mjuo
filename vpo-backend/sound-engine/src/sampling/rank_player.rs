@@ -1,3 +1,5 @@
+use crate::MonoSample;
+
 use super::{pipe_player::PipePlayer, rank::Rank, sample::Pipe};
 use resource_manager::{ResourceIndex, ResourceManager};
 
@@ -26,10 +28,10 @@ pub struct RankPlayer {
 }
 
 impl RankPlayer {
-    pub fn new(pipes: &ResourceManager<Pipe>, rank: &Rank, polyphony: usize) -> RankPlayer {
+    pub fn new(samples: &ResourceManager<MonoSample>, rank: &Rank, polyphony: usize) -> RankPlayer {
         let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
 
-        for sample in &rank.pipes {
+        for (note, sample) in &rank.pipes {
             if let Some(resource_index) = pipes.get_index(&sample.resource.resource) {
                 note_to_resource_map[sample.note as usize] = Some(resource_index);
             }

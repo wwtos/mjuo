@@ -10,7 +10,7 @@ pub fn mix_to_mono(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
             sum += audio[i + j];
         }
 
-        result.push(sum);
+        result.push(sum / channel_count as f32);
     }
 
     result

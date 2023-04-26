@@ -5,13 +5,13 @@ use serde::Serialize;
 use sound_engine::{
     sampling::{rank::Rank, sample::Pipe},
     wave::wavetable::Wavetable,
-    SoundConfig,
+    MonoSample, SoundConfig,
 };
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
-    pub pipes: ResourceManager<Pipe>,
+    pub samples: ResourceManager<MonoSample>,
     pub wavetables: ResourceManager<Wavetable>,
     pub ranks: ResourceManager<Rank>,
 }
@@ -35,7 +35,7 @@ impl GlobalState {
 
     pub fn reset(&mut self) {
         self.resources.ranks.clear();
-        self.resources.pipes.clear();
+        self.resources.samples.clear();
         self.resources.wavetables.clear();
     }
 }

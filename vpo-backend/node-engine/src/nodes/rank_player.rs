@@ -59,7 +59,7 @@ impl NodeRuntime for RankPlayerNode {
             let rank = state.global_state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(&state.global_state.resources.pipes, &rank, self.polyphony);
+                let player = RankPlayer::new(&state.global_state.resources.samples, &rank, self.polyphony);
                 self.player = Some(player);
             }
         }

@@ -11,6 +11,10 @@ pub enum EngineError {
     NodeError { source: node_engine::errors::NodeError },
     #[snafu(display("Cpal error: {source}"))]
     CpalError { source: Box<dyn std::error::Error> },
+    #[snafu(display("Symphonia error: {source}"))]
+    SymphoniaError { source: symphonia::core::errors::Error },
+    #[snafu(display("File error: {source}"))]
+    FileError { source: std::io::Error },
     #[snafu(whatever, display("{message}"))]
     Whatever {
         message: String,

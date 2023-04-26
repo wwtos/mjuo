@@ -1,19 +1,8 @@
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-    io,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-    sync::{Arc, Mutex},
-    thread::available_parallelism,
-};
+use std::{collections::HashMap, fmt::Debug, io, path::Path};
 
 use ddgg::{GenVec, Index};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
 use snafu::Snafu;
-
-#[cfg(any(unix, windows))]
-use threadpool::ThreadPool;
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
@@ -46,22 +35,49 @@ pub struct ResourceId {
     pub resource: String,
 }
 
+fn strip_empty_slashes(path: &str) -> String {
+    let split = path.split("/");
+    let mut result: Vec<&str> = vec![];
+
+    for part in split {
+        if !part.is_empty() {
+            result.push(part);
+        }
+    }
+
+    result.join("/")
+}
+
 impl ResourceId {
     pub fn from_str(id: &str) -> Option<ResourceId> {
-        let foo: Vec<&str> = id.split(":").take(2).collect();
+        let resource: Vec<&str> = id.split(":").take(2).collect();
 
-        if foo.len() != 2 {
-            None
-        } else {
+        if resource.len() == 1 {
             Some(ResourceId {
-                namespace: foo[0].to_string(),
-                resource: foo[1].to_string(),
+                namespace: strip_empty_slashes(resource[0]),
+                resource: "".into(),
             })
+        } else if resource.len() == 2 {
+            Some(ResourceId {
+                namespace: strip_empty_slashes(resource[0]),
+                resource: strip_empty_slashes(resource[1]),
+            })
+        } else {
+            None
         }
     }
 
     pub fn to_string(&self) -> String {
         format!("{}:{}", self.namespace, self.resource)
+    }
+
+    pub fn concat(&self, other: &str) -> ResourceId {
+        let stripped = strip_empty_slashes(other);
+
+        ResourceId {
+            namespace: self.namespace.clone(),
+            resource: format!("{}/{}", self.resource, stripped),
+        }
     }
 }
 
@@ -85,7 +101,6 @@ where
 pub struct ResourceManager<A> {
     resources: GenVec<A>,
     resource_mapping: HashMap<String, ResourceIndex>,
-    resources_to_watch: Vec<(String, PathBuf)>,
 }
 
 impl<A> Default for ResourceManager<A> {
@@ -93,7 +108,6 @@ impl<A> Default for ResourceManager<A> {
         ResourceManager {
             resources: GenVec::new(),
             resource_mapping: HashMap::new(),
-            resources_to_watch: Vec::new(),
         }
     }
 }
@@ -118,7 +132,6 @@ impl<A> ResourceManager<A> {
         ResourceManager {
             resources: GenVec::new(),
             resource_mapping: HashMap::new(),
-            resources_to_watch: Vec::new(),
         }
     }
 
@@ -153,81 +166,5 @@ impl<A> ResourceManager<A> {
     pub fn clear(&mut self) {
         self.resource_mapping.clear();
         self.resources.clear();
-    }
-}
-
-#[cfg(any(unix, windows))]
-impl<A> ResourceManager<A>
-where
-    A: Debug + Send + Sync + 'static,
-{
-    fn request_resources_parallel<I, F>(
-        &mut self,
-        resources_to_load: I,
-        load_resource: &'static F,
-    ) -> Result<(), LoadingError>
-    where
-        I: Iterator<Item = (String, PathBuf)>,
-        F: Fn(PathBuf) -> Result<A, LoadingError> + Send + Sync,
-    {
-        // create the structures to populate
-        let resources: Arc<Mutex<HashMap<String, A>>> = Arc::new(Mutex::new(HashMap::new()));
-
-        let pool = ThreadPool::new(available_parallelism().unwrap_or(NonZeroUsize::new(4).unwrap()).into());
-
-        let existing_resources: Arc<Mutex<Vec<String>>> =
-            Arc::new(Mutex::new(self.resource_mapping.keys().cloned().collect()));
-
-        for resource_to_load in resources_to_load {
-            let resources_cloned = Arc::clone(&resources);
-            let existing_resources_cloned = Arc::clone(&existing_resources);
-            let (key, location) = resource_to_load.clone();
-
-            pool.execute(move || {
-                // check if we've already loaded this resource
-                let existing_resources = existing_resources_cloned.lock().unwrap();
-
-                if existing_resources.iter().any(|x| x == &key) {
-                    return;
-                }
-
-                // else, load and register it
-                let new_resource = load_resource(location.clone()).unwrap();
-                println!("Loaded: {}", location.to_string_lossy());
-
-                resources_cloned.lock().unwrap().insert(key, new_resource);
-            });
-        }
-
-        pool.join();
-
-        let new_resources = Arc::try_unwrap(resources).unwrap().into_inner().unwrap();
-
-        for (key, resource) in new_resources.into_iter() {
-            self.add_resource(key, resource);
-        }
-
-        Ok(())
-    }
-
-    pub fn watch_resources<I, F>(&mut self, resources_to_load: I, load_resource: &'static F) -> Result<(), LoadingError>
-    where
-        I: Iterator<Item = (String, PathBuf)>,
-        F: Fn(PathBuf) -> Result<A, LoadingError> + Send + Sync,
-    {
-        let mut resources_to_watch = Vec::new();
-
-        self.request_resources_parallel(
-            resources_to_load.map(|resource| {
-                resources_to_watch.push(resource.clone());
-
-                resource
-            }),
-            load_resource,
-        )?;
-
-        self.resources_to_watch.extend(resources_to_watch);
-
-        Ok(())
     }
 }

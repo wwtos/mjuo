@@ -1,6 +1,7 @@
 use crate::{
     constants::PI,
     sampling::util::{amp32, rms32, s_mult},
+    MonoSample,
 };
 
 use super::{
@@ -52,10 +53,10 @@ pub struct PipePlayer {
 }
 
 impl PipePlayer {
-    pub fn new(pipe: &Pipe) -> PipePlayer {
-        let buffer_rate = pipe.buffer.sample_rate;
-        let sample_length = pipe.buffer.audio_raw.len();
-        let audio = &pipe.buffer.audio_raw;
+    pub fn new(pipe: &Pipe, sample: &MonoSample) -> PipePlayer {
+        let buffer_rate = sample.sample_rate;
+        let sample_length = sample.audio_raw.len();
+        let audio = &sample.audio_raw;
 
         let freq = (440.0 / 32.0) * 2_f32.powf((pipe.note - 9) as f32 / 12.0 + (pipe.cents as f32 / 1200.0));
         let amplitude_calc_window = (buffer_rate as f32 / freq) as usize * 2;
@@ -111,7 +112,7 @@ impl PipePlayer {
         }
     }
 
-    pub fn play(&mut self, sample: &Pipe) {
+    pub fn play(&mut self, pipe: &Pipe, sample: &MonoSample) {
         let current_location = self.audio_position as usize;
 
         if current_location < 2 {
@@ -121,7 +122,7 @@ impl PipePlayer {
         match self.state {
             // Since we were just releasing, this is a case of reattacking
             State::Releasing => {
-                let audio = &sample.buffer.audio_raw;
+                let audio = &sample.audio_raw;
 
                 // what's our current amplitude?
                 let location_bounded = current_location.max(self.amplitude_calc_window);
@@ -158,7 +159,7 @@ impl PipePlayer {
 
                 self.crossfade_to(
                     State::Looping,
-                    sample.crossfade as f32,
+                    pipe.crossfade as f32,
                     (closest_index as f32) + attack_shift,
                 );
 
@@ -178,15 +179,15 @@ impl PipePlayer {
         }
     }
 
-    pub fn release(&mut self, sample: &Pipe) {
+    pub fn release(&mut self, pipe: &Pipe, sample: &MonoSample) {
         match self.state {
             State::Crossfading => {
                 self.queued_action = QueuedAction::Release;
             }
             State::Looping => {
                 let current_location = self.audio_position as usize;
-                let release_index = sample.release_index;
-                let audio = &sample.buffer.audio_raw;
+                let release_index = pipe.release_index;
+                let audio = &sample.audio_raw;
 
                 let location_bounded = current_location.max(self.amplitude_calc_window);
                 let amp_current = rms32(&audio[(location_bounded - self.amplitude_calc_window)..current_location]);
@@ -203,8 +204,8 @@ impl PipePlayer {
 
                 self.crossfade_to(
                     State::Releasing,
-                    sample.crossfade_release as f32,
-                    sample.release_index as f32 + release_shift,
+                    pipe.crossfade as f32,
+                    pipe.release_index as f32 + release_shift,
                 );
 
                 self.crossfade_amplitude = 1.0;
@@ -214,7 +215,7 @@ impl PipePlayer {
         }
     }
 
-    pub fn next_sample(&mut self, sample: &Pipe) -> f32 {
+    pub fn next_sample(&mut self, pipe: &Pipe, sample: &MonoSample) -> f32 {
         match self.state {
             State::Crossfading => {
                 let (out, done) = self.next_sample_crossfade(sample);
@@ -224,8 +225,8 @@ impl PipePlayer {
                 }
 
                 match self.queued_action {
-                    QueuedAction::Play => self.play(sample),
-                    QueuedAction::Release => self.release(sample),
+                    QueuedAction::Play => self.play(pipe, sample),
+                    QueuedAction::Release => self.release(pipe, sample),
                     QueuedAction::None => {}
                 }
 
@@ -237,13 +238,13 @@ impl PipePlayer {
                 let out = self.next_sample_normal(sample);
 
                 // loop and crossfade
-                if self.audio_position > sample.loop_end as f32 {
-                    let loop_start = sample.loop_start;
-                    let loop_end = sample.loop_end;
+                if self.audio_position > pipe.loop_end as f32 {
+                    let loop_start = pipe.loop_start;
+                    let loop_end = pipe.loop_end;
 
                     let new_location = self.audio_position - (loop_end - loop_start) as f32;
 
-                    self.crossfade_to(State::Looping, sample.crossfade as f32, new_location);
+                    self.crossfade_to(State::Looping, pipe.crossfade as f32, new_location);
                 }
 
                 out
@@ -261,10 +262,10 @@ impl PipePlayer {
         }
     }
 
-    fn next_sample_normal(&mut self, sample: &Pipe) -> f32 {
+    fn next_sample_normal(&mut self, sample: &MonoSample) -> f32 {
         let audio_pos = self.audio_position as usize;
 
-        let audio = &sample.buffer.audio_raw;
+        let audio = &sample.audio_raw;
 
         let x0 = audio[audio_pos - 1] * self.audio_amplitude;
         let x1 = audio[audio_pos + 0] * self.audio_amplitude;
@@ -276,7 +277,7 @@ impl PipePlayer {
         hermite_interpolate(x0, x1, x2, x3, self.audio_position.fract())
     }
 
-    fn next_sample_crossfade(&mut self, sample: &Pipe) -> (f32, bool) {
+    fn next_sample_crossfade(&mut self, sample: &MonoSample) -> (f32, bool) {
         let crossfade_factor = (self.crossfade_position - self.crossfade_start) / self.crossfade_length;
 
         let cf_amp = (1.0 - crossfade_factor) * self.crossfade_amplitude;
@@ -285,7 +286,7 @@ impl PipePlayer {
         let audio_pos = self.audio_position as usize;
         let crossfade_pos = self.crossfade_position as usize;
 
-        let audio = &sample.buffer.audio_raw;
+        let audio = &sample.audio_raw;
 
         let x0 = audio[crossfade_pos - 1] * cf_amp + audio[audio_pos - 1] * aud_amp;
         let x1 = audio[crossfade_pos + 0] * cf_amp + audio[audio_pos + 0] * aud_amp;

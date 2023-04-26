@@ -9,7 +9,7 @@ use symphonia::core::{
 };
 
 use crate::errors::SymphoniaSnafu;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 
 use crate::errors::EngineError;
 
@@ -25,7 +25,9 @@ pub fn decode_audio(source: Box<dyn MediaSource>, hint: Hint) -> Result<(Vec<f32
         .context(SymphoniaSnafu)?;
 
     let mut format = probed.format;
-    let track_def = format.default_track().expect("No default track when parsing audio");
+    let track_def = format
+        .default_track()
+        .whatever_context("No default track when parsing audio")?;
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track_def.codec_params, &decoder_opts)
