@@ -1,7 +1,4 @@
-use crate::{
-    wave::{interpolate::interpolate, wavetable::Wavetable},
-    SoundConfig,
-};
+use crate::{wave::interpolate::interpolate, MonoSample, SoundConfig};
 
 use super::biquad_filter::{BiquadFilter, BiquadFilterType};
 
@@ -15,8 +12,8 @@ pub struct WavetableOscillator {
 }
 
 impl WavetableOscillator {
-    pub fn new(sound_config: SoundConfig, wavetable: &Wavetable) -> WavetableOscillator {
-        let sample_freq = sound_config.sample_rate as f32 / wavetable.wavetable.len() as f32;
+    pub fn new(sound_config: SoundConfig, wavetable: &MonoSample) -> WavetableOscillator {
+        let sample_freq = sound_config.sample_rate as f32 / wavetable.audio_raw.len() as f32;
 
         WavetableOscillator {
             phase: 0_f32,
@@ -32,7 +29,11 @@ impl WavetableOscillator {
         }
     }
 
-    pub fn new_with_frequency(sound_config: SoundConfig, wavetable: &Wavetable, frequency: f32) -> WavetableOscillator {
+    pub fn new_with_frequency(
+        sound_config: SoundConfig,
+        wavetable: &MonoSample,
+        frequency: f32,
+    ) -> WavetableOscillator {
         let mut oscillator = WavetableOscillator::new(sound_config, wavetable);
         oscillator.set_frequency(frequency);
 
@@ -48,13 +49,13 @@ impl WavetableOscillator {
     }
 
     #[inline]
-    pub fn get_next_sample(&mut self, wavetable: &Wavetable) -> f32 {
+    pub fn get_next_sample(&mut self, wavetable: &MonoSample) -> f32 {
         let phase_advance = self.frequency / (self.sample_rate as f32);
 
         self.phase += phase_advance;
         self.phase -= self.phase.floor(); // keep it bounded
 
-        interpolate(wavetable, &mut self.filter, self.phase)
+        interpolate(&wavetable.audio_raw, &mut self.filter, self.phase)
     }
 
     pub fn get_frequency(&self) -> f32 {

@@ -13,7 +13,7 @@ pub fn load_sample(location: PathBuf) -> Result<MonoSample, EngineError> {
     use std::fs::File;
     use symphonia::core::probe::Hint;
 
-    let file = Box::new(File::open(location).context(FileSnafu)?);
+    let file = Box::new(File::open(&location).context(FileSnafu)?);
     let mut hint = Hint::new();
 
     if let Some(extension) = location.extension() {

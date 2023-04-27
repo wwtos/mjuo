@@ -79,7 +79,7 @@ impl CpalBackend {
         &mut self,
         config: StreamConfig,
         device: Device,
-        engine: NodeEngine,
+        mut engine: NodeEngine,
         global_state: Arc<RwLock<GlobalState>>,
     ) -> Result<Stream, EngineError> {
         Ok(device

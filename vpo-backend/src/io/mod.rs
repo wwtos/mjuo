@@ -24,13 +24,12 @@ use snafu::ResultExt;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
-use crate::errors::{IoSnafu, JsonParserSnafu, LoadingSnafu};
+use crate::errors::{IoSnafu, JsonParserSnafu};
 
 use crate::errors::EngineError;
 use crate::migrations::migrate;
 use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
-use crate::resource::wavetable::load_wavetable;
 
 pub mod midi;
 
@@ -141,21 +140,18 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
         &load_sample,
     )?;
     load_resources(
-        &path.join("wavetables"),
-        &mut global_state.resources.wavetables,
-        AUDIO_EXTENSIONS,
-        &load_wavetable,
-    )
-    .context(LoadingSnafu)?;
-    load_resources(
         &path.join("ranks"),
         &mut global_state.resources.ranks,
         &["toml"],
         &load_rank_from_file,
-    )
-    .context(LoadingSnafu)?;
+    )?;
 
-    state.apply_json(json["state"].take())?;
+    let graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
+    let root_graph_index = serde_json::from_value(json["root_graph_index"].take()).context(JsonParserSnafu)?;
+    let output_node = serde_json::from_value(json["output_node"].take()).context(JsonParserSnafu)?;
+    let midi_in_node = serde_json::from_value(json["midi_in_node"].take()).context(JsonParserSnafu)?;
+
+    state.load_state(graph_manager, root_graph_index, output_node, midi_in_node);
 
     Ok(())
 }

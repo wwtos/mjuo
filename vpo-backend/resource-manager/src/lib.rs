@@ -1,29 +1,7 @@
-use std::{collections::HashMap, fmt::Debug, io, path::Path};
+use std::{collections::HashMap, fmt::Debug};
 
 use ddgg::{GenVec, Index};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
-use snafu::Snafu;
-
-#[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
-pub enum LoadingError {
-    #[snafu(display("IO error: {source}"))]
-    IOError { source: io::Error },
-    #[snafu(display("Parser error: {source}"))]
-    ParserError { source: serde_json::Error },
-    #[snafu(display("TOML serialization error: {source}"))]
-    TomlParserSerError { source: toml::ser::Error },
-    #[snafu(display("TOML deserialization error: {source}"))]
-    TomlParserDeError { source: toml::de::Error },
-    #[snafu(display("Unknown error: {source}"))]
-    Other { source: Box<dyn std::error::Error> },
-}
-
-pub trait Resource {
-    fn load_resource(path: &Path) -> Result<Self, LoadingError>
-    where
-        Self: Sized;
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceIndex(Index);

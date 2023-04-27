@@ -1,6 +1,5 @@
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    errors::{JsonParserSnafu, NodeError},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node::{NodeIndex, NodeRow},
@@ -13,6 +12,7 @@ use snafu::ResultExt;
 use std::collections::HashMap;
 
 use crate::{
+    errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
     Sender,
@@ -41,7 +41,7 @@ pub fn route(
     to_server: &Sender<IPCMessage>,
     state: &mut NodeEngineState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
+) -> Result<Option<RouteReturn>, EngineError> {
     let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
     let actions = payload
@@ -78,7 +78,9 @@ pub fn route(
         .filter_map(|action| action)
         .collect();
 
-    state.commit(ActionBundle::new(actions), global_state)?;
+    state
+        .commit(ActionBundle::new(actions), global_state)
+        .context(NodeSnafu)?;
 
     send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, payload.graph_index, to_server)?;

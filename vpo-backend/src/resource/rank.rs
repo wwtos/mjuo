@@ -1,12 +1,14 @@
 use std::{collections::BTreeMap, fs::read_to_string, path::PathBuf};
 
-use resource_manager::{IOSnafu, LoadingError, ResourceId, TomlParserDeSnafu};
+use resource_manager::ResourceId;
 use serde::Deserialize;
 use snafu::ResultExt;
 use sound_engine::{
     sampling::rank::{Pipe, Rank},
     util::db_to_amplitude,
 };
+
+use crate::errors::{EngineError, TomlParserDeSnafu};
 
 #[derive(Debug, Deserialize)]
 struct RankConfigEntry {
@@ -51,7 +53,7 @@ fn expected_sample_location(note: u8, sample_format: &str) -> String {
 }
 
 /// Parses a `[rank].toml` file and converts it into a `Rank`
-pub fn parse_rank(config: &str) -> Result<Rank, LoadingError> {
+pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
     let parsed: RankConfig = toml::from_str(config).context(TomlParserDeSnafu)?;
 
     let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
@@ -89,8 +91,10 @@ pub fn parse_rank(config: &str) -> Result<Rank, LoadingError> {
 }
 
 #[cfg(not(wasm32))]
-pub fn load_rank_from_file(path: PathBuf) -> Result<Rank, LoadingError> {
-    let mut file = read_to_string(path).context(IOSnafu)?;
+pub fn load_rank_from_file(path: PathBuf) -> Result<Rank, EngineError> {
+    use crate::errors::IoSnafu;
+
+    let mut file = read_to_string(path).context(IoSnafu)?;
 
     parse_rank(&mut file)
 }

@@ -2,13 +2,12 @@ use std::path::PathBuf;
 
 use resource_manager::ResourceManager;
 use serde::Serialize;
-use sound_engine::{sampling::rank::Rank, wave::wavetable::Wavetable, MonoSample, SoundConfig};
+use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
     pub samples: ResourceManager<MonoSample>,
-    pub wavetables: ResourceManager<Wavetable>,
     pub ranks: ResourceManager<Rank>,
 }
 
@@ -32,6 +31,5 @@ impl GlobalState {
     pub fn reset(&mut self) {
         self.resources.ranks.clear();
         self.resources.samples.clear();
-        self.resources.wavetables.clear();
     }
 }

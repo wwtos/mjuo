@@ -1,7 +1,6 @@
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
     connection::Connection,
-    errors::NodeError,
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node_graph::NodeConnection,
@@ -11,7 +10,7 @@ use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
-    errors::{EngineError, JsonParserSnafu},
+    errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
     util::send_graph_updates,
     Sender,
@@ -28,23 +27,25 @@ pub fn route(
     let connection: Connection =
         serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?;
 
-    state.commit(
-        ActionBundle::new(vec![Action::ConnectNodes {
-            from: GlobalNodeIndex {
-                graph_index,
-                node_index: connection.from_node,
-            },
-            to: GlobalNodeIndex {
-                graph_index,
-                node_index: connection.to_node,
-            },
-            data: NodeConnection {
-                from_socket: connection.data.from_socket,
-                to_socket: connection.data.to_socket,
-            },
-        }]),
-        global_state,
-    )?;
+    state
+        .commit(
+            ActionBundle::new(vec![Action::ConnectNodes {
+                from: GlobalNodeIndex {
+                    graph_index,
+                    node_index: connection.from_node,
+                },
+                to: GlobalNodeIndex {
+                    graph_index,
+                    node_index: connection.to_node,
+                },
+                data: NodeConnection {
+                    from_socket: connection.data.from_socket,
+                    to_socket: connection.data.to_socket,
+                },
+            }]),
+            global_state,
+        )
+        .context(NodeSnafu)?;
 
     send_graph_updates(state, graph_index, to_server)?;
 

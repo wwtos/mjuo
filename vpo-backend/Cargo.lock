@@ -1535,9 +1535,6 @@ version = "0.1.0"
 dependencies = [
  "ddgg",
  "serde",
- "serde_json",
- "snafu",
- "toml",
 ]
 
 [[package]]

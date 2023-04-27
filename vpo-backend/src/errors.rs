@@ -6,8 +6,6 @@ use snafu::Snafu;
 pub enum EngineError {
     #[snafu(display("Audio parser error"))]
     AudioParserError,
-    #[snafu(display("Loading error: "))]
-    LoadingError { source: resource_manager::LoadingError },
     #[snafu(display("Node error: "))]
     NodeError { source: node_engine::errors::NodeError },
     #[snafu(display("Cpal error: {source}"))]
@@ -29,6 +27,12 @@ pub enum EngineError {
     PropertyMissingOrMalformed { property_name: String },
     #[snafu(display("Version doesn't exist: {version}"))]
     VersionError { version: Version },
+    #[snafu(display("Parser error: {source}"))]
+    ParserError { source: serde_json::Error },
+    #[snafu(display("TOML serialization error: {source}"))]
+    TomlParserSerError { source: toml::ser::Error },
+    #[snafu(display("TOML deserialization error: {source}"))]
+    TomlParserDeError { source: toml::de::Error },
     #[snafu(whatever, display("{message}"))]
     Whatever {
         message: String,

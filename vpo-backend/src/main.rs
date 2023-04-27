@@ -9,7 +9,7 @@ use node_engine::state::NodeEngineState;
 use smallvec::SmallVec;
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
-use vpo_backend::{connect_backend, connect_midi_backend, get_midi, handle_msg, start_ipc, write_to_file};
+use vpo_backend::{handle_msg, start_ipc, write_to_file};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // first, start ipc server
