@@ -2,7 +2,7 @@ pub mod graph;
 pub mod io;
 
 use ipc::ipc_message::IPCMessage;
-use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::NodeState};
 use serde_json::Value;
 
 use crate::{errors::EngineError, Sender};
@@ -15,7 +15,7 @@ pub struct RouteReturn {
 pub fn route(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let IPCMessage::Json(json) = msg;

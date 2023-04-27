@@ -13,11 +13,8 @@ use snafu::{whatever, OptionExt, ResultExt};
 
 use crate::errors::EngineError;
 
-use super::BUFFER_SIZE;
-
 pub struct CpalBackend {
     device: Option<Device>,
-    producer: Option<rtrb::Producer<f32>>,
     host: Host,
 }
 
@@ -25,14 +22,10 @@ impl CpalBackend {
     pub fn new() -> Result<CpalBackend, EngineError> {
         let host = cpal::default_host();
 
-        Ok(CpalBackend {
-            device: None,
-            producer: None,
-            host,
-        })
+        Ok(CpalBackend { device: None, host })
     }
 
-    fn get_output_device_list(&self) -> Result<Vec<Device>, EngineError> {
+    pub fn get_output_device_list(&self) -> Result<Vec<Device>, EngineError> {
         Ok(self
             .host
             .output_devices()
@@ -40,17 +33,15 @@ impl CpalBackend {
             .collect())
     }
 
-    fn connect(
+    pub fn connect(
         &mut self,
         device: Device,
         engine: NodeEngine,
         global_state: Arc<RwLock<GlobalState>>,
-        callback: impl FnMut(&mut [f32], usize) -> bool,
     ) -> Result<(), EngineError> {
         let configs = device.supported_output_configs();
 
-        let config = device
-            .supported_output_configs()
+        let config = configs
             .whatever_context("Could not list supported output configs")?
             .find(|output_config| {
                 output_config.max_sample_rate() >= SampleRate(44_100)
@@ -90,20 +81,6 @@ impl CpalBackend {
                 None,
             )
             .whatever_context("Failed to build output stream")?)
-    }
-
-    fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn error::Error>> {
-        let producer = self.producer.as_mut().unwrap();
-
-        for elem in data.iter() {
-            producer.push(*elem).unwrap();
-        }
-
-        Ok(())
-    }
-
-    fn drain(&self) -> Result<(), Box<dyn error::Error>> {
-        todo!()
     }
 }
 

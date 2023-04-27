@@ -4,7 +4,7 @@ use ipc::ipc_message::IPCMessage;
 use node_engine::{
     global_state::GlobalState,
     graph_manager::GraphIndex,
-    state::{Action, ActionBundle, NodeEngineState},
+    state::{Action, ActionBundle, NodeState},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,7 +28,7 @@ struct Payload {
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let Payload {

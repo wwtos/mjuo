@@ -3,8 +3,6 @@ use std::{error::Error, sync::mpsc::Receiver};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 
-use super::MidiClientBackend;
-
 pub struct MidirMidiClientBackend {
     client: MidiInputConnection<()>,
     from_midi: Receiver<Vec<u8>>,
@@ -33,14 +31,8 @@ impl MidirMidiClientBackend {
             from_midi: receiver,
         })
     }
-}
 
-impl MidiClientBackend for MidirMidiClientBackend {
     fn read(&self) -> Result<Vec<u8>, Box<dyn Error>> {
         Ok(self.from_midi.recv().unwrap())
-    }
-
-    fn connect(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(())
     }
 }

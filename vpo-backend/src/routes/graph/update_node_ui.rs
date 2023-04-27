@@ -1,5 +1,5 @@
 use ipc::ipc_message::IPCMessage;
-use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, node::NodeIndex, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, node::NodeIndex, state::NodeState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
@@ -21,7 +21,7 @@ struct Payload {
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;

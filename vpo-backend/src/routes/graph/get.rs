@@ -1,5 +1,5 @@
 use ipc::ipc_message::IPCMessage;
-use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::NodeState};
 use serde_json::Value;
 use snafu::ResultExt;
 
@@ -13,7 +13,7 @@ use crate::{
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let graph_index: GraphIndex =

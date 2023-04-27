@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use node_engine::global_state::GlobalState;
 
-use node_engine::state::NodeEngineState;
+use node_engine::state::NodeState;
 use smallvec::SmallVec;
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
@@ -15,12 +15,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     // first, start ipc server
     let (to_server, from_server) = start_ipc();
 
+    // pick an output device
+
     // set up state
-    let sound_config = SoundConfig { sample_rate: 48_000 };
+    let sound_config = SoundConfig {
+        sample_rate: 48_000,
+        buffer_size: 128,
+    };
     let buffer_size = 128;
 
     let mut global_state = GlobalState::new(sound_config);
-    let mut engine_state = NodeEngineState::new(&global_state, buffer_size).unwrap();
+    let mut engine_state = NodeState::new(&global_state, buffer_size).unwrap();
 
     let mut backend = connect_backend()?;
     let mut midi_backend = connect_midi_backend()?;

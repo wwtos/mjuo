@@ -1,7 +1,7 @@
 use futures::executor::block_on;
 use ipc::ipc_message::IPCMessage;
 use node_engine::{
-    global_state::GlobalState, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::NodeEngineState,
+    global_state::GlobalState, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::NodeState,
 };
 use serde_json::json;
 use snafu::ResultExt;
@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub fn send_graph_updates(
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     graph_index: GraphIndex,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), EngineError> {

@@ -94,7 +94,7 @@ pub struct HistoryActionBundle {
 }
 
 #[derive(Debug)]
-pub struct NodeEngineState {
+pub struct NodeState {
     history: Vec<HistoryActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
@@ -106,8 +106,8 @@ pub struct NodeEngineState {
     socket_registry: SocketRegistry,
 }
 
-impl NodeEngineState {
-    pub fn new(global_state: &GlobalState) -> Result<NodeEngineState, NodeError> {
+impl NodeState {
+    pub fn new(global_state: &GlobalState) -> Result<NodeState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
 
@@ -137,7 +137,7 @@ impl NodeEngineState {
             global_state.sound_config.buffer_size,
         )?;
 
-        Ok(NodeEngineState {
+        Ok(NodeState {
             history,
             place_in_history,
             graph_manager,
@@ -161,6 +161,10 @@ impl NodeEngineState {
 
     pub fn get_sound_config(&self) -> &SoundConfig {
         &self.sound_config
+    }
+
+    pub fn set_sound_config(&mut self, config: SoundConfig) {
+        self.sound_config = config;
     }
 
     pub fn get_root_graph_index(&self) -> GraphIndex {
@@ -194,7 +198,7 @@ impl NodeEngineState {
     }
 }
 
-impl NodeEngineState {
+impl NodeState {
     fn handle_action_invalidations(
         &mut self,
         action_results: Vec<ActionInvalidations>,
@@ -585,7 +589,7 @@ impl NodeEngineState {
     }
 }
 
-impl NodeEngineState {
+impl NodeState {
     pub fn to_json(&self) -> Value {
         json!({
             "graph_manager": self.graph_manager,

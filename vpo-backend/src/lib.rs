@@ -26,7 +26,7 @@ use ipc::send_buffer::SendBuffer;
 #[cfg(any(unix, windows))]
 use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
 
-use node_engine::{global_state::GlobalState, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, state::NodeState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 
@@ -48,7 +48,7 @@ pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
 pub fn handle_msg(
     msg: IPCMessage,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) {
     println!("got: {:?}", msg);

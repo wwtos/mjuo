@@ -5,7 +5,7 @@ use std::{
 
 use futures::executor::block_on;
 use ipc::ipc_message::IPCMessage;
-use node_engine::{global_state::GlobalState, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::{json, Value};
 
 use crate::{errors::EngineError, io::load, routes::RouteReturn, Sender};
@@ -13,7 +13,7 @@ use crate::{errors::EngineError, io::load, routes::RouteReturn, Sender};
 pub fn route(
     msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     if let Value::String(path) = &msg["payload"]["path"] {

@@ -35,7 +35,7 @@ impl RankPlayer {
 
         for (note, sample) in &rank.pipes {
             if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
-                note_to_sample_map.insert(sample.note, resource_index);
+                note_to_sample_map.insert(*note, resource_index);
             }
         }
 

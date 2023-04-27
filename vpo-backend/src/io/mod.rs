@@ -1,11 +1,7 @@
-pub mod midir;
-#[cfg(target_os = "linux")]
-pub mod pulse;
-
 pub mod cpal;
+pub mod midir;
 
 use std::collections::HashMap;
-use std::error::Error;
 
 use std::fmt::Debug;
 use std::fs;
@@ -16,7 +12,7 @@ use std::thread::available_parallelism;
 
 use lazy_static::lazy_static;
 
-use node_engine::{global_state::GlobalState, state::NodeEngineState};
+use node_engine::{global_state::GlobalState, state::NodeState};
 use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
@@ -33,15 +29,12 @@ use crate::resource::sample::load_sample;
 
 pub mod midi;
 
-pub const BUFFER_SIZE: usize = 256;
-pub const SAMPLE_RATE: u32 = 48_000;
-
 const AUDIO_EXTENSIONS: &'static [&'static str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
     pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
 }
 
-pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), EngineError> {
+pub fn save(state: &NodeState, path: &Path) -> Result<(), EngineError> {
     let state = json!({
         "version": VERSION.to_string(),
         "state": state.to_json()
@@ -117,7 +110,7 @@ where
     Ok(())
 }
 
-pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), EngineError> {
+pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) -> Result<(), EngineError> {
     let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
@@ -130,7 +123,7 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = NodeEngineState::new(global_state).unwrap();
+    *state = NodeState::new(global_state).unwrap();
     global_state.reset();
 
     load_resources(
@@ -154,15 +147,4 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
     state.load_state(graph_manager, root_graph_index, output_node, midi_in_node);
 
     Ok(())
-}
-
-pub trait AudioClientBackend {
-    fn write(&mut self, data: &[f32; BUFFER_SIZE]) -> Result<(), Box<dyn Error>>;
-    fn connect(&mut self) -> Result<(), Box<dyn Error>>;
-    fn drain(&self) -> Result<(), Box<dyn Error>>;
-}
-
-pub trait MidiClientBackend {
-    fn read(&self) -> Result<Vec<u8>, Box<dyn Error>>;
-    fn connect(&mut self) -> Result<(), Box<dyn Error>>;
 }

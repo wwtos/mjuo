@@ -4,7 +4,7 @@ use node_engine::{
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node::{NodeIndex, NodeRow},
     property::Property,
-    state::{Action, ActionBundle, NodeEngineState},
+    state::{Action, ActionBundle, NodeState},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -39,7 +39,7 @@ struct Payload {
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
