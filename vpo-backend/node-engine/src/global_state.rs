@@ -2,11 +2,7 @@ use std::path::PathBuf;
 
 use resource_manager::ResourceManager;
 use serde::Serialize;
-use sound_engine::{
-    sampling::{rank::Rank, sample::Pipe},
-    wave::wavetable::Wavetable,
-    MonoSample, SoundConfig,
-};
+use sound_engine::{sampling::rank::Rank, wave::wavetable::Wavetable, MonoSample, SoundConfig};
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]

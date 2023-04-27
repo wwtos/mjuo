@@ -1182,7 +1182,6 @@ dependencies = [
  "petgraph",
  "resource-manager",
  "rhai",
- "semver",
  "serde",
  "serde_json",
  "smallvec",

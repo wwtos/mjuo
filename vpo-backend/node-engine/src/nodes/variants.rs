@@ -15,7 +15,6 @@ use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
 use super::outputs::OutputsNode;
-use super::pipe_player::PipePlayerNode;
 use super::polyphonic::PolyphonicNode;
 use super::portamento::PortamentoNode;
 use super::rank_player::RankPlayerNode;
@@ -46,7 +45,6 @@ pub enum NodeVariant {
     StreamExpressionNode,
     PolyphonicNode,
     MidiFilterNode,
-    PipePlayerNode,
     WavetableNode,
     PortamentoNode,
     ButtonNode,
@@ -78,7 +76,6 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "StreamExpressionNode" => Ok(NodeVariant::StreamExpressionNode(StreamExpressionNode::new())),
         "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::new())),
         "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new())),
-        "PipePlayerNode" => Ok(NodeVariant::PipePlayerNode(PipePlayerNode::default())),
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
         "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new())),
@@ -110,7 +107,6 @@ pub fn variant_io(
         "StreamExpressionNode" => Ok(StreamExpressionNode::get_io(props, register)),
         "PolyphonicNode" => Ok(PolyphonicNode::get_io(props, register)),
         "MidiFilterNode" => Ok(MidiFilterNode::get_io(props, register)),
-        "PipePlayerNode" => Ok(PipePlayerNode::get_io(props, register)),
         "WavetableNode" => Ok(WavetableNode::get_io(props, register)),
         "PortamentoNode" => Ok(PortamentoNode::get_io(props, register)),
         "ButtonNode" => Ok(ButtonNode::get_io(props, register)),

@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use resource_manager::ResourceManager;
 use serde_json::{json, Value};
-use snafu::ResultExt;
-use sound_engine::{sampling::sample::Pipe, SoundConfig};
+use sound_engine::SoundConfig;
 
 use crate::{
-    errors::{JsonParserSnafu, NodeError, WarningBuilder, WarningProducer},
+    errors::{NodeError, WarningBuilder, WarningProducer},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow},
@@ -93,12 +91,6 @@ pub enum HistoryAction {
 #[derive(Clone, Debug)]
 pub struct HistoryActionBundle {
     pub actions: Vec<HistoryAction>,
-}
-
-#[derive(Clone)]
-pub struct AssetBundle<'a> {
-    pub samples: &'a ResourceManager<Pipe>,
-    // pub wavetables: &'a ResourceManager<Wavetable>,
 }
 
 #[derive(Debug)]
@@ -594,23 +586,27 @@ impl NodeEngineState {
 }
 
 impl NodeEngineState {
-    pub fn to_json(&self) -> Result<Value, NodeError> {
-        Ok(json!({
+    pub fn to_json(&self) -> Value {
+        json!({
             "graph_manager": self.graph_manager,
             "root_graph_index": self.root_graph_index,
             "output_node": self.output_node,
             "midi_in_node": self.midi_in_node
-        }))
+        })
     }
 
-    pub fn apply_json(&mut self, mut json: Value) -> Result<(), NodeError> {
+    pub fn load_state(
+        &mut self,
+        graph_manager: GraphManager,
+        root_graph_index: GraphIndex,
+        output_node: NodeIndex,
+        midi_in_node: NodeIndex,
+    ) {
         self.history.clear();
         self.place_in_history = 0;
-        self.graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
-        self.root_graph_index = serde_json::from_value(json["root_graph_index"].take()).context(JsonParserSnafu)?;
-        self.output_node = serde_json::from_value(json["output_node"].take()).context(JsonParserSnafu)?;
-        self.midi_in_node = serde_json::from_value(json["midi_in_node"].take()).context(JsonParserSnafu)?;
-
-        Ok(())
+        self.graph_manager = graph_manager;
+        self.root_graph_index = root_graph_index;
+        self.output_node = output_node;
+        self.midi_in_node = midi_in_node;
     }
 }

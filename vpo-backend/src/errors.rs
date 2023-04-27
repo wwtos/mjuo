@@ -1,3 +1,4 @@
+use semver::Version;
 use snafu::Snafu;
 
 #[derive(Snafu, Debug)]
@@ -15,6 +16,19 @@ pub enum EngineError {
     SymphoniaError { source: symphonia::core::errors::Error },
     #[snafu(display("File error: {source}"))]
     FileError { source: std::io::Error },
+    #[snafu(display("IO Error: {source}"))]
+    IoError { source: std::io::Error },
+    #[snafu(display("Json parser error: `{source}`"))]
+    JsonParserError { source: serde_json::error::Error },
+    #[snafu(display("Json parser error: `{source}` ({context})"))]
+    JsonParserErrorInContext {
+        source: serde_json::error::Error,
+        context: String,
+    },
+    #[snafu(display("Property `{property_name}` missing or malformed"))]
+    PropertyMissingOrMalformed { property_name: String },
+    #[snafu(display("Version doesn't exist: {version}"))]
+    VersionError { version: Version },
     #[snafu(whatever, display("{message}"))]
     Whatever {
         message: String,

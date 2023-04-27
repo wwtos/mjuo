@@ -1,10 +1,7 @@
 use ddgg::GraphError;
-use resource_manager::{LoadingError, ResourceId};
+use resource_manager::ResourceId;
 use rhai::{EvalAltResult, ParseError};
-use semver::Version;
 use snafu::Snafu;
-
-use serde_json;
 
 use crate::connection::{Socket, SocketDirection, SocketType};
 use crate::graph_manager::GlobalNodeIndex;
@@ -39,31 +36,14 @@ pub enum NodeError {
     SocketDoesNotExist { socket: Socket },
     #[snafu(display("Socket types `{from:?}` and `{to:?}` are incompatible"))]
     IncompatibleSocketTypes { from: SocketType, to: SocketType },
-    #[snafu(display("Json parser error: `{source}`"))]
-    JsonParserError { source: serde_json::error::Error },
-    #[snafu(display("Json parser error: `{source}` ({context})"))]
-    JsonParserErrorInContext {
-        source: serde_json::error::Error,
-        context: String,
-    },
     #[snafu(display("Node type does not exist"))]
     NodeTypeDoesNotExist,
-    #[snafu(display("Property `{property_name}` missing or malformed"))]
-    PropertyMissingOrMalformed { property_name: String },
-    #[snafu(display("Socket by the name of `{register_string}` registered under different type"))]
-    RegistryCollision { register_string: String },
     #[snafu(display("Rhai evaluation error: {result}"))]
     RhaiEvalError { result: EvalAltResult },
-    #[snafu(display("IO Error: {source}"))]
-    IOError { source: std::io::Error },
     #[snafu(display("Inner graph errors: {errors_and_warnings:?}"))]
     InnerGraphErrors { errors_and_warnings: ErrorsAndWarnings },
     #[snafu(display("Missing resource: {resource:?}"))]
     MissingResource { resource: ResourceId },
-    #[snafu(display("Loading error: {source:?}"))]
-    LoadingError { source: LoadingError },
-    #[snafu(display("Version doesn't exist: {version}"))]
-    VersionError { version: Version },
     #[snafu(display("Graph error: {error:?}"))]
     GraphError { error: GraphError },
     #[snafu(display("Expected node type {expected}, got {actual}"))]

@@ -16,18 +16,15 @@ use std::thread::available_parallelism;
 
 use lazy_static::lazy_static;
 
-use node_engine::errors::LoadingSnafu;
-use node_engine::{
-    errors::{IOSnafu, JsonParserSnafu, NodeError},
-    global_state::GlobalState,
-    state::NodeEngineState,
-};
-use resource_manager::{LoadingError, ResourceManager};
+use node_engine::{global_state::GlobalState, state::NodeEngineState};
+use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::ResultExt;
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
+
+use crate::errors::{IoSnafu, JsonParserSnafu, LoadingSnafu};
 
 use crate::errors::EngineError;
 use crate::migrations::migrate;
@@ -45,17 +42,17 @@ lazy_static! {
     pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
 }
 
-pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), NodeError> {
+pub fn save(state: &NodeEngineState, path: &Path) -> Result<(), EngineError> {
     let state = json!({
         "version": VERSION.to_string(),
-        "state": state.to_json()?
+        "state": state.to_json()
     });
 
     fs::write(
         path.join("state.json"),
         serde_json::to_string_pretty(&state).context(JsonParserSnafu)?,
     )
-    .context(IOSnafu)?;
+    .context(IoSnafu)?;
 
     Ok(())
 }
@@ -121,8 +118,8 @@ where
     Ok(())
 }
 
-pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), NodeError> {
-    let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
+pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalState) -> Result<(), EngineError> {
+    let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     if let Some(version) = json["version"].as_str() {
@@ -131,19 +128,18 @@ pub fn load(path: &Path, state: &mut NodeEngineState, global_state: &mut GlobalS
         }
     }
 
-    let json_raw = fs::read_to_string(path.join("state.json")).context(IOSnafu)?;
+    let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     *state = NodeEngineState::new(global_state).unwrap();
-    global_state.resources.pipes.clear();
+    global_state.reset();
 
     load_resources(
         &path.join("samples"),
-        &mut global_state.resources.pipes,
+        &mut global_state.resources.samples,
         AUDIO_EXTENSIONS,
         &load_sample,
-    )
-    .context(LoadingSnafu)?;
+    )?;
     load_resources(
         &path.join("wavetables"),
         &mut global_state.resources.wavetables,

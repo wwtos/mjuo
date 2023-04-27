@@ -7,11 +7,12 @@ use crate::{
 use super::{
     interpolate::{hermite_interpolate, lerp},
     phase_calculator::PhaseCalculator,
-    sample::Pipe,
+    rank::Pipe,
 };
 
 #[derive(Debug, Clone)]
 enum State {
+    Uninitialized,
     Crossfading,
     Looping,
     Releasing,
@@ -53,6 +54,27 @@ pub struct PipePlayer {
 }
 
 impl PipePlayer {
+    pub fn uninitialized() -> PipePlayer {
+        PipePlayer {
+            sample_length: 0,
+            max_amp: 0.0,
+            amplitude_calc_window: 0,
+            phase_of_release: 0.0,
+            phase_calculator: PhaseCalculator::empty(),
+            state: State::Uninitialized,
+            next_state: State::Uninitialized,
+            queued_action: QueuedAction::None,
+            audio_position: 0.0,
+            audio_amplitude: 0.0,
+            playback_rate: 0.0,
+            crossfade_position: 0.0,
+            crossfade_amplitude: 0.0,
+            crossfade_start: 0.0,
+            crossfade_length: 0.0,
+            attack_envelope_indexes: [0; ENVELOPE_POINTS],
+        }
+    }
+
     pub fn new(pipe: &Pipe, sample: &MonoSample) -> PipePlayer {
         let buffer_rate = sample.sample_rate;
         let sample_length = sample.audio_raw.len();
@@ -181,6 +203,7 @@ impl PipePlayer {
 
     pub fn release(&mut self, pipe: &Pipe, sample: &MonoSample) {
         match self.state {
+            State::Uninitialized => {}
             State::Crossfading => {
                 self.queued_action = QueuedAction::Release;
             }
@@ -217,6 +240,7 @@ impl PipePlayer {
 
     pub fn next_sample(&mut self, pipe: &Pipe, sample: &MonoSample) -> f32 {
         match self.state {
+            State::Uninitialized => 0.0,
             State::Crossfading => {
                 let (out, done) = self.next_sample_crossfade(sample);
 
@@ -312,7 +336,7 @@ impl PipePlayer {
     }
 
     pub fn is_done(&self) -> bool {
-        matches!(self.state, State::Stopped)
+        matches!(self.state, State::Stopped | State::Uninitialized)
     }
 
     pub fn get_playback_rate(&self) -> f32 {
@@ -321,6 +345,10 @@ impl PipePlayer {
 
     pub fn set_playback_rate(&mut self, playback_rate: f32) {
         self.playback_rate = playback_rate;
+    }
+
+    pub fn is_uninitialized(&self) -> bool {
+        matches!(self.state, State::Uninitialized)
     }
 
     pub fn reset(&mut self) {

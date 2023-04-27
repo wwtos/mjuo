@@ -1,11 +1,13 @@
+use std::collections::BTreeMap;
+
 use crate::MonoSample;
 
-use super::{pipe_player::PipePlayer, rank::Rank, sample::Pipe};
+use super::{pipe_player::PipePlayer, rank::Rank};
 use resource_manager::{ResourceIndex, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
-    player: Option<PipePlayer>,
+    player: PipePlayer,
     active: bool,
     note: u8,
 }
@@ -13,7 +15,7 @@ struct Voice {
 impl Default for Voice {
     fn default() -> Self {
         Voice {
-            player: None,
+            player: PipePlayer::uninitialized(),
             active: false,
             note: 0,
         }
@@ -24,23 +26,23 @@ impl Default for Voice {
 pub struct RankPlayer {
     polyphony: usize,
     voices: Vec<Voice>,
-    note_to_resource_map: [Option<ResourceIndex>; 128],
+    note_to_sample_map: BTreeMap<u8, ResourceIndex>,
 }
 
 impl RankPlayer {
     pub fn new(samples: &ResourceManager<MonoSample>, rank: &Rank, polyphony: usize) -> RankPlayer {
-        let mut note_to_resource_map: [Option<ResourceIndex>; 128] = [None; 128];
+        let mut note_to_sample_map: BTreeMap<u8, ResourceIndex> = BTreeMap::new();
 
         for (note, sample) in &rank.pipes {
-            if let Some(resource_index) = pipes.get_index(&sample.resource.resource) {
-                note_to_resource_map[sample.note as usize] = Some(resource_index);
+            if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
+                note_to_sample_map.insert(sample.note, resource_index);
             }
         }
 
         RankPlayer {
             polyphony,
             voices: Vec::with_capacity(polyphony),
-            note_to_resource_map,
+            note_to_sample_map,
         }
     }
 
@@ -67,92 +69,77 @@ impl RankPlayer {
         0
     }
 
-    pub fn play_note(&mut self, note: u8, samples: &ResourceManager<Pipe>) {
-        if let Some(sample_index) = self.note_to_resource_map[note as usize] {
-            let open_voice = self.find_open_voice(note);
+    pub fn play_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+        let pipe_and_sample = self
+            .note_to_sample_map
+            .get(&note)
+            .and_then(|sample_index| samples.borrow_resource(*sample_index))
+            .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
 
-            let sample = samples.borrow_resource(sample_index).unwrap();
+        if let Some((pipe, sample)) = pipe_and_sample {
+            let open_voice_index = self.find_open_voice(note);
+            let open_voice = &mut self.voices[open_voice_index];
 
-            self.voices[open_voice].active = true;
-            let voice_note = self.voices[open_voice].note;
+            open_voice.active = true;
 
-            if let Some(player) = &mut self.voices[open_voice].player {
-                if note == voice_note {
-                    player.play(sample);
-                } else {
-                    *player = PipePlayer::new(sample);
-                    player.play(sample);
+            if open_voice.player.is_uninitialized() {
+                let mut player = PipePlayer::new(pipe, sample);
+                player.play(pipe, sample);
 
-                    self.voices[open_voice].note = note;
-                }
+                open_voice.player = player;
+                open_voice.note = note;
             } else {
-                let mut player = PipePlayer::new(sample);
-                player.play(sample);
+                if note == open_voice.note {
+                    open_voice.player.play(pipe, sample);
+                } else {
+                    // TODO: don't keep reconstructing PipePlayer, it's very expensive
+                    open_voice.player = PipePlayer::new(pipe, sample);
+                    open_voice.player.play(pipe, sample);
 
-                self.voices[open_voice].player = Some(player);
-                self.voices[open_voice].note = note;
-            }
-        }
-    }
-
-    pub fn release_note(&mut self, note: u8, samples: &ResourceManager<Pipe>) {
-        for voice in &mut self.voices {
-            if voice.note == note {
-                if let Some(player) = &mut voice.player {
-                    let sample = samples
-                        .borrow_resource(self.note_to_resource_map[voice.note as usize].unwrap())
-                        .unwrap();
-
-                    player.release(sample);
+                    open_voice.note = note;
                 }
             }
         }
     }
 
-    pub fn next_buffered(&mut self, buffer: &mut [f32], pipes: &ResourceManager<Pipe>) {
-        for output in buffer.iter_mut() {
+    pub fn release_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+        if let Some(voice) = self.voices.iter_mut().find(|voice| voice.note == note) {
+            let pipe_and_sample = self
+                .note_to_sample_map
+                .get(&note)
+                .and_then(|sample_index| samples.borrow_resource(*sample_index))
+                .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
+
+            if let Some((pipe, sample)) = pipe_and_sample {
+                voice.player.release(pipe, sample);
+            }
+        }
+    }
+
+    pub fn next_buffered(&mut self, rank: &Rank, samples: &ResourceManager<MonoSample>, out: &mut [f32]) {
+        for output in out.iter_mut() {
             *output = 0.0;
         }
 
-        for voice in &mut self.voices {
-            if voice.active {
-                if let Some(pipe_index) = self.note_to_resource_map[voice.note as usize] {
-                    if let Some(player) = &mut voice.player {
-                        for output in buffer.iter_mut() {
-                            let pipe = pipes.borrow_resource(pipe_index).unwrap();
+        let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
 
-                            *output += player.next_sample(pipe);
+        for voice in active_voices {
+            let pipe_and_sample = self
+                .note_to_sample_map
+                .get(&voice.note)
+                .and_then(|sample_index| samples.borrow_resource(*sample_index))
+                .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
-                            if player.is_done() {
-                                voice.active = false;
-                                player.reset();
-                            }
-                        }
+            if let Some((pipe, sample)) = pipe_and_sample {
+                for output in out.iter_mut() {
+                    *output += voice.player.next_sample(pipe, sample);
+
+                    if voice.player.is_done() {
+                        voice.active = false;
+                        voice.player.reset();
                     }
                 }
             }
         }
-    }
-
-    pub fn next_sample(&mut self, samples: &ResourceManager<Pipe>) -> f32 {
-        let mut output_sum = 0.0;
-
-        for voice in &mut self.voices {
-            if voice.active {
-                if let Some(sample_index) = self.note_to_resource_map[voice.note as usize] {
-                    if let Some(player) = &mut voice.player {
-                        let sample = samples.borrow_resource(sample_index).unwrap();
-                        output_sum += player.next_sample(sample);
-
-                        if player.is_done() {
-                            voice.active = false;
-                            player.reset();
-                        }
-                    }
-                }
-            }
-        }
-
-        output_sum
     }
 }
