@@ -9,73 +9,74 @@ use node_engine::state::NodeState;
 use smallvec::SmallVec;
 use sound_engine::midi::parse::MidiParser;
 use sound_engine::SoundConfig;
+use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::{handle_msg, start_ipc, write_to_file};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // first, start ipc server
     let (to_server, from_server) = start_ipc();
 
-    // pick an output device
+    // create a global state
+    let mut global_state = GlobalState::new(SoundConfig::default());
 
-    // set up state
-    let sound_config = SoundConfig {
-        sample_rate: 48_000,
-        buffer_size: 128,
-    };
-    let buffer_size = 128;
+    // start up audio
+    let mut backend = CpalBackend::new();
+    let output_device = backend.get_default_output().unwrap();
 
-    let mut global_state = GlobalState::new(sound_config);
-    let mut engine_state = NodeState::new(&global_state, buffer_size).unwrap();
+    // can we get this far without crashing?
+    backend.connect(output_device, global_state.resources.clone()).unwrap();
 
-    let mut backend = connect_backend()?;
-    let mut midi_backend = connect_midi_backend()?;
-    let mut midi_parser = MidiParser::new();
+    Ok(())
 
-    let mut buffer_index = 0;
-    let start = Instant::now();
+    // let mut backend = connect_backend()?;
+    // let mut midi_backend = connect_midi_backend()?;
+    // let mut midi_parser = MidiParser::new();
 
-    let mut output_file = File::create("out.pcm").unwrap();
+    // let mut buffer_index = 0;
+    // let start = Instant::now();
 
-    loop {
-        let msg = from_server.try_recv();
+    // let mut output_file = File::create("out.pcm").unwrap();
 
-        if let Ok(msg) = msg {
-            handle_msg(msg, &to_server, &mut engine_state, &mut global_state);
-        }
+    // loop {
+    //     let msg = from_server.try_recv();
 
-        let mut midi = get_midi(&mut midi_backend, &mut midi_parser);
+    //     if let Ok(msg) = msg {
+    //         handle_msg(msg, &to_server, &mut engine_state, &mut global_state);
+    //     }
 
-        if !midi.is_empty() {
-            //println!("midi in main: {:?}", midi);
-        }
+    //     let mut midi = get_midi(&mut midi_backend, &mut midi_parser);
 
-        let mut buffer = vec![0_f32; buffer_size];
+    //     if !midi.is_empty() {
+    //         //println!("midi in main: {:?}", midi);
+    //     }
 
-        for (i, sample) in buffer.iter_mut().enumerate() {
-            let current_time = (buffer_index * buffer_size + i) as i64;
+    //     let mut buffer = vec![0_f32; buffer_size];
 
-            *sample = engine_state.step(current_time, SmallVec::from(midi.clone()), &global_state);
+    //     for (i, sample) in buffer.iter_mut().enumerate() {
+    //         let current_time = (buffer_index * buffer_size + i) as i64;
 
-            if !midi.is_empty() {
-                midi = Vec::new();
-            }
-        }
+    //         *sample = engine_state.step(current_time, SmallVec::from(midi.clone()), &global_state);
 
-        print!(", {:?}", buffer[0]);
+    //         if !midi.is_empty() {
+    //             midi = Vec::new();
+    //         }
+    //     }
 
-        backend.write(&buffer)?;
-        write_to_file(&mut output_file, &buffer)?;
+    //     print!(", {:?}", buffer[0]);
 
-        let now = Instant::now() - start;
-        let sample_duration = Duration::from_secs_f64(buffer_size as f64 / SAMPLE_RATE as f64);
-        let buffer_time = Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
+    //     backend.write(&buffer)?;
+    //     write_to_file(&mut output_file, &buffer)?;
 
-        // println!("now: {:?}, now (buffer): {:?}", now, buffer_time);
+    //     let now = Instant::now() - start;
+    //     let sample_duration = Duration::from_secs_f64(buffer_size as f64 / SAMPLE_RATE as f64);
+    //     let buffer_time = Duration::from_secs_f64((buffer_index as f64) * sample_duration.as_secs_f64());
 
-        if !(now > buffer_time || buffer_time - now < sample_duration * 2) {
-            thread::sleep(sample_duration);
-        }
+    //     // println!("now: {:?}, now (buffer): {:?}", now, buffer_time);
 
-        buffer_index += 1;
-    }
+    //     if !(now > buffer_time || buffer_time - now < sample_duration * 2) {
+    //         thread::sleep(sample_duration);
+    //     }
+
+    //     buffer_index += 1;
+    // }
 }

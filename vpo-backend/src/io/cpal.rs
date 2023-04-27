@@ -1,13 +1,16 @@
 use std::{
     error,
-    sync::{Arc, RwLock},
+    sync::{mpsc, Arc, RwLock},
 };
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use node_engine::{engine::NodeEngine, global_state::GlobalState};
+use node_engine::{
+    engine::NodeEngine,
+    global_state::{GlobalState, Resources},
+};
 use smallvec::SmallVec;
 use snafu::{whatever, OptionExt, ResultExt};
 
@@ -19,10 +22,10 @@ pub struct CpalBackend {
 }
 
 impl CpalBackend {
-    pub fn new() -> Result<CpalBackend, EngineError> {
+    pub fn new() -> CpalBackend {
         let host = cpal::default_host();
 
-        Ok(CpalBackend { device: None, host })
+        CpalBackend { device: None, host }
     }
 
     pub fn get_output_device_list(&self) -> Result<Vec<Device>, EngineError> {
@@ -33,12 +36,18 @@ impl CpalBackend {
             .collect())
     }
 
+    pub fn get_default_output(&self) -> Result<Device, EngineError> {
+        Ok(self
+            .host
+            .default_output_device()
+            .whatever_context("No default output device")?)
+    }
+
     pub fn connect(
         &mut self,
         device: Device,
-        engine: NodeEngine,
-        global_state: Arc<RwLock<GlobalState>>,
-    ) -> Result<(), EngineError> {
+        resources: Arc<RwLock<Resources>>,
+    ) -> Result<mpsc::Sender<NodeEngine>, EngineError> {
         let configs = device.supported_output_configs();
 
         let config = configs
@@ -54,33 +63,52 @@ impl CpalBackend {
 
         println!("Config: {:?}", config);
 
-        let output_stream = match config.sample_format() {
-            SampleFormat::F32 => self.build_output_callback(config.into(), device, engine, global_state)?,
+        let (output_stream, sender) = match config.sample_format() {
+            SampleFormat::F32 => self.build_output_callback(config.into(), device, resources)?,
             _ => whatever!("I'm just working with f32 today, thank you very much"),
         };
 
         println!("Successfully built streams.");
 
-        output_stream.play();
+        output_stream.play().whatever_context("Could not start stream")?;
 
-        Ok(())
+        Ok(sender)
     }
 
     fn build_output_callback(
         &mut self,
         config: StreamConfig,
         device: Device,
-        mut engine: NodeEngine,
-        global_state: Arc<RwLock<GlobalState>>,
-    ) -> Result<Stream, EngineError> {
-        Ok(device
+        resources: Arc<RwLock<Resources>>,
+    ) -> Result<(Stream, mpsc::Sender<NodeEngine>), EngineError> {
+        let (sender, receiver) = mpsc::channel();
+
+        let mut engine: Option<NodeEngine> = None;
+
+        let stream = device
             .build_output_stream::<f32, _, _>(
                 &config,
-                move |mut out, info| engine.step(SmallVec::new(), &global_state.read().unwrap().resources, out),
+                move |out, info| {
+                    if let Ok(new_engine) = receiver.try_recv() {
+                        engine = Some(new_engine);
+                    }
+
+                    if let Some(ref mut engine) = &mut engine {
+                        let resources = resources.try_read();
+
+                        // if we were unable to acquire resources in time, we'll
+                        // just do nothing
+                        if let Ok(resources) = resources {
+                            engine.step(SmallVec::new(), &resources, out);
+                        }
+                    }
+                },
                 |err| panic!("Callback error! {}", err),
                 None,
             )
-            .whatever_context("Failed to build output stream")?)
+            .whatever_context("Failed to build output stream")?;
+
+        Ok((stream, sender))
     }
 }
 

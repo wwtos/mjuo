@@ -126,15 +126,17 @@ pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) 
     *state = NodeState::new(global_state).unwrap();
     global_state.reset();
 
+    let mut resources = global_state.resources.write().unwrap();
+
     load_resources(
         &path.join("samples"),
-        &mut global_state.resources.samples,
+        &mut resources.samples,
         AUDIO_EXTENSIONS,
         &load_sample,
     )?;
     load_resources(
         &path.join("ranks"),
-        &mut global_state.resources.ranks,
+        &mut resources.ranks,
         &["toml"],
         &load_rank_from_file,
     )?;

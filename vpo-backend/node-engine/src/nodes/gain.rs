@@ -29,7 +29,7 @@ impl NodeRuntime for GainNode {
 }
 
 impl Node for GainNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         GainNode { gain: 0.2 }
     }
 

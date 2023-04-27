@@ -58,7 +58,7 @@ pub fn send_global_state_updates(
     global_state: &mut GlobalState,
     to_server: &Sender<IPCMessage>,
 ) -> Result<(), EngineError> {
-    let json = serde_json::to_value(global_state).context(JsonParserSnafu)?;
+    let json = global_state.to_json();
 
     block_on(async {
         to_server

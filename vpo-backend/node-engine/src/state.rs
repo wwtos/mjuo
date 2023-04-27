@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde_json::{json, Value};
-use sound_engine::SoundConfig;
 
 use crate::{
     errors::{NodeError, WarningBuilder, WarningProducer},
@@ -98,7 +97,6 @@ pub struct NodeState {
     history: Vec<HistoryActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
-    sound_config: SoundConfig,
     scripting_engine: Engine,
     root_graph_index: GraphIndex,
     output_node: NodeIndex,
@@ -132,7 +130,7 @@ impl NodeState {
             root_graph_index,
             &graph_manager,
             &scripting_engine,
-            &global_state.resources,
+            &global_state.resources.read().unwrap(),
             0,
             global_state.sound_config.clone(),
         )?;
@@ -141,7 +139,6 @@ impl NodeState {
             history,
             place_in_history,
             graph_manager,
-            sound_config: global_state.sound_config.clone(),
             scripting_engine,
             root_graph_index,
             output_node,
@@ -157,14 +154,6 @@ impl NodeState {
 
     pub fn get_graph_manager(&mut self) -> &mut GraphManager {
         &mut self.graph_manager
-    }
-
-    pub fn get_sound_config(&self) -> &SoundConfig {
-        &self.sound_config
-    }
-
-    pub fn set_sound_config(&mut self, config: SoundConfig) {
-        self.sound_config = config;
     }
 
     pub fn get_root_graph_index(&self) -> GraphIndex {
@@ -252,9 +241,9 @@ impl NodeState {
                 self.root_graph_index,
                 &self.graph_manager,
                 &self.scripting_engine,
-                &global_state.resources,
+                &global_state.resources.read().unwrap(),
                 0,
-                self.sound_config.clone(),
+                global_state.sound_config.clone(),
             )?)
         } else {
             None
