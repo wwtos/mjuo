@@ -1,7 +1,7 @@
 use rhai::Engine;
 
 use crate::{
-    connection::MidiBundle, global_state::GlobalState, node::NodeIndex, nodes::variants::NodeVariant,
+    connection::MidiBundle, global_state::Resources, node::NodeIndex, nodes::variants::NodeVariant,
     traversal::buffered_traverser::BufferedTraverser,
 };
 
@@ -29,7 +29,7 @@ impl NodeEngine {
         }
     }
 
-    pub fn step(&mut self, midi_in: MidiBundle, global_state: &GlobalState, out: &mut [f32]) {
+    pub fn step(&mut self, midi_in: MidiBundle, resources: &Resources, out: &mut [f32]) {
         if !midi_in.is_empty() {
             let midi_in_node = self.traverser.get_node_mut(self.midi_in_node);
 
@@ -45,7 +45,7 @@ impl NodeEngine {
 
         let traversal_errors = self
             .traverser
-            .traverse(self.current_time, &self.scripting_engine, global_state);
+            .traverse(self.current_time, &self.scripting_engine, resources);
         self.current_time += out.len() as i64;
 
         let output_node = self.traverser.get_node_mut(self.output_node);

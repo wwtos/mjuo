@@ -7,11 +7,12 @@ use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
+use sound_engine::SoundConfig;
 
 use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult};
-use crate::global_state::GlobalState;
+use crate::global_state::Resources;
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::property::{Property, PropertyType};
 
@@ -96,16 +97,16 @@ impl InitResult {
 pub struct NodeInitState<'a> {
     pub props: &'a HashMap<String, Property>,
     pub script_engine: &'a Engine,
-    pub global_state: &'a GlobalState,
+    pub resources: &'a Resources,
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
-    pub buffer_size: usize,
+    pub sound_config: &'a SoundConfig,
 }
 
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
+    pub resources: &'a Resources,
     pub script_engine: &'a Engine,
-    pub global_state: &'a GlobalState,
 }
 
 pub struct NodeGraphAndIo {

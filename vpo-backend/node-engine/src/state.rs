@@ -132,9 +132,9 @@ impl NodeState {
             root_graph_index,
             &graph_manager,
             &scripting_engine,
-            global_state,
+            &global_state.resources,
             0,
-            global_state.sound_config.buffer_size,
+            global_state.sound_config.clone(),
         )?;
 
         Ok(NodeState {
@@ -252,9 +252,9 @@ impl NodeState {
                 self.root_graph_index,
                 &self.graph_manager,
                 &self.scripting_engine,
-                global_state,
+                &global_state.resources,
                 0,
-                self.sound_config.buffer_size,
+                self.sound_config.clone(),
             )?)
         } else {
             None

@@ -28,9 +28,9 @@ impl NodeRuntime for FunctionNode {
                 graph_and_io.graph,
                 state.graph_manager,
                 state.script_engine,
-                state.global_state,
+                state.resources,
                 state.current_time,
-                state.buffer_size,
+                state.sound_config.clone(),
             )?;
             self.child_io_nodes = Some((input_index, output_index));
         }

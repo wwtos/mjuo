@@ -26,7 +26,6 @@ impl NodeRuntime for WavetableNode {
 
         if let Some(resource) = state.props.get("sample").and_then(|x| x.clone().as_resource()) {
             let new_index = state
-                .global_state
                 .resources
                 .samples
                 .get_index(&resource.resource)
@@ -39,11 +38,7 @@ impl NodeRuntime for WavetableNode {
         }
 
         if self.oscillator.is_none() || did_index_change {
-            let wavetable = state
-                .global_state
-                .resources
-                .samples
-                .borrow_resource(self.index.unwrap());
+            let wavetable = state.resources.samples.borrow_resource(self.index.unwrap());
 
             if let Some(wavetable) = wavetable {
                 self.oscillator = Some(WavetableOscillator::new(self.config.clone(), &wavetable));
@@ -60,12 +55,7 @@ impl NodeRuntime for WavetableNode {
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
-            let wavetable = state
-                .global_state
-                .resources
-                .samples
-                .borrow_resource(self.index.unwrap())
-                .unwrap();
+            let wavetable = state.resources.samples.borrow_resource(self.index.unwrap()).unwrap();
 
             for frame in streams_out[0].iter_mut() {
                 *frame = player.get_next_sample(wavetable);

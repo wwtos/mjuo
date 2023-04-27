@@ -76,7 +76,7 @@ impl CpalBackend {
         Ok(device
             .build_output_stream::<f32, _, _>(
                 &config,
-                move |mut out, info| engine.step(SmallVec::new(), &global_state.read().unwrap(), out),
+                move |mut out, info| engine.step(SmallVec::new(), &global_state.read().unwrap().resources, out),
                 |err| panic!("Callback error! {}", err),
                 None,
             )

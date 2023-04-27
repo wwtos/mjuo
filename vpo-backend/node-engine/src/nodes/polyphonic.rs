@@ -70,9 +70,9 @@ impl NodeRuntime for PolyphonicNode {
                         graph_and_io.graph,
                         state.graph_manager,
                         state.script_engine,
-                        state.global_state,
+                        state.resources,
                         state.current_time,
-                        state.buffer_size,
+                        state.sound_config.clone(),
                     )?,
                     info: PolyphonicInfo::new(state.current_time),
                     is_first_time: true,
@@ -212,7 +212,7 @@ impl NodeRuntime for PolyphonicNode {
             if voice.info.active {
                 // if it's active, process it
                 self.traverser
-                    .traverse(state.current_time, state.script_engine, state.global_state);
+                    .traverse(state.current_time, state.script_engine, state.resources);
 
                 let subgraph_output_node = voice.traverser.get_node_mut(child_output_node).unwrap();
 
