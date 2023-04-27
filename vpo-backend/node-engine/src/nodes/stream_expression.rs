@@ -8,21 +8,6 @@ pub struct StreamExpressionNode {
     scope: Box<Scope<'static>>,
 }
 
-impl Default for StreamExpressionNode {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl StreamExpressionNode {
-    pub fn new() -> StreamExpressionNode {
-        StreamExpressionNode {
-            scope: Box::new(Scope::new()),
-            ast: None,
-        }
-    }
-}
-
 impl NodeRuntime for StreamExpressionNode {
     fn process(
         &mut self,
@@ -90,6 +75,13 @@ impl NodeRuntime for StreamExpressionNode {
 }
 
 impl Node for StreamExpressionNode {
+    fn new(_sound_config: &SoundConfig) -> StreamExpressionNode {
+        StreamExpressionNode {
+            scope: Box::new(Scope::new()),
+            ast: None,
+        }
+    }
+
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![

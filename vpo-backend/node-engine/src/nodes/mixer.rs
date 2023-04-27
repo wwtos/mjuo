@@ -3,12 +3,6 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone)]
 pub struct MixerNode {}
 
-impl Default for MixerNode {
-    fn default() -> Self {
-        MixerNode {}
-    }
-}
-
 impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
@@ -33,6 +27,10 @@ impl NodeRuntime for MixerNode {
 }
 
 impl Node for MixerNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        MixerNode {}
+    }
+
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),

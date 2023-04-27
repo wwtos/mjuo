@@ -10,16 +10,6 @@ pub struct WavetableNode {
     config: SoundConfig,
 }
 
-impl WavetableNode {
-    pub fn new(config: &SoundConfig) -> Self {
-        WavetableNode {
-            oscillator: None,
-            index: None,
-            config: config.clone(),
-        }
-    }
-}
-
 impl NodeRuntime for WavetableNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
@@ -75,6 +65,14 @@ impl NodeRuntime for WavetableNode {
 }
 
 impl Node for WavetableNode {
+    fn new(config: &SoundConfig) -> Self {
+        WavetableNode {
+            oscillator: None,
+            index: None,
+            config: config.clone(),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(

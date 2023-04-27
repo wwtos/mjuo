@@ -1,21 +1,12 @@
 use std::collections::HashMap;
 
 use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
-use sound_engine::SoundConfig;
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct BiquadFilterNode {
     filter: BiquadFilter,
-}
-
-impl BiquadFilterNode {
-    pub fn new(config: &SoundConfig) -> BiquadFilterNode {
-        BiquadFilterNode {
-            filter: BiquadFilter::new(config, BiquadFilterType::Lowpass, 20_000.0, 0.707),
-        }
-    }
 }
 
 impl NodeRuntime for BiquadFilterNode {
@@ -65,6 +56,12 @@ impl NodeRuntime for BiquadFilterNode {
 }
 
 impl Node for BiquadFilterNode {
+    fn new(config: &SoundConfig) -> BiquadFilterNode {
+        BiquadFilterNode {
+            filter: BiquadFilter::new(config, BiquadFilterType::Lowpass, 20_000.0, 0.707),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![

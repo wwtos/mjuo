@@ -13,17 +13,6 @@ pub struct MidiToValuesNode {
     process_state: ProcessState<()>,
 }
 
-impl Default for MidiToValuesNode {
-    fn default() -> Self {
-        MidiToValuesNode {
-            frequency: 440.0,
-            gate: false,
-            velocity: 0.0,
-            process_state: ProcessState::Unprocessed(()),
-        }
-    }
-}
-
 impl NodeRuntime for MidiToValuesNode {
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
         let midi = midi_in[0].as_ref().unwrap();
@@ -75,6 +64,15 @@ impl NodeRuntime for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        MidiToValuesNode {
+            frequency: 440.0,
+            gate: false,
+            velocity: 0.0,
+            process_state: ProcessState::Unprocessed(()),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             midi_input(register("midi"), SmallVec::new()),

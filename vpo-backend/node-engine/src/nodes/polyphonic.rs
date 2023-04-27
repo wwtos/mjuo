@@ -41,18 +41,6 @@ pub struct PolyphonicNode {
     current_time: i64,
 }
 
-impl PolyphonicNode {
-    pub fn new() -> PolyphonicNode {
-        PolyphonicNode {
-            voices: vec![],
-            traverser: BufferedTraverser::new(),
-            polyphony: 1,
-            child_io_nodes: None,
-            current_time: 0,
-        }
-    }
-}
-
 impl NodeRuntime for PolyphonicNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
@@ -245,6 +233,16 @@ impl NodeRuntime for PolyphonicNode {
 }
 
 impl Node for PolyphonicNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        PolyphonicNode {
+            voices: vec![],
+            traverser: BufferedTraverser::new(),
+            polyphony: 1,
+            child_io_nodes: None,
+            current_time: 0,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![

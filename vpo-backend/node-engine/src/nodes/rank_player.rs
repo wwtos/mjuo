@@ -12,17 +12,6 @@ pub struct RankPlayerNode {
     midi_in: MidiBundle,
 }
 
-impl Default for RankPlayerNode {
-    fn default() -> Self {
-        RankPlayerNode {
-            player: None,
-            index: None,
-            polyphony: 16,
-            midi_in: SmallVec::new(),
-        }
-    }
-}
-
 impl NodeRuntime for RankPlayerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
@@ -111,6 +100,15 @@ impl NodeRuntime for RankPlayerNode {
 }
 
 impl Node for RankPlayerNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        RankPlayerNode {
+            player: None,
+            index: None,
+            polyphony: 16,
+            midi_in: SmallVec::new(),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(

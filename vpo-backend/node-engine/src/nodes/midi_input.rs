@@ -1,4 +1,4 @@
-use smallvec::SmallVec;
+use smallvec::{smallvec, SmallVec};
 
 use crate::nodes::prelude::*;
 
@@ -39,6 +39,13 @@ impl NodeRuntime for MidiInNode {
 }
 
 impl Node for MidiInNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        MidiInNode {
+            midi_in: smallvec![],
+            has_midi_been_processed: false,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![midi_output(register("midi"), SmallVec::new())])
     }

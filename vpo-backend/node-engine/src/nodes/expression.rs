@@ -11,24 +11,6 @@ pub struct ExpressionNode {
     have_values_changed: bool,
 }
 
-impl Default for ExpressionNode {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ExpressionNode {
-    pub fn new() -> ExpressionNode {
-        ExpressionNode {
-            scope: Box::new(Scope::new()),
-            ast: None,
-            values_in: vec![],
-            value_out: None,
-            have_values_changed: true,
-        }
-    }
-}
-
 impl NodeRuntime for ExpressionNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         self.have_values_changed = false;
@@ -130,6 +112,16 @@ impl NodeRuntime for ExpressionNode {
 }
 
 impl Node for ExpressionNode {
+    fn new(_sound_config: &SoundConfig) -> ExpressionNode {
+        ExpressionNode {
+            scope: Box::new(Scope::new()),
+            ast: None,
+            values_in: vec![],
+            value_out: None,
+            have_values_changed: true,
+        }
+    }
+
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![

@@ -12,18 +12,6 @@ pub struct SequencerNode {
     resetting: bool,
 }
 
-impl Default for SequencerNode {
-    fn default() -> Self {
-        SequencerNode {
-            last_emitted_at: 0,
-            to_emit: None,
-            chord_note: 50,
-            active: false,
-            resetting: false,
-        }
-    }
-}
-
 impl NodeRuntime for SequencerNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         let active = values_in[0].clone().unwrap().as_boolean().unwrap();
@@ -115,6 +103,16 @@ impl NodeRuntime for SequencerNode {
 }
 
 impl Node for SequencerNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        SequencerNode {
+            last_emitted_at: 0,
+            to_emit: None,
+            chord_note: 50,
+            active: false,
+            resetting: false,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("active"), Primitive::Boolean(false)),

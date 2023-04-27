@@ -8,14 +8,6 @@ pub struct OscillatorNode {
     oscillator: Oscillator,
 }
 
-impl Default for OscillatorNode {
-    fn default() -> Self {
-        OscillatorNode {
-            oscillator: Oscillator::new(Waveform::Square),
-        }
-    }
-}
-
 impl NodeRuntime for OscillatorNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(waveform) = state.props.get("waveform") {
@@ -52,6 +44,12 @@ impl NodeRuntime for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        OscillatorNode {
+            oscillator: Oscillator::new(Waveform::Square),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("frequency"), Primitive::Float(440.0)),

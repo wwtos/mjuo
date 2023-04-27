@@ -9,15 +9,6 @@ pub struct EnvelopeNode {
     gate: f32,
 }
 
-impl EnvelopeNode {
-    pub fn new(config: &SoundConfig) -> Self {
-        EnvelopeNode {
-            envelope: Envelope::new(config, 0.02, 0.2, 0.8, 0.5),
-            gate: 0.0,
-        }
-    }
-}
-
 impl NodeRuntime for EnvelopeNode {
     fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         InitResult::nothing()
@@ -62,6 +53,13 @@ impl NodeRuntime for EnvelopeNode {
 }
 
 impl Node for EnvelopeNode {
+    fn new(config: &SoundConfig) -> Self {
+        EnvelopeNode {
+            envelope: Envelope::new(config, 0.02, 0.2, 0.8, 0.5),
+            gate: 0.0,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("gate"), Primitive::Boolean(false)),

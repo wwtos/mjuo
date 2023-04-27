@@ -1,17 +1,11 @@
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct GainGraphNode {
+pub struct GainNode {
     gain: f32,
 }
 
-impl Default for GainGraphNode {
-    fn default() -> Self {
-        GainGraphNode { gain: 0.2 }
-    }
-}
-
-impl NodeRuntime for GainGraphNode {
+impl NodeRuntime for GainNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(Property::Float(gain)) = state.props.get("default_gain") {
             self.gain = gain.clamp(0.0, 1.0);
@@ -34,7 +28,11 @@ impl NodeRuntime for GainGraphNode {
     }
 }
 
-impl Node for GainGraphNode {
+impl Node for GainNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        GainNode { gain: 0.2 }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             stream_input(register("audio"), 0.0),

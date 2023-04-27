@@ -69,6 +69,14 @@ impl NodeRuntime for OutputsNode {
 }
 
 impl Node for OutputsNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        OutputsNode {
+            values: vec![],
+            midis: vec![],
+            streams: vec![],
+        }
+    }
+
     fn get_io(props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
