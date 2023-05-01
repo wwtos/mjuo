@@ -7,12 +7,10 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use node_engine::{
-    engine::NodeEngine,
-    global_state::{GlobalState, Resources},
-};
+use node_engine::{engine::NodeEngine, global_state::Resources};
+use rtrb::RingBuffer;
 use smallvec::SmallVec;
-use snafu::{whatever, OptionExt, ResultExt};
+use snafu::{OptionExt, ResultExt};
 
 use crate::errors::EngineError;
 
@@ -47,32 +45,33 @@ impl CpalBackend {
         &mut self,
         device: Device,
         resources: Arc<RwLock<Resources>>,
-    ) -> Result<mpsc::Sender<NodeEngine>, EngineError> {
+        buffer_size: usize,
+    ) -> Result<(Stream, mpsc::Sender<NodeEngine>, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
-        let config = configs
+        let config_bounds = configs
             .whatever_context("Could not list supported output configs")?
             .find(|output_config| {
                 output_config.max_sample_rate() >= SampleRate(44_100)
                     && output_config.min_sample_rate() <= SampleRate(44_100)
-                    && output_config.channels() >= 1
+                    && output_config.channels() == 2
                     && output_config.sample_format() == SampleFormat::F32
             })
             .whatever_context("Could not build output config")?
             .with_sample_rate(SampleRate(44_100));
 
-        println!("Config: {:?}", config);
+        println!("supported: {:?}", config_bounds);
 
-        let (output_stream, sender) = match config.sample_format() {
-            SampleFormat::F32 => self.build_output_callback(config.into(), device, resources)?,
-            _ => whatever!("I'm just working with f32 today, thank you very much"),
+        let config = StreamConfig {
+            channels: config_bounds.channels(),
+            sample_rate: config_bounds.sample_rate(),
+            buffer_size: cpal::BufferSize::Fixed(buffer_size as u32),
         };
 
-        println!("Successfully built streams.");
+        println!("Config: {:?}", config);
+        let (stream, sender) = self.build_output_callback(config.clone().into(), device, resources, buffer_size)?;
 
-        output_stream.play().whatever_context("Could not start stream")?;
-
-        Ok(sender)
+        Ok((stream, sender, config))
     }
 
     fn build_output_callback(
@@ -80,40 +79,53 @@ impl CpalBackend {
         config: StreamConfig,
         device: Device,
         resources: Arc<RwLock<Resources>>,
+        buffer_size: usize,
     ) -> Result<(Stream, mpsc::Sender<NodeEngine>), EngineError> {
         let (sender, receiver) = mpsc::channel();
 
         let mut engine: Option<NodeEngine> = None;
+        let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2);
+
+        let mut buffer = vec![0_f32; buffer_size];
 
         let stream = device
-            .build_output_stream::<f32, _, _>(
+            .build_output_stream(
                 &config,
-                move |out, info| {
+                move |out: &mut [f32], _| {
                     if let Ok(new_engine) = receiver.try_recv() {
                         engine = Some(new_engine);
                     }
 
-                    if let Some(ref mut engine) = &mut engine {
+                    if let Some(engine) = &mut engine {
                         let resources = resources.try_read();
 
-                        // if we were unable to acquire resources in time, we'll
-                        // just do nothing
                         if let Ok(resources) = resources {
-                            engine.step(SmallVec::new(), &resources, out);
+                            for frame in out {
+                                // are there enough slots open to step the engine?
+                                if producer.slots() > buffer_size {
+                                    engine.step(SmallVec::new(), &resources, &mut buffer);
+
+                                    for frame in &buffer {
+                                        producer.push(*frame).unwrap();
+                                    }
+                                }
+
+                                *frame = consumer.pop().unwrap();
+                            }
+                        } else {
+                            // if we were unable to acquire resources in time, we'll
+                            // just do nothing
                         }
                     }
                 },
-                |err| panic!("Callback error! {}", err),
+                |err| eprintln!("Callback error in cpal: {}", err),
                 None,
             )
             .whatever_context("Failed to build output stream")?;
+        stream.play().whatever_context("Could not start stream")?;
 
         Ok((stream, sender))
     }
-}
-
-fn err_fn(err: cpal::StreamError) {
-    eprintln!("an error occurred on stream: {}", err);
 }
 
 fn enumerate_devices() -> Result<(), Box<dyn error::Error>> {
