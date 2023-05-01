@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use serde_json::{json, Value};
 
 use crate::{
+    engine::NodeEngine,
     errors::{NodeError, WarningBuilder, WarningProducer},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
@@ -147,6 +148,27 @@ impl NodeState {
         })
     }
 
+    pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
+        let script_engine = rhai::Engine::new_raw();
+        let resources = global_state.resources.read().unwrap();
+
+        let traverser = BufferedTraverser::get_traverser(
+            self.root_graph_index,
+            &self.graph_manager,
+            &script_engine,
+            &resources,
+            0,
+            global_state.sound_config.clone(),
+        )?;
+
+        Ok(NodeEngine::new(
+            traverser,
+            script_engine,
+            self.midi_in_node,
+            self.output_node,
+        ))
+    }
+
     pub fn clear_history(&mut self) {
         self.history.clear();
         self.place_in_history = 0;
@@ -158,9 +180,6 @@ impl NodeState {
 
     pub fn get_root_graph_index(&self) -> GraphIndex {
         self.root_graph_index
-    }
-    pub fn get_engine(&mut self) -> &mut Engine {
-        &mut self.scripting_engine
     }
 
     pub fn get_registry(&self) -> &SocketRegistry {
