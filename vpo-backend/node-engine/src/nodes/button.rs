@@ -8,15 +8,6 @@ pub struct ButtonNode {
     input: ProcessState<bool>,
 }
 
-impl ButtonNode {
-    pub fn new() -> Self {
-        ButtonNode {
-            state: false,
-            input: ProcessState::None,
-        }
-    }
-}
-
 impl NodeRuntime for ButtonNode {
     fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         InitResult::nothing()
@@ -56,6 +47,13 @@ impl NodeRuntime for ButtonNode {
 }
 
 impl Node for ButtonNode {
+    fn new(_sound_config: &SoundConfig) -> Self {
+        ButtonNode {
+            state: false,
+            input: ProcessState::None,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![

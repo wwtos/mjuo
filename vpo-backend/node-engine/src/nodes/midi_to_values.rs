@@ -1,6 +1,5 @@
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
-use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -12,17 +11,6 @@ pub struct MidiToValuesNode {
     gate: bool,
     velocity: f32,
     process_state: ProcessState<()>,
-}
-
-impl Default for MidiToValuesNode {
-    fn default() -> Self {
-        MidiToValuesNode {
-            frequency: 440.0,
-            gate: false,
-            velocity: 0.0,
-            process_state: ProcessState::Unprocessed(()),
-        }
-    }
 }
 
 impl NodeRuntime for MidiToValuesNode {
@@ -69,8 +57,6 @@ impl NodeRuntime for MidiToValuesNode {
 
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
         if matches!(self.process_state, ProcessState::Processed) {
-            console::log_1(&format!("sending: {:?}", self.frequency).into());
-
             values_out[0] = Some(Primitive::Float(self.frequency));
             values_out[1] = Some(Primitive::Boolean(self.gate));
         }
@@ -78,6 +64,15 @@ impl NodeRuntime for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        MidiToValuesNode {
+            frequency: 440.0,
+            gate: false,
+            velocity: 0.0,
+            process_state: ProcessState::Unprocessed(()),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             midi_input(register("midi"), SmallVec::new()),

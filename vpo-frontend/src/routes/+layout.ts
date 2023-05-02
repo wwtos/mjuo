@@ -10,7 +10,7 @@ export const ssr = false;
 
 export const load = (() => {
     // "ws://localhost:26642"
-    let socket = new WasmIpcSocket();
+    let socket = new WebIpcSocket("ws://localhost:26642");
     const globalEngineState: Writable<GlobalState> = writable({
         activeProject: null,
         soundConfig: {sampleRate: 0},

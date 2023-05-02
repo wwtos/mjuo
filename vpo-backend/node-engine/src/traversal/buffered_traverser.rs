@@ -7,12 +7,12 @@ use std::{
 
 use arr_macro::arr;
 use rhai::Engine;
-use web_sys::console;
+use sound_engine::SoundConfig;
 
 use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketType},
-    errors::{ErrorsAndWarnings, NodeError, Warnings},
-    global_state::GlobalState,
+    errors::{NodeError, Warnings},
+    global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
     node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
     nodes::variants::{new_variant, NodeVariant},
@@ -78,9 +78,9 @@ impl BufferedTraverser {
         graph_index: GraphIndex,
         graph_manager: &GraphManager,
         script_engine: &Engine,
-        global_state: &GlobalState,
+        resources: &Resources,
         current_time: i64,
-        buffer_size: usize,
+        sound_config: SoundConfig,
     ) -> Result<BufferedTraverser, NodeError> {
         let mut traverser = BufferedTraverser::new();
 
@@ -89,9 +89,9 @@ impl BufferedTraverser {
                 graph_index,
                 graph_manager,
                 script_engine,
-                global_state,
+                resources,
                 current_time,
-                buffer_size,
+                sound_config,
             )
             .map(|()| traverser)
     }
@@ -101,11 +101,11 @@ impl BufferedTraverser {
         graph_index: GraphIndex,
         graph_manager: &GraphManager,
         script_engine: &Engine,
-        global_state: &GlobalState,
+        resources: &Resources,
         current_time: i64,
-        buffer_size: usize,
+        sound_config: SoundConfig,
     ) -> Result<(), NodeError> {
-        self.buffer_size = buffer_size;
+        self.buffer_size = sound_config.buffer_size;
 
         let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
 
@@ -147,7 +147,7 @@ impl BufferedTraverser {
             let mut variant = if let Some(previous_node) = old_nodes.remove(&index) {
                 previous_node
             } else {
-                new_variant(&node_wrapper.get_node_type(), &global_state.sound_config)?
+                new_variant(&node_wrapper.get_node_type(), &sound_config)?
             };
 
             // get the child graph info, if any
@@ -157,10 +157,10 @@ impl BufferedTraverser {
                 NodeInitState {
                     props: node_wrapper.get_properties(),
                     script_engine,
-                    global_state,
+                    resources,
                     current_time,
                     graph_manager,
-                    buffer_size,
+                    sound_config: &sound_config,
                 },
                 child_graph_info,
             );
@@ -241,7 +241,7 @@ impl BufferedTraverser {
 
             // defaults are stored right before the node's outputs
             for default in &needed_stream_defaults {
-                self.stream_outputs.extend(repeat(default).take(buffer_size));
+                self.stream_outputs.extend(repeat(default).take(self.buffer_size));
             }
 
             for default in &needed_midi_defaults {
@@ -287,7 +287,7 @@ impl BufferedTraverser {
             });
 
             self.stream_outputs
-                .extend(repeat(0.0).take(stream_outputs.len() * buffer_size));
+                .extend(repeat(0.0).take(stream_outputs.len() * self.buffer_size));
             self.midi_outputs.extend(repeat(None).take(midi_outputs.len()));
             self.value_outputs.extend(repeat(None).take(value_outputs.len()));
         }
@@ -320,7 +320,7 @@ impl BufferedTraverser {
                                 .iter()
                                 .position(|&other_socket| other_socket == connection.data.from_socket)
                                 .unwrap()
-                                * buffer_size
+                                * self.buffer_size
                                 + other_outputs.stream_outputs_index;
 
                             self.stream_input_mappings.push(position_in_stream);
@@ -353,7 +353,7 @@ impl BufferedTraverser {
                         SocketType::Stream => {
                             self.stream_input_mappings.push(
                                 node_to_location_mapping.get(index).unwrap().stream_defaults_index
-                                    + stream_default_at * buffer_size,
+                                    + stream_default_at * self.buffer_size,
                             );
 
                             stream_default_at += 1;
@@ -379,7 +379,7 @@ impl BufferedTraverser {
         }
 
         if !errors.is_empty() {
-            console::log_1(&format!("errors: {:#?}", errors).into());
+            println!("errors: {:#?}", errors);
         }
 
         // console::log_1(&format!("Traverser state: {:#?}", self).into());
@@ -387,12 +387,7 @@ impl BufferedTraverser {
         Ok(())
     }
 
-    pub fn traverse(
-        &mut self,
-        current_time: i64,
-        script_engine: &Engine,
-        global_state: &GlobalState,
-    ) -> Result<(), ErrorsAndWarnings> {
+    pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, resources: &Resources) {
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
@@ -504,7 +499,7 @@ impl BufferedTraverser {
                 NodeProcessState {
                     current_time,
                     script_engine,
-                    global_state,
+                    resources,
                 },
                 &stream_inputs[0..inputs],
                 &mut stream_outputs[0..outputs],
@@ -530,8 +525,6 @@ impl BufferedTraverser {
 
             value_outputs_i += advance_by.defaults + advance_by.outputs;
         }
-
-        Ok(())
     }
 
     pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {

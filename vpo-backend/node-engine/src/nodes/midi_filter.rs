@@ -14,24 +14,6 @@ pub struct MidiFilterNode {
     output: Option<MidiBundle>,
 }
 
-impl MidiFilterNode {
-    pub fn new() -> Self {
-        MidiFilterNode {
-            filter: None,
-            filter_raw: "".into(),
-            midi_state: ProcessState::None,
-            scope: Scope::new(),
-            output: None,
-        }
-    }
-}
-
-impl Default for MidiFilterNode {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     match value {
         serde_json::Value::Null => Dynamic::from(()),
@@ -144,6 +126,16 @@ impl NodeRuntime for MidiFilterNode {
 }
 
 impl Node for MidiFilterNode {
+    fn new(sound_config: &SoundConfig) -> MidiFilterNode {
+        MidiFilterNode {
+            filter: None,
+            filter_raw: "".into(),
+            midi_state: ProcessState::None,
+            scope: Scope::new(),
+            output: None,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             midi_input(register("midi"), SmallVec::new()),

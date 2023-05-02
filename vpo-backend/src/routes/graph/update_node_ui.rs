@@ -1,16 +1,11 @@
-use ipc::ipc_message::IPCMessage;
-use node_engine::{
-    errors::{JsonParserSnafu, NodeError},
-    global_state::GlobalState,
-    graph_manager::GraphIndex,
-    node::NodeIndex,
-    state::NodeEngineState,
-};
+use ipc::ipc_message::IpcMessage;
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, node::NodeIndex, state::NodeState};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
+    errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
     util::{send_graph_updates, send_registry_updates},
     Sender,
@@ -25,23 +20,23 @@ struct Payload {
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    to_server: &Sender<IpcMessage>,
+    state: &mut NodeState,
     _global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
+) -> Result<Option<RouteReturn>, EngineError> {
     let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
     for (mut node_json, index) in payload.updated_nodes {
-        if node_json["uiData"].is_object() {
+        if let Value::Object(ui_data) = node_json["uiData"].take() {
             let mut graph = state
                 .get_graph_manager()
-                .get_graph(payload.graph_index)?
+                .get_graph(payload.graph_index)
+                .context(NodeSnafu)?
                 .graph
                 .borrow_mut();
 
-            let node = graph.get_node_mut(index)?;
-
-            node.apply_json(&mut node_json)?;
+            let node = graph.get_node_mut(index).context(NodeSnafu)?;
+            node.set_ui_data(ui_data.into_iter().collect());
         }
     }
 

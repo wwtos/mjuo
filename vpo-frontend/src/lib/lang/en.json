@@ -38,7 +38,7 @@
             }
         },
         "nodes": {
-            "GainGraphNode": "Gain",
+            "GainNode": "Gain",
             "OutputNode": "Output",
             "OscillatorNode": "Oscillator",
             "MidiInNode": "Midi In",

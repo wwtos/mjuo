@@ -12,17 +12,6 @@ pub struct RankPlayerNode {
     midi_in: MidiBundle,
 }
 
-impl Default for RankPlayerNode {
-    fn default() -> Self {
-        RankPlayerNode {
-            player: None,
-            index: None,
-            polyphony: 16,
-            midi_in: SmallVec::new(),
-        }
-    }
-}
-
 impl NodeRuntime for RankPlayerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
@@ -43,7 +32,6 @@ impl NodeRuntime for RankPlayerNode {
 
         if let Some(resource) = state.props.get("rank").and_then(|rank| rank.clone().as_resource()) {
             let new_index = state
-                .global_state
                 .resources
                 .ranks
                 .get_index(&resource.resource)
@@ -56,10 +44,10 @@ impl NodeRuntime for RankPlayerNode {
         }
 
         if self.player.is_none() || did_settings_change {
-            let rank = state.global_state.resources.ranks.borrow_resource(self.index.unwrap());
+            let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(&state.global_state.resources.pipes, &rank, self.polyphony);
+                let player = RankPlayer::new(&state.resources.samples, &rank, self.polyphony);
                 self.player = Some(player);
             }
         }
@@ -73,17 +61,19 @@ impl NodeRuntime for RankPlayerNode {
         _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        if let Some(player) = &mut self.player {
-            let pipes = &state.global_state.resources.pipes;
+        let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
+
+        if let (Some(player), Some(rank)) = (&mut self.player, rank) {
+            let samples = &state.resources.samples;
 
             if !self.midi_in.is_empty() {
                 for midi in &self.midi_in {
                     match midi {
                         MidiData::NoteOn { note, .. } => {
-                            player.play_note(*note, pipes);
+                            player.play_note(*note, rank, samples);
                         }
                         MidiData::NoteOff { note, .. } => {
-                            player.release_note(*note, pipes);
+                            player.release_note(*note, rank, samples);
                         }
                         _ => {}
                     }
@@ -96,7 +86,7 @@ impl NodeRuntime for RankPlayerNode {
                 *frame = 0.0;
             }
 
-            player.next_buffered(streams_out[0], pipes);
+            player.next_buffered(rank, samples, streams_out[0]);
         }
 
         NodeOk::no_warnings(())
@@ -110,6 +100,15 @@ impl NodeRuntime for RankPlayerNode {
 }
 
 impl Node for RankPlayerNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        RankPlayerNode {
+            player: None,
+            index: None,
+            polyphony: 16,
+            midi_in: SmallVec::new(),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(

@@ -6,15 +6,6 @@ pub struct FunctionNode {
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
-impl Default for FunctionNode {
-    fn default() -> FunctionNode {
-        FunctionNode {
-            traverser: BufferedTraverser::new(),
-            child_io_nodes: None,
-        }
-    }
-}
-
 impl NodeRuntime for FunctionNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(graph_and_io) = child_graph {
@@ -28,9 +19,9 @@ impl NodeRuntime for FunctionNode {
                 graph_and_io.graph,
                 state.graph_manager,
                 state.script_engine,
-                state.global_state,
+                state.resources,
                 state.current_time,
-                state.buffer_size,
+                state.sound_config.clone(),
             )?;
             self.child_io_nodes = Some((input_index, output_index));
         }
@@ -71,6 +62,13 @@ impl NodeRuntime for FunctionNode {
 }
 
 impl Node for FunctionNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        FunctionNode {
+            traverser: BufferedTraverser::new(),
+            child_io_nodes: None,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![

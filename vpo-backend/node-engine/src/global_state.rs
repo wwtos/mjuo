@@ -1,41 +1,48 @@
 use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 
 use resource_manager::ResourceManager;
 use serde::Serialize;
-use sound_engine::{
-    sampling::{rank::Rank, sample::Pipe},
-    wave::wavetable::Wavetable,
-    SoundConfig,
-};
+use serde_json::{json, Value};
+use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
-    pub pipes: ResourceManager<Pipe>,
-    pub wavetables: ResourceManager<Wavetable>,
+    pub samples: ResourceManager<MonoSample>,
     pub ranks: ResourceManager<Rank>,
 }
 
-#[derive(Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub struct GlobalState {
     pub active_project: Option<PathBuf>,
     pub sound_config: SoundConfig,
-    pub resources: Resources,
+    pub resources: Arc<RwLock<Resources>>,
 }
 
 impl GlobalState {
     pub fn new(sound_config: SoundConfig) -> GlobalState {
         GlobalState {
             active_project: None,
-            resources: Resources::default(),
+            resources: Arc::new(RwLock::new(Resources::default())),
             sound_config,
         }
     }
 
     pub fn reset(&mut self) {
-        self.resources.ranks.clear();
-        self.resources.pipes.clear();
-        self.resources.wavetables.clear();
+        let mut resources = self.resources.write().unwrap();
+
+        resources.ranks.clear();
+        resources.samples.clear();
+    }
+
+    pub fn to_json(&self) -> Value {
+        let resources = self.resources.read().unwrap();
+
+        json!({
+            "activeProject": self.active_project,
+            "soundConfig": self.sound_config,
+            "resources": *resources
+        })
     }
 }

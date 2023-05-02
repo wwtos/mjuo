@@ -4,18 +4,18 @@ use std::{
 };
 
 use futures::executor::block_on;
-use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
+use ipc::ipc_message::IpcMessage;
+use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::{json, Value};
 
-use crate::{io::load, routes::RouteReturn, Sender};
+use crate::{errors::EngineError, io::load, routes::RouteReturn, Sender};
 
 pub fn route(
     msg: Value,
-    to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    to_server: &Sender<IpcMessage>,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
+) -> Result<Option<RouteReturn>, EngineError> {
     if let Value::String(path) = &msg["payload"]["path"] {
         state.clear_history();
         load(Path::new(path), state, global_state)?;
@@ -24,7 +24,7 @@ pub fn route(
 
         block_on(async {
             to_server
-                .send(IPCMessage::Json(json! {{
+                .send(IpcMessage::Json(json! {{
                     "action": "io/loaded",
                 }}))
                 .await
@@ -33,7 +33,7 @@ pub fn route(
 
         Ok(None)
     } else {
-        Err(NodeError::PropertyMissingOrMalformed {
+        Err(EngineError::PropertyMissingOrMalformed {
             property_name: "payload.path".to_string(),
         })
     }

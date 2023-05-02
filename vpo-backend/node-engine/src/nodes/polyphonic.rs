@@ -41,18 +41,6 @@ pub struct PolyphonicNode {
     current_time: i64,
 }
 
-impl PolyphonicNode {
-    pub fn new() -> PolyphonicNode {
-        PolyphonicNode {
-            voices: vec![],
-            traverser: BufferedTraverser::new(),
-            polyphony: 1,
-            child_io_nodes: None,
-            current_time: 0,
-        }
-    }
-}
-
 impl NodeRuntime for PolyphonicNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
@@ -70,9 +58,9 @@ impl NodeRuntime for PolyphonicNode {
                         graph_and_io.graph,
                         state.graph_manager,
                         state.script_engine,
-                        state.global_state,
+                        state.resources,
                         state.current_time,
-                        state.buffer_size,
+                        state.sound_config.clone(),
                     )?,
                     info: PolyphonicInfo::new(state.current_time),
                     is_first_time: true,
@@ -212,10 +200,7 @@ impl NodeRuntime for PolyphonicNode {
             if voice.info.active {
                 // if it's active, process it
                 self.traverser
-                    .traverse(state.current_time, state.script_engine, state.global_state)
-                    .map_err(|err| NodeError::InnerGraphErrors {
-                        errors_and_warnings: err,
-                    })?;
+                    .traverse(state.current_time, state.script_engine, state.resources);
 
                 let subgraph_output_node = voice.traverser.get_node_mut(child_output_node).unwrap();
 
@@ -248,6 +233,16 @@ impl NodeRuntime for PolyphonicNode {
 }
 
 impl Node for PolyphonicNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        PolyphonicNode {
+            voices: vec![],
+            traverser: BufferedTraverser::new(),
+            polyphony: 1,
+            child_io_nodes: None,
+            current_time: 0,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![

@@ -34,6 +34,12 @@ impl NodeRuntime for OutputNode {
 }
 
 impl Node for OutputNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        OutputNode {
+            values_received: vec![],
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![stream_input(register("audio"), 0.0)])
     }

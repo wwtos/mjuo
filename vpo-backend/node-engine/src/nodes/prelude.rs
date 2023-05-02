@@ -9,3 +9,4 @@ pub(super) use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue},
     property::{Property, PropertyType},
 };
+pub(super) use sound_engine::SoundConfig;

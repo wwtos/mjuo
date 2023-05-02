@@ -2,11 +2,10 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use snafu::ResultExt;
 
 use crate::{
     connection::{Socket, SocketDirection},
-    errors::{JsonParserSnafu, NodeError, NodeOk},
+    errors::{NodeError, NodeOk},
     graph_manager::GraphIndex,
     node::{NodeGraphAndIo, NodeIndex, NodeRow},
     property::Property,
@@ -192,17 +191,6 @@ impl NodeWrapper {
                 }
             })
             .cloned()
-    }
-
-    /// Note, this does not deserialize the node itself, only the generic properties
-    pub fn apply_json(&mut self, json: &mut Value) -> Result<(), NodeError> {
-        println!("Applying json: {}", json);
-
-        let ui_data: HashMap<String, Value> = serde_json::from_value(json["uiData"].take()).context(JsonParserSnafu)?;
-
-        self.ui_data = ui_data;
-
-        Ok(())
     }
 
     pub fn get_node_type(&self) -> String {

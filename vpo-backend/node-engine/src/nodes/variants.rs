@@ -15,7 +15,6 @@ use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
 use super::outputs::OutputsNode;
-use super::pipe_player::PipePlayerNode;
 use super::polyphonic::PolyphonicNode;
 use super::portamento::PortamentoNode;
 use super::rank_player::RankPlayerNode;
@@ -23,14 +22,14 @@ use super::stream_expression::StreamExpressionNode;
 use super::wavetable::WavetableNode;
 use super::{
     biquad_filter::BiquadFilterNode, chord_sequencer::SequencerNode, dummy::DummyNode, envelope::EnvelopeNode,
-    expression::ExpressionNode, gain::GainGraphNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
+    expression::ExpressionNode, gain::GainNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
     mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[enum_dispatch]
 #[derive(Debug, Clone)]
 pub enum NodeVariant {
-    GainGraphNode,
+    GainNode,
     OutputNode,
     OscillatorNode,
     MidiInNode,
@@ -46,7 +45,6 @@ pub enum NodeVariant {
     StreamExpressionNode,
     PolyphonicNode,
     MidiFilterNode,
-    PipePlayerNode,
     WavetableNode,
     PortamentoNode,
     ButtonNode,
@@ -62,28 +60,27 @@ impl Default for NodeVariant {
 
 pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant, NodeError> {
     match node_type {
-        "OutputNode" => Ok(NodeVariant::OutputNode(OutputNode::default())),
-        "MidiInNode" => Ok(NodeVariant::MidiInNode(MidiInNode::default())),
-        "GainGraphNode" => Ok(NodeVariant::GainGraphNode(GainGraphNode::default())),
-        "OscillatorNode" => Ok(NodeVariant::OscillatorNode(OscillatorNode::default())),
-        "MidiToValuesNode" => Ok(NodeVariant::MidiToValuesNode(MidiToValuesNode::default())),
+        "OutputNode" => Ok(NodeVariant::OutputNode(OutputNode::new(config))),
+        "MidiInNode" => Ok(NodeVariant::MidiInNode(MidiInNode::new(config))),
+        "GainNode" => Ok(NodeVariant::GainNode(GainNode::new(config))),
+        "OscillatorNode" => Ok(NodeVariant::OscillatorNode(OscillatorNode::new(config))),
+        "MidiToValuesNode" => Ok(NodeVariant::MidiToValuesNode(MidiToValuesNode::new(config))),
         "EnvelopeNode" => Ok(NodeVariant::EnvelopeNode(EnvelopeNode::new(config))),
         "BiquadFilterNode" => Ok(NodeVariant::BiquadFilterNode(BiquadFilterNode::new(config))),
-        "MixerNode" => Ok(NodeVariant::MixerNode(MixerNode::default())),
-        "ExpressionNode" => Ok(NodeVariant::ExpressionNode(ExpressionNode::new())),
-        "DummyNode" => Ok(NodeVariant::DummyNode(DummyNode::default())),
-        "FunctionNode" => Ok(NodeVariant::FunctionNode(FunctionNode::default())),
-        "InputsNode" => Ok(NodeVariant::InputsNode(InputsNode::default())),
-        "OutputsNode" => Ok(NodeVariant::OutputsNode(OutputsNode::default())),
-        "StreamExpressionNode" => Ok(NodeVariant::StreamExpressionNode(StreamExpressionNode::new())),
-        "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::new())),
-        "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new())),
-        "PipePlayerNode" => Ok(NodeVariant::PipePlayerNode(PipePlayerNode::default())),
+        "MixerNode" => Ok(NodeVariant::MixerNode(MixerNode::new(config))),
+        "ExpressionNode" => Ok(NodeVariant::ExpressionNode(ExpressionNode::new(config))),
+        "DummyNode" => Ok(NodeVariant::DummyNode(DummyNode::new(config))),
+        "FunctionNode" => Ok(NodeVariant::FunctionNode(FunctionNode::new(config))),
+        "InputsNode" => Ok(NodeVariant::InputsNode(InputsNode::new(config))),
+        "OutputsNode" => Ok(NodeVariant::OutputsNode(OutputsNode::new(config))),
+        "StreamExpressionNode" => Ok(NodeVariant::StreamExpressionNode(StreamExpressionNode::new(config))),
+        "PolyphonicNode" => Ok(NodeVariant::PolyphonicNode(PolyphonicNode::new(config))),
+        "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new(config))),
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
-        "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new())),
-        "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::default())),
-        "SequencerNode" => Ok(NodeVariant::SequencerNode(SequencerNode::default())),
+        "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new(config))),
+        "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::new(config))),
+        "SequencerNode" => Ok(NodeVariant::SequencerNode(SequencerNode::new(config))),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -96,7 +93,7 @@ pub fn variant_io(
     match node_type {
         "OutputNode" => Ok(OutputNode::get_io(props, register)),
         "MidiInNode" => Ok(MidiInNode::get_io(props, register)),
-        "GainGraphNode" => Ok(GainGraphNode::get_io(props, register)),
+        "GainNode" => Ok(GainNode::get_io(props, register)),
         "OscillatorNode" => Ok(OscillatorNode::get_io(props, register)),
         "MidiToValuesNode" => Ok(MidiToValuesNode::get_io(props, register)),
         "EnvelopeNode" => Ok(EnvelopeNode::get_io(props, register)),
@@ -110,7 +107,6 @@ pub fn variant_io(
         "StreamExpressionNode" => Ok(StreamExpressionNode::get_io(props, register)),
         "PolyphonicNode" => Ok(PolyphonicNode::get_io(props, register)),
         "MidiFilterNode" => Ok(MidiFilterNode::get_io(props, register)),
-        "PipePlayerNode" => Ok(PipePlayerNode::get_io(props, register)),
         "WavetableNode" => Ok(WavetableNode::get_io(props, register)),
         "PortamentoNode" => Ok(PortamentoNode::get_io(props, register)),
         "ButtonNode" => Ok(ButtonNode::get_io(props, register)),

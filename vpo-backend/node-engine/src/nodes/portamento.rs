@@ -14,18 +14,6 @@ pub struct PortamentoNode {
     ramp: Ramp,
 }
 
-impl PortamentoNode {
-    pub fn new(sound_config: &SoundConfig) -> Self {
-        PortamentoNode {
-            value_out: None,
-            engaged: true,
-            active: true,
-            speed: 0.2,
-            ramp: Ramp::new_with_start_value(sound_config, 440.0),
-        }
-    }
-}
-
 impl NodeRuntime for PortamentoNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(ramp_type) = state.props.get("ramp_type") {
@@ -103,6 +91,16 @@ impl NodeRuntime for PortamentoNode {
 }
 
 impl Node for PortamentoNode {
+    fn new(sound_config: &SoundConfig) -> PortamentoNode {
+        PortamentoNode {
+            value_out: None,
+            engaged: true,
+            active: true,
+            speed: 0.2,
+            ramp: Ramp::new_with_start_value(sound_config, 440.0),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(

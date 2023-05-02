@@ -1,6 +1,5 @@
 use smallvec::{smallvec, SmallVec};
 use sound_engine::midi::messages::MidiData;
-use web_sys::console;
 
 use crate::nodes::prelude::*;
 
@@ -11,18 +10,6 @@ pub struct SequencerNode {
     chord_note: u8,
     active: bool,
     resetting: bool,
-}
-
-impl Default for SequencerNode {
-    fn default() -> Self {
-        SequencerNode {
-            last_emitted_at: 0,
-            to_emit: None,
-            chord_note: 50,
-            active: false,
-            resetting: false,
-        }
-    }
 }
 
 impl NodeRuntime for SequencerNode {
@@ -103,8 +90,6 @@ impl NodeRuntime for SequencerNode {
                     velocity: 127
                 }
             ]);
-
-            console::log_1(&format!("emitting {:?}", self.to_emit).into());
         } else {
             self.to_emit = None;
         }
@@ -118,6 +103,16 @@ impl NodeRuntime for SequencerNode {
 }
 
 impl Node for SequencerNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        SequencerNode {
+            last_emitted_at: 0,
+            to_emit: None,
+            chord_note: 50,
+            active: false,
+            resetting: false,
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("active"), Primitive::Boolean(false)),

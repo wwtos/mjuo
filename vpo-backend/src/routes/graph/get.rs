@@ -1,14 +1,10 @@
-use ipc::ipc_message::IPCMessage;
-use node_engine::{
-    errors::{JsonParserSnafu, NodeError},
-    global_state::GlobalState,
-    graph_manager::GraphIndex,
-    state::NodeEngineState,
-};
+use ipc::ipc_message::IpcMessage;
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::NodeState};
 use serde_json::Value;
 use snafu::ResultExt;
 
 use crate::{
+    errors::{EngineError, JsonParserSnafu},
     routes::RouteReturn,
     util::{send_global_state_updates, send_graph_updates, send_registry_updates},
     Sender,
@@ -16,10 +12,10 @@ use crate::{
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    to_server: &Sender<IpcMessage>,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
+) -> Result<Option<RouteReturn>, EngineError> {
     let graph_index: GraphIndex =
         serde_json::from_value(msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
 

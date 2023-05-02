@@ -10,68 +10,91 @@ pub mod utils;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_lib;
 
-#[cfg(any(windows, unix))]
-type Sender = async_std::channel::Sender;
+#[cfg(any(unix, windows))]
+type Sender<T> = async_std::channel::Sender<T>;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 
+use std::sync::mpsc;
 use std::{error::Error, io::Write, thread};
 
 #[cfg(any(unix, windows))]
-use async_std::channel::{unbounded, Receiver, Sender};
+use async_std::channel::{unbounded, Receiver};
 use futures::executor::block_on;
 
-#[cfg(any(unix, windows))]
-use io::{
-    alsa_midi::AlsaMidiClientBackend, pulse::PulseClientBackend, AudioClientBackend, MidiClientBackend, BUFFER_SIZE,
-};
+use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
-#[cfg(any(unix, windows))]
-use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
 
-use node_engine::{global_state::GlobalState, state::NodeEngineState};
-use routes::{route, RouteReturn};
+use node_engine::{engine::NodeEngine, global_state::GlobalState, state::NodeState};
+use routes::route;
 use serde_json::json;
-use sound_engine::midi::{messages::MidiData, parse::MidiParser};
 
 #[cfg(any(unix, windows))]
-pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
-    let (to_server, from_main) = unbounded::<IPCMessage>();
-    let (to_main, from_server) = unbounded::<IPCMessage>();
+pub fn start_ipc() -> (Sender<IpcMessage>, Receiver<IpcMessage>) {
+    use futures::join;
+    use ipc::ipc_server;
+    use tokio::{runtime::Runtime, sync::broadcast};
 
-    let to_server_cloned = to_server.clone();
+    let (to_tokio_sync, from_main_sync) = unbounded::<IpcMessage>();
+    let (to_main_sync, from_tokio_sync) = unbounded::<IpcMessage>();
 
     thread::spawn(move || {
-        IPCServer::open(to_server_cloned.clone(), from_main, to_main);
+        let runtime = Runtime::new().unwrap();
+
+        runtime.block_on(async {
+            let (to_tokio, _from_main) = broadcast::channel(16);
+            let (to_main, mut from_tokio) = broadcast::channel(16);
+
+            join!(
+                ipc_server::start_ipc(to_tokio.clone(), to_main),
+                async {
+                    loop {
+                        let message = from_tokio.recv().await.unwrap();
+                        to_main_sync.send(message).await.unwrap();
+                    }
+                },
+                async move {
+                    loop {
+                        let message = from_main_sync.recv().await.unwrap();
+                        to_tokio.send(message).unwrap();
+                    }
+                }
+            );
+        });
     });
 
-    (to_server, from_server)
+    (to_tokio_sync, from_tokio_sync)
 }
 
 #[cfg(any(unix, windows))]
 pub fn handle_msg(
-    msg: IPCMessage,
-    to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    msg: IpcMessage,
+    to_server: &Sender<IpcMessage>,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
+    sender: &mpsc::Sender<NodeEngine>,
 ) {
-    println!("got: {:?}", msg);
+    // println!("got: {:?}", msg);
     let result = route(msg, to_server, state, global_state);
 
     match result {
         Ok(route_result) => {
-            match route_result {
-                Some(route_result) => route_result,
-                None => RouteReturn::default(),
-            };
+            if let Some(traverser) = route_result.and_then(|x| x.new_traverser) {
+                let scripting_engine = rhai::Engine::new_raw();
+                let (midi_in_node, output_node) = state.get_node_indexes();
+
+                sender
+                    .send(NodeEngine::new(traverser, scripting_engine, midi_in_node, output_node))
+                    .unwrap();
+            }
         }
         Err(err) => {
             let err_str = err.to_string();
 
             block_on(async {
                 to_server
-                    .send(IPCMessage::Json(json! {{
+                    .send(IpcMessage::Json(json! {{
                         "action": "toast/error",
                         "payload": err_str
                     }}))
@@ -83,44 +106,11 @@ pub fn handle_msg(
 }
 
 #[cfg(any(unix, windows))]
-pub fn connect_backend() -> Result<Box<dyn AudioClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn AudioClientBackend> = Box::new(PulseClientBackend::new());
-    backend.connect()?;
-
-    Ok(backend)
-}
-
-#[cfg(any(unix, windows))]
-pub fn connect_midi_backend() -> Result<Box<dyn MidiClientBackend>, Box<dyn Error>> {
-    let mut backend: Box<dyn MidiClientBackend> = Box::new(AlsaMidiClientBackend::new());
-    backend.connect()?;
-
-    Ok(backend)
-}
-
-#[cfg(any(unix, windows))]
-pub fn get_midi(midi_backend: &mut Box<dyn MidiClientBackend>, parser: &mut MidiParser) -> Vec<MidiData> {
-    let midi_in = midi_backend.read().unwrap();
-    let mut messages: Vec<MidiData> = Vec::new();
-
-    if !midi_in.is_empty() {
-        parser.write_all(midi_in.as_slice()).unwrap();
-
-        while !parser.parsed.is_empty() {
-            let message = parser.parsed.remove(0);
-            messages.push(message);
-        }
-    }
-
-    messages
-}
-
-#[cfg(any(unix, windows))]
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {
-    let mut data_out = [0_u8; BUFFER_SIZE * 4];
+    let mut data_out = vec![0_u8; data.len() * 4];
 
     // TODO: would memcpy work here faster?
-    for i in 0..BUFFER_SIZE {
+    for i in 0..data.len() {
         let num = (data[i] as f32).to_le_bytes();
 
         data_out[i * 4] = num[0];

@@ -7,7 +7,7 @@ use crate::wave::interpolate::interpolate_osc;
 use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
-const SAMPLE_RATE: u32 = 48_000;
+const SAMPLE_RATE: u32 = 44_100;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Waveform {
@@ -49,6 +49,7 @@ pub fn wavetable_lookup(waveform: &Waveform) -> &'static Vec<[f32; WAVETABLE_SIZ
 pub struct Oscillator {
     phase: f32,
     frequency: f32,
+    sample_rate: u32,
     waveform: &'static Vec<[f32; WAVETABLE_SIZE]>,
 }
 
@@ -59,16 +60,17 @@ impl fmt::Debug for Oscillator {
 }
 
 impl Oscillator {
-    pub fn new(waveform: Waveform) -> Oscillator {
+    pub fn new(waveform: Waveform, sample_rate: u32) -> Oscillator {
         Oscillator {
             phase: 0_f32,
             frequency: 440_f32,
+            sample_rate: sample_rate,
             waveform: wavetable_lookup(&waveform),
         }
     }
 
-    pub fn new_with_frequency(waveform: Waveform, frequency: f32) -> Oscillator {
-        let mut oscillator = Oscillator::new(waveform);
+    pub fn new_with_frequency(waveform: Waveform, frequency: f32, sample_rate: u32) -> Oscillator {
+        let mut oscillator = Oscillator::new(waveform, sample_rate);
         oscillator.set_frequency(frequency);
 
         oscillator
@@ -88,7 +90,7 @@ impl Oscillator {
 
     #[inline]
     pub fn process(&mut self) -> f32 {
-        let phase_advance = self.frequency / (SAMPLE_RATE as f32);
+        let phase_advance = self.frequency / self.sample_rate as f32;
 
         self.phase += phase_advance;
         self.phase -= self.phase.floor();
@@ -99,10 +101,10 @@ impl Oscillator {
 
 impl Oscillator {
     pub fn get_frequency(&self) -> f32 {
-        self.frequency
+        self.frequency * 2.0
     }
 
     pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency;
+        self.frequency = frequency * 0.5;
     }
 }

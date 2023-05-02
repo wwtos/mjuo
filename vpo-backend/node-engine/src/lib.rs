@@ -1,4 +1,5 @@
 pub mod connection;
+pub mod engine;
 pub mod errors;
 pub mod global_state;
 pub mod graph_manager;

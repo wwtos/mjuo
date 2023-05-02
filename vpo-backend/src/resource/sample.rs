@@ -1,54 +1,31 @@
-use std::{
-    fs::{self, File},
-    io::Read,
-    path::Path,
-};
+use std::path::PathBuf;
 
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use regex::Regex;
-use resource_manager::{IOSnafu, LoadingError, TomlParserDeSnafu, TomlParserSerSnafu};
-use snafu::ResultExt;
-use sound_engine::{sampling::sample::Pipe, MonoSample};
-use web_sys::console;
+use sound_engine::MonoSample;
 
-use crate::errors::{EngineError, LoadingSnafu};
+use super::decode_audio::decode_audio;
+use crate::errors::EngineError;
 
-fn parse_pipe_config(contents: &str) -> Result<Pipe, LoadingError> {
-    toml::from_str(contents).context(TomlParserDeSnafu)
-}
+#[cfg(not(wasm32))]
+pub fn load_sample(location: PathBuf) -> Result<MonoSample, EngineError> {
+    use crate::{errors::FileSnafu, resource::util::mix_to_mono};
+    use snafu::ResultExt;
+    use std::fs::File;
+    use symphonia::core::probe::Hint;
 
-pub fn read_pipe_config(path: &Path) -> Result<Pipe, LoadingError> {
-    let mut file = File::open(path).context(IOSnafu)?;
-    let mut data = String::new();
-    file.read_to_string(&mut data).context(IOSnafu)?;
+    let file = Box::new(File::open(&location).context(FileSnafu)?);
+    let mut hint = Hint::new();
 
-    parse_pipe_config(&data)
-}
-
-fn save_sample_metadata(path: &Path, metadata: &Pipe) -> Result<(), LoadingError> {
-    fs::write(path, toml::to_string(metadata).context(TomlParserSerSnafu)?).context(IOSnafu)
-}
-
-pub fn load_pipe(config: String, resource: Option<Vec<u8>>) -> Result<Pipe, EngineError> {
-    let mut pipe = parse_pipe_config(&config).context(LoadingSnafu)?;
-
-    if let Some(sample) = resource {
-        let mut buffer: Vec<f32> = Vec::with_capacity(sample.len() / 4);
-
-        for i in (0..sample.len()).step_by(4) {
-            let mut frame = &sample[i..(i + 4)];
-            buffer.push(frame.read_f32::<LittleEndian>().unwrap());
-        }
-
-        let sample_rate = 48_000;
-
-        pipe.buffer = MonoSample {
-            audio_raw: buffer,
-            sample_rate,
-        };
+    if let Some(extension) = location.extension() {
+        hint.with_extension(&extension.to_string_lossy());
     }
 
-    Ok(pipe)
+    let (audio, spec) = decode_audio(file, hint)?;
+
+    Ok(MonoSample {
+        audio_raw: mix_to_mono(&audio, spec.channels.count()),
+        sample_rate: spec.rate,
+    })
 }
 
 fn check_for_note_number(file_prefix: &str) -> Option<u8> {

@@ -4,18 +4,18 @@ use std::{
 };
 
 use futures::executor::block_on;
-use ipc::ipc_message::IPCMessage;
-use node_engine::{errors::NodeError, global_state::GlobalState, state::NodeEngineState};
+use ipc::ipc_message::IpcMessage;
+use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::{json, Value};
 
-use crate::{io::save, routes::RouteReturn, Sender};
+use crate::{errors::EngineError, io::save, routes::RouteReturn, Sender};
 
 pub fn route(
     msg: Value,
-    to_server: &Sender<IPCMessage>,
-    state: &mut NodeEngineState,
+    to_server: &Sender<IpcMessage>,
+    state: &mut NodeState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, NodeError> {
+) -> Result<Option<RouteReturn>, EngineError> {
     if let Some(project_path) = &global_state.active_project {
         save(state, project_path)?;
     } else if let Value::String(path) = &msg["payload"]["path"] {
@@ -25,7 +25,7 @@ pub fn route(
     } else {
         block_on(async {
             to_server
-                .send(IPCMessage::Json(json! {{
+                .send(IpcMessage::Json(json! {{
                     "action": "io/getSaveLocation",
                 }}))
                 .await

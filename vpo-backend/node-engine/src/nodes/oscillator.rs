@@ -8,21 +8,15 @@ pub struct OscillatorNode {
     oscillator: Oscillator,
 }
 
-impl Default for OscillatorNode {
-    fn default() -> Self {
-        OscillatorNode {
-            oscillator: Oscillator::new(Waveform::Square),
-        }
-    }
-}
-
 impl NodeRuntime for OscillatorNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(waveform) = state.props.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
-            self.oscillator =
-                Oscillator::new(Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap());
+            self.oscillator = Oscillator::new(
+                Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap(),
+                state.sound_config.sample_rate,
+            );
             self.oscillator.set_phase(last_phase);
         }
 
@@ -52,6 +46,12 @@ impl NodeRuntime for OscillatorNode {
 }
 
 impl Node for OscillatorNode {
+    fn new(sound_config: &SoundConfig) -> Self {
+        OscillatorNode {
+            oscillator: Oscillator::new(Waveform::Square, sound_config.sample_rate),
+        }
+    }
+
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("frequency"), Primitive::Float(440.0)),
