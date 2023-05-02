@@ -56,8 +56,6 @@ async fn create_connection_task(
 
                 let IpcMessage::Json(json) = msg;
 
-                println!("sending: {}", json);
-
                 to_client
                     .send(Message::Text(serde_json::to_string(&json).unwrap()))
                     .await

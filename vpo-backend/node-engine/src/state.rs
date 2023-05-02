@@ -186,6 +186,10 @@ impl NodeState {
         &self.socket_registry
     }
 
+    pub fn get_node_indexes(&self) -> (NodeIndex, NodeIndex) {
+        (self.midi_in_node, self.output_node)
+    }
+
     pub fn notify_parents_of_graph_change(&mut self, graph_index: GraphIndex) -> Result<(), NodeError> {
         if graph_index != self.graph_manager.root_index() {
             let parent_nodes = self.graph_manager.get_graph_parents(graph_index)?;

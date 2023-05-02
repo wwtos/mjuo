@@ -131,15 +131,32 @@ export abstract class IpcSocket {
 
 export class WebIpcSocket extends IpcSocket {
     socket: WebSocket;
+    messages: object[];
 
     constructor (address: string | URL) {
         super();
 
         this.socket = new WebSocket(address);
+        this.socket.onopen = this.flushMessages.bind(this);
+        
+        this.messages = [];
     }
 
     send (json: object) {
-        this.socket.send(JSON.stringify(json));
+        this.messages.push(json);
+
+        this.flushMessages();
+    }
+
+    flushMessages () {
+        if (this.socket.readyState === WebSocket.OPEN) {
+            while (this.messages.length > 0) {
+                const message = this.messages.splice(0, 1)[0];
+                console.log("sending", message);
+
+                this.socket.send(JSON.stringify(message));
+            }
+        }
     }
 
     onMessage(f: Function) {

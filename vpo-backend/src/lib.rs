@@ -15,6 +15,7 @@ type Sender<T> = async_std::channel::Sender<T>;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 
+use std::sync::mpsc;
 use std::{error::Error, io::Write, thread};
 
 #[cfg(any(unix, windows))]
@@ -25,8 +26,8 @@ use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 
-use node_engine::{global_state::GlobalState, state::NodeState};
-use routes::{route, RouteReturn};
+use node_engine::{engine::NodeEngine, global_state::GlobalState, state::NodeState};
+use routes::route;
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
@@ -72,16 +73,21 @@ pub fn handle_msg(
     to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
+    sender: &mpsc::Sender<NodeEngine>,
 ) {
-    println!("got: {:?}", msg);
+    // println!("got: {:?}", msg);
     let result = route(msg, to_server, state, global_state);
 
     match result {
         Ok(route_result) => {
-            match route_result {
-                Some(route_result) => route_result,
-                None => RouteReturn::default(),
-            };
+            if let Some(traverser) = route_result.and_then(|x| x.new_traverser) {
+                let scripting_engine = rhai::Engine::new_raw();
+                let (midi_in_node, output_node) = state.get_node_indexes();
+
+                sender
+                    .send(NodeEngine::new(traverser, scripting_engine, midi_in_node, output_node))
+                    .unwrap();
+            }
         }
         Err(err) => {
             let err_str = err.to_string();

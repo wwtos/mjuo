@@ -17,5 +17,8 @@ export type IpcAction = DiscriminatedUnion<"action", {
     },
     "registry/updateRegistry": {
         payload: object
+    },
+    "toast/error": {
+        payload: string
     }
 }>;

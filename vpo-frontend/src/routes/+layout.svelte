@@ -4,7 +4,7 @@
 
     import enTranslations from "$lib/assets/lang/en.ftl?raw";
     import SideNavbar from "./node_editor/SideNavbar.svelte";
-    import Toasts from "$lib/components/Toasts.svelte";
+    import { toast, SvelteToast } from "@zerodevx/svelte-toast";
     import type { PageData } from "./$types";
     import type { IpcAction } from "$lib/ipc/action";
     import { constructEngine } from "./engine";
@@ -17,18 +17,18 @@
     const bundle = new FluentBundle("en");
     bundle.addResource(new FluentResource(enTranslations));
 
-    const context = new AudioContext({
-        sampleRate: 48000,
-        latencyHint: "interactive",
-    });
+    // const context = new AudioContext({
+    //     sampleRate: 48000,
+    //     latencyHint: "interactive",
+    // });
 
-    constructEngine(context).then((engine) => {
-        data.socket.setEngine(engine);
-    });
+    // constructEngine(context).then((engine) => {
+    //     data.socket.setEngine(engine);
+    // });
 
-    function getOrgan(organ: string) {
-        return fetch(`/${organ}/resources.json`).then((data) => data.json());
-    }
+    // function getOrgan(organ: string) {
+    //     return fetch(`/${organ}/resources.json`).then((data) => data.json());
+    // }
 
     function onWindowKeydown(event: KeyboardEvent) {
         if (event.ctrlKey) {
@@ -44,10 +44,10 @@
     }
 
     async function onWindowClick() {
-        if (context.state !== "running") {
-            await context.resume();
-            data.socket.flushMessages();
-        }
+        // if (context.state !== "running") {
+        //     await context.resume();
+        //     data.socket.flushMessages();
+        // }
     }
 
     function registerSocketEvents() {
@@ -60,6 +60,10 @@
                 data.socketRegistry.applyJson(message.payload);
             } else if (message.action === "state/updateGlobalState") {
                 data.globalEngineState.set(message.payload);
+            } else if (message.action === "toast/error") {
+                toast.push({
+                    msg: message.payload,
+                });
             }
         });
     }
@@ -83,41 +87,41 @@
             height: window.innerHeight - 3,
         });
 
-        const resources = await getOrgan("organ");
+        // const resources = await getOrgan("organ");
 
-        for (let resourcePath of resources) {
-            if (Array.isArray(resourcePath)) {
-                Promise.all(
-                    resourcePath.map((subresource) =>
-                        fetchSharedBuffer(
-                            context,
-                            `/organ/${encodeResourceName(subresource)}`
-                        )
-                    )
-                ).then(([resource, associatedResource]) => {
-                    const toSend = {
-                        type: "resource",
-                        resource,
-                        associatedResource,
-                        path: resourcePath[0],
-                    };
+        // for (let resourcePath of resources) {
+        //     if (Array.isArray(resourcePath)) {
+        //         Promise.all(
+        //             resourcePath.map((subresource) =>
+        //                 fetchSharedBuffer(
+        //                     context,
+        //                     `/organ/${encodeResourceName(subresource)}`
+        //                 )
+        //             )
+        //         ).then(([resource, associatedResource]) => {
+        //             const toSend = {
+        //                 type: "resource",
+        //                 resource,
+        //                 associatedResource,
+        //                 path: resourcePath[0],
+        //             };
 
-                    data.socket.sendRaw(toSend);
-                });
-            } else {
-                fetchSharedBuffer(context, `/organ/${resourcePath}`).then(
-                    (resource) => {
-                        const toSend = {
-                            type: "resource",
-                            resource,
-                            path: encodeResourceName(resourcePath),
-                        };
+        //             data.socket.sendRaw(toSend);
+        //         });
+        //     } else {
+        //         fetchSharedBuffer(context, `/organ/${resourcePath}`).then(
+        //             (resource) => {
+        //                 const toSend = {
+        //                     type: "resource",
+        //                     resource,
+        //                     path: encodeResourceName(resourcePath),
+        //                 };
 
-                        data.socket.sendRaw(toSend);
-                    }
-                );
-            }
-        }
+        //                 data.socket.sendRaw(toSend);
+        //             }
+        //         );
+        //     }
+        // }
     });
 
     registerSocketEvents();
@@ -130,7 +134,7 @@
 />
 
 <FluentProvider bundles={[bundle]}>
-    <Toasts />
+    <SvelteToast />
     <slot />
 </FluentProvider>
 

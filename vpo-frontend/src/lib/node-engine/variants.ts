@@ -7,7 +7,7 @@ export interface NodeVariant {
 export const variants: NodeVariant[] = [
     {
         translationKey: "node-gain",
-        internal: "GainGraphNode",
+        internal: "GainNode",
         category: "audio"
     },
     {

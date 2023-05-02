@@ -6,7 +6,7 @@ use snafu::Snafu;
 pub enum EngineError {
     #[snafu(display("Audio parser error"))]
     AudioParserError,
-    #[snafu(display("Node error: "))]
+    #[snafu(display("Node error: {source}"))]
     NodeError { source: node_engine::errors::NodeError },
     #[snafu(display("Cpal error: {source}"))]
     CpalError { source: Box<dyn std::error::Error> },

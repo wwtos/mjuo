@@ -20,12 +20,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let output_device = backend.get_default_output().unwrap();
 
     let (_stream, sender, config) = backend
-        .connect(output_device, global_state.resources.clone(), 128)
+        .connect(output_device, global_state.resources.clone(), 256)
         .unwrap();
+
+    println!("sample rate: {}", config.sample_rate.0);
 
     global_state.sound_config = SoundConfig {
         sample_rate: config.sample_rate.0,
-        buffer_size: 128,
+        buffer_size: 256,
     };
 
     // let mut midi_backend = connect_midi_backend()?;
@@ -42,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let msg = from_server.recv_blocking();
 
         if let Ok(msg) = msg {
-            handle_msg(msg, &to_server, &mut node_state, &mut global_state);
+            handle_msg(msg, &to_server, &mut node_state, &mut global_state, &sender);
         }
     }
 }
