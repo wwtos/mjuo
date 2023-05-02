@@ -1,4 +1,4 @@
-use ipc::ipc_message::IPCMessage;
+use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
@@ -25,7 +25,7 @@ struct Payload {
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -34,7 +34,7 @@ pub fn route(
         node_index,
     } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
-    state
+    let (.., traverser) = state
         .commit(
             ActionBundle::new(vec![Action::RemoveNode {
                 index: GlobalNodeIndex {
@@ -51,5 +51,6 @@ pub fn route(
     Ok(Some(RouteReturn {
         graph_to_reindex: Some(graph_index),
         graph_operated_on: Some(graph_index),
+        new_traverser: traverser,
     }))
 }

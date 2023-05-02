@@ -4,7 +4,7 @@ use std::{
 };
 
 use futures::executor::block_on;
-use ipc::ipc_message::IPCMessage;
+use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::{json, Value};
 
@@ -12,7 +12,7 @@ use crate::{errors::EngineError, io::load, routes::RouteReturn, Sender};
 
 pub fn route(
     msg: Value,
-    to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -24,7 +24,7 @@ pub fn route(
 
         block_on(async {
             to_server
-                .send(IPCMessage::Json(json! {{
+                .send(IpcMessage::Json(json! {{
                     "action": "io/loaded",
                 }}))
                 .await

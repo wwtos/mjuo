@@ -1,15 +1,16 @@
-#[cfg(any(windows, unix))]
-use thiserror::Error;
+use snafu::Snafu;
 
-use crate::ipc_message::IPCMessage;
+use crate::ipc_message::IpcMessage;
 
-#[cfg(any(windows, unix))]
-#[derive(Error, Debug)]
-pub enum IPCError {
-    #[error("Channel send error")]
-    ChannelSendError(#[from] async_std::channel::SendError<IPCMessage>),
-    #[error("Channel receive error")]
-    ChannelReceiveError(#[from] async_std::channel::RecvError),
-    #[error("Async IO error")]
-    AsyncIOError(#[from] async_std::io::Error),
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+pub enum IpcError {
+    #[snafu(display("Websocket error: {source}"))]
+    WebsocketError {
+        source: tokio_tungstenite::tungstenite::Error,
+    },
+    #[snafu(display("Receive broadcast error: {source}"))]
+    ReceiveError {
+        source: tokio::sync::broadcast::error::RecvError,
+    },
 }

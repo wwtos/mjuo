@@ -1,4 +1,4 @@
-use ipc::ipc_message::IPCMessage;
+use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
@@ -38,7 +38,7 @@ struct Payload {
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -78,12 +78,16 @@ pub fn route(
         .filter_map(|action| action)
         .collect();
 
-    state
+    let (.., traverser) = state
         .commit(ActionBundle::new(actions), global_state)
         .context(NodeSnafu)?;
 
     send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, payload.graph_index, to_server)?;
 
-    Ok(None)
+    Ok(Some(RouteReturn {
+        new_traverser: traverser,
+        graph_operated_on: None,
+        graph_to_reindex: None,
+    }))
 }

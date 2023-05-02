@@ -1,4 +1,4 @@
-use ipc::ipc_message::IPCMessage;
+use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::Value;
 use snafu::ResultExt;
@@ -12,16 +12,19 @@ use crate::{
 
 pub fn route(
     _msg: Value,
-    to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
-    println!("undo");
-    let (graphs_changed, ..) = state.undo(global_state).context(NodeSnafu)?;
+    let (graphs_changed, _, traverser) = state.undo(global_state).context(NodeSnafu)?;
 
     for graph_index in graphs_changed {
         send_graph_updates(state, graph_index, to_server)?;
     }
 
-    Ok(None)
+    Ok(Some(RouteReturn {
+        new_traverser: traverser,
+        graph_operated_on: None,
+        graph_to_reindex: None,
+    }))
 }

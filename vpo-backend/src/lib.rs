@@ -21,33 +21,55 @@ use std::{error::Error, io::Write, thread};
 use async_std::channel::{unbounded, Receiver};
 use futures::executor::block_on;
 
+use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
-#[cfg(any(unix, windows))]
-use ipc::{ipc_message::IPCMessage, ipc_server::IPCServer};
 
 use node_engine::{global_state::GlobalState, state::NodeState};
 use routes::{route, RouteReturn};
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
-pub fn start_ipc() -> (Sender<IPCMessage>, Receiver<IPCMessage>) {
-    let (to_server, from_main) = unbounded::<IPCMessage>();
-    let (to_main, from_server) = unbounded::<IPCMessage>();
+pub fn start_ipc() -> (Sender<IpcMessage>, Receiver<IpcMessage>) {
+    use futures::join;
+    use ipc::ipc_server;
+    use tokio::{runtime::Runtime, sync::broadcast};
 
-    let to_server_cloned = to_server.clone();
+    let (to_tokio_sync, from_main_sync) = unbounded::<IpcMessage>();
+    let (to_main_sync, from_tokio_sync) = unbounded::<IpcMessage>();
 
     thread::spawn(move || {
-        IPCServer::open(to_server_cloned.clone(), from_main, to_main);
+        let runtime = Runtime::new().unwrap();
+
+        runtime.block_on(async {
+            let (to_tokio, _from_main) = broadcast::channel(16);
+            let (to_main, mut from_tokio) = broadcast::channel(16);
+
+            join!(
+                ipc_server::start_ipc(to_tokio.clone(), to_main),
+                async {
+                    loop {
+                        let message = from_tokio.recv().await.unwrap();
+                        to_main_sync.send(message).await.unwrap();
+                    }
+                },
+                async move {
+                    loop {
+                        let message = from_main_sync.recv().await.unwrap();
+                        to_tokio.send(message).unwrap();
+                    }
+                }
+            );
+        });
     });
 
-    (to_server, from_server)
+    (to_tokio_sync, from_tokio_sync)
 }
 
 #[cfg(any(unix, windows))]
 pub fn handle_msg(
-    msg: IPCMessage,
-    to_server: &Sender<IPCMessage>,
+    msg: IpcMessage,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) {
@@ -66,7 +88,7 @@ pub fn handle_msg(
 
             block_on(async {
                 to_server
-                    .send(IPCMessage::Json(json! {{
+                    .send(IpcMessage::Json(json! {{
                         "action": "toast/error",
                         "payload": err_str
                     }}))

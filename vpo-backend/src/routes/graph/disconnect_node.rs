@@ -1,4 +1,4 @@
-use ipc::ipc_message::IPCMessage;
+use ipc::ipc_message::IpcMessage;
 use node_engine::{
     connection::Connection,
     global_state::GlobalState,
@@ -17,7 +17,7 @@ use crate::{
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IPCMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -26,7 +26,7 @@ pub fn route(
     let connection: Connection =
         serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?;
 
-    state
+    let (.., traverser) = state
         .commit(
             ActionBundle::new(vec![Action::DisconnectNodes {
                 from: GlobalNodeIndex {
@@ -48,5 +48,6 @@ pub fn route(
     Ok(Some(RouteReturn {
         graph_to_reindex: Some(graph_index),
         graph_operated_on: Some(graph_index),
+        new_traverser: traverser,
     }))
 }

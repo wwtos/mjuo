@@ -11,13 +11,11 @@ use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::{handle_msg, start_ipc, write_to_file};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // first, start ipc server
     let (to_server, from_server) = start_ipc();
 
-    // create a global state
     let mut global_state = GlobalState::new(SoundConfig::default());
 
-    // start up audio
+    // start up audio/midi
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
 
@@ -30,7 +28,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         buffer_size: 128,
     };
 
-    // ...and midi
     // let mut midi_backend = connect_midi_backend()?;
     let mut midi_parser = MidiParser::new();
 
