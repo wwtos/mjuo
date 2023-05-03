@@ -96,6 +96,9 @@ impl BufferedTraverser {
             .map(|()| traverser)
     }
 
+    // things are stored as follows:
+    // outputs: [node1_defaults]|[node1_outputs]|[node2_defaults]|[node2_ouputs]...
+    // input_mappings maps to the position of each of the node's inputs
     pub fn init_graph(
         &mut self,
         graph_index: GraphIndex,

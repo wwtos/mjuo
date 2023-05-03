@@ -13,7 +13,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
-    util::{send_global_state_updates, send_graph_updates},
+    util::{send_global_state_updates, send_graph_updates, send_registry_updates},
     Sender,
 };
 
@@ -72,6 +72,7 @@ pub fn route(
         )
         .context(NodeSnafu)?;
 
+    send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, graph_index, to_server)?;
     send_global_state_updates(global_state, to_server)?;
 

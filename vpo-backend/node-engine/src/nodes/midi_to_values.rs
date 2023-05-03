@@ -38,6 +38,8 @@ impl NodeRuntime for MidiToValuesNode {
                 _ => {}
             }
         }
+
+        self.process_state = ProcessState::Unprocessed(());
     }
 
     fn process(
