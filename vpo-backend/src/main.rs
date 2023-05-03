@@ -8,8 +8,11 @@ use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::midir::connect_midir_backend;
 use vpo_backend::{handle_msg, start_ipc};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let (to_server, from_server) = start_ipc();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let (to_server, mut from_server) = start_ipc().await;
+
+    println!("here");
 
     let buffer_size = 1024;
 
@@ -46,10 +49,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let mut output_file = File::create("out.pcm").unwrap();
 
     loop {
-        let msg = from_server.recv_blocking();
+        let msg = from_server.recv().await;
 
         if let Ok(msg) = msg {
-            handle_msg(msg, &to_server, &mut node_state, &mut global_state, &sender);
+            handle_msg(msg, &to_server, &mut node_state, &mut global_state, &sender).await;
         }
     }
 }

@@ -5,6 +5,7 @@
     import SideNavbar from "./node_editor/SideNavbar.svelte";
     import NodeEditor from "./node_editor/NodeEditor.svelte";
     import SettingsEditor from "./settings_editor/SettingsEditor.svelte";
+    import FileEditor from "./file_editor/FileEditor.svelte";
 
     export let data: PageData;
 
@@ -33,6 +34,8 @@
             ipcSocket={data.socket}
             socketRegistry={data.socketRegistry}
         />
+    {:else if section === "fileEditor"}
+        <FileEditor globalState={data.globalEngineState} socket={data.socket} />
     {:else if section === "settings"}
         <SettingsEditor socket={data.socket} />
     {/if}

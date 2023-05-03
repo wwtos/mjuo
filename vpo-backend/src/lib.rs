@@ -10,17 +10,14 @@ pub mod utils;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_lib;
 
-#[cfg(any(unix, windows))]
-type Sender<T> = async_std::channel::Sender<T>;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 
 use std::sync::mpsc;
-use std::{error::Error, io::Write, thread};
+use std::{error::Error, io::Write};
 
 #[cfg(any(unix, windows))]
-use async_std::channel::{unbounded, Receiver};
-use futures::executor::block_on;
+use tokio::sync::broadcast;
 
 use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
@@ -31,52 +28,28 @@ use routes::route;
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
-pub fn start_ipc() -> (Sender<IpcMessage>, Receiver<IpcMessage>) {
-    use futures::join;
+pub async fn start_ipc() -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
     use ipc::ipc_server;
-    use tokio::{runtime::Runtime, sync::broadcast};
 
-    let (to_tokio_sync, from_main_sync) = unbounded::<IpcMessage>();
-    let (to_main_sync, from_tokio_sync) = unbounded::<IpcMessage>();
+    let (to_tokio, _from_main) = broadcast::channel(16);
+    let (to_main, from_tokio) = broadcast::channel(16);
 
-    thread::spawn(move || {
-        let runtime = Runtime::new().unwrap();
+    let to_tokio_cloned = to_tokio.clone();
 
-        runtime.block_on(async {
-            let (to_tokio, _from_main) = broadcast::channel(16);
-            let (to_main, mut from_tokio) = broadcast::channel(16);
+    tokio::spawn(async move { ipc_server::start_ipc(to_tokio_cloned, to_main).await });
 
-            join!(
-                ipc_server::start_ipc(to_tokio.clone(), to_main),
-                async {
-                    loop {
-                        let message = from_tokio.recv().await.unwrap();
-                        to_main_sync.send(message).await.unwrap();
-                    }
-                },
-                async move {
-                    loop {
-                        let message = from_main_sync.recv().await.unwrap();
-                        to_tokio.send(message).unwrap();
-                    }
-                }
-            );
-        });
-    });
-
-    (to_tokio_sync, from_tokio_sync)
+    (to_tokio, from_tokio)
 }
 
 #[cfg(any(unix, windows))]
-pub fn handle_msg(
+pub async fn handle_msg(
     msg: IpcMessage,
-    to_server: &Sender<IpcMessage>,
+    to_server: &broadcast::Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
     sender: &mpsc::Sender<NodeEngine>,
 ) {
-    // println!("got: {:?}", msg);
-    let result = route(msg, to_server, state, global_state);
+    let result = route(msg, to_server, state, global_state).await;
 
     match result {
         Ok(route_result) => {
@@ -92,15 +65,12 @@ pub fn handle_msg(
         Err(err) => {
             let err_str = err.to_string();
 
-            block_on(async {
-                to_server
-                    .send(IpcMessage::Json(json! {{
-                        "action": "toast/error",
-                        "payload": err_str
-                    }}))
-                    .await
-            })
-            .unwrap();
+            to_server
+                .send(IpcMessage::Json(json! {{
+                    "action": "toast/error",
+                    "payload": err_str
+                }}))
+                .unwrap();
         }
     }
 }

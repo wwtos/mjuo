@@ -3,16 +3,16 @@ use std::{
     str::FromStr,
 };
 
-use futures::executor::block_on;
 use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
 use serde_json::{json, Value};
+use tokio::sync::broadcast;
 
-use crate::{errors::EngineError, io::load, routes::RouteReturn, Sender};
+use crate::{errors::EngineError, io::load, routes::RouteReturn};
 
-pub fn route(
+pub async fn route(
     msg: Value,
-    to_server: &Sender<IpcMessage>,
+    to_server: &broadcast::Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -22,14 +22,11 @@ pub fn route(
 
         global_state.active_project = Some(PathBuf::from_str(path).unwrap());
 
-        block_on(async {
-            to_server
-                .send(IpcMessage::Json(json! {{
-                    "action": "io/loaded",
-                }}))
-                .await
-        })
-        .unwrap();
+        to_server
+            .send(IpcMessage::Json(json! {{
+                "action": "io/loaded",
+            }}))
+            .unwrap();
 
         Ok(None)
     } else {

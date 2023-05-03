@@ -98,34 +98,22 @@ export abstract class IpcSocket {
         })));
     }
 
-    save (path?: string) {
-        if (path) {
-            this.send({
-                "action": "io/save",
-                "payload": {
-                    "path": path
-                }
-            });
-        } else {
-            this.send({
-                "action": "io/save",
-            });
-        }
+    create () {
+        this.send({
+            action: "io/create"
+        });
     }
 
-    load (path?: string) {
-        if (path) {
-            this.send({
-                "action": "io/load",
-                "payload": {
-                    "path": path
-                }
-            });
-        } else {
-            this.send({
-                "action": "io/load",
-            });
-        }        
+    save () {
+        this.send({
+            "action": "io/save",
+        });
+    }
+
+    load () {
+        this.send({
+            "action": "io/load",
+        });
     }
 }
 

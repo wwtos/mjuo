@@ -1,49 +1,35 @@
 <script lang="ts">
-    import SplitView from "../../lib/components/layout/SplitView.svelte";
-    import TreeView from "../../lib/components/TreeView.svelte";
-    import { SplitDirection } from "../../lib/components/layout/enums";
-    import FileView from "./FileView.svelte";
-    import type { TreeItem } from "../../lib/components/tree-types";
-    import { globalState } from "../../../../vpo-frontend/src/node-editor/state";
+    import type { IpcSocket } from "$lib/ipc/socket";
+    import type { GlobalState } from "$lib/node-engine/global_state";
+    import type { Writable } from "svelte/store";
 
-    export let width: number = 400;
-    export let height: number = 400;
+    export let globalState: Writable<GlobalState>;
+    export let socket: IpcSocket;
 
-    let files: TreeItem[] = [];
-    $: files = Object.keys($globalState.resources).map((namespace) => ({
-        name: namespace,
-        children: $globalState.resources[namespace].reduce((acc, val) => {
-            const pathParts = val.split("/");
+    let fileInput: HTMLInputElement;
 
-            let traversal = acc;
+    const pickerOpts = {
+        types: [
+            {
+                description: "Images",
+                accept: {
+                    "image/*": [".png", ".gif", ".jpeg", ".jpg"],
+                },
+            },
+        ],
+        excludeAcceptAllOption: true,
+        multiple: false,
+    };
 
-            for (let i = 0; i < pathParts.length; i++) {
-                let itemIndex = traversal.findIndex(
-                    (item) => item.name === pathParts[i]
-                );
-
-                if (itemIndex === -1) {
-                    itemIndex = traversal.length;
-
-                    traversal.push({
-                        name: pathParts[i],
-                        children: i < pathParts.length - 1 ? [] : undefined,
-                    });
-                }
-
-                traversal = traversal[itemIndex].children;
-            }
-
-            return acc;
-        }, []),
-    }));
+    function openFileViewer() {}
 </script>
 
-<SplitView
-    direction={SplitDirection.VERTICAL}
-    {width}
-    {height}
-    firstPanel={TreeView}
-    firstState={{ items: files }}
-    secondPanel={FileView}
-/>
+<div style="padding: 8px">
+    <label>
+        <button on:click={openFileViewer}>Create project</button>
+    </label>
+
+    {#if $globalState.activeProject}
+        <h1>{$globalState.activeProject}</h1>
+    {/if}
+</div>

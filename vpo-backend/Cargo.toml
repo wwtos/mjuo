@@ -16,6 +16,7 @@ node-engine = {path = "./node-engine"}
 once_cell = "1.17.1"
 regex = "1.7"
 resource-manager = {path = "./resource-manager"}
+rfd = "0.11.3"
 rhai = {version = "1.7.0", default-features = false, features = ["f32_float", "only_i32", "std", "sync"]}
 semver = "1.0.14"
 serde = {version = "1.0.133", features = ["derive"]}
@@ -46,7 +47,6 @@ psimple = {package = "libpulse-simple-binding", version = "2.24.1"}
 pulse = {package = "libpulse-binding", version = "2.25.0"}
 
 [target.'cfg(any(unix,windows))'.dependencies]
-async-std = "1.10.0"
 cpal = "0.15.0"
 midir = "0.8"
 rtrb = "0.2.3"

@@ -16,6 +16,7 @@ pub struct Resources {
 #[derive(Debug)]
 pub struct GlobalState {
     pub active_project: Option<PathBuf>,
+    pub import_folder: Option<PathBuf>,
     pub sound_config: SoundConfig,
     pub resources: Arc<RwLock<Resources>>,
 }
@@ -24,6 +25,7 @@ impl GlobalState {
     pub fn new(sound_config: SoundConfig) -> GlobalState {
         GlobalState {
             active_project: None,
+            import_folder: None,
             resources: Arc::new(RwLock::new(Resources::default())),
             sound_config,
         }
