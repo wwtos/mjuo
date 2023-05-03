@@ -101,10 +101,10 @@ impl Oscillator {
 
 impl Oscillator {
     pub fn get_frequency(&self) -> f32 {
-        self.frequency * 2.0
+        self.frequency
     }
 
     pub fn set_frequency(&mut self, frequency: f32) {
-        self.frequency = frequency * 0.5;
+        self.frequency = frequency;
     }
 }

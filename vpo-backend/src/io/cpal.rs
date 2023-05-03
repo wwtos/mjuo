@@ -88,7 +88,7 @@ impl CpalBackend {
         let (sender, receiver) = mpsc::channel();
 
         let mut engine: Option<NodeEngine> = None;
-        let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2);
+        let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);
 
         let mut buffer = vec![0_f32; buffer_size];
 
@@ -107,11 +107,13 @@ impl CpalBackend {
                         if let Ok(resources) = resources {
                             for frame in out {
                                 // are there enough slots open to step the engine?
-                                if producer.slots() > buffer_size {
+                                if producer.slots() > buffer_size * config.channels as usize {
                                     engine.step(midi_in.try_recv().unwrap_or(smallvec![]), &resources, &mut buffer);
 
-                                    for frame in &buffer {
-                                        producer.push(*frame).unwrap();
+                                    for buffer_frame in &buffer {
+                                        for _ in 0..config.channels {
+                                            producer.push(*buffer_frame).unwrap();
+                                        }
                                     }
                                 }
 
