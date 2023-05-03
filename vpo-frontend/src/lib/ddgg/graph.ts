@@ -37,8 +37,8 @@ export const Graph = {
     verticies<V, E>(graph: Graph<V, E>): Array<[Vertex<V>, Index]> {
         let out: Array<[Vertex<V>, Index]> = [];
 
-        for (let i = 0; i < graph.verticies.vec.length; i++) {
-            let elem = graph.verticies.vec[i];
+        for (let i = 0; i < graph.verticies.length; i++) {
+            let elem = graph.verticies[i];
 
             match(elem, {
                 Occupied({data: [vertex, generation]}) {
@@ -53,8 +53,8 @@ export const Graph = {
     edges<V, E>(graph: Graph<V, E>): Array<[Edge<E>, EdgeIndex]> {
         let out: Array<[Edge<E>, Index]> = [];
 
-        for (let i = 0; i < graph.edges.vec.length; i++) {
-            let elem = graph.edges.vec[i];
+        for (let i = 0; i < graph.edges.length; i++) {
+            let elem = graph.edges[i];
 
             match(elem, {
                 Occupied({data: [edges, generation]}) {

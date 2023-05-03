@@ -28,7 +28,7 @@ export class NodeGraph {
     constructor (ipcSocket: IpcSocket, graphIndex: Index) {
         this.ipcSocket = ipcSocket;
 
-        this.nodes = {verticies: {vec: []}, edges: {vec: []}};
+        this.nodes = {verticies: [], edges: []};
 
         this.nodeStore = new BehaviorSubject(Graph.verticies(this.nodes));
         this.keyedNodeStore = new BehaviorSubject(this.getKeyedNodes());

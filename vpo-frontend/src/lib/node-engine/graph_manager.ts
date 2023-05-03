@@ -14,7 +14,7 @@ export class GraphManager {
     graphWaitingForEvent: Function | null = null;
 
     constructor(ipcSocket: IpcSocket) {
-        this.nodeGraphs = {edges: {vec: []}, verticies: {vec: []}};
+        this.nodeGraphs = {edges: [], verticies: []};
         this.ipcSocket = ipcSocket;
     }
 
@@ -23,7 +23,7 @@ export class GraphManager {
             nodes: Graph<NodeWrapper, NodeConnection>
     }) {
         if (!Graph.getVertex(this.nodeGraphs, json.graphIndex)) {
-            this.nodeGraphs.verticies.vec[json.graphIndex.index] = {variant: "Occupied", data: [{
+            this.nodeGraphs.verticies[json.graphIndex.index] = {variant: "Occupied", data: [{
                 connectionsFrom: [],
                 connectionsTo: [],
                 data: new NodeGraph(this.ipcSocket, json.graphIndex)
@@ -65,7 +65,7 @@ export class GraphManager {
                 }
             } = (await graphPromise) as any;
 
-            this.nodeGraphs.verticies.vec[graphIndex.index] = {
+            this.nodeGraphs.verticies[graphIndex.index] = {
                 "variant": "Occupied",
                 "data": [{
                     data: new NodeGraph(this.ipcSocket, graphIndex),
@@ -82,7 +82,7 @@ export class GraphManager {
 
     getRootGraph() {
         if (!Graph.getVertexData(this.nodeGraphs, {index: 0, generation: 0})) {
-            this.nodeGraphs.verticies.vec[0] = {
+            this.nodeGraphs.verticies[0] = {
                 "variant": "Occupied",
                 "data": [{
                     data:  new NodeGraph(this.ipcSocket, {index: 0, generation: 0}),

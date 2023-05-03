@@ -34,15 +34,13 @@ export const Element = {
     }
 };
 
-export interface GenVec<T> {
-    vec: Array<Element<T>>
-}
+export type GenVec<T> = Array<Element<T>>;
 
 export const GenVec = {
     get<T>(genVec: GenVec<T>, index: Index): T | undefined {
-        if (!genVec.vec[index.index]) return undefined;
+        if (!genVec[index.index]) return undefined;
 
-        return match(genVec.vec[index.index], {
+        return match(genVec[index.index], {
             Occupied: ({data: [value, generation]}) => {
                 if (generation == index.generation) {
                     return value;

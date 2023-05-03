@@ -12,8 +12,6 @@ use vpo_backend::{handle_msg, start_ipc};
 async fn main() -> Result<(), Box<dyn Error>> {
     let (to_server, mut from_server) = start_ipc().await;
 
-    println!("here");
-
     let buffer_size = 1024;
 
     let mut global_state = GlobalState::new(SoundConfig::default());

@@ -38,11 +38,7 @@ pub fn save(state: &NodeState, path: &Path) -> Result<(), EngineError> {
         "state": state.to_json()
     });
 
-    fs::write(
-        path.join("state.json"),
-        serde_json::to_string_pretty(&state).context(JsonParserSnafu)?,
-    )
-    .context(IoSnafu)?;
+    fs::write(path, serde_json::to_string_pretty(&state).context(JsonParserSnafu)?).context(IoSnafu)?;
 
     Ok(())
 }

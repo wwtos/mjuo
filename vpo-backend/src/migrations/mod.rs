@@ -27,9 +27,9 @@ lazy_static! {
     };
 }
 
-pub fn migrate(project: PathBuf) -> Result<(), EngineError> {
+pub fn migrate(file: PathBuf) -> Result<(), EngineError> {
     // get version
-    let json_raw = fs::read_to_string(project.join("state.json")).context(IoSnafu)?;
+    let json_raw = fs::read_to_string(&file).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     let version_str = json["version"]
@@ -51,7 +51,7 @@ pub fn migrate(project: PathBuf) -> Result<(), EngineError> {
     let migrations_to_apply = &MIGRATIONS[version_index..MIGRATIONS.len()];
 
     for migration in migrations_to_apply {
-        (migration.migrate)(project.clone())?;
+        (migration.migrate)(file.clone())?;
     }
 
     Ok(())

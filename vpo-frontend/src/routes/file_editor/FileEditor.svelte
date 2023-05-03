@@ -8,20 +8,9 @@
 
     let fileInput: HTMLInputElement;
 
-    const pickerOpts = {
-        types: [
-            {
-                description: "Images",
-                accept: {
-                    "image/*": [".png", ".gif", ".jpeg", ".jpg"],
-                },
-            },
-        ],
-        excludeAcceptAllOption: true,
-        multiple: false,
-    };
-
-    function openFileViewer() {}
+    function openFileViewer() {
+        socket.create();
+    }
 </script>
 
 <div style="padding: 8px">

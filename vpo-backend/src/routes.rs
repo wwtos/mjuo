@@ -43,6 +43,8 @@ pub async fn route(
                 "io/save" => io::save::route(json, to_server, state, global_state).await,
                 #[cfg(any(unix, windows))]
                 "io/load" => io::load::route(json, to_server, state, global_state).await,
+                #[cfg(any(unix, windows))]
+                "io/create" => io::create::route(json, to_server, state, global_state).await,
                 _ => Ok(None),
             };
         }
