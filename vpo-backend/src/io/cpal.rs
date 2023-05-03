@@ -7,9 +7,9 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use node_engine::{engine::NodeEngine, global_state::Resources};
+use node_engine::{connection::MidiBundle, engine::NodeEngine, global_state::Resources};
 use rtrb::RingBuffer;
-use smallvec::SmallVec;
+use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
 
 use crate::errors::EngineError;
@@ -46,19 +46,21 @@ impl CpalBackend {
         device: Device,
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
+        sample_rate: u32,
+        midi_in: mpsc::Receiver<MidiBundle>,
     ) -> Result<(Stream, mpsc::Sender<NodeEngine>, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
         let config_bounds = configs
             .whatever_context("Could not list supported output configs")?
             .find(|output_config| {
-                output_config.max_sample_rate() >= SampleRate(44_100)
-                    && output_config.min_sample_rate() <= SampleRate(44_100)
+                output_config.max_sample_rate() >= SampleRate(sample_rate)
+                    && output_config.min_sample_rate() <= SampleRate(sample_rate)
                     && output_config.channels() == 2
                     && output_config.sample_format() == SampleFormat::F32
             })
             .whatever_context("Could not build output config")?
-            .with_sample_rate(SampleRate(44_100));
+            .with_sample_rate(SampleRate(sample_rate));
 
         println!("supported: {:?}", config_bounds);
 
@@ -69,7 +71,8 @@ impl CpalBackend {
         };
 
         println!("Config: {:?}", config);
-        let (stream, sender) = self.build_output_callback(config.clone().into(), device, resources, buffer_size)?;
+        let (stream, sender) =
+            self.build_output_callback(config.clone().into(), device, resources, buffer_size, midi_in)?;
 
         Ok((stream, sender, config))
     }
@@ -80,6 +83,7 @@ impl CpalBackend {
         device: Device,
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
+        midi_in: mpsc::Receiver<MidiBundle>,
     ) -> Result<(Stream, mpsc::Sender<NodeEngine>), EngineError> {
         let (sender, receiver) = mpsc::channel();
 
@@ -91,6 +95,7 @@ impl CpalBackend {
         let stream = device
             .build_output_stream(
                 &config,
+                // main callback
                 move |out: &mut [f32], _| {
                     if let Ok(new_engine) = receiver.try_recv() {
                         engine = Some(new_engine);
@@ -103,7 +108,7 @@ impl CpalBackend {
                             for frame in out {
                                 // are there enough slots open to step the engine?
                                 if producer.slots() > buffer_size {
-                                    engine.step(SmallVec::new(), &resources, &mut buffer);
+                                    engine.step(midi_in.try_recv().unwrap_or(smallvec![]), &resources, &mut buffer);
 
                                     for frame in &buffer {
                                         producer.push(*frame).unwrap();
