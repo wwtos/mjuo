@@ -18,10 +18,10 @@ pub fn connect_midir_backend() -> Result<(Receiver<MidiBundle>, MidiInputConnect
     let in_port = &midi_in.ports()[0];
     let conn_in = midi_in
         .connect(
-            &in_port,
+            in_port,
             "Mason-Jones Unit Orchestra",
             move |_stamp, message, _data| {
-                parser.write(message).unwrap();
+                parser.write_all(message).unwrap();
 
                 if !parser.parsed.is_empty() {
                     let messages: MidiBundle = parser.parsed.drain(..).collect();

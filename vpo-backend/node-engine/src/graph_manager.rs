@@ -4,7 +4,7 @@ use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
 use serde::{Deserialize, Serialize};
 
 use crate::connection::Socket;
-use crate::errors::{NodeError, NodeOk, NodeResult, WarningBuilder};
+use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
 use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidations;
@@ -121,7 +121,7 @@ impl GraphManager {
 
             let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(remove_diff)]);
 
-            return Ok((old_data, diff));
+            Ok((old_data, diff))
         }
     }
 
@@ -160,14 +160,11 @@ impl GraphManager {
         graph_index: GraphIndex,
         registry: &mut SocketRegistry,
     ) -> NodeResult<(GraphManagerDiff, ActionInvalidations)> {
-        let mut warnings = WarningBuilder::new();
-
         let mut diff = vec![];
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
         let creation_result = graph.add_node(node_type.into(), registry)?;
 
         let new_node_index = creation_result.value.0;
-        warnings.append_warnings(creation_result.warnings);
 
         diff.push(DiffElement::ChildGraphDiff(graph_index, creation_result.value.1));
 
@@ -215,7 +212,7 @@ impl GraphManager {
 
         Ok(NodeOk::new(
             (GraphManagerDiff(diff), invalidations),
-            warnings.into_warnings(),
+            creation_result.warnings,
         ))
     }
 
@@ -327,12 +324,11 @@ impl GraphManager {
                     invalidations.graph_to_reindex = Some(graph_index);
                     invalidations.graph_operated_on = Some(graph_index);
 
-                    match &diff {
-                        GraphDiff::AddVertex(diff) => invalidations.nodes_created.push(GlobalNodeIndex {
+                    if let GraphDiff::AddVertex(diff) = &diff {
+                        invalidations.nodes_created.push(GlobalNodeIndex {
                             node_index: NodeIndex(diff.get_vertex_index()),
                             graph_index,
-                        }),
-                        _ => {}
+                        })
                     }
 
                     self.get_graph(graph_index)?.graph.borrow_mut().apply_diff(diff)?

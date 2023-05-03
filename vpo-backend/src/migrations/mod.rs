@@ -38,7 +38,7 @@ pub fn migrate(project: PathBuf) -> Result<(), EngineError> {
             property_name: "version".into(),
         })?;
 
-    let version = Version::parse(&version_str).map_err(|_| EngineError::PropertyMissingOrMalformed {
+    let version = Version::parse(version_str).map_err(|_| EngineError::PropertyMissingOrMalformed {
         property_name: "version".into(),
     })?;
 
@@ -46,7 +46,7 @@ pub fn migrate(project: PathBuf) -> Result<(), EngineError> {
     let version_index = MIGRATIONS
         .iter()
         .position(|migration| migration.version_from == version)
-        .ok_or(EngineError::VersionError { version: version })?;
+        .ok_or(EngineError::VersionError { version })?;
 
     let migrations_to_apply = &MIGRATIONS[version_index..MIGRATIONS.len()];
 

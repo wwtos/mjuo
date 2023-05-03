@@ -117,7 +117,7 @@ pub fn read_wav_as_mono<P: AsRef<Path>>(path: P) -> Result<MonoSample, Error> {
     let mut buffer = vec![0_u8; fmt_header.block_align as usize];
     let mut sample_location = 0;
 
-    while file.seek(SeekFrom::Current(0))? < file_length {
+    while file.stream_position()? < file_length {
         // mix down to mono
         file.read_exact(buffer.as_mut_slice())?;
 

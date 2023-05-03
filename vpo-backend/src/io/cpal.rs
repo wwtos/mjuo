@@ -35,10 +35,9 @@ impl CpalBackend {
     }
 
     pub fn get_default_output(&self) -> Result<Device, EngineError> {
-        Ok(self
-            .host
+        self.host
             .default_output_device()
-            .whatever_context("No default output device")?)
+            .whatever_context("No default output device")
     }
 
     pub fn connect(
@@ -71,8 +70,7 @@ impl CpalBackend {
         };
 
         println!("Config: {:?}", config);
-        let (stream, sender) =
-            self.build_output_callback(config.clone().into(), device, resources, buffer_size, midi_in)?;
+        let (stream, sender) = self.build_output_callback(config.clone(), device, resources, buffer_size, midi_in)?;
 
         Ok((stream, sender, config))
     }

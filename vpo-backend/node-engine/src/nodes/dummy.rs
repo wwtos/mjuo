@@ -6,7 +6,7 @@ pub struct DummyNode;
 impl NodeRuntime for DummyNode {}
 
 impl Node for DummyNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         DummyNode
     }
 

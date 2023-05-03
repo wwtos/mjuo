@@ -88,16 +88,14 @@ impl RankPlayer {
 
                 open_voice.player = player;
                 open_voice.note = note;
+            } else if note == open_voice.note {
+                open_voice.player.play(pipe, sample);
             } else {
-                if note == open_voice.note {
-                    open_voice.player.play(pipe, sample);
-                } else {
-                    // TODO: don't keep reconstructing PipePlayer, it's very expensive
-                    open_voice.player = PipePlayer::new(pipe, sample);
-                    open_voice.player.play(pipe, sample);
+                // TODO: don't keep reconstructing PipePlayer, it's very expensive
+                open_voice.player = PipePlayer::new(pipe, sample);
+                open_voice.player.play(pipe, sample);
 
-                    open_voice.note = note;
-                }
+                open_voice.note = note;
             }
         }
     }

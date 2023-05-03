@@ -66,7 +66,7 @@ impl NodeRuntime for MidiToValuesNode {
 }
 
 impl Node for MidiToValuesNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         MidiToValuesNode {
             frequency: 440.0,
             gate: false,

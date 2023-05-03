@@ -29,7 +29,7 @@ impl NodeRuntime for ExpressionNode {
         _streams_in: &[&[f32]],
         _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        let mut warnings = WarningBuilder::new();
+        let mut warning: Option<NodeWarning> = None;
 
         self.value_out = None;
         if let Some(ast) = &self.ast {
@@ -55,7 +55,7 @@ impl NodeRuntime for ExpressionNode {
                                 self.have_values_changed = false;
                                 self.scope.rewind(0);
 
-                                warnings.add_warning(NodeWarning::RhaiInvalidReturnType {
+                                warning = Some(NodeWarning::RhaiInvalidReturnType {
                                     return_type: output.type_name().to_string(),
                                 });
 
@@ -76,11 +76,11 @@ impl NodeRuntime for ExpressionNode {
             }
         }
 
-        NodeOk::no_warnings(())
+        ProcessResult::warning(warning)
     }
 
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let mut warnings = WarningBuilder::new();
+        let mut warnings = Vec::new();
 
         let mut expression = "";
         if let Some(Property::String(new_expression)) = state.props.get("expression") {
@@ -101,7 +101,7 @@ impl NodeRuntime for ExpressionNode {
                 self.ast = Some(Box::new(ast));
             }
             Err(parser_error) => {
-                warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error });
+                warnings.push(NodeWarning::RhaiParserFailure { parser_error });
             }
         }
 

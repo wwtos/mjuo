@@ -34,7 +34,8 @@ pub fn send_graph_updates(
                 }
             }}))
             .await
-    });
+    })
+    .unwrap();
 
     Ok(())
 }
@@ -49,7 +50,8 @@ pub fn send_registry_updates(registry: &SocketRegistry, to_server: &Sender<IpcMe
                 "payload": json
             }}))
             .await
-    });
+    })
+    .unwrap();
 
     Ok(())
 }
@@ -67,7 +69,8 @@ pub fn send_global_state_updates(
                 "payload": json
             }}))
             .await
-    });
+    })
+    .unwrap();
 
     Ok(())
 }

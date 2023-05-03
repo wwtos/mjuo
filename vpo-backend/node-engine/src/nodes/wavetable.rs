@@ -31,7 +31,7 @@ impl NodeRuntime for WavetableNode {
             let wavetable = state.resources.samples.borrow_resource(self.index.unwrap());
 
             if let Some(wavetable) = wavetable {
-                self.oscillator = Some(WavetableOscillator::new(self.config.clone(), &wavetable));
+                self.oscillator = Some(WavetableOscillator::new(self.config.clone(), wavetable));
             }
         }
 

@@ -71,7 +71,7 @@ impl NodeGraph {
         // check that this connection doesn't already exist
         let existing_connection = self.get_input_connection_index(to_index, to_socket)?;
 
-        if let Some(_) = existing_connection {
+        if existing_connection.is_some() {
             return Err(NodeError::AlreadyConnected {
                 from: from_socket.to_owned(),
                 to: to_socket.to_owned(),
@@ -185,7 +185,7 @@ impl NodeGraph {
             .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
             .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
 
-        Ok(matching.last().map(|index| *index))
+        Ok(matching.last().copied())
     }
 
     pub fn get_input_side_connections(&self, index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
@@ -243,11 +243,11 @@ impl NodeGraph {
     }
 
     pub fn node_indexes(&self) -> impl Iterator<Item = NodeIndex> + '_ {
-        self.nodes.vertex_indexes().map(|index| NodeIndex(index))
+        self.nodes.vertex_indexes().map(NodeIndex)
     }
 
     pub fn edge_indexes(&self) -> impl Iterator<Item = ConnectionIndex> + '_ {
-        self.nodes.edge_indexes().map(|index| ConnectionIndex(index))
+        self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
     pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {

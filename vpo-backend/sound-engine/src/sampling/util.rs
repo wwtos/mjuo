@@ -174,7 +174,8 @@ pub fn gradient(func: &[f64]) -> Vec<f64> {
     }
 
     res.push(0.0);
-    return res;
+
+    res
 }
 
 // (elephant paper) http://yehar.com/blog/wp-content/uploads/2009/08/deip.pdf

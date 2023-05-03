@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 
 use crate::{
     engine::NodeEngine,
-    errors::{NodeError, WarningBuilder, WarningProducer},
+    errors::{NodeError, WarningExt},
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow},
@@ -125,7 +125,7 @@ impl NodeState {
         };
 
         let scripting_engine: Engine = Engine::new_raw();
-        let mut root_traverser = BufferedTraverser::new();
+        let mut root_traverser = BufferedTraverser::default();
 
         root_traverser.init_graph(
             root_graph_index,
@@ -152,7 +152,7 @@ impl NodeState {
         let script_engine = rhai::Engine::new_raw();
         let resources = global_state.resources.read().unwrap();
 
-        let traverser = BufferedTraverser::get_traverser(
+        let (traverser, errors_and_warnings) = BufferedTraverser::new(
             self.root_graph_index,
             &self.graph_manager,
             &script_engine,
@@ -260,14 +260,16 @@ impl NodeState {
         }
 
         let traverser = if !graphs_to_reindex.is_empty() || !defaults_to_update.is_empty() {
-            Some(BufferedTraverser::get_traverser(
+            let (traverser, errors_and_warnings) = BufferedTraverser::new(
                 self.root_graph_index,
                 &self.graph_manager,
                 &self.scripting_engine,
                 &global_state.resources.read().unwrap(),
                 0,
                 global_state.sound_config.clone(),
-            )?)
+            )?;
+
+            Some(traverser)
         } else {
             None
         };
@@ -396,7 +398,7 @@ impl NodeState {
     fn apply_action(&mut self, action: Action) -> Result<(HistoryAction, ActionInvalidations), NodeError> {
         println!("Applying action: {:?}", action);
 
-        let mut warnings = WarningBuilder::new();
+        let mut warnings = vec![];
 
         let new_action = match action {
             Action::AddNode {
@@ -461,8 +463,6 @@ impl NodeState {
             nodes_created: vec![],
         };
 
-        let mut warnings = WarningBuilder::new();
-
         let new_action = match action {
             HistoryAction::ChangeNodeProperties {
                 index,
@@ -494,9 +494,9 @@ impl NodeState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 if let Some(ref mut to_update) = action_result.defaults_to_update {
-                    to_update.push(index.clone())
+                    to_update.push(index)
                 } else {
-                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                    action_result.defaults_to_update = Some(vec![index]);
                 }
 
                 HistoryAction::ChangeNodeUiData { index, before, after }
@@ -515,9 +515,9 @@ impl NodeState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 if let Some(ref mut to_update) = action_result.defaults_to_update {
-                    to_update.push(index.clone())
+                    to_update.push(index)
                 } else {
-                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                    action_result.defaults_to_update = Some(vec![index]);
                 }
 
                 HistoryAction::ChangeNodeOverrides { index, before, after }
@@ -565,9 +565,9 @@ impl NodeState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 if let Some(ref mut to_update) = action_result.defaults_to_update {
-                    to_update.push(index.clone())
+                    to_update.push(index)
                 } else {
-                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                    action_result.defaults_to_update = Some(vec![index]);
                 }
 
                 HistoryAction::ChangeNodeUiData { index, before, after }
@@ -582,9 +582,9 @@ impl NodeState {
                 action_result.graph_operated_on = Some(index.graph_index);
 
                 if let Some(ref mut to_update) = action_result.defaults_to_update {
-                    to_update.push(index.clone())
+                    to_update.push(index)
                 } else {
-                    action_result.defaults_to_update = Some(vec![index.clone()]);
+                    action_result.defaults_to_update = Some(vec![index]);
                 }
 
                 HistoryAction::ChangeNodeOverrides { index, before, after }

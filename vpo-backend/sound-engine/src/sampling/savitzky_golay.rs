@@ -5,12 +5,10 @@ fn gram_poly(i: i32, m: i32, k: i32, s: i32) -> f64 {
             * (i as f64 * gram_poly(i, m, k - 1, s) + s as f64 * gram_poly(i, m, k - 1, s - 1))
             - ((k as f64 - 1.0) * (2.0 * m as f64 + k as f64)) / (k as f64 * (2.0 * m as f64 - k as f64 + 1.0))
                 * gram_poly(i, m, k - 2, s)
+    } else if k == 0 && s == 0 {
+        1.0
     } else {
-        if k == 0 && s == 0 {
-            1.0
-        } else {
-            0.0
-        }
+        0.0
     }
 }
 
@@ -21,18 +19,17 @@ fn gen_fact(a: i32, b: i32) -> f64 {
         gf *= j as f64;
     }
 
-    return gf;
+    gf
 }
 
 fn weight(i: i32, t: i32, m: i32, n: i32, s: i32) -> f64 {
     let mut w: f64 = 0.0;
 
     for k in 0..=n {
-        w = w
-            + (2.0 * k as f64 + 1.0)
-                * (gen_fact(2 * m as i32, k) / gen_fact(2 * m as i32 + k + 1, k + 1))
-                * gram_poly(i, m, k, 0)
-                * gram_poly(t, m, k, s);
+        w += (2.0 * k as f64 + 1.0)
+            * (gen_fact(2 * m, k) / gen_fact(2 * m + k + 1, k + 1))
+            * gram_poly(i, m, k, 0)
+            * gram_poly(t, m, k, s);
     }
 
     w

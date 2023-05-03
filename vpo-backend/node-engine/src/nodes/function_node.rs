@@ -8,6 +8,8 @@ pub struct FunctionNode {
 
 impl NodeRuntime for FunctionNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        let mut warning = None;
+
         if let Some(graph_and_io) = child_graph {
             let NodeGraphAndIo {
                 graph: _,
@@ -15,7 +17,7 @@ impl NodeRuntime for FunctionNode {
                 output_index,
             } = graph_and_io;
 
-            self.traverser = BufferedTraverser::get_traverser(
+            let (traverser, errors_and_warnings) = BufferedTraverser::new(
                 graph_and_io.graph,
                 state.graph_manager,
                 state.script_engine,
@@ -23,10 +25,16 @@ impl NodeRuntime for FunctionNode {
                 state.current_time,
                 state.sound_config.clone(),
             )?;
+            self.traverser = traverser;
+
+            if errors_and_warnings.any() {
+                warning = Some(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
+            }
+
             self.child_io_nodes = Some((input_index, output_index));
         }
 
-        InitResult::nothing()
+        InitResult::warning(warning)
     }
 
     fn process(
@@ -62,9 +70,9 @@ impl NodeRuntime for FunctionNode {
 }
 
 impl Node for FunctionNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         FunctionNode {
-            traverser: BufferedTraverser::new(),
+            traverser: BufferedTraverser::default(),
             child_io_nodes: None,
         }
     }

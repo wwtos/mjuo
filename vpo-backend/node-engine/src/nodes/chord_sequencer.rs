@@ -16,7 +16,7 @@ impl NodeRuntime for SequencerNode {
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         let active = values_in[0].clone().unwrap().as_boolean().unwrap();
 
-        if active == false {
+        if !active {
             self.to_emit = Some(smallvec![
                 MidiData::NoteOff {
                     channel: 0,
@@ -103,7 +103,7 @@ impl NodeRuntime for SequencerNode {
 }
 
 impl Node for SequencerNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         SequencerNode {
             last_emitted_at: 0,
             to_emit: None,

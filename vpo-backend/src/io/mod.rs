@@ -27,7 +27,7 @@ use crate::migrations::migrate;
 use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
 
-const AUDIO_EXTENSIONS: &'static [&'static str] = &["ogg", "wav", "mp3", "flac"];
+const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
     pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
 }

@@ -47,7 +47,7 @@ impl NodeRuntime for RankPlayerNode {
             let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(&state.resources.samples, &rank, self.polyphony);
+                let player = RankPlayer::new(&state.resources.samples, rank, self.polyphony);
                 self.player = Some(player);
             }
         }
@@ -61,7 +61,9 @@ impl NodeRuntime for RankPlayerNode {
         _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
+        let rank = self
+            .index
+            .and_then(|index| state.resources.ranks.borrow_resource(index));
 
         if let (Some(player), Some(rank)) = (&mut self.player, rank) {
             let samples = &state.resources.samples;
@@ -100,7 +102,7 @@ impl NodeRuntime for RankPlayerNode {
 }
 
 impl Node for RankPlayerNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         RankPlayerNode {
             player: None,
             index: None,

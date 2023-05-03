@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut global_state = GlobalState::new(SoundConfig::default());
 
     // start up midi and audio
-    let (receiver, midi_stream) = connect_midir_backend().unwrap();
+    let (receiver, _midi_stream) = connect_midir_backend().unwrap();
 
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     global_state.sound_config = SoundConfig {
         sample_rate: config.sample_rate.0,
-        buffer_size: buffer_size,
+        buffer_size,
     };
 
     // set up state

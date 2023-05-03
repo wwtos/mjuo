@@ -65,8 +65,8 @@ impl WavetableOscillator {
     pub fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
 
-        let wavetable_filter_freq = ((self.sample_freq as f32 / self.frequency) * (self.sample_rate as f32 / 2.0))
-            .min(self.sample_rate as f32 / 2.1);
+        let wavetable_filter_freq =
+            ((self.sample_freq / self.frequency) * (self.sample_rate as f32 / 2.0)).min(self.sample_rate as f32 / 2.1);
 
         self.filter.set_frequency(wavetable_filter_freq);
     }

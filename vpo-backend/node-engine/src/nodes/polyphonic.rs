@@ -43,6 +43,8 @@ pub struct PolyphonicNode {
 
 impl NodeRuntime for PolyphonicNode {
     fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        let mut warnings = vec![];
+
         if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
             self.polyphony = (*polyphony).clamp(1, 255) as u8;
         }
@@ -53,15 +55,21 @@ impl NodeRuntime for PolyphonicNode {
             self.voices.truncate(self.polyphony as usize);
 
             while self.polyphony as usize > self.voices.len() {
+                let (traverser, errors_and_warnings) = BufferedTraverser::new(
+                    graph_and_io.graph,
+                    state.graph_manager,
+                    state.script_engine,
+                    state.resources,
+                    state.current_time,
+                    state.sound_config.clone(),
+                )?;
+
+                if errors_and_warnings.any() {
+                    warnings.push(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
+                }
+
                 self.voices.push(Voice {
-                    traverser: BufferedTraverser::get_traverser(
-                        graph_and_io.graph,
-                        state.graph_manager,
-                        state.script_engine,
-                        state.resources,
-                        state.current_time,
-                        state.sound_config.clone(),
-                    )?,
+                    traverser,
                     info: PolyphonicInfo::new(state.current_time),
                     is_first_time: true,
                 });
@@ -70,7 +78,12 @@ impl NodeRuntime for PolyphonicNode {
             self.child_io_nodes = Some((graph_and_io.input_index, graph_and_io.output_index));
         }
 
-        InitResult::nothing()
+        Ok(NodeOk::new(
+            InitResult {
+                changed_properties: None,
+            },
+            warnings,
+        ))
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
@@ -233,10 +246,10 @@ impl NodeRuntime for PolyphonicNode {
 }
 
 impl Node for PolyphonicNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         PolyphonicNode {
             voices: vec![],
-            traverser: BufferedTraverser::new(),
+            traverser: BufferedTraverser::default(),
             polyphony: 1,
             child_io_nodes: None,
             current_time: 0,

@@ -39,7 +39,7 @@ impl NodeRuntime for MidiInNode {
 }
 
 impl Node for MidiInNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         MidiInNode {
             midi_in: smallvec![],
             has_midi_been_processed: false,

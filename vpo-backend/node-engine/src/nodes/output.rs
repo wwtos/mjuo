@@ -5,14 +5,6 @@ pub struct OutputNode {
     values_received: Vec<f32>,
 }
 
-impl Default for OutputNode {
-    fn default() -> Self {
-        OutputNode {
-            values_received: vec![],
-        }
-    }
-}
-
 impl OutputNode {
     pub fn get_values_received(&self) -> Vec<f32> {
         self.values_received.clone()
@@ -34,7 +26,7 @@ impl NodeRuntime for OutputNode {
 }
 
 impl Node for OutputNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         OutputNode {
             values_received: vec![],
         }

@@ -111,7 +111,7 @@ pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<()
 
     // TODO: would memcpy work here faster?
     for i in 0..data.len() {
-        let num = (data[i] as f32).to_le_bytes();
+        let num = data[i].to_le_bytes();
 
         data_out[i * 4] = num[0];
         data_out[i * 4 + 1] = num[1];

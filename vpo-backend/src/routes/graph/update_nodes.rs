@@ -47,7 +47,7 @@ pub fn route(
     let actions = payload
         .updated_nodes
         .into_iter()
-        .map(|(updated_node, index)| {
+        .flat_map(|(updated_node, index)| {
             [
                 updated_node.properties.map(|properties| Action::ChangeNodeProperties {
                     index: GlobalNodeIndex {
@@ -70,12 +70,11 @@ pub fn route(
                             node_index: index,
                             graph_index: payload.graph_index,
                         },
-                        overrides: overrides,
+                        overrides,
                     }),
             ]
         })
         .flatten()
-        .filter_map(|action| action)
         .collect();
 
     let (.., traverser) = state

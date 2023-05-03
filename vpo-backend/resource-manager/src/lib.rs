@@ -1,4 +1,8 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    str::FromStr,
+};
 
 use ddgg::{GenVec, Index};
 use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
@@ -14,7 +18,7 @@ pub struct ResourceId {
 }
 
 fn strip_empty_slashes(path: &str) -> String {
-    let split = path.split("/");
+    let split = path.split('/');
     let mut result: Vec<&str> = vec![];
 
     for part in split {
@@ -26,29 +30,44 @@ fn strip_empty_slashes(path: &str) -> String {
     result.join("/")
 }
 
-impl ResourceId {
-    pub fn from_str(id: &str) -> Option<ResourceId> {
-        let resource: Vec<&str> = id.split(":").take(2).collect();
+#[derive(Debug)]
+pub struct ResourceIdParserFailure(pub String);
+
+impl Display for ResourceIdParserFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ResourceIdParserFailure({})", self.0)
+    }
+}
+
+impl FromStr for ResourceId {
+    type Err = ResourceIdParserFailure;
+
+    fn from_str(id: &str) -> Result<ResourceId, Self::Err> {
+        let resource: Vec<&str> = id.split(':').take(2).collect();
 
         if resource.len() == 1 {
-            Some(ResourceId {
+            Ok(ResourceId {
                 namespace: strip_empty_slashes(resource[0]),
                 resource: "".into(),
             })
         } else if resource.len() == 2 {
-            Some(ResourceId {
+            Ok(ResourceId {
                 namespace: strip_empty_slashes(resource[0]),
                 resource: strip_empty_slashes(resource[1]),
             })
         } else {
-            None
+            Err(ResourceIdParserFailure(id.to_string()))
         }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        format!("{}:{}", self.namespace, self.resource)
+impl Display for ResourceId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.namespace, self.resource)
     }
+}
 
+impl ResourceId {
     pub fn concat(&self, other: &str) -> ResourceId {
         let stripped = strip_empty_slashes(other);
 

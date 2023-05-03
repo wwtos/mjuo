@@ -44,7 +44,7 @@ impl NodeRuntime for StreamExpressionNode {
     }
 
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let mut warnings = WarningBuilder::new();
+        let mut warning: Option<NodeWarning> = None;
 
         let expression = state
             .props
@@ -65,12 +65,13 @@ impl NodeRuntime for StreamExpressionNode {
                 }
                 Err(parser_error) => {
                     self.ast = None;
-                    warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error });
+
+                    warning = Some(NodeWarning::RhaiParserFailure { parser_error });
                 }
             }
         }
 
-        InitResult::nothing()
+        InitResult::warning(warning)
     }
 }
 

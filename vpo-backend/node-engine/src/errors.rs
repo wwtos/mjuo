@@ -3,9 +3,9 @@ use resource_manager::ResourceId;
 use rhai::{EvalAltResult, ParseError};
 use snafu::Snafu;
 
-use crate::connection::{Socket, SocketDirection, SocketType};
+use crate::connection::{Socket, SocketType};
 use crate::graph_manager::GlobalNodeIndex;
-use crate::node::{NodeIndex, NodeRow};
+use crate::node::NodeIndex;
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -50,18 +50,6 @@ pub enum NodeError {
     IncorrectNodeType { expected: String, actual: String },
 }
 
-impl NodeError {
-    pub fn in_context(self, context: NodeErrorContext) -> ErrorInContext {
-        ErrorInContext { error: self, context }
-    }
-}
-
-impl From<ErrorInContext> for NodeError {
-    fn from(error: ErrorInContext) -> Self {
-        error.error
-    }
-}
-
 impl From<GraphError> for NodeError {
     fn from(value: GraphError) -> Self {
         NodeError::GraphError { error: value }
@@ -76,142 +64,51 @@ pub enum NodeWarning {
     RhaiExecutionFailure { err: EvalAltResult, script: String },
     #[snafu(display("Rhai parser failure: {parser_error}"))]
     RhaiParserFailure { parser_error: ParseError },
-}
-
-impl From<WarningInContext> for NodeWarning {
-    fn from(warning: WarningInContext) -> Self {
-        warning.warning
-    }
-}
-
-#[derive(Debug)]
-pub struct NodeErrorContext {
-    pub graph: Option<u64>,
-    pub index: Option<NodeIndex>,
-    pub socket: Option<Socket>,
-    pub direction: Option<SocketDirection>,
-    pub node_row: Option<NodeRow>,
-}
-
-pub struct ErrorInContext {
-    pub error: NodeError,
-    pub context: NodeErrorContext,
-}
-
-pub struct WarningInContext {
-    pub warning: NodeWarning,
-    pub context: NodeErrorContext,
+    #[snafu(display("Internal node errors/warnings: {errors_and_warnings:?}"))]
+    InternalErrorsAndWarnings { errors_and_warnings: ErrorsAndWarnings },
 }
 
 pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
 
-#[derive(Debug)]
-pub struct Warnings {
-    pub warnings: Vec<NodeWarning>,
-}
-
-impl Warnings {
-    pub fn warning(warning: NodeWarning) -> Warnings {
-        Warnings {
-            warnings: vec![warning],
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct ErrorsAndWarnings {
-    pub errors: Vec<NodeError>,
-    pub warnings: Vec<NodeWarning>,
+    pub errors: Vec<(NodeIndex, NodeError)>,
+    pub warnings: Vec<(NodeIndex, NodeWarning)>,
 }
 
 impl ErrorsAndWarnings {
-    pub fn err(err: NodeError) -> ErrorsAndWarnings {
-        ErrorsAndWarnings {
-            errors: vec![err],
-            warnings: vec![],
-        }
-    }
-
-    pub fn merge(mut self, other: Result<(), ErrorsAndWarnings>) -> Result<ErrorsAndWarnings, ErrorsAndWarnings> {
-        if let Err(other) = other {
-            if !other.warnings.is_empty() {
-                self.warnings.extend(other.warnings);
-            }
-
-            if !other.errors.is_empty() {
-                self.errors.extend(other.errors);
-                Err(self)
-            } else {
-                Ok(self)
-            }
-        } else {
-            Ok(self)
-        }
+    pub fn any(&self) -> bool {
+        !self.errors.is_empty() || !self.warnings.is_empty()
     }
 }
 
 #[derive(Debug, Default)]
 pub struct NodeOk<T> {
     pub value: T,
-    pub warnings: Option<Warnings>,
+    pub warnings: Vec<NodeWarning>,
 }
 
 impl<T> NodeOk<T> {
     pub fn no_warnings(value: T) -> NodeResult<T> {
-        Ok(NodeOk::<T> { value, warnings: None })
+        Ok(NodeOk::<T> {
+            value,
+            warnings: vec![],
+        })
     }
 
-    pub fn new(value: T, warnings: Option<Warnings>) -> NodeOk<T> {
+    pub fn new(value: T, warnings: Vec<NodeWarning>) -> NodeOk<T> {
         NodeOk { value, warnings }
     }
 }
 
-pub struct WarningBuilder {
-    warnings: Option<Vec<NodeWarning>>,
+pub trait WarningExt<T> {
+    fn append_warnings(self, warning_builder: &mut Vec<NodeWarning>) -> Result<T, NodeError>;
 }
 
-impl Default for WarningBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl WarningBuilder {
-    pub fn new() -> WarningBuilder {
-        WarningBuilder { warnings: None }
-    }
-
-    fn warnings_ref(&mut self) -> &mut Vec<NodeWarning> {
-        if self.warnings.is_none() {
-            self.warnings = Some(Vec::new());
-        }
-
-        self.warnings.as_mut().unwrap()
-    }
-
-    pub fn append_warnings(&mut self, warnings: Option<Warnings>) {
-        if let Some(warnings) = warnings {
-            self.warnings_ref().extend(warnings.warnings);
-        }
-    }
-
-    pub fn add_warning(&mut self, warning: NodeWarning) {
-        self.warnings_ref().push(warning);
-    }
-
-    pub fn into_warnings(self) -> Option<Warnings> {
-        self.warnings.map(|warnings| Warnings { warnings })
-    }
-}
-
-pub trait WarningProducer<T> {
-    fn append_warnings(self, warning_builder: &mut WarningBuilder) -> Result<T, NodeError>;
-}
-
-impl<T> WarningProducer<T> for Result<NodeOk<T>, NodeError> {
-    fn append_warnings(self, warning_builder: &mut WarningBuilder) -> Result<T, NodeError> {
-        self.map(|node_ok| {
-            warning_builder.append_warnings(node_ok.warnings);
+impl<T> WarningExt<T> for Result<NodeOk<T>, NodeError> {
+    fn append_warnings(self, warnings: &mut Vec<NodeWarning>) -> Result<T, NodeError> {
+        self.map(|mut node_ok| {
+            warnings.append(&mut node_ok.warnings);
 
             node_ok.value
         })

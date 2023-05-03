@@ -264,7 +264,7 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
     let sustain_index = search_for_sustain(&envelope_db, &search_settings);
     let decay_index = argmax(&envelope_db[0..sustain_index]).unwrap();
 
-    let release_index = search_for_release(&sample_norm.as_slice(), &envelope_db, &search_settings);
+    let release_index = search_for_release(sample_norm.as_slice(), &envelope_db, &search_settings);
 
     println!(
         "Indexes: decay index: {}, sustain index: {}, release index: {}",

@@ -38,7 +38,7 @@ fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
 
 impl NodeRuntime for MidiFilterNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let mut warnings = WarningBuilder::new();
+        let mut warning: Option<NodeWarning> = None;
 
         if let Some(Property::String(expression)) = state.props.get("expression") {
             let possible_ast = state.script_engine.compile(expression);
@@ -49,12 +49,12 @@ impl NodeRuntime for MidiFilterNode {
                     self.filter = Some(ast);
                 }
                 Err(err) => {
-                    warnings.add_warning(NodeWarning::RhaiParserFailure { parser_error: err });
+                    warning = Some(NodeWarning::RhaiParserFailure { parser_error: err });
                 }
             }
         }
 
-        InitResult::nothing()
+        InitResult::warning(warning)
     }
 
     fn process(
@@ -63,7 +63,7 @@ impl NodeRuntime for MidiFilterNode {
         _streams_in: &[&[f32]],
         _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        let mut warnings = WarningBuilder::new();
+        let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
             self.midi_state = match &self.midi_state {
@@ -90,7 +90,7 @@ impl NodeRuntime for MidiFilterNode {
                                         }
                                     }
                                     Err(err) => {
-                                        warnings.add_warning(NodeWarning::RhaiExecutionFailure {
+                                        warning = Some(NodeWarning::RhaiExecutionFailure {
                                             err: *err,
                                             script: self.filter_raw.clone(),
                                         });
@@ -113,7 +113,7 @@ impl NodeRuntime for MidiFilterNode {
             };
         }
 
-        Ok(NodeOk::new((), warnings.into_warnings()))
+        ProcessResult::warning(warning)
     }
 
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
@@ -126,7 +126,7 @@ impl NodeRuntime for MidiFilterNode {
 }
 
 impl Node for MidiFilterNode {
-    fn new(sound_config: &SoundConfig) -> MidiFilterNode {
+    fn new(_sound_config: &SoundConfig) -> MidiFilterNode {
         MidiFilterNode {
             filter: None,
             filter_raw: "".into(),

@@ -26,7 +26,7 @@ impl NodeRuntime for OutputsNode {
 
         for (local_stream, stream_in) in self.streams.iter_mut().zip(streams_in) {
             local_stream.resize(buffer_size, 0.0);
-            local_stream.copy_from_slice(*stream_in);
+            local_stream.copy_from_slice(stream_in);
         }
 
         NodeOk::no_warnings(())
@@ -69,7 +69,7 @@ impl NodeRuntime for OutputsNode {
 }
 
 impl Node for OutputsNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         OutputsNode {
             values: vec![],
             midis: vec![],
@@ -82,7 +82,7 @@ impl Node for OutputsNode {
             NodeIo::simple(
                 sockets
                     .iter()
-                    .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input))
+                    .map(|socket_type| NodeRow::from_type_and_direction(*socket_type, SocketDirection::Input))
                     .collect::<Vec<NodeRow>>(),
             )
         } else {

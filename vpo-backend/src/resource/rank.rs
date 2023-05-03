@@ -94,7 +94,7 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
 pub fn load_rank_from_file(path: PathBuf) -> Result<Rank, EngineError> {
     use crate::errors::IoSnafu;
 
-    let mut file = read_to_string(path).context(IoSnafu)?;
+    let file = read_to_string(path).context(IoSnafu)?;
 
-    parse_rank(&mut file)
+    parse_rank(&file)
 }

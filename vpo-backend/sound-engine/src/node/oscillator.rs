@@ -7,8 +7,6 @@ use crate::wave::interpolate::interpolate_osc;
 use crate::wave::tables::WAVETABLE_SIZE;
 use crate::wave::tables::{SAWTOOTH_VALUES, SINE_VALUES, SQUARE_VALUES, TRIANGLE_VALUES};
 
-const SAMPLE_RATE: u32 = 44_100;
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Waveform {
     Sine,
@@ -64,7 +62,7 @@ impl Oscillator {
         Oscillator {
             phase: 0_f32,
             frequency: 440_f32,
-            sample_rate: sample_rate,
+            sample_rate,
             waveform: wavetable_lookup(&waveform),
         }
     }

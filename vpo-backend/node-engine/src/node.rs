@@ -11,7 +11,7 @@ use sound_engine::SoundConfig;
 
 use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue};
 
-use crate::errors::{NodeOk, NodeResult};
+use crate::errors::{NodeOk, NodeResult, NodeWarning};
 use crate::global_state::Resources;
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::property::{Property, PropertyType};
@@ -91,6 +91,27 @@ impl InitResult {
         NodeOk::no_warnings(InitResult {
             changed_properties: None,
         })
+    }
+
+    pub fn warning(warning: Option<NodeWarning>) -> NodeResult<InitResult> {
+        Ok(NodeOk::new(
+            InitResult {
+                changed_properties: None,
+            },
+            warning.map(|x| vec![x]).unwrap_or(vec![]),
+        ))
+    }
+}
+
+pub struct ProcessResult {}
+
+impl ProcessResult {
+    pub fn nothing() -> NodeResult<()> {
+        NodeOk::no_warnings(())
+    }
+
+    pub fn warning(warning: Option<NodeWarning>) -> NodeResult<()> {
+        Ok(NodeOk::new((), warning.map(|x| vec![x]).unwrap_or(vec![])))
     }
 }
 

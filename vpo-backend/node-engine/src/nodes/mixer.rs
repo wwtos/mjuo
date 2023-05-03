@@ -27,7 +27,7 @@ impl NodeRuntime for MixerNode {
 }
 
 impl Node for MixerNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         MixerNode {}
     }
 

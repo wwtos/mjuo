@@ -34,7 +34,7 @@ impl NodeRuntime for InputsNode {
 }
 
 impl Node for InputsNode {
-    fn new(sound_config: &SoundConfig) -> Self {
+    fn new(_sound_config: &SoundConfig) -> Self {
         InputsNode {
             values: vec![],
             midis: vec![],
@@ -46,7 +46,7 @@ impl Node for InputsNode {
             NodeIo::simple(
                 sockets
                     .iter()
-                    .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Output))
+                    .map(|socket_type| NodeRow::from_type_and_direction(*socket_type, SocketDirection::Output))
                     .collect::<Vec<NodeRow>>(),
             )
         } else {

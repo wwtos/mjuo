@@ -11,7 +11,7 @@ use sound_engine::SoundConfig;
 
 use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketType},
-    errors::{NodeError, Warnings},
+    errors::{ErrorsAndWarnings, NodeError, NodeOk, NodeWarning},
     global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
     node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
@@ -40,7 +40,7 @@ struct OutputLocations {
     pub value_outputs: Vec<Socket>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BufferedTraverser {
     buffer_size: usize,
     nodes: Vec<NodeVariant>,
@@ -57,32 +57,15 @@ pub struct BufferedTraverser {
 }
 
 impl BufferedTraverser {
-    pub fn new() -> BufferedTraverser {
-        BufferedTraverser {
-            buffer_size: 0,
-            nodes: vec![],
-            node_indexes: vec![],
-            stream_outputs: vec![],
-            stream_input_mappings: vec![],
-            stream_advance_by: vec![],
-            midi_outputs: vec![],
-            midi_input_mappings: vec![],
-            midi_advance_by: vec![],
-            value_outputs: vec![],
-            value_input_mappings: vec![],
-            value_advance_by: vec![],
-        }
-    }
-
-    pub fn get_traverser(
+    pub fn new(
         graph_index: GraphIndex,
         graph_manager: &GraphManager,
         script_engine: &Engine,
         resources: &Resources,
         current_time: i64,
         sound_config: SoundConfig,
-    ) -> Result<BufferedTraverser, NodeError> {
-        let mut traverser = BufferedTraverser::new();
+    ) -> Result<(BufferedTraverser, ErrorsAndWarnings), NodeError> {
+        let mut traverser = BufferedTraverser::default();
 
         traverser
             .init_graph(
@@ -93,7 +76,7 @@ impl BufferedTraverser {
                 current_time,
                 sound_config,
             )
-            .map(|()| traverser)
+            .map(|errors_and_warnings| (traverser, errors_and_warnings))
     }
 
     // things are stored as follows:
@@ -107,7 +90,7 @@ impl BufferedTraverser {
         resources: &Resources,
         current_time: i64,
         sound_config: SoundConfig,
-    ) -> Result<(), NodeError> {
+    ) -> Result<ErrorsAndWarnings, NodeError> {
         self.buffer_size = sound_config.buffer_size;
 
         let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
@@ -138,7 +121,7 @@ impl BufferedTraverser {
         self.value_advance_by.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
-        let mut warnings: Vec<(NodeIndex, Warnings)> = Vec::new();
+        let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
         let mut node_to_location_mapping: HashMap<NodeIndex, OutputLocations> = HashMap::new();
 
@@ -147,7 +130,7 @@ impl BufferedTraverser {
             // create and init the node
             let node_wrapper = graph.get_node(*index)?;
 
-            let mut variant = if let Some(previous_node) = old_nodes.remove(&index) {
+            let mut variant = if let Some(previous_node) = old_nodes.remove(index) {
                 previous_node
             } else {
                 new_variant(&node_wrapper.get_node_type(), &sound_config)?
@@ -171,8 +154,8 @@ impl BufferedTraverser {
             // handle any errors from initializing the node
             match init_result_res {
                 Ok(init_result) => {
-                    if let Some(new_warnings) = init_result.warnings {
-                        warnings.push((*index, new_warnings))
+                    for warning in init_result.warnings.into_iter() {
+                        warnings.push((*index, warning))
                     }
                 }
                 Err(err) => {
@@ -385,12 +368,13 @@ impl BufferedTraverser {
             println!("errors: {:#?}", errors);
         }
 
-        // console::log_1(&format!("Traverser state: {:#?}", self).into());
-
-        Ok(())
+        Ok(ErrorsAndWarnings { errors, warnings })
     }
 
-    pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, resources: &Resources) {
+    pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, resources: &Resources) -> ErrorsAndWarnings {
+        let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
+        let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
+
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
@@ -442,7 +426,7 @@ impl BufferedTraverser {
             }
         }
 
-        for (node, advance_by) in self.nodes.iter_mut().zip(&self.stream_advance_by) {
+        for (i, (node, advance_by)) in self.nodes.iter_mut().zip(&self.stream_advance_by).enumerate() {
             let inputs = advance_by.inputs;
             let outputs = advance_by.outputs;
 
@@ -508,6 +492,20 @@ impl BufferedTraverser {
                 &mut stream_outputs[0..outputs],
             );
 
+            match res {
+                Ok(NodeOk {
+                    warnings: mut node_warnings,
+                    ..
+                }) => {
+                    for warning in node_warnings.drain(..) {
+                        warnings.push((self.node_indexes[i], warning));
+                    }
+                }
+                Err(err) => {
+                    errors.push((self.node_indexes[i], err));
+                }
+            }
+
             stream_outputs_i += (advance_by.defaults + advance_by.outputs) * self.buffer_size;
         }
 
@@ -528,6 +526,8 @@ impl BufferedTraverser {
 
             value_outputs_i += advance_by.defaults + advance_by.outputs;
         }
+
+        ErrorsAndWarnings { errors, warnings }
     }
 
     pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {
