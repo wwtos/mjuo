@@ -68,27 +68,11 @@ impl NodeRuntime for RankPlayerNode {
         if let (Some(player), Some(rank)) = (&mut self.player, rank) {
             let samples = &state.resources.samples;
 
-            if !self.midi_in.is_empty() {
-                for midi in &self.midi_in {
-                    match midi {
-                        MidiData::NoteOn { note, .. } => {
-                            player.play_note(*note, rank, samples);
-                        }
-                        MidiData::NoteOff { note, .. } => {
-                            player.release_note(*note, rank, samples);
-                        }
-                        _ => {}
-                    }
-                }
-
-                self.midi_in.clear();
-            }
-
             for frame in streams_out[0].iter_mut() {
                 *frame = 0.0;
             }
 
-            player.next_buffered(rank, samples, streams_out[0]);
+            player.next_buffered(rank, state.current_time, &self.midi_in, samples, streams_out[0]);
         }
 
         NodeOk::no_warnings(())

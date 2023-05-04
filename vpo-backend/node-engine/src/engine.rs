@@ -1,4 +1,7 @@
+use std::time::Duration;
+
 use rhai::Engine;
+use sound_engine::SoundConfig;
 
 use crate::{
     connection::MidiBundle, global_state::Resources, node::NodeIndex, nodes::variants::NodeVariant,
@@ -6,11 +9,12 @@ use crate::{
 };
 
 pub struct NodeEngine {
-    current_time: i64,
+    pub current_time: i64,
     traverser: BufferedTraverser,
     output_node: NodeIndex,
     midi_in_node: NodeIndex,
     scripting_engine: Engine,
+    config: SoundConfig,
 }
 
 impl NodeEngine {
@@ -19,6 +23,7 @@ impl NodeEngine {
         scripting_engine: Engine,
         midi_in_node: NodeIndex,
         output_node: NodeIndex,
+        config: SoundConfig,
     ) -> NodeEngine {
         NodeEngine {
             current_time: 0,
@@ -26,6 +31,7 @@ impl NodeEngine {
             output_node,
             midi_in_node,
             scripting_engine,
+            config,
         }
     }
 

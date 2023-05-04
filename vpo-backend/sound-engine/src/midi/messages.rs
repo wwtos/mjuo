@@ -89,7 +89,8 @@ pub enum MidiData {
     MidiNone,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MidiMessage {
     pub data: MidiData,
-    pub timestamp: u64,
+    pub timestamp: i64,
 }

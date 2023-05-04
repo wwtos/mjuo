@@ -1,13 +1,13 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
-use sound_engine::midi::messages::MidiData;
+use sound_engine::midi::messages::MidiMessage;
 
 use std::fmt::{Debug, Display};
 
 use crate::{node::NodeIndex, node_graph::NodeConnection};
 
-pub type MidiBundle = SmallVec<[MidiData; 2]>;
+pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -18,7 +18,7 @@ impl NodeRuntime for MidiToValuesNode {
         let midi = midi_in[0].as_ref().unwrap();
 
         for data in midi {
-            match data {
+            match &data.data {
                 MidiData::NoteOn {
                     channel: _,
                     note,

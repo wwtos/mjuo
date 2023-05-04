@@ -1,16 +1,19 @@
 use std::{
+    collections::VecDeque,
     error,
     sync::{mpsc, Arc, RwLock},
+    time::Duration,
 };
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
+    Device, Host, SampleFormat, SampleRate, Stream, StreamConfig, StreamInstant,
 };
 use node_engine::{connection::MidiBundle, engine::NodeEngine, global_state::Resources};
 use rtrb::RingBuffer;
 use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
+use sound_engine::midi::messages::MidiMessage;
 
 use crate::errors::EngineError;
 
@@ -71,7 +74,14 @@ impl CpalBackend {
         };
 
         println!("Config: {:?}", config);
-        let (stream, sender) = self.build_output_callback(config.clone(), device, resources, buffer_size, midi_in)?;
+        let (stream, sender) = self.build_output_callback(
+            config.clone(),
+            device,
+            resources,
+            buffer_size,
+            config.sample_rate.0,
+            midi_in,
+        )?;
 
         Ok((stream, sender, config))
     }
@@ -82,6 +92,7 @@ impl CpalBackend {
         device: Device,
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
+        sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
     ) -> Result<(Stream, mpsc::Sender<NodeEngine>), EngineError> {
         let (sender, receiver) = mpsc::channel();
@@ -90,24 +101,80 @@ impl CpalBackend {
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);
 
         let mut buffer = vec![0_f32; buffer_size];
+        let mut midi_buffer: VecDeque<MidiMessage> = VecDeque::new();
+
+        let mut start_instant: Option<StreamInstant> = None;
+
+        let mut midi_time_offset: i64 = 0;
+        let mut playback_time = 0;
 
         let stream = device
             .build_output_stream(
                 &config,
                 // main callback
-                move |out: &mut [f32], _| {
+                move |out: &mut [f32], info| {
                     if let Ok(new_engine) = receiver.try_recv() {
                         engine = Some(new_engine);
+                        start_instant = None;
                     }
 
                     if let Some(engine) = &mut engine {
+                        // timing stuff (not fun)
+                        let playback_time = info.timestamp().playback;
+                        let start = start_instant.unwrap_or(playback_time);
+
+                        // for some reason the first call starts with not 0 for time
+                        if start > playback_time {
+                            start_instant = None;
+                        } else {
+                            start_instant = Some(start);
+                        }
+
+                        let playback_time_micros =
+                            ((engine.current_time as f64 / sample_rate as f64) * 1_000_000f64) as i64;
+                        let playback_time = (playback_time_micros * sample_rate as i64) / 1_000_000;
+
                         let resources = resources.try_read();
 
                         if let Ok(resources) = resources {
-                            for frame in out {
+                            for (i, frame) in out.iter_mut().enumerate() {
+                                let time_samples = playback_time + i as i64;
+
                                 // are there enough slots open to step the engine?
                                 if producer.slots() > buffer_size * config.channels as usize {
-                                    engine.step(midi_in.try_recv().unwrap_or(smallvec![]), &resources, &mut buffer);
+                                    let midi = midi_in.try_recv().unwrap_or(smallvec![]);
+
+                                    if let (Some(message), 0) = (midi.first(), midi_time_offset) {
+                                        midi_time_offset = (playback_time_micros - message.timestamp as i64) as i64;
+                                    }
+
+                                    midi_buffer.extend(midi.into_iter().map(|message| MidiMessage {
+                                        data: message.data,
+                                        timestamp: ((message.timestamp + midi_time_offset) * sample_rate as i64)
+                                            / 1_000_000,
+                                    }));
+
+                                    if !midi_buffer.is_empty() {
+                                        println!(
+                                            "buffer: {:?} (@{}, engine: {})",
+                                            midi_buffer, time_samples, engine.current_time
+                                        );
+                                    }
+
+                                    // figure out how far before the midi messages exceed the current buffer time
+                                    match midi_buffer
+                                        .iter()
+                                        .position(|message| message.timestamp > time_samples + buffer_size as i64)
+                                    {
+                                        Some(stop_at) => {
+                                            let midi_constrained: MidiBundle = midi_buffer.drain(..stop_at).collect();
+                                            engine.step(midi_constrained, &resources, &mut buffer);
+                                        }
+                                        None => {
+                                            let midi_all: MidiBundle = midi_buffer.drain(..).collect();
+                                            engine.step(midi_all, &resources, &mut buffer);
+                                        }
+                                    }
 
                                     for buffer_frame in &buffer {
                                         for _ in 0..config.channels {

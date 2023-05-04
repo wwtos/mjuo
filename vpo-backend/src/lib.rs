@@ -60,7 +60,13 @@ pub async fn handle_msg(
                 let (midi_in_node, output_node) = state.get_node_indexes();
 
                 sender
-                    .send(NodeEngine::new(traverser, scripting_engine, midi_in_node, output_node))
+                    .send(NodeEngine::new(
+                        traverser,
+                        scripting_engine,
+                        midi_in_node,
+                        output_node,
+                        global_state.sound_config.clone(),
+                    ))
                     .unwrap();
             }
         }

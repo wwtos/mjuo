@@ -1,6 +1,5 @@
 pub mod biquad_filter;
 pub mod button;
-pub mod chord_sequencer;
 pub mod dummy;
 pub mod envelope;
 pub mod expression;

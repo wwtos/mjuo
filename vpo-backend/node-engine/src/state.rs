@@ -182,6 +182,7 @@ impl NodeState {
             script_engine,
             self.midi_in_node,
             self.output_node,
+            global_state.sound_config.clone(),
         ))
     }
 
