@@ -12,6 +12,8 @@ pub mod wasm_lib;
 
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
+#[cfg(any(unix, windows))]
+type Sender<T> = broadcast::Sender<T>;
 
 use std::sync::mpsc;
 use std::{error::Error, io::Write};

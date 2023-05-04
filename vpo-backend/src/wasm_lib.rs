@@ -1,12 +1,16 @@
-use std::{io::Write, path::PathBuf, sync::Mutex};
+use std::{
+    io::Write,
+    path::PathBuf,
+    sync::{Arc, Mutex, RwLock},
+};
 
 use futures::executor::block_on;
-use ipc::{ipc_message::IPCMessage, send_buffer::SendBuffer};
+use ipc::{ipc_message::IpcMessage, send_buffer::SendBuffer};
 use js_sys::Uint8Array;
 use node_engine::{
-    errors::{JsonParserSnafu, NodeError},
+    errors::NodeError,
     global_state::{GlobalState, Resources},
-    state::NodeEngineState,
+    state::NodeState,
 };
 use serde_json::{json, Value};
 use smallvec::SmallVec;
@@ -41,24 +45,28 @@ pub fn get_midi(midi: Vec<u8>, parser: &mut MidiParser) -> Vec<MidiData> {
 #[wasm_bindgen]
 pub struct State {
     global_state: GlobalState,
-    engine_state: NodeEngineState,
+    engine_state: NodeState,
     midi_parser: MidiParser,
 }
 
 #[wasm_bindgen]
 impl State {
     pub fn new(sample_rate: u32, buffer_size: usize) -> State {
-        let sound_config = SoundConfig { sample_rate };
+        let sound_config = SoundConfig {
+            sample_rate,
+            buffer_size,
+        };
 
         set_panic_hook();
 
         let global_state = GlobalState {
             active_project: None,
             sound_config: sound_config,
-            resources: Resources::default(),
+            resources: Arc::new(RwLock::new(Resources::default())),
+            import_folder: None,
         };
 
-        let engine_state = NodeEngineState::new(&global_state, buffer_size).unwrap();
+        let engine_state = NodeState::new(&global_state).unwrap();
 
         let midi_parser = MidiParser::new();
 
@@ -75,26 +83,24 @@ impl State {
         };
 
         if let Some(message_in) = message_in {
-            let result = route(
-                IPCMessage::Json(serde_json::from_str(&message_in).unwrap()),
+            let result = block_on(route(
+                IpcMessage::Json(serde_json::from_str(&message_in).unwrap()),
                 &to_server,
                 &mut self.engine_state,
                 &mut self.global_state,
-            );
+            ));
 
             match result {
                 Ok(_) => {}
                 Err(err) => {
                     let err_str = err.to_string();
 
-                    block_on(async {
-                        to_server
-                            .send(IPCMessage::Json(json! {{
-                                "action": "toast/error",
-                                "payload": err_str
-                            }}))
-                            .await
-                    });
+                    to_server
+                        .send(IpcMessage::Json(json! {{
+                            "action": "toast/error",
+                            "payload": err_str
+                        }}))
+                        .unwrap();
                 }
             }
         }
@@ -108,7 +114,7 @@ impl State {
 
         let responses_json: Vec<Value> = responses
             .iter()
-            .map(|IPCMessage::Json(response)| response.clone())
+            .map(|IpcMessage::Json(response)| response.clone())
             .collect();
 
         responses.clear();

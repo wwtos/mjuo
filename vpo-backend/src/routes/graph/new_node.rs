@@ -9,12 +9,12 @@ use node_engine::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
-use tokio::sync::broadcast;
 
 use crate::{
     errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
     util::{send_global_state_updates, send_graph_updates, send_registry_updates},
+    Sender,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -27,7 +27,7 @@ struct Payload {
 
 pub async fn route(
     mut msg: Value,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {

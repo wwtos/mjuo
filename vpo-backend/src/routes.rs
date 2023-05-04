@@ -7,9 +7,8 @@ use node_engine::{
     traversal::buffered_traverser::BufferedTraverser,
 };
 use serde_json::Value;
-use tokio::sync::broadcast;
 
-use crate::errors::EngineError;
+use crate::{errors::EngineError, Sender};
 #[derive(Default)]
 pub struct RouteReturn {
     pub graph_to_reindex: Option<GraphIndex>,
@@ -19,7 +18,7 @@ pub struct RouteReturn {
 
 pub async fn route(
     msg: IpcMessage,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {

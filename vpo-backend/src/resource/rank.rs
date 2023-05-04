@@ -128,7 +128,7 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
     })
 }
 
-#[cfg(not(wasm32))]
+#[cfg(any(unix, windows))]
 pub fn load_rank_from_file(path: &Path) -> Result<Rank, EngineError> {
     use crate::errors::IoSnafu;
 

@@ -25,6 +25,7 @@ use crate::{
         sample::{check_for_note_number, load_sample},
     },
     routes::RouteReturn,
+    Sender,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -36,7 +37,7 @@ struct Payload {
 
 pub async fn route(
     mut msg: Value,
-    _to_server: &broadcast::Sender<IpcMessage>,
+    _to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {

@@ -5,7 +5,9 @@ pub struct SendBuffer<T> {
 }
 
 impl<T> SendBuffer<T> {
-    pub async fn send(&self, value: T) {
+    pub fn send(&self, value: T) -> Result<(), ()> {
         self.buffer.lock().unwrap().push(value);
+
+        Ok(())
     }
 }

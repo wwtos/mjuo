@@ -4,14 +4,16 @@ use node_engine::{
 };
 use serde_json::json;
 use snafu::ResultExt;
-use tokio::sync::broadcast;
 
-use crate::errors::{EngineError, JsonParserSnafu, NodeSnafu};
+use crate::{
+    errors::{EngineError, JsonParserSnafu, NodeSnafu},
+    Sender,
+};
 
 pub fn send_graph_updates(
     state: &mut NodeState,
     graph_index: GraphIndex,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &Sender<IpcMessage>,
 ) -> Result<(), EngineError> {
     let graph = state
         .get_graph_manager()
@@ -34,10 +36,7 @@ pub fn send_graph_updates(
     Ok(())
 }
 
-pub fn send_registry_updates(
-    registry: &SocketRegistry,
-    to_server: &broadcast::Sender<IpcMessage>,
-) -> Result<(), EngineError> {
+pub fn send_registry_updates(registry: &SocketRegistry, to_server: &Sender<IpcMessage>) -> Result<(), EngineError> {
     let json = serde_json::to_value(registry).context(JsonParserSnafu)?;
 
     to_server
@@ -52,7 +51,7 @@ pub fn send_registry_updates(
 
 pub fn send_global_state_updates(
     global_state: &mut GlobalState,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &Sender<IpcMessage>,
 ) -> Result<(), EngineError> {
     let json = global_state.to_json();
 

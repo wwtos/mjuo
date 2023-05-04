@@ -11,6 +11,7 @@ pub enum EngineError {
     #[snafu(display("Cpal error: {source}"))]
     CpalError { source: Box<dyn std::error::Error> },
     #[snafu(display("Symphonia error: {source}"))]
+    #[cfg(any(unix, windows))]
     SymphoniaError { source: symphonia::core::errors::Error },
     #[snafu(display("File error: {source}"))]
     FileError { source: std::io::Error },

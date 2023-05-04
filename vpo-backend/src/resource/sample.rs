@@ -3,11 +3,11 @@ use std::path::Path;
 use regex::Regex;
 use sound_engine::MonoSample;
 
-use super::decode_audio::decode_audio;
 use crate::errors::EngineError;
 
-#[cfg(not(wasm32))]
+#[cfg(any(unix, windows))]
 pub fn load_sample(location: &Path) -> Result<MonoSample, EngineError> {
+    use super::decode_audio::decode_audio;
     use crate::{errors::FileSnafu, resource::util::first_channel_only};
     use snafu::ResultExt;
     use std::fs::File;

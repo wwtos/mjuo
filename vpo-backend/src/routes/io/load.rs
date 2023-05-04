@@ -4,18 +4,18 @@ use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
 use rfd::AsyncFileDialog;
 use serde_json::Value;
-use tokio::sync::broadcast;
 
 use crate::{
     errors::EngineError,
     io::load,
     routes::RouteReturn,
     util::{send_global_state_updates, send_graph_updates, send_registry_updates},
+    Sender,
 };
 
 pub async fn route(
     _msg: Value,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
