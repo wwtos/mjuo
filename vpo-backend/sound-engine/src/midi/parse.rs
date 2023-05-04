@@ -100,18 +100,26 @@ impl MidiParser {
                 let note = self.buffer[1] as Note;
                 let velocity = self.buffer[2] as Velocity;
 
-                match message_type {
-                    0b1000 => MidiData::NoteOff {
+                if velocity == 0 {
+                    MidiData::NoteOff {
                         channel,
                         note,
                         velocity,
-                    },
-                    0b1001 => MidiData::NoteOn {
-                        channel,
-                        note,
-                        velocity,
-                    },
-                    _ => unreachable!(),
+                    }
+                } else {
+                    match message_type {
+                        0b1000 => MidiData::NoteOff {
+                            channel,
+                            note,
+                            velocity,
+                        },
+                        0b1001 => MidiData::NoteOn {
+                            channel,
+                            note,
+                            velocity,
+                        },
+                        _ => unreachable!(),
+                    }
                 }
             }
             // polyphonic key pressure
@@ -187,8 +195,11 @@ impl Write for MidiParser {
 
             if self.is_done() {
                 self.process();
-                self.last_message = self.parsed.last().unwrap().clone();
-                self.buffer_len = 0;
+
+                if let Some(last) = self.parsed.last() {
+                    self.last_message = last.clone();
+                    self.buffer_len = 0;
+                }
             }
         }
 

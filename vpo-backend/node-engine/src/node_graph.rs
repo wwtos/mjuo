@@ -5,7 +5,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::{InputSideConnection, OutputSideConnection, Socket},
+    connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
     errors::{NodeError, NodeOk, NodeResult},
     node::NodeIndex,
     node_wrapper::NodeWrapper,
@@ -59,6 +59,55 @@ impl NodeGraph {
         let (index, diff) = self.nodes.add_vertex(new_node.value)?;
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
+    }
+
+    pub fn update_node_rows(&mut self, node_index: NodeIndex, registry: &mut SocketRegistry) -> Result<(), NodeError> {
+        let node = self.get_node(node_index)?;
+
+        let new_rows = variant_io(
+            &node.get_node_type(),
+            node.get_properties().clone(),
+            &mut |name: &str| registry.register_socket(name),
+        )?
+        .node_rows;
+
+        let removed: Vec<(Socket, SocketDirection)> = node
+            .get_node_rows()
+            .iter()
+            .filter(|&old_row| !new_rows.iter().any(|new_row| new_row == old_row))
+            .filter_map(|row| row.to_socket_and_direction())
+            .collect();
+
+        for input_connection in self.get_input_side_connections(node_index)? {
+            if removed.iter().any(|(socket, direction)| {
+                socket == &input_connection.to_socket && direction == &SocketDirection::Input
+            }) {
+                self.disconnect(
+                    input_connection.from_node,
+                    input_connection.from_socket,
+                    node_index,
+                    input_connection.to_socket,
+                )?;
+            }
+        }
+
+        for output_connection in self.get_output_side_connections(node_index)? {
+            if removed.iter().any(|(socket, direction)| {
+                socket == &output_connection.to_socket && direction == &SocketDirection::Output
+            }) {
+                self.disconnect(
+                    node_index,
+                    output_connection.from_socket,
+                    output_connection.to_node,
+                    output_connection.to_socket,
+                )?;
+            }
+        }
+
+        let node = self.get_node_mut(node_index)?;
+        node.set_node_rows(new_rows);
+
+        Ok(())
     }
 
     pub fn connect(

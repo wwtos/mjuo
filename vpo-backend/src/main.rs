@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use node_engine::global_state::GlobalState;
 
 use node_engine::state::NodeState;
@@ -12,7 +10,8 @@ use vpo_backend::{handle_msg, start_ipc};
 async fn main() {
     let (to_server, mut from_server) = start_ipc().await;
 
-    let buffer_size = 1024;
+    let engine_buffer_size = 64;
+    let io_requested_buffer_size = 512;
 
     let mut global_state = GlobalState::new(SoundConfig::default());
 
@@ -26,8 +25,9 @@ async fn main() {
         .connect(
             output_device,
             global_state.resources.clone(),
-            buffer_size,
-            44_100,
+            engine_buffer_size,
+            io_requested_buffer_size,
+            48_000,
             receiver,
         )
         .unwrap();
@@ -36,7 +36,7 @@ async fn main() {
 
     global_state.sound_config = SoundConfig {
         sample_rate: config.sample_rate.0,
-        buffer_size,
+        buffer_size: engine_buffer_size,
     };
 
     // set up state

@@ -148,6 +148,22 @@ impl NodeState {
         })
     }
 
+    pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
+        let script_engine = rhai::Engine::new_raw();
+        let resources = global_state.resources.read().unwrap();
+
+        let (traverser, errors_and_warnings) = BufferedTraverser::new(
+            self.root_graph_index,
+            &self.graph_manager,
+            &script_engine,
+            &resources,
+            0,
+            global_state.sound_config.clone(),
+        )?;
+
+        Ok(traverser)
+    }
+
     pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
         let script_engine = rhai::Engine::new_raw();
         let resources = global_state.resources.read().unwrap();
@@ -473,7 +489,10 @@ impl NodeState {
                     let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
                     let node = graph.get_node_mut(index.node_index)?;
 
-                    node.replace_properties(after.clone())
+                    let old_props = node.set_properties(after.clone());
+                    graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+
+                    old_props
                 };
 
                 action_result.graph_operated_on = Some(index.graph_index);

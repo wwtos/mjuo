@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     iter::repeat,
-    mem,
     slice::{from_raw_parts, from_raw_parts_mut},
 };
 
@@ -395,7 +394,7 @@ impl BufferedTraverser {
             let mut should_input_midi = false;
 
             for j in 0..inputs {
-                midi_inputs[j] = mem::replace(&mut self.midi_outputs[self.midi_input_mappings[midi_mapping_i]], None);
+                midi_inputs[j] = self.midi_outputs[self.midi_input_mappings[midi_mapping_i]].clone();
                 midi_mapping_i += 1;
 
                 should_input_midi |= midi_inputs[j].is_some();
@@ -412,10 +411,7 @@ impl BufferedTraverser {
             let mut should_input_value = false;
 
             for j in 0..inputs {
-                value_inputs[j] = mem::replace(
-                    &mut self.value_outputs[self.value_input_mappings[value_mapping_i]],
-                    None,
-                );
+                value_inputs[j] = self.value_outputs[self.value_input_mappings[value_mapping_i]].clone();
                 value_mapping_i += 1;
 
                 should_input_value |= value_inputs[j].is_some();
@@ -513,6 +509,7 @@ impl BufferedTraverser {
             let outputs = advance_by.outputs;
             let output_index = midi_outputs_i + advance_by.defaults;
 
+            self.midi_outputs[output_index..(output_index + outputs)].fill(None);
             node.get_midi_outputs(&mut self.midi_outputs[output_index..(output_index + outputs)]);
 
             midi_outputs_i += advance_by.defaults + advance_by.outputs;
@@ -522,6 +519,7 @@ impl BufferedTraverser {
             let outputs = advance_by.outputs;
             let output_index = value_outputs_i + advance_by.defaults;
 
+            self.value_outputs[output_index..(output_index + outputs)].fill(None);
             node.get_value_outputs(&mut self.value_outputs[output_index..(output_index + outputs)]);
 
             value_outputs_i += advance_by.defaults + advance_by.outputs;

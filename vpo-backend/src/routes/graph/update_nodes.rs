@@ -49,13 +49,6 @@ pub async fn route(
         .into_iter()
         .flat_map(|(updated_node, index)| {
             [
-                updated_node.properties.map(|properties| Action::ChangeNodeProperties {
-                    index: GlobalNodeIndex {
-                        node_index: index,
-                        graph_index: payload.graph_index,
-                    },
-                    props: properties,
-                }),
                 updated_node.ui_data.map(|ui_data| Action::ChangeNodeUiData {
                     index: GlobalNodeIndex {
                         node_index: index,
@@ -72,6 +65,13 @@ pub async fn route(
                         },
                         overrides,
                     }),
+                updated_node.properties.map(|properties| Action::ChangeNodeProperties {
+                    index: GlobalNodeIndex {
+                        node_index: index,
+                        graph_index: payload.graph_index,
+                    },
+                    props: properties,
+                }),
             ]
         })
         .flatten()

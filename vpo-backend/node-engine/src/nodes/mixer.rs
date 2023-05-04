@@ -37,13 +37,16 @@ impl Node for MixerNode {
             stream_output(register("audio"), 0.0),
         ];
 
-        if let Some(Property::Integer(input_count)) = props.get("input_count") {
-            for i in 0..(*input_count) {
-                node_rows.push(NodeRow::Input(
-                    Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Stream, 1),
-                    SocketValue::Stream(0.0),
-                ));
-            }
+        let input_count = props
+            .get("input_count")
+            .and_then(|x| x.clone().as_integer())
+            .unwrap_or(2);
+
+        for i in 0..input_count {
+            node_rows.push(NodeRow::Input(
+                Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Stream, 1),
+                SocketValue::Stream(0.0),
+            ));
         }
 
         NodeIo::simple(node_rows)

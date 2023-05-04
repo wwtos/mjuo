@@ -4,6 +4,7 @@ use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
 use rfd::AsyncFileDialog;
 use serde_json::Value;
+use snafu::ResultExt;
 
 use crate::{
     errors::EngineError,
@@ -32,6 +33,16 @@ pub async fn route(
         send_global_state_updates(global_state, to_server)?;
         send_registry_updates(state.get_registry(), to_server)?;
         send_graph_updates(state, state.get_root_graph_index(), to_server)?;
+
+        return Ok(Some(RouteReturn {
+            graph_to_reindex: None,
+            graph_operated_on: None,
+            new_traverser: Some(
+                state
+                    .get_traverser(global_state)
+                    .whatever_context("could not create traverser")?,
+            ),
+        }));
     }
 
     Ok(None)

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, mem};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -83,6 +83,14 @@ impl NodeWrapper {
         None
     }
 
+    pub fn get_node_rows(&self) -> &Vec<NodeRow> {
+        &self.node_rows
+    }
+
+    pub fn set_node_rows(&mut self, rows: Vec<NodeRow>) -> Vec<NodeRow> {
+        mem::replace(&mut self.node_rows, rows)
+    }
+
     pub fn get_property(&self, name: &str) -> Option<Property> {
         self.properties.get(name).cloned()
     }
@@ -95,11 +103,7 @@ impl NodeWrapper {
         &self.properties
     }
 
-    pub fn set_properties(&mut self, properties: HashMap<String, Property>) {
-        self.properties = properties;
-    }
-
-    pub fn replace_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
+    pub fn set_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
         std::mem::replace(&mut self.properties, properties)
     }
 

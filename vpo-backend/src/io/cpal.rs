@@ -45,6 +45,7 @@ impl CpalBackend {
         device: Device,
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
+        io_requested_buffer_size: usize,
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
     ) -> Result<(Stream, mpsc::Sender<NodeEngine>, StreamConfig), EngineError> {
@@ -66,7 +67,7 @@ impl CpalBackend {
         let config = StreamConfig {
             channels: config_bounds.channels(),
             sample_rate: config_bounds.sample_rate(),
-            buffer_size: cpal::BufferSize::Fixed(buffer_size as u32),
+            buffer_size: cpal::BufferSize::Fixed(io_requested_buffer_size as u32),
         };
 
         println!("Config: {:?}", config);
