@@ -112,40 +112,29 @@ impl CpalBackend {
             .build_output_stream(
                 &config,
                 // main callback
-                move |out: &mut [f32], info| {
+                move |out: &mut [f32], _info| {
                     if let Ok(new_engine) = receiver.try_recv() {
                         engine = Some(new_engine);
-                        start_instant = None;
+                        playback_time = 0;
+                        midi_time_offset = 0;
                     }
 
                     if let Some(engine) = &mut engine {
                         // timing stuff (not fun)
-                        let playback_time = info.timestamp().playback;
-                        let start = start_instant.unwrap_or(playback_time);
-
-                        // for some reason the first call starts with not 0 for time
-                        if start > playback_time {
-                            start_instant = None;
-                        } else {
-                            start_instant = Some(start);
-                        }
-
-                        let playback_time_micros =
-                            ((engine.current_time as f64 / sample_rate as f64) * 1_000_000f64) as i64;
-                        let playback_time = (playback_time_micros * sample_rate as i64) / 1_000_000;
-
+                        let playback_time_micros = ((playback_time as f64 / sample_rate as f64) * 1_000_000f64) as i64;
                         let resources = resources.try_read();
 
                         if let Ok(resources) = resources {
                             for (i, frame) in out.iter_mut().enumerate() {
-                                let time_samples = playback_time + i as i64;
-
                                 // are there enough slots open to step the engine?
                                 if producer.slots() > buffer_size * config.channels as usize {
                                     let midi = midi_in.try_recv().unwrap_or(smallvec![]);
 
-                                    if let (Some(message), 0) = (midi.first(), midi_time_offset) {
-                                        midi_time_offset = (playback_time_micros - message.timestamp as i64) as i64;
+                                    if let Some(message) = midi.first() {
+                                        if midi_time_offset == 0 || message.timestamp < playback_time_micros {
+                                            midi_time_offset = playback_time_micros - message.timestamp as i64;
+                                            println!("new offset: {}", midi_time_offset);
+                                        }
                                     }
 
                                     midi_buffer.extend(midi.into_iter().map(|message| MidiMessage {
@@ -154,17 +143,10 @@ impl CpalBackend {
                                             / 1_000_000,
                                     }));
 
-                                    if !midi_buffer.is_empty() {
-                                        println!(
-                                            "buffer: {:?} (@{}, engine: {})",
-                                            midi_buffer, time_samples, engine.current_time
-                                        );
-                                    }
-
                                     // figure out how far before the midi messages exceed the current buffer time
                                     match midi_buffer
                                         .iter()
-                                        .position(|message| message.timestamp > time_samples + buffer_size as i64)
+                                        .position(|message| message.timestamp > playback_time + buffer_size as i64)
                                     {
                                         Some(stop_at) => {
                                             let midi_constrained: MidiBundle = midi_buffer.drain(..stop_at).collect();
@@ -184,6 +166,10 @@ impl CpalBackend {
                                 }
 
                                 *frame = consumer.pop().unwrap();
+
+                                if i % config.channels as usize == 0 {
+                                    playback_time += 1;
+                                }
                             }
                         } else {
                             // if we were unable to acquire resources in time, we'll

@@ -91,8 +91,6 @@ impl RankPlayer {
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
                 open_voice.player = PipePlayer::new(pipe, sample);
-                open_voice.player.play(pipe, sample);
-
                 open_voice.note = note;
             }
         }
@@ -134,7 +132,7 @@ impl RankPlayer {
             if let Some((pipe, sample)) = pipe_and_sample {
                 for (i, output) in out.iter_mut().enumerate() {
                     while midi_position < midi.len() {
-                        if midi[midi_position].timestamp < time + i as i64 {
+                        if midi[midi_position].timestamp > time + i as i64 {
                             break;
                         }
 
@@ -160,6 +158,8 @@ impl RankPlayer {
                                 continue;
                             }
                         }
+
+                        midi_position += 1;
                     }
 
                     *output += voice.player.next_sample(pipe, sample);
