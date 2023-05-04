@@ -30,9 +30,9 @@ pub enum EngineError {
     #[snafu(display("Parser error: {source}"))]
     ParserError { source: serde_json::Error },
     #[snafu(display("TOML serialization error: {source}"))]
-    TomlParserSerError { source: toml::ser::Error },
+    TomlParserSerError { source: toml_edit::ser::Error },
     #[snafu(display("TOML deserialization error: {source}"))]
-    TomlParserDeError { source: toml::de::Error },
+    TomlParserDeError { source: toml_edit::de::Error },
     #[snafu(whatever, display("{message}"))]
     Whatever {
         message: String,

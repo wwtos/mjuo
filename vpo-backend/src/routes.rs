@@ -45,6 +45,8 @@ pub async fn route(
                 "io/load" => io::load::route(json, to_server, state, global_state).await,
                 #[cfg(any(unix, windows))]
                 "io/create" => io::create::route(json, to_server, state, global_state).await,
+                #[cfg(any(unix, windows))]
+                "io/importRank" => io::import_rank::route(json, to_server, state, global_state).await,
                 _ => Ok(None),
             };
         }

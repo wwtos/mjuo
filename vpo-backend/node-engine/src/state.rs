@@ -607,7 +607,8 @@ impl NodeState {
             "graph_manager": self.graph_manager,
             "root_graph_index": self.root_graph_index,
             "output_node": self.output_node,
-            "midi_in_node": self.midi_in_node
+            "midi_in_node": self.midi_in_node,
+            "socket_registry": self.socket_registry
         })
     }
 
@@ -617,6 +618,7 @@ impl NodeState {
         root_graph_index: GraphIndex,
         output_node: NodeIndex,
         midi_in_node: NodeIndex,
+        socket_registry: SocketRegistry,
     ) {
         self.history.clear();
         self.place_in_history = 0;
@@ -624,5 +626,6 @@ impl NodeState {
         self.root_graph_index = root_graph_index;
         self.output_node = output_node;
         self.midi_in_node = midi_in_node;
+        self.socket_registry = socket_registry;
     }
 }

@@ -13,4 +13,6 @@ pub enum IpcError {
     ReceiveError {
         source: tokio::sync::broadcast::error::RecvError,
     },
+    #[snafu(display("Dropped connection"))]
+    DroppedConnection,
 }

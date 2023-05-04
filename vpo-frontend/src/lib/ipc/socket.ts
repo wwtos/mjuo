@@ -100,7 +100,7 @@ export abstract class IpcSocket {
 
     create () {
         this.send({
-            action: "io/create"
+            "action": "io/create"
         });
     }
 
@@ -114,6 +114,15 @@ export abstract class IpcSocket {
         this.send({
             "action": "io/load",
         });
+    }
+
+    importRank (fileName: string, rankName: string) {
+        this.send({
+            "action": "io/importRank",
+            "payload": {
+                fileName, rankName
+            }
+        })
     }
 }
 

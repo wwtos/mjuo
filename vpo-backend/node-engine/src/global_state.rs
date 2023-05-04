@@ -47,4 +47,11 @@ impl GlobalState {
             "resources": *resources
         })
     }
+
+    pub fn project_directory(&self) -> Option<PathBuf> {
+        self.active_project
+            .as_ref()
+            .and_then(|project| project.parent())
+            .map(|dir| dir.into())
+    }
 }

@@ -10,6 +10,7 @@ byteorder = "1.4.3"
 console_error_panic_hook = {version = "0.1.6", optional = true}
 crossbeam = "0.8.2"
 futures = "0.3.27"
+hound = "3.5.0"
 ipc = {path = "./ipc"}
 lazy_static = "1.4.0"
 node-engine = {path = "./node-engine"}
@@ -21,11 +22,12 @@ rhai = {version = "1.7.0", default-features = false, features = ["f32_float", "o
 semver = "1.0.14"
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"
+serde_with = "3.0.0"
 smallvec = {version = "1.10", features = ["serde"]}
 snafu = "0.7"
 sound-engine = {path = "./sound-engine"}
 tokio = "1.28.0"
-toml = "0.5"
+toml_edit = {version = "0.19.8", features = ["serde"]}
 walkdir = "2"
 
 [lib]

@@ -15,3 +15,7 @@ pub fn mix_to_mono(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
 
     result
 }
+
+pub fn first_channel_only(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
+    audio.iter().step_by(channel_count).copied().collect()
+}

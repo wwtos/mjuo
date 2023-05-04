@@ -91,28 +91,8 @@ impl PipePlayer {
         // Find different amplitudes in attack section. This allows quickly jumping to a needed
         // amplitude in the attack section (used for reattacking, amplitude is matched with the current
         // audio amplitude in the release phase)
-        let mut envelope_points = [0; ENVELOPE_POINTS];
         let peak_amp = amp32(&audio[pipe.decay_index..(pipe.decay_index + amplitude_calc_window)]);
-
-        for target_amp_index in 0..ENVELOPE_POINTS {
-            let target_amp = target_amp_index as f32 / ENVELOPE_POINTS as f32 * peak_amp;
-
-            let mut closest_index = 0;
-            let mut closest_score = f32::INFINITY;
-
-            for i in (0..pipe.decay_index).step_by(5) {
-                let amp = amp32(&audio[i..(i + amplitude_calc_window)]);
-
-                let amp_diff = (amp - target_amp).abs();
-
-                if amp_diff < closest_score {
-                    closest_index = i;
-                    closest_score = amp_diff;
-                }
-            }
-
-            envelope_points[target_amp_index] = closest_index;
-        }
+        let envelope_points = PipePlayer::calculate_envelope_points(pipe, sample, amplitude_calc_window, peak_amp);
 
         PipePlayer {
             sample_length,
@@ -359,5 +339,41 @@ impl PipePlayer {
         self.crossfade_position = 1.0;
         self.audio_amplitude = 1.0;
         self.crossfade_amplitude = 1.0;
+    }
+
+    fn calculate_envelope_points(
+        pipe: &Pipe,
+        sample: &MonoSample,
+        window_size: usize,
+        peak_amp: f32,
+    ) -> [usize; ENVELOPE_POINTS] {
+        let mut envelope_points = [0; ENVELOPE_POINTS];
+
+        let audio = &sample.audio_raw;
+
+        let amps: Vec<f32> = (0..pipe.decay_index)
+            .step_by(window_size)
+            .map(|i| amp32(&audio[i..(i + window_size)]))
+            .collect();
+
+        for target_amp_index in 0..ENVELOPE_POINTS {
+            let target_amp = target_amp_index as f32 / ENVELOPE_POINTS as f32 * peak_amp;
+
+            let mut closest_index = 0;
+            let mut closest_score = f32::INFINITY;
+
+            for (i, amp) in amps.iter().enumerate() {
+                let amp_diff = (amp - target_amp).abs();
+
+                if amp_diff < closest_score {
+                    closest_index = i;
+                    closest_score = amp_diff;
+                }
+            }
+
+            envelope_points[target_amp_index] = closest_index * window_size;
+        }
+
+        envelope_points
     }
 }

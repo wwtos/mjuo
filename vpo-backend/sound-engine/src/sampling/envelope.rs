@@ -10,6 +10,7 @@ use super::{
     util::{abs, argmax, argmin, gradient, median, norm_signal, resample_to, rms, std},
 };
 
+#[derive(Debug, Clone)]
 pub struct SampleMetadata {
     pub decay_index: usize,
     pub sustain_index: usize,

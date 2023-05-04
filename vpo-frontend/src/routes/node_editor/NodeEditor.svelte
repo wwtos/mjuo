@@ -405,7 +405,11 @@
     }
 
     onMount(async () => {
-        zoomer = panzoom(nodeContainer);
+        zoomer = panzoom(nodeContainer, {
+            smoothScroll: false,
+            maxZoom: 1,
+            minZoom: 0.1,
+        });
     });
 </script>
 

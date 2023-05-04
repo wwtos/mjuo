@@ -1,16 +1,16 @@
-use std::{collections::BTreeMap, fs::read_to_string, path::PathBuf};
+use std::{collections::BTreeMap, fs::read_to_string, path::Path};
 
 use resource_manager::ResourceId;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use sound_engine::{
     sampling::rank::{Pipe, Rank},
-    util::db_to_amplitude,
+    util::{amplitude_to_db, db_to_amplitude},
 };
 
 use crate::errors::{EngineError, TomlParserDeSnafu};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 struct RankConfigEntry {
     cents: i16,
     decay_index: usize,
@@ -31,11 +31,11 @@ fn crossfade_default() -> usize {
     256
 }
 
-#[derive(Debug, Deserialize)]
-struct RankConfig {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RankConfig {
     name: String,
     sample_location: ResourceId,
-    pipe: BTreeMap<u8, RankConfigEntry>,
+    pipe: BTreeMap<String, RankConfigEntry>,
 
     // optional parameters
     #[serde(default)]
@@ -46,20 +46,58 @@ struct RankConfig {
     sample_format: Option<String>,
 }
 
+impl RankConfig {
+    pub fn from_rank(rank: Rank, sample_location: ResourceId) -> Self {
+        let entries: BTreeMap<String, RankConfigEntry> = rank
+            .pipes
+            .into_iter()
+            .map(|(note, pipe)| {
+                (
+                    note.to_string(),
+                    RankConfigEntry {
+                        cents: pipe.cents,
+                        decay_index: pipe.decay_index,
+                        loop_start: pipe.loop_start,
+                        loop_end: pipe.loop_end,
+                        release_index: pipe.release_index,
+                        crossfade: Some(pipe.crossfade),
+                        file: None,
+                        attenuation: amplitude_to_db(pipe.amplitude),
+                    },
+                )
+            })
+            .collect();
+
+        RankConfig {
+            name: rank.name,
+            sample_location,
+            pipe: entries,
+            attenuation: 0.0,
+            crossfade: 0,
+            sample_format: None,
+        }
+    }
+}
+
 const NOTE_LOOKUP: [&str; 12] = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-fn expected_sample_location(note: u8, sample_format: &str) -> String {
+pub fn expected_sample_location(note: u8, sample_format: &str) -> String {
     format!("{:0>3}-{}.{}", note, NOTE_LOOKUP[(note % 12) as usize], sample_format)
 }
 
 /// Parses a `[rank].toml` file and converts it into a `Rank`
 pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
-    let parsed: RankConfig = toml::from_str(config).context(TomlParserDeSnafu)?;
+    let parsed: RankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
 
     let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
     let sample_format = parsed.sample_format.unwrap_or("wav".into());
 
     for (note, entry) in parsed.pipe {
+        let note: u8 = match note.parse() {
+            Ok(note) => note,
+            Err(_) => continue,
+        };
+
         let resource = if let Some(resource) = entry.file {
             parsed.sample_location.concat(&resource)
         } else {
@@ -91,7 +129,7 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
 }
 
 #[cfg(not(wasm32))]
-pub fn load_rank_from_file(path: PathBuf) -> Result<Rank, EngineError> {
+pub fn load_rank_from_file(path: &Path) -> Result<Rank, EngineError> {
     use crate::errors::IoSnafu;
 
     let file = read_to_string(path).context(IoSnafu)?;

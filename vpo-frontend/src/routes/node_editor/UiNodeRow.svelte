@@ -183,7 +183,16 @@
     }
 
     input {
+        height: 26px;
+        border: none;
         border-radius: 5px;
+        outline: none;
+        box-shadow: none;
+        resize: none;
+    }
+
+    input:focus-visible {
+        outline: 1px solid blue;
     }
 
     input[type="checkbox"] {

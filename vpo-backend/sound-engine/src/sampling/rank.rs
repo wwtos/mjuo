@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use resource_manager::{deserialize_resource_id, serialize_resource_id, ResourceId};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Pipe {
@@ -18,8 +19,10 @@ pub struct Pipe {
     pub crossfade: usize,
 }
 
-#[derive(Default, Debug)]
+#[serde_as]
+#[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Rank {
+    #[serde_as(as = "BTreeMap<DisplayFromStr, _>")]
     pub pipes: BTreeMap<u8, Pipe>,
     pub name: String,
 }

@@ -7,9 +7,16 @@
     export let socket: IpcSocket;
 
     let fileInput: HTMLInputElement;
+    let importingRank: boolean;
+    let rankFileName: string = "";
+    let rankName: string = "";
 
     function openFileViewer() {
         socket.create();
+    }
+
+    function importRankFiles() {
+        socket.importRank(rankFileName, rankName);
     }
 </script>
 
@@ -20,5 +27,21 @@
 
     {#if $globalState.activeProject}
         <h1>{$globalState.activeProject}</h1>
+        <button on:click={() => (importingRank = !importingRank)}
+            >Import rank</button
+        >
+        {#if importingRank}
+            <label>
+                Rank file name:
+                <input bind:value={rankFileName} />
+            </label>
+            <label>
+                Rank name:
+                <input bind:value={rankName} />
+            </label>
+            <button on:click={importRankFiles}
+                >Import files (fill out other fields first)</button
+            >
+        {/if}
     {/if}
 </div>

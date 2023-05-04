@@ -169,6 +169,15 @@
 
     input {
         border-radius: 5px;
+        height: 26px;
+        border: none;
+        outline: none;
+        box-shadow: none;
+        resize: none;
+    }
+
+    input:focus-visible {
+        outline: 1px solid blue;
     }
 
     .container {
@@ -183,5 +192,13 @@
         background: white;
         height: 26px;
         padding: 2px;
+        border: none;
+        outline: none;
+        box-shadow: none;
+        resize: none;
+    }
+
+    select:focus-visible {
+        outline: 1px solid blue;
     }
 </style>

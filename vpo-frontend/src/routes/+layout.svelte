@@ -35,9 +35,11 @@
             switch (event.key) {
                 case "s":
                     data.socket.save();
+                    event.preventDefault();
                     break;
                 case "o":
                     data.socket.load();
+                    event.preventDefault();
                     break;
             }
         }
@@ -137,32 +139,3 @@
     <SvelteToast />
     <slot />
 </FluentProvider>
-
-<style>
-    :global(input) {
-        height: 26px;
-        border: none;
-        outline: none;
-        border-radius: 0;
-        box-shadow: none;
-        resize: none;
-    }
-
-    :global(input:focus-visible) {
-        outline: 1px solid blue;
-        border-radius: 0;
-    }
-
-    :global(select) {
-        border: none;
-        outline: none;
-        border-radius: 0;
-        box-shadow: none;
-        resize: none;
-    }
-
-    :global(select:focus-visible) {
-        outline: 1px solid blue;
-        border-radius: 0;
-    }
-</style>

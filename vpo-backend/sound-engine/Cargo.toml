@@ -15,6 +15,7 @@ regex = "1.7"
 resource-manager = {path = "../resource-manager"}
 serde = {version = "1.0.133", features = ["derive"]}
 serde_json = "1.0.74"
+serde_with = "3.0.0"
 simple-error = "0.2.3"
 snafu = "0.7.0"
 toml = "0.5"

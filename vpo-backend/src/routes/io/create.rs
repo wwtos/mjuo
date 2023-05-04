@@ -12,14 +12,12 @@ pub async fn route(
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
-    if let Some(project_path) = &global_state.active_project {
-        save(state, project_path)?;
-    } else {
-        let file = AsyncFileDialog::new().set_file_name("untitled.mjuo").save_file().await;
+    let file = AsyncFileDialog::new().set_file_name("untitled.mjuo").save_file().await;
 
-        if let Some(file) = file {
-            save(state, file.path())?;
-        }
+    if let Some(file) = file {
+        save(state, file.path())?;
+
+        global_state.active_project = Some(file.path().into());
     }
 
     Ok(None)

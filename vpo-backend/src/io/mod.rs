@@ -16,7 +16,7 @@ use node_engine::{global_state::GlobalState, state::NodeState};
 use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
@@ -38,6 +38,12 @@ pub fn save(state: &NodeState, path: &Path) -> Result<(), EngineError> {
         "state": state.to_json()
     });
 
+    let parent = path
+        .parent()
+        .whatever_context(format!("path {:?} has no parent", path))?;
+
+    fs::create_dir_all(parent.join("samples")).context(IoSnafu)?;
+    fs::create_dir_all(parent.join("ranks")).context(IoSnafu)?;
     fs::write(path, serde_json::to_string_pretty(&state).context(JsonParserSnafu)?).context(IoSnafu)?;
 
     Ok(())
@@ -51,7 +57,7 @@ fn load_resources<T, F>(
 ) -> Result<(), EngineError>
 where
     T: Send + Sync + Debug + 'static,
-    F: Fn(PathBuf) -> Result<T, EngineError> + Send + Sync,
+    F: Fn(&Path) -> Result<T, EngineError> + Send + Sync,
 {
     // build iterator to traverse directories
     let asset_list = WalkDir::new(path)
@@ -86,7 +92,7 @@ where
 
         pool.execute(move || {
             // load and register it
-            let new_resource = load_resource(location.clone()).unwrap();
+            let new_resource = load_resource(&location).unwrap();
             println!("Loaded: {}", location.to_string_lossy());
 
             resources_ref.lock().unwrap().insert(key, new_resource);
@@ -105,7 +111,11 @@ where
 }
 
 pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) -> Result<(), EngineError> {
-    let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
+    let parent = path
+        .parent()
+        .whatever_context(format!("path {:?} has no parent", path))?;
+
+    let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     if let Some(version) = json["version"].as_str() {
@@ -114,7 +124,7 @@ pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) 
         }
     }
 
-    let json_raw = fs::read_to_string(path.join("state.json")).context(IoSnafu)?;
+    let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     *state = NodeState::new(global_state).unwrap();
@@ -123,24 +133,33 @@ pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) 
     let mut resources = global_state.resources.write().unwrap();
 
     load_resources(
-        &path.join("samples"),
+        &parent.join("samples"),
         &mut resources.samples,
         AUDIO_EXTENSIONS,
         &load_sample,
     )?;
     load_resources(
-        &path.join("ranks"),
+        &parent.join("ranks"),
         &mut resources.ranks,
         &["toml"],
         &load_rank_from_file,
     )?;
 
-    let graph_manager = serde_json::from_value(json["graph_manager"].take()).context(JsonParserSnafu)?;
-    let root_graph_index = serde_json::from_value(json["root_graph_index"].take()).context(JsonParserSnafu)?;
-    let output_node = serde_json::from_value(json["output_node"].take()).context(JsonParserSnafu)?;
-    let midi_in_node = serde_json::from_value(json["midi_in_node"].take()).context(JsonParserSnafu)?;
+    let json_state = &mut json["state"];
 
-    state.load_state(graph_manager, root_graph_index, output_node, midi_in_node);
+    let graph_manager = serde_json::from_value(json_state["graph_manager"].take()).context(JsonParserSnafu)?;
+    let root_graph_index = serde_json::from_value(json_state["root_graph_index"].take()).context(JsonParserSnafu)?;
+    let output_node = serde_json::from_value(json_state["output_node"].take()).context(JsonParserSnafu)?;
+    let midi_in_node = serde_json::from_value(json_state["midi_in_node"].take()).context(JsonParserSnafu)?;
+    let socket_registry = serde_json::from_value(json_state["socket_registry"].take()).context(JsonParserSnafu)?;
+
+    state.load_state(
+        graph_manager,
+        root_graph_index,
+        output_node,
+        midi_in_node,
+        socket_registry,
+    );
 
     Ok(())
 }

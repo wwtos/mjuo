@@ -3,7 +3,7 @@ use log::info;
 use snafu::ResultExt;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
-use tokio_tungstenite::tungstenite::Message;
+use tokio_tungstenite::tungstenite::{self, Message};
 
 use crate::error::{IpcError, ReceiveSnafu, WebsocketSnafu};
 use crate::ipc_message::IpcMessage;
@@ -56,10 +56,13 @@ async fn create_connection_task(
 
                 let IpcMessage::Json(json) = msg;
 
-                to_client
+                let err = to_client
                     .send(Message::Text(serde_json::to_string(&json).unwrap()))
-                    .await
-                    .unwrap();
+                    .await;
+
+                if let Err(tungstenite::error::Error::ConnectionClosed) = err {
+                    break;
+                }
             }
 
             // for type annotations
