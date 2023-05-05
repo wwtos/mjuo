@@ -312,7 +312,7 @@ impl PipePlayer {
         self.crossfade_position = self.audio_position;
         self.crossfade_start = self.crossfade_position;
         self.crossfade_length = crossfade_length;
-        self.audio_position = new_location;
+        self.audio_position = new_location.max(1.0);
     }
 
     pub fn is_done(&self) -> bool {

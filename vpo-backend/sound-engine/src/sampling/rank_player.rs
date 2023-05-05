@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::MonoSample;
+use crate::{midi::messages::MidiData, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
 use resource_manager::{ResourceIndex, ResourceManager};
@@ -69,7 +69,7 @@ impl RankPlayer {
         0
     }
 
-    pub fn play_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+    fn allocate_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
@@ -83,40 +83,39 @@ impl RankPlayer {
             open_voice.active = true;
 
             if open_voice.player.is_uninitialized() {
-                let mut player = PipePlayer::new(pipe, sample);
-                player.play(pipe, sample);
+                let player = PipePlayer::new(pipe, sample);
 
                 open_voice.player = player;
                 open_voice.note = note;
             } else if note == open_voice.note {
-                open_voice.player.play(pipe, sample);
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
                 open_voice.player = PipePlayer::new(pipe, sample);
-                open_voice.player.play(pipe, sample);
-
                 open_voice.note = note;
             }
         }
     }
 
-    pub fn release_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
-        if let Some(voice) = self.voices.iter_mut().find(|voice| voice.note == note) {
-            let pipe_and_sample = self
-                .note_to_sample_map
-                .get(&note)
-                .and_then(|sample_index| samples.borrow_resource(*sample_index))
-                .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
-
-            if let Some((pipe, sample)) = pipe_and_sample {
-                voice.player.release(pipe, sample);
-            }
-        }
-    }
-
-    pub fn next_buffered(&mut self, rank: &Rank, samples: &ResourceManager<MonoSample>, out: &mut [f32]) {
+    pub fn next_buffered(
+        &mut self,
+        rank: &Rank,
+        time: i64,
+        midi: &MidiBundle,
+        samples: &ResourceManager<MonoSample>,
+        out: &mut [f32],
+    ) {
         for output in out.iter_mut() {
             *output = 0.0;
+        }
+
+        // allocate any needed voices
+        for message in midi {
+            match message.data {
+                MidiData::NoteOn { note, .. } => {
+                    self.allocate_note(note, rank, samples);
+                }
+                _ => {}
+            }
         }
 
         let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
@@ -128,13 +127,48 @@ impl RankPlayer {
                 .and_then(|sample_index| samples.borrow_resource(*sample_index))
                 .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
+            let mut midi_position = 0;
+
             if let Some((pipe, sample)) = pipe_and_sample {
-                for output in out.iter_mut() {
+                for (i, output) in out.iter_mut().enumerate() {
+                    while midi_position < midi.len() {
+                        if midi[midi_position].timestamp > time + i as i64 {
+                            break;
+                        }
+
+                        match midi[midi_position].data {
+                            MidiData::NoteOn { note, .. } => {
+                                if voice.note != note {
+                                    midi_position += 1;
+                                    continue;
+                                }
+
+                                voice.player.play(pipe, sample);
+                            }
+                            MidiData::NoteOff { note, .. } => {
+                                if voice.note != note {
+                                    midi_position += 1;
+                                    continue;
+                                }
+
+                                voice.player.release(pipe, sample);
+                            }
+                            _ => {
+                                midi_position += 1;
+                                continue;
+                            }
+                        }
+
+                        midi_position += 1;
+                    }
+
                     *output += voice.player.next_sample(pipe, sample);
 
                     if voice.player.is_done() {
                         voice.active = false;
                         voice.player.reset();
+
+                        break;
                     }
                 }
             }

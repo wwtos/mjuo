@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 
+use midi::messages::MidiMessage;
 use serde::Serialize;
+use smallvec::SmallVec;
 
 pub mod error;
 pub mod midi;
@@ -12,6 +14,7 @@ pub mod util;
 pub mod wave;
 
 pub type SamplePoint = i16;
+pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

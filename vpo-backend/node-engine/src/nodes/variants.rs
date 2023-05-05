@@ -21,9 +21,9 @@ use super::rank_player::RankPlayerNode;
 use super::stream_expression::StreamExpressionNode;
 use super::wavetable::WavetableNode;
 use super::{
-    biquad_filter::BiquadFilterNode, chord_sequencer::SequencerNode, dummy::DummyNode, envelope::EnvelopeNode,
-    expression::ExpressionNode, gain::GainNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
-    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
+    biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
+    gain::GainNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode, mixer::MixerNode,
+    oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[enum_dispatch]
@@ -49,7 +49,6 @@ pub enum NodeVariant {
     PortamentoNode,
     ButtonNode,
     RankPlayerNode,
-    SequencerNode,
 }
 
 impl Default for NodeVariant {
@@ -80,7 +79,6 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
         "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new(config))),
         "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::new(config))),
-        "SequencerNode" => Ok(NodeVariant::SequencerNode(SequencerNode::new(config))),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -111,7 +109,6 @@ pub fn variant_io(
         "PortamentoNode" => Ok(PortamentoNode::get_io(props, register)),
         "ButtonNode" => Ok(ButtonNode::get_io(props, register)),
         "RankPlayerNode" => Ok(RankPlayerNode::get_io(props, register)),
-        "SequencerNode" => Ok(SequencerNode::get_io(props, register)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

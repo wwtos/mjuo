@@ -4,6 +4,7 @@ use std::{io::Write, sync::mpsc};
 use midir::{Ignore, MidiInput, MidiInputConnection};
 use node_engine::connection::MidiBundle;
 use snafu::ResultExt;
+use sound_engine::midi::messages::MidiMessage;
 use sound_engine::midi::parse::MidiParser;
 
 use crate::errors::EngineError;
@@ -20,11 +21,18 @@ pub fn connect_midir_backend() -> Result<(Receiver<MidiBundle>, MidiInputConnect
         .connect(
             in_port,
             "Mason-Jones Unit Orchestra",
-            move |_stamp, message, _data| {
+            move |stamp, message, _data| {
                 parser.write_all(message).unwrap();
 
                 if !parser.parsed.is_empty() {
-                    let messages: MidiBundle = parser.parsed.drain(..).collect();
+                    let messages: MidiBundle = parser
+                        .parsed
+                        .drain(..)
+                        .map(|data| MidiMessage {
+                            data,
+                            timestamp: stamp as i64,
+                        })
+                        .collect();
 
                     sender.send(messages).unwrap();
                 }

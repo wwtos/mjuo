@@ -61,7 +61,11 @@ impl NodeGraph {
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
 
-    pub fn update_node_rows(&mut self, node_index: NodeIndex, registry: &mut SocketRegistry) -> Result<(), NodeError> {
+    pub fn update_node_rows(
+        &mut self,
+        node_index: NodeIndex,
+        registry: &mut SocketRegistry,
+    ) -> Result<Vec<NodeGraphDiff>, NodeError> {
         let node = self.get_node(node_index)?;
 
         let new_rows = variant_io(
@@ -70,6 +74,8 @@ impl NodeGraph {
             &mut |name: &str| registry.register_socket(name),
         )?
         .node_rows;
+
+        let mut diffs = vec![];
 
         let removed: Vec<(Socket, SocketDirection)> = node
             .get_node_rows()
@@ -82,12 +88,14 @@ impl NodeGraph {
             if removed.iter().any(|(socket, direction)| {
                 socket == &input_connection.to_socket && direction == &SocketDirection::Input
             }) {
-                self.disconnect(
+                let (_, diff) = self.disconnect(
                     input_connection.from_node,
                     input_connection.from_socket,
                     node_index,
                     input_connection.to_socket,
                 )?;
+
+                diffs.push(diff);
             }
         }
 
@@ -95,19 +103,21 @@ impl NodeGraph {
             if removed.iter().any(|(socket, direction)| {
                 socket == &output_connection.to_socket && direction == &SocketDirection::Output
             }) {
-                self.disconnect(
+                let (_, diff) = self.disconnect(
                     node_index,
                     output_connection.from_socket,
                     output_connection.to_node,
                     output_connection.to_socket,
                 )?;
+
+                diffs.push(diff);
             }
         }
 
         let node = self.get_node_mut(node_index)?;
         node.set_node_rows(new_rows);
 
-        Ok(())
+        Ok(diffs)
     }
 
     pub fn connect(

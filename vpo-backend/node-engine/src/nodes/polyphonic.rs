@@ -1,6 +1,6 @@
 use smallvec::{smallvec, SmallVec};
 
-use sound_engine::midi::messages::MidiData;
+use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
 
@@ -95,7 +95,7 @@ impl NodeRuntime for PolyphonicNode {
         if !self.voices.is_empty() {
             // go through all the messages and send them to all the appropriate locations
             for message in value {
-                let message_to_pass_to_all = match message {
+                let message_to_pass_to_all = match message.data {
                     MidiData::NoteOff { note, .. } => {
                         // look to see if there's a note on for this one, send it a turn off
                         // message if so
@@ -125,10 +125,13 @@ impl NodeRuntime for PolyphonicNode {
 
                             // be sure to send a note off message first
                             subgraph_input_node.accept_midi_inputs(&[Some(smallvec![
-                                MidiData::NoteOff {
-                                    channel,
-                                    note,
-                                    velocity: 0,
+                                MidiMessage {
+                                    data: MidiData::NoteOff {
+                                        channel,
+                                        note,
+                                        velocity: 0,
+                                    },
+                                    timestamp: message.timestamp - 1
                                 },
                                 message,
                             ])]);
@@ -145,10 +148,13 @@ impl NodeRuntime for PolyphonicNode {
 
                                 // TODO: test code here VV
                                 subgraph_input_node.accept_midi_inputs(&[Some(smallvec![
-                                    MidiData::NoteOff {
-                                        channel,
-                                        note: available.info.note,
-                                        velocity: 0,
+                                    MidiMessage {
+                                        data: MidiData::NoteOff {
+                                            channel,
+                                            note: available.info.note,
+                                            velocity: 0,
+                                        },
+                                        timestamp: message.timestamp - 1
                                     },
                                     message,
                                 ])]);
@@ -168,10 +174,13 @@ impl NodeRuntime for PolyphonicNode {
 
                                 // be sure to send a note off message first
                                 subgraph_input_node.accept_midi_inputs(&[Some(smallvec![
-                                    MidiData::NoteOff {
-                                        channel,
-                                        note: oldest.info.note,
-                                        velocity: 0,
+                                    MidiMessage {
+                                        data: MidiData::NoteOff {
+                                            channel,
+                                            note: oldest.info.note,
+                                            velocity: 0,
+                                        },
+                                        timestamp: message.timestamp - 1
                                     },
                                     message,
                                 ])]);
