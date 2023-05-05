@@ -19,3 +19,12 @@ export function deselectAll(graph: NodeGraph): VertexIndex[] {
 
     return touchedNodes.map(([_, index]) => index);
 }
+
+export function preventHistoryKeyActions(
+    this: HTMLInputElement,
+    event: KeyboardEvent
+) {
+    if (event.ctrlKey) {
+        if (event.key === "z" || event.key === "y") event.preventDefault();
+    }
+}

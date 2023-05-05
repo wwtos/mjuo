@@ -13,6 +13,7 @@
     } from "$lib/node-engine/connection";
     import UiSocket from "./UiSocket.svelte";
     import { createEventDispatcher } from "svelte";
+    import { preventHistoryKeyActions } from "./editor-utils";
 
     export let socket: Socket;
     export let label: string;
@@ -103,7 +104,7 @@
                             value={fixDigits(value.data.data, 3)}
                             on:mousedown|stopPropagation
                             on:change={bubbleOverrides}
-                            on:keydown|stopPropagation
+                            on:keydown={preventHistoryKeyActions}
                         />
                         <div>
                             <span class="input-hover-text">{label}</span>
@@ -127,7 +128,7 @@
                         value={fixDigits(value.data, 3)}
                         on:mousedown|stopPropagation
                         on:change={bubbleOverrides}
-                        on:keydown|stopPropagation
+                        on:keydown={preventHistoryKeyActions}
                     />
                     <div>
                         <span class="input-hover-text">{label}</span>

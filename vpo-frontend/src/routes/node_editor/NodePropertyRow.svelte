@@ -5,6 +5,7 @@
     import type { Property, PropertyType } from "$lib/node-engine/property";
     import { matchOrElse } from "$lib/util/discriminated-union";
     import { deepEqual } from "fast-equals";
+    import { preventHistoryKeyActions } from "./editor-utils";
 
     export let nodeWrapper: NodeWrapper;
     export let nodeIndex: VertexIndex;
@@ -85,7 +86,7 @@
                     value={value.data}
                     on:mousedown={(e) => e.stopPropagation()}
                     on:change={updateProperties}
-                    on:keydown={(event) => event.stopPropagation()}
+                    on:keydown={preventHistoryKeyActions}
                 />
                 <div>
                     <span class="input-hover-text">{propName}</span>
@@ -101,7 +102,7 @@
                     title={propName}
                     on:mousedown|stopPropagation
                     on:change={updateProperties}
-                    on:keydown|stopPropagation
+                    on:keydown={preventHistoryKeyActions}
                 />
                 {#if dataAsAny.length < 15}
                     <div>
@@ -121,7 +122,7 @@
                     title={propName}
                     on:mousedown|stopPropagation
                     on:change={updateProperties}
-                    on:keydown|stopPropagation
+                    on:keydown={preventHistoryKeyActions}
                 />
                 {#if (dataAsResource.namespace + ":" + dataAsResource.resource).length < 15}
                     <div>

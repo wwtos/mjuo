@@ -6,7 +6,7 @@ use crate::{
     engine::NodeEngine,
     errors::{NodeError, WarningExt},
     global_state::GlobalState,
-    graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
+    graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow},
     node_graph::NodeConnection,
     property::Property,
@@ -75,6 +75,7 @@ pub enum HistoryAction {
         index: GlobalNodeIndex,
         before: HashMap<String, Property>,
         after: HashMap<String, Property>,
+        graph_diff: GraphManagerDiff,
     },
     ChangeNodeUiData {
         index: GlobalNodeIndex,
@@ -380,8 +381,7 @@ impl NodeState {
 
             Ok(graphs_changed)
         } else {
-            todo!("Make sure brand new traverser has input and output node");
-            // Ok((Vec::new(), Vec::new(), Some(BufferedTraverser::new())))
+            Ok((Vec::new(), Vec::new(), None))
         }
     }
 
@@ -407,8 +407,7 @@ impl NodeState {
 
             Ok(graphs_changed)
         } else {
-            todo!("Make sure brand new traverser has input and output node");
-            // Ok((Vec::new(), Vec::new(), Some(BufferedTraverser::new())))
+            Ok((Vec::new(), Vec::new(), None))
         }
     }
 
@@ -449,11 +448,37 @@ impl NodeState {
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
             Action::ChangeNodeProperties { index, props } => {
-                self.reapply_action(HistoryAction::ChangeNodeProperties {
-                    index,
-                    before: HashMap::new(),
-                    after: props,
-                })?
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let node = graph.get_node_mut(index.node_index)?;
+
+                let before_props = node.set_properties(props.clone());
+                let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+
+                drop(graph);
+
+                let invalidations = ActionInvalidations {
+                    graph_to_reindex: None,
+                    graph_operated_on: Some(index.graph_index),
+                    nodes_created: vec![],
+                    defaults_to_update: None,
+                };
+
+                let graph_diff = GraphManagerDiff(
+                    graph_diffs
+                        .into_iter()
+                        .map(|diff| DiffElement::ChildGraphDiff(index.graph_index, diff))
+                        .collect(),
+                );
+
+                (
+                    HistoryAction::ChangeNodeProperties {
+                        index,
+                        before: before_props,
+                        after: props,
+                        graph_diff,
+                    },
+                    invalidations,
+                )
             }
             Action::ChangeNodeUiData { index, data } => self.reapply_action(HistoryAction::ChangeNodeUiData {
                 index,
@@ -483,22 +508,31 @@ impl NodeState {
         let new_action = match action {
             HistoryAction::ChangeNodeProperties {
                 index,
-                before: _,
+                before,
                 after,
+                graph_diff: _,
             } => {
-                let before = {
-                    let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
-                    let node = graph.get_node_mut(index.node_index)?;
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let node = graph.get_node_mut(index.node_index)?;
 
-                    let old_props = node.set_properties(after.clone());
-                    graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+                node.set_properties(after.clone());
+                let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
 
-                    old_props
-                };
+                let graph_diff = GraphManagerDiff(
+                    graph_diffs
+                        .into_iter()
+                        .map(|diff| DiffElement::ChildGraphDiff(index.graph_index, diff))
+                        .collect(),
+                );
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
-                HistoryAction::ChangeNodeProperties { index, before, after }
+                HistoryAction::ChangeNodeProperties {
+                    index,
+                    before,
+                    after,
+                    graph_diff,
+                }
             }
             HistoryAction::ChangeNodeUiData {
                 index,
@@ -562,18 +596,31 @@ impl NodeState {
         };
 
         let new_action = match action {
-            HistoryAction::ChangeNodeProperties { index, before, after } => {
-                {
-                    let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+            HistoryAction::ChangeNodeProperties {
+                index,
+                before,
+                after,
+                graph_diff,
+            } => {
+                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let node = graph.get_node_mut(index.node_index)?;
 
-                    let node = graph.get_node_mut(index.node_index)?;
+                node.set_properties(before.clone());
+                graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
 
-                    node.set_properties(before.clone());
-                }
+                drop(graph);
+
+                let cloned = graph_diff.clone();
+                action_result = self.graph_manager.rollback_action(graph_diff)?;
 
                 action_result.graph_operated_on = Some(index.graph_index);
 
-                HistoryAction::ChangeNodeProperties { index, before, after }
+                HistoryAction::ChangeNodeProperties {
+                    index,
+                    before,
+                    after,
+                    graph_diff: cloned,
+                }
             }
             HistoryAction::ChangeNodeUiData { index, before, after } => {
                 let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();

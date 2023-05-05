@@ -11,13 +11,13 @@ use crate::state::ActionInvalidations;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 #[derive(Debug, Clone)]
-enum DiffElement {
+pub enum DiffElement {
     GraphManagerDiff(GraphDiff<NodeGraphWrapper, ConnectedThrough>),
     ChildGraphDiff(GraphIndex, NodeGraphDiff),
 }
 
 #[derive(Debug, Clone)]
-pub struct GraphManagerDiff(Vec<DiffElement>);
+pub struct GraphManagerDiff(pub Vec<DiffElement>);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphIndex(pub VertexIndex);
