@@ -2,6 +2,7 @@
     import { type NodeVariant, variants } from "$lib/node-engine/variants";
     import { Localized } from "@nubolab-ffwd/svelte-fluent";
     import { createEventDispatcher } from "svelte";
+    import { localize } from "@nubolab-ffwd/svelte-fluent";
 
     const dispatch = createEventDispatcher();
 
@@ -24,7 +25,9 @@
 
     for (let category in categories) {
         categories[category].sort((a, b) =>
-            a.translationKey.localeCompare(b.translationKey)
+            $localize("node." + a.internal).localeCompare(
+                $localize("node." + b.internal)
+            )
         );
     }
 
@@ -62,7 +65,7 @@
                                 on:click={(event) =>
                                     valueSelected(nodeType.internal, event)}
                             >
-                                <Localized id={nodeType.translationKey} />
+                                {$localize("node." + nodeType.internal)}
                             </div>
                         {/each}
                     </div>

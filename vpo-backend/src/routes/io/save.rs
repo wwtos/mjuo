@@ -1,8 +1,7 @@
 use ipc::ipc_message::IpcMessage;
 use node_engine::{global_state::GlobalState, state::NodeState};
-use rfd::AsyncFileDialog;
+use rfd::{AsyncFileDialog, FileDialog};
 use serde_json::Value;
-use tokio::sync::broadcast;
 
 use crate::{errors::EngineError, io::save, routes::RouteReturn, Sender};
 
@@ -15,12 +14,12 @@ pub async fn route(
     if let Some(file_path) = &global_state.active_project {
         save(state, file_path)?;
     } else {
-        let file = AsyncFileDialog::new().set_file_name("untitled.mjuo").save_file().await;
+        let file = FileDialog::new().set_file_name("untitled.mjuo").save_file();
 
         if let Some(file) = file {
-            save(state, file.path())?;
+            save(state, file.as_path())?;
 
-            global_state.active_project = Some(file.path().into());
+            global_state.active_project = Some(file.as_path().into());
         }
     }
 

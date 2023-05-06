@@ -1,6 +1,6 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
-use sound_engine::{midi::messages::MidiData, sampling::rank_player::RankPlayer};
+use sound_engine::sampling::rank_player::RankPlayer;
 
 use crate::nodes::prelude::*;
 
@@ -8,6 +8,7 @@ use crate::nodes::prelude::*;
 pub struct RankPlayerNode {
     player: Option<RankPlayer>,
     index: Option<ResourceIndex>,
+    rank_resource: Option<ResourceId>,
     polyphony: usize,
     midi_in: MidiBundle,
 }
@@ -31,14 +32,18 @@ impl NodeRuntime for RankPlayerNode {
         }
 
         if let Some(resource) = state.props.get("rank").and_then(|rank| rank.clone().as_resource()) {
-            let new_index = state
-                .resources
-                .ranks
-                .get_index(&resource.resource)
-                .ok_or(NodeError::MissingResource { resource })?;
+            let new_index =
+                state
+                    .resources
+                    .ranks
+                    .get_index(&resource.resource)
+                    .ok_or_else(|| NodeError::MissingResource {
+                        resource: resource.clone(),
+                    })?;
 
             did_settings_change |= Some(new_index) != self.index;
             self.index = Some(new_index);
+            self.rank_resource = Some(resource);
         } else {
             did_settings_change = false;
         }
@@ -61,12 +66,33 @@ impl NodeRuntime for RankPlayerNode {
         _streams_in: &[&[f32]],
         streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        let rank = self
-            .index
-            .and_then(|index| state.resources.ranks.borrow_resource(index));
+        let mut reset_needed = false;
+
+        let rank = if let Some(index) = self.index {
+            if let Some(rank) = state.resources.ranks.borrow_resource(index) {
+                Some(rank)
+            } else {
+                // index must have changed
+                let new_index = state
+                    .resources
+                    .ranks
+                    .get_index(&self.rank_resource.as_ref().unwrap().resource);
+                self.index = new_index;
+
+                reset_needed = true;
+
+                new_index.and_then(|new_index| state.resources.ranks.borrow_resource(new_index))
+            }
+        } else {
+            None
+        };
 
         if let (Some(player), Some(rank)) = (&mut self.player, rank) {
             let samples = &state.resources.samples;
+
+            if reset_needed {
+                player.reset();
+            }
 
             for frame in streams_out[0].iter_mut() {
                 *frame = 0.0;
@@ -90,6 +116,7 @@ impl Node for RankPlayerNode {
         RankPlayerNode {
             player: None,
             index: None,
+            rank_resource: None,
             polyphony: 16,
             midi_in: SmallVec::new(),
         }

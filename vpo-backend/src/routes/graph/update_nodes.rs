@@ -36,7 +36,7 @@ struct Payload {
     updated_nodes: Vec<(ApiNodeWrapper, NodeIndex)>,
 }
 
-pub async fn route(
+pub fn route(
     mut msg: Value,
     to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
@@ -88,5 +88,6 @@ pub async fn route(
         new_traverser: traverser,
         graph_operated_on: None,
         graph_to_reindex: None,
+        new_project: false,
     }))
 }

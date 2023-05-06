@@ -152,6 +152,12 @@ impl<A> ResourceManager<A> {
         index
     }
 
+    pub fn remove_resource(&mut self, key: &str) -> Option<A> {
+        self.resource_mapping
+            .remove(key)
+            .and_then(|index| self.resources.remove(index.0))
+    }
+
     pub fn get_index(&self, key: &str) -> Option<ResourceIndex> {
         self.resource_mapping.get(key).copied()
     }

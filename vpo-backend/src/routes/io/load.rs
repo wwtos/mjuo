@@ -42,6 +42,7 @@ pub async fn route(
                     .get_traverser(global_state)
                     .whatever_context("could not create traverser")?,
             ),
+            new_project: true,
         }));
     }
 

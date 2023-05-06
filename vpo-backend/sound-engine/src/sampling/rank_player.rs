@@ -17,7 +17,7 @@ impl Default for Voice {
         Voice {
             player: PipePlayer::uninitialized(),
             active: false,
-            note: 0,
+            note: 255,
         }
     }
 }
@@ -43,6 +43,13 @@ impl RankPlayer {
             polyphony,
             voices: Vec::with_capacity(polyphony),
             note_to_sample_map,
+        }
+    }
+
+    pub fn reset(&mut self) {
+        for voice in &mut self.voices {
+            voice.active = false;
+            voice.note = 255;
         }
     }
 

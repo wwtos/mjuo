@@ -1,4 +1,6 @@
 pub mod graph;
+
+#[cfg(any(windows, unix))]
 pub mod io;
 
 use ipc::ipc_message::IpcMessage;
@@ -14,6 +16,7 @@ pub struct RouteReturn {
     pub graph_to_reindex: Option<GraphIndex>,
     pub graph_operated_on: Option<GraphIndex>,
     pub new_traverser: Option<BufferedTraverser>,
+    pub new_project: bool,
 }
 
 pub async fn route(
@@ -29,15 +32,15 @@ pub async fn route(
 
         if let Value::String(action_name) = action {
             return match action_name.as_str() {
-                "graph/get" => graph::get::route(json, to_server, state, global_state).await,
-                "graph/newNode" => graph::new_node::route(json, to_server, state, global_state).await,
-                "graph/removeNode" => graph::remove_node::route(json, to_server, state, global_state).await,
-                "graph/updateNodes" => graph::update_nodes::route(json, to_server, state, global_state).await,
-                "graph/updateNodesUi" => graph::update_node_ui::route(json, to_server, state, global_state).await,
-                "graph/connectNode" => graph::connect_node::route(json, to_server, state, global_state).await,
-                "graph/disconnectNode" => graph::disconnect_node::route(json, to_server, state, global_state).await,
-                "graph/undo" => graph::undo::route(json, to_server, state, global_state).await,
-                "graph/redo" => graph::redo::route(json, to_server, state, global_state).await,
+                "graph/get" => graph::get::route(json, to_server, state, global_state),
+                "graph/newNode" => graph::new_node::route(json, to_server, state, global_state),
+                "graph/removeNode" => graph::remove_node::route(json, to_server, state, global_state),
+                "graph/updateNodes" => graph::update_nodes::route(json, to_server, state, global_state),
+                "graph/updateNodesUi" => graph::update_node_ui::route(json, to_server, state, global_state),
+                "graph/connectNode" => graph::connect_node::route(json, to_server, state, global_state),
+                "graph/disconnectNode" => graph::disconnect_node::route(json, to_server, state, global_state),
+                "graph/undo" => graph::undo::route(json, to_server, state, global_state),
+                "graph/redo" => graph::redo::route(json, to_server, state, global_state),
                 #[cfg(any(unix, windows))]
                 "io/save" => io::save::route(json, to_server, state, global_state).await,
                 #[cfg(any(unix, windows))]
