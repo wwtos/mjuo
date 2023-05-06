@@ -15,12 +15,9 @@ type Sender<T> = SendBuffer<T>;
 #[cfg(any(unix, windows))]
 type Sender<T> = broadcast::Sender<T>;
 
-use std::path::Path;
 use std::sync::mpsc;
 use std::{error::Error, io::Write};
 
-use futures::{SinkExt, StreamExt};
-use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 #[cfg(any(unix, windows))]
 use tokio::sync::broadcast;
 

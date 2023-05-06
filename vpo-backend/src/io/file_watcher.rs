@@ -17,7 +17,8 @@ pub struct FileWatcher {
 
 impl FileWatcher {
     pub fn new() -> Result<(FileWatcher, Receiver<Result<Vec<DebouncedEvent>, Vec<Error>>>), EngineError> {
-        let (mut tx, rx) = channel(16);
+        // many events may be produced during a file import, the channel needs to be ready for that
+        let (mut tx, rx) = channel(1024);
 
         let debouncer = new_debouncer(Duration::from_millis(100), None, move |res| {
             tx.try_send(res).unwrap();

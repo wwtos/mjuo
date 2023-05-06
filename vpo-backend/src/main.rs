@@ -1,6 +1,6 @@
-use std::sync::Mutex;
-
+use futures::executor::block_on;
 use futures::future::join;
+use futures::lock::MutexGuard;
 use futures::StreamExt;
 use node_engine::global_state::GlobalState;
 
@@ -55,7 +55,7 @@ async fn main_async() {
     let mut node_state = NodeState::new(&global_state).unwrap();
     sender.send(node_state.get_engine(&global_state).unwrap()).unwrap();
 
-    let global_state = Mutex::new(global_state);
+    let global_state = futures::lock::Mutex::new(global_state);
 
     // debugging
     // let mut output_file = File::create("out.pcm").unwrap();
@@ -65,15 +65,21 @@ async fn main_async() {
                 let msg = from_server.recv().await;
 
                 if let Ok(msg) = msg {
-                    handle_msg(
-                        msg,
-                        &to_server,
-                        &mut node_state,
-                        &mut global_state.lock().unwrap(),
-                        &sender,
-                        &mut file_watcher,
-                    )
-                    .await;
+                    MutexGuard::map(global_state.lock().await, |global_state| {
+                        block_on(async {
+                            handle_msg(
+                                msg,
+                                &to_server,
+                                &mut node_state,
+                                global_state,
+                                &sender,
+                                &mut file_watcher,
+                            )
+                            .await;
+                        });
+
+                        global_state
+                    });
                 }
             }
         },
@@ -82,7 +88,11 @@ async fn main_async() {
                 match res {
                     Ok(event) => {
                         for e in event {
-                            let _ = load_single(&e.path, &mut global_state.lock().unwrap());
+                            MutexGuard::map(global_state.lock().await, |global_state| {
+                                let _ = load_single(&e.path, global_state);
+
+                                global_state
+                            });
                         }
                     }
                     Err(e) => println!("watch error: {:?}", e),

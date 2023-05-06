@@ -15,7 +15,7 @@ use lazy_static::lazy_static;
 
 use node_engine::{global_state::GlobalState, state::NodeState};
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use resource_manager::{ResourceIndex, ResourceManager};
+use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
@@ -129,14 +129,22 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
             let ranks = &mut global_state.resources.write().expect("not poisoned").ranks;
 
             if ranks.get_index(resource.as_ref()).is_some() {
-                ranks.remove_resource(resource.as_ref()).unwrap();
-
-                let rank = load_rank_from_file(file)?;
-
-                ranks.add_resource(resource.into_owned(), rank);
+                ranks.remove_resource(resource.as_ref());
             }
+
+            let rank = load_rank_from_file(file)?;
+            ranks.add_resource(resource.into_owned(), rank);
         }
-        "samples" => {}
+        "samples" => {
+            let samples = &mut global_state.resources.write().expect("not poisoned").samples;
+
+            if samples.get_index(resource.as_ref()).is_some() {
+                samples.remove_resource(resource.as_ref());
+            }
+
+            let sample = load_sample(file)?;
+            samples.add_resource(resource.into_owned(), sample);
+        }
         _ => {}
     }
 
