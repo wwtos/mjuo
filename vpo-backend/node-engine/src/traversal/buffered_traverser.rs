@@ -1,11 +1,10 @@
+use core::slice;
 use std::{
     collections::BTreeMap,
     iter::repeat,
     mem::{self, MaybeUninit},
-    slice::{from_raw_parts, from_raw_parts_mut},
 };
 
-use arr_macro::arr;
 use rhai::Engine;
 use sound_engine::SoundConfig;
 
@@ -409,6 +408,7 @@ impl BufferedTraverser {
             }
 
             if should_input_midi {
+                // SAFETY: 0..inputs is initialized above
                 node.accept_midi_inputs(unsafe { mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..inputs]) });
             }
         }
@@ -428,6 +428,7 @@ impl BufferedTraverser {
             }
 
             if should_input_value {
+                // SAFETY: 0..inputs is initialized above
                 node.accept_value_inputs(unsafe {
                     mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..inputs])
                 });
@@ -440,15 +441,14 @@ impl BufferedTraverser {
 
             let outputs_ptr = self.stream_outputs.as_mut_ptr();
 
-            // aliasing testing
+            // pointer alias debugging
             // let mut alias_test = vec![false; self.stream_outputs.len()];
 
             // build the list of input references from other nodes' outputs
             for j in 0..inputs {
                 let output_index = self.stream_input_mappings[stream_mapping_i];
 
-                // alias testing
-                // assert!(output_index + self.buffer_size <= self.stream_outputs.len());
+                // pointer alias debugging
                 //
                 // for i in output_index..(output_index + self.buffer_size) {
                 //     if alias_test[i] == true {
@@ -458,31 +458,39 @@ impl BufferedTraverser {
                 //     alias_test[i] = true;
                 // }
 
+                // SAFETY: Make sure we don't have a slice exceed the length of the array
+                assert!(output_index + self.buffer_size <= self.stream_outputs.len());
+
                 unsafe {
-                    stream_inputs[j].write(from_raw_parts(outputs_ptr.add(output_index), self.buffer_size));
+                    stream_inputs[j].write(slice::from_raw_parts(outputs_ptr.add(output_index), self.buffer_size));
                 }
 
                 stream_mapping_i += 1;
+            }
 
-                // ...and the list of output references
-                for j in 0..outputs {
-                    let output_index = stream_outputs_i + (advance_by.defaults + j) * self.buffer_size;
+            // ...and the list of output references
+            for j in 0..outputs {
+                let output_index = stream_outputs_i + (advance_by.defaults + j) * self.buffer_size;
 
-                    // alias test
-                    // assert!(output_index + self.buffer_size <= self.stream_outputs.len());
-                    //
-                    // for i in output_index..(output_index + self.buffer_size) {
+                // pointer alias debugging
+                //
+                // for i in output_index..(output_index + self.buffer_size) {
 
-                    //     if alias_test[i] == true {
-                    //         panic!("Aliasing at: {}", i);
-                    //     }
+                //     if alias_test[i] == true {
+                //         panic!("Aliasing at: {}", i);
+                //     }
 
-                    //     alias_test[i] = true;
-                    // }
+                //     alias_test[i] = true;
+                // }
 
-                    unsafe {
-                        stream_outputs[j].write(from_raw_parts_mut(outputs_ptr.add(output_index), self.buffer_size));
-                    }
+                // SAFETY: Make sure we don't have a slice exceed the length of the array
+                assert!(output_index + self.buffer_size <= self.stream_outputs.len());
+
+                unsafe {
+                    stream_outputs[j].write(slice::from_raw_parts_mut(
+                        outputs_ptr.add(output_index),
+                        self.buffer_size,
+                    ));
                 }
             }
 
@@ -492,6 +500,7 @@ impl BufferedTraverser {
                     script_engine,
                     resources,
                 },
+                // SAFETY: we've already initialized 0..inputs and 0..outputs above
                 unsafe { mem::transmute::<_, &[&[f32]]>(&stream_inputs[0..inputs]) },
                 unsafe { mem::transmute::<_, &mut [&mut [f32]]>(&mut stream_outputs[0..outputs]) },
             );
