@@ -190,7 +190,7 @@ pub trait Node: NodeRuntime {
     fn new(sound_config: &SoundConfig) -> Self;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 pub struct NodeIndex(pub VertexIndex);
 
 impl Display for NodeIndex {
