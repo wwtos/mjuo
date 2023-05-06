@@ -10,7 +10,7 @@ use crate::{
     Sender,
 };
 
-pub async fn route(
+pub fn route(
     _msg: Value,
     to_server: &Sender<IpcMessage>,
     state: &mut NodeState,

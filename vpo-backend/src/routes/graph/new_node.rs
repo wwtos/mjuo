@@ -25,7 +25,7 @@ struct Payload {
     graph_index: GraphIndex,
 }
 
-pub async fn route(
+pub fn route(
     mut msg: Value,
     to_server: &Sender<IpcMessage>,
     state: &mut NodeState,

@@ -18,7 +18,7 @@ struct Payload {
     updated_nodes: Vec<(Value, NodeIndex)>,
 }
 
-pub async fn route(
+pub fn route(
     mut msg: Value,
     to_server: &Sender<IpcMessage>,
     state: &mut NodeState,
