@@ -1,8 +1,5 @@
 use snafu::Snafu;
 
-#[cfg(any(unix, windows))]
-use crate::ipc_message::IpcMessage;
-
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 pub enum IpcError {

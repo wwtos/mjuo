@@ -26,5 +26,6 @@ pub async fn route(
         new_traverser: traverser,
         graph_operated_on: None,
         graph_to_reindex: None,
+        new_project: false,
     }))
 }

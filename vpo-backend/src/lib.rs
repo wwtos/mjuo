@@ -15,9 +15,12 @@ type Sender<T> = SendBuffer<T>;
 #[cfg(any(unix, windows))]
 type Sender<T> = broadcast::Sender<T>;
 
+use std::path::Path;
 use std::sync::mpsc;
 use std::{error::Error, io::Write};
 
+use futures::{SinkExt, StreamExt};
+use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
 #[cfg(any(unix, windows))]
 use tokio::sync::broadcast;
 
@@ -25,6 +28,7 @@ use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 
+use io::file_watcher::FileWatcher;
 use node_engine::{engine::NodeEngine, global_state::GlobalState, state::NodeState};
 use routes::route;
 use serde_json::json;
@@ -50,12 +54,13 @@ pub async fn handle_msg(
     state: &mut NodeState,
     global_state: &mut GlobalState,
     sender: &mpsc::Sender<NodeEngine>,
+    file_watcher: &mut FileWatcher,
 ) {
     let result = route(msg, to_server, state, global_state).await;
 
     match result {
-        Ok(route_result) => {
-            if let Some(traverser) = route_result.and_then(|x| x.new_traverser) {
+        Ok(Some(route_result)) => {
+            if let Some(traverser) = route_result.new_traverser {
                 let scripting_engine = rhai::Engine::new_raw();
                 let (midi_in_node, output_node) = state.get_node_indexes();
 
@@ -69,7 +74,14 @@ pub async fn handle_msg(
                     ))
                     .unwrap();
             }
+
+            if route_result.new_project {
+                file_watcher
+                    .watch(global_state.active_project.as_ref().unwrap().parent().unwrap())
+                    .unwrap();
+            }
         }
+        Ok(None) => {}
         Err(err) => {
             let err_str = err.to_string();
 

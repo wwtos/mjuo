@@ -104,7 +104,7 @@
                 graphIndex: wrapper.childGraphIndex,
                 nodeTitle:
                     wrapper.uiData.title && wrapper.uiData.title.length > 0
-                        ? $localize("node-" + wrapper.uiData.title)
+                        ? $localize("node." + wrapper.uiData.title)
                         : " ",
             });
         }
@@ -174,7 +174,7 @@
 >
     <div class="node-title">
         {wrapper.uiData.title && wrapper.uiData.title.length > 0
-            ? $localize("node-" + wrapper.uiData.title)
+            ? $localize("node." + wrapper.uiData.title)
             : " "}
     </div>
 

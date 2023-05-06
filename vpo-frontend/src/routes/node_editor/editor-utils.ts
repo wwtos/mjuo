@@ -26,5 +26,7 @@ export function preventHistoryKeyActions(
 ) {
     if (event.ctrlKey) {
         if (event.key === "z" || event.key === "y") event.preventDefault();
+    } else {
+        event.stopPropagation();
     }
 }

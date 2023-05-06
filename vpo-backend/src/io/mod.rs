@@ -1,4 +1,5 @@
 pub mod cpal;
+pub mod file_watcher;
 pub mod midir;
 
 use std::collections::HashMap;
@@ -7,13 +8,14 @@ use std::fmt::Debug;
 use std::fs;
 use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::available_parallelism;
 
 use lazy_static::lazy_static;
 
 use node_engine::{global_state::GlobalState, state::NodeState};
-use resource_manager::ResourceManager;
+use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use resource_manager::{ResourceIndex, ResourceManager};
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
@@ -110,7 +112,42 @@ where
     Ok(())
 }
 
-pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) -> Result<(), EngineError> {
+pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), EngineError> {
+    let root = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
+
+    let relative_file = file
+        .strip_prefix(root)
+        .whatever_context(format!("Could not strip \"{:?}\" of \"{:?}\"", file, root))?;
+
+    let resource_type = relative_file.iter().next().unwrap();
+    let resource = relative_file.strip_prefix(resource_type).unwrap().to_string_lossy();
+
+    println!("type: {:?}, resource: {:?}", resource_type, resource);
+
+    match resource_type.to_string_lossy().as_ref() {
+        "ranks" => {
+            let ranks = &mut global_state.resources.write().expect("not poisoned").ranks;
+
+            if ranks.get_index(resource.as_ref()).is_some() {
+                ranks.remove_resource(resource.as_ref()).unwrap();
+
+                let rank = load_rank_from_file(file)?;
+
+                ranks.add_resource(resource.into_owned(), rank);
+            }
+        }
+        "samples" => {}
+        _ => {}
+    }
+
+    Ok(())
+}
+
+pub fn load(
+    path: &Path,
+    state: &mut NodeState,
+    global_state: &mut GlobalState,
+) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
         .parent()
         .whatever_context(format!("path {:?} has no parent", path))?;
@@ -161,5 +198,13 @@ pub fn load(path: &Path, state: &mut NodeState, global_state: &mut GlobalState) 
         socket_registry,
     );
 
-    Ok(())
+    let (tx, rx) = mpsc::channel();
+    let mut watcher =
+        RecommendedWatcher::new(tx, Config::default()).whatever_context("Could not create file watcher")?;
+
+    watcher
+        .watch(parent.as_ref(), RecursiveMode::Recursive)
+        .whatever_context("Could not create file watcher")?;
+
+    Ok(rx)
 }

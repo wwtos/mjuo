@@ -1,4 +1,6 @@
 pub mod graph;
+
+#[cfg(any(windows, unix))]
 pub mod io;
 
 use ipc::ipc_message::IpcMessage;
@@ -14,6 +16,7 @@ pub struct RouteReturn {
     pub graph_to_reindex: Option<GraphIndex>,
     pub graph_operated_on: Option<GraphIndex>,
     pub new_traverser: Option<BufferedTraverser>,
+    pub new_project: bool,
 }
 
 pub async fn route(

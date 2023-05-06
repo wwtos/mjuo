@@ -52,5 +52,6 @@ pub async fn route(
         graph_to_reindex: Some(graph_index),
         graph_operated_on: Some(graph_index),
         new_traverser: traverser,
+        new_project: false,
     }))
 }
