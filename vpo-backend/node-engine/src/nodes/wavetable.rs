@@ -84,7 +84,7 @@ impl Node for WavetableNode {
                 }),
             ),
             value_input(register("frequency"), Primitive::Float(440.0)),
-            stream_output(register("audio"), 0.0),
+            stream_output(register("audio")),
         ])
     }
 }

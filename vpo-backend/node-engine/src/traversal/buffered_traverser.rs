@@ -6,6 +6,7 @@ use std::{
 };
 
 use rhai::Engine;
+use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
 use crate::{
@@ -25,36 +26,40 @@ const BUFFER_SIZE: usize = 128;
 struct AdvanceBy {
     pub inputs: usize,
     pub outputs: usize,
-    pub defaults: usize,
 }
 
 #[derive(Debug, Clone)]
 struct OutputLocations {
     pub stream_outputs_index: usize,
-    pub stream_defaults_index: usize,
     pub stream_output_sockets: Vec<Socket>,
     pub midi_outputs_index: usize,
-    pub midi_defaults_index: usize,
     pub midi_output_sockets: Vec<Socket>,
     pub value_outputs_index: usize,
-    pub value_defaults_index: usize,
     pub value_output_sockets: Vec<Socket>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct NodeState {
+    pub node: NodeVariant,
+    /// A mapping of a value to input to its location
+    pub to_input: SmallVec<[(usize, Primitive); 4]>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct BufferedTraverser {
     buffer_size: usize,
-    nodes: Vec<NodeVariant>,
+    nodes: Vec<NodeState>,
     node_indexes: Vec<NodeIndex>,
     node_to_location_mapping: BTreeMap<NodeIndex, OutputLocations>,
     stream_outputs: Vec<f32>,
-    stream_input_mappings: Vec<usize>,
+    /// If none, it's a default and has no value
+    stream_input_mappings: Vec<Option<usize>>,
     stream_advance_by: Vec<AdvanceBy>,
     midi_outputs: Vec<Option<MidiBundle>>,
-    midi_input_mappings: Vec<usize>,
+    midi_input_mappings: Vec<Option<usize>>,
     midi_advance_by: Vec<AdvanceBy>,
     value_outputs: Vec<Option<Primitive>>,
-    value_input_mappings: Vec<usize>,
+    value_input_mappings: Vec<Option<usize>>,
     value_advance_by: Vec<AdvanceBy>,
 }
 
@@ -132,7 +137,7 @@ impl BufferedTraverser {
             let node_wrapper = graph.get_node(*index)?;
 
             let mut variant = if let Some(previous_node) = old_nodes.remove(index) {
-                previous_node
+                previous_node.node
             } else {
                 new_variant(&node_wrapper.get_node_type(), &sound_config)?
             };
@@ -164,19 +169,13 @@ impl BufferedTraverser {
                 }
             };
 
-            // create a list of its default inputs and count the outputs
-            let mut needed_stream_defaults = vec![];
-            let mut needed_midi_defaults = vec![];
-            let mut needed_value_defaults = vec![];
-
             let mut stream_inputs = 0;
             let mut midi_inputs = 0;
             let mut value_inputs = 0;
 
-            let mut stream_output_sockets = vec![];
-            let mut midi_output_sockets = vec![];
-            let mut value_output_sockets = vec![];
+            let mut to_input: SmallVec<[(usize, Primitive); 4]> = SmallVec::new();
 
+            // go through the node by all its inputs
             for socket in node_wrapper.list_input_sockets() {
                 let default_row = node_wrapper.get_default(socket).unwrap();
 
@@ -185,22 +184,14 @@ impl BufferedTraverser {
 
                     match socket.socket_type() {
                         SocketType::Stream => {
-                            if !is_connected {
-                                needed_stream_defaults.push(default.as_stream().unwrap());
-                            }
-
                             stream_inputs += 1;
                         }
                         SocketType::Midi => {
-                            if !is_connected {
-                                needed_midi_defaults.push(default.as_midi().unwrap());
-                            }
-
                             midi_inputs += 1;
                         }
                         SocketType::Value => {
                             if !is_connected {
-                                needed_value_defaults.push(default.as_value().unwrap());
+                                to_input.push((value_inputs, default.as_value().unwrap()));
                             }
 
                             value_inputs += 1;
@@ -209,6 +200,11 @@ impl BufferedTraverser {
                     }
                 }
             }
+
+            // create a list of its default inputs and count the outputs
+            let mut stream_output_sockets = vec![];
+            let mut midi_output_sockets = vec![];
+            let mut value_output_sockets = vec![];
 
             for socket in node_wrapper.list_output_sockets() {
                 match socket.socket_type() {
@@ -219,37 +215,20 @@ impl BufferedTraverser {
                 }
             }
 
-            self.nodes.push(variant);
+            self.nodes.push(NodeState {
+                node: variant,
+                to_input,
+            });
             self.node_indexes.push(*index);
-
-            let stream_defaults_index = self.stream_outputs.len();
-            let midi_defaults_index = self.midi_outputs.len();
-            let value_defaults_index = self.value_outputs.len();
-
-            // defaults are stored right before the node's outputs
-            for default in &needed_stream_defaults {
-                self.stream_outputs.extend(repeat(default).take(self.buffer_size));
-            }
-
-            for default in &needed_midi_defaults {
-                self.midi_outputs.push(Some(default.clone()));
-            }
-
-            for default in &needed_value_defaults {
-                self.value_outputs.push(Some(default.clone()));
-            }
 
             self.node_to_location_mapping.insert(
                 *index,
                 OutputLocations {
                     stream_outputs_index: self.stream_outputs.len(),
-                    stream_defaults_index,
                     stream_output_sockets: stream_output_sockets.clone(),
                     midi_outputs_index: self.midi_outputs.len(),
-                    midi_defaults_index,
                     midi_output_sockets: midi_output_sockets.clone(),
                     value_outputs_index: self.value_outputs.len(),
-                    value_defaults_index,
                     value_output_sockets: value_output_sockets.clone(),
                 },
             );
@@ -258,19 +237,16 @@ impl BufferedTraverser {
             self.stream_advance_by.push(AdvanceBy {
                 inputs: stream_inputs,
                 outputs: stream_output_sockets.len(),
-                defaults: needed_stream_defaults.len(),
             });
 
             self.midi_advance_by.push(AdvanceBy {
                 inputs: midi_inputs,
                 outputs: midi_output_sockets.len(),
-                defaults: needed_midi_defaults.len(),
             });
 
             self.value_advance_by.push(AdvanceBy {
                 inputs: value_inputs,
                 outputs: value_output_sockets.len(),
-                defaults: needed_value_defaults.len(),
             });
 
             self.stream_outputs
@@ -283,10 +259,6 @@ impl BufferedTraverser {
         // The input mappings is a mapping to get the node's next input
         for index in traversal_order.iter() {
             let wrapper = graph.get_node(*index)?;
-
-            let mut stream_default_at = 0;
-            let mut midi_default_at = 0;
-            let mut value_default_at = 0;
 
             // let's look through this node's inputs
             for input in wrapper.list_input_sockets() {
@@ -310,7 +282,7 @@ impl BufferedTraverser {
                                 * self.buffer_size
                                 + other_outputs.stream_outputs_index;
 
-                            self.stream_input_mappings.push(position_in_stream);
+                            self.stream_input_mappings.push(Some(position_in_stream));
                         }
                         SocketType::Midi => {
                             let position_in_midi = other_outputs
@@ -320,7 +292,7 @@ impl BufferedTraverser {
                                 .unwrap()
                                 + other_outputs.midi_outputs_index;
 
-                            self.midi_input_mappings.push(position_in_midi);
+                            self.midi_input_mappings.push(Some(position_in_midi));
                         }
                         SocketType::Value => {
                             let position_in_value = other_outputs
@@ -330,35 +302,21 @@ impl BufferedTraverser {
                                 .unwrap()
                                 + other_outputs.value_outputs_index;
 
-                            self.value_input_mappings.push(position_in_value);
+                            self.value_input_mappings.push(Some(position_in_value));
                         }
                         SocketType::NodeRef => {}
                     }
                 } else {
-                    // it's not connected to anything, so point it to its default
+                    // it's not connected to anything, so push None in the mapping
                     match input.socket_type() {
                         SocketType::Stream => {
-                            self.stream_input_mappings.push(
-                                self.node_to_location_mapping.get(index).unwrap().stream_defaults_index
-                                    + stream_default_at * self.buffer_size,
-                            );
-
-                            stream_default_at += 1;
+                            self.stream_input_mappings.push(None);
                         }
                         SocketType::Midi => {
-                            self.midi_input_mappings.push(
-                                self.node_to_location_mapping.get(index).unwrap().midi_defaults_index + midi_default_at,
-                            );
-
-                            midi_default_at += 1;
+                            self.midi_input_mappings.push(None);
                         }
                         SocketType::Value => {
-                            self.value_input_mappings.push(
-                                self.node_to_location_mapping.get(index).unwrap().value_defaults_index
-                                    + value_default_at,
-                            );
-
-                            value_default_at += 1;
+                            self.value_input_mappings.push(None);
                         }
                         SocketType::NodeRef => {}
                     }
@@ -376,6 +334,9 @@ impl BufferedTraverser {
     pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, resources: &Resources) -> ErrorsAndWarnings {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
+
+        // used as a default pointer if a node doesn't have an input connected
+        let nothing_in = vec![0.0_f32; self.buffer_size];
 
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
@@ -400,16 +361,22 @@ impl BufferedTraverser {
             let mut should_input_midi = false;
 
             for j in 0..inputs {
-                let incoming = self.midi_outputs[self.midi_input_mappings[midi_mapping_i]].clone();
-                should_input_midi |= incoming.is_some();
+                if let Some(input_index) = self.midi_input_mappings[midi_mapping_i] {
+                    let incoming = self.midi_outputs[input_index].clone();
+                    should_input_midi |= incoming.is_some();
 
-                midi_inputs[j].write(incoming);
+                    midi_inputs[j].write(incoming);
+                } else {
+                    midi_inputs[j].write(None);
+                }
+
                 midi_mapping_i += 1;
             }
 
             if should_input_midi {
                 // SAFETY: 0..inputs is initialized above
-                node.accept_midi_inputs(unsafe { mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..inputs]) });
+                node.node
+                    .accept_midi_inputs(unsafe { mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..inputs]) });
             }
         }
 
@@ -420,16 +387,26 @@ impl BufferedTraverser {
             let mut should_input_value = false;
 
             for j in 0..inputs {
-                let incoming = self.value_outputs[self.value_input_mappings[value_mapping_i]].clone();
-                should_input_value |= incoming.is_some();
+                if let Some(input_index) = self.value_input_mappings[value_mapping_i] {
+                    let incoming = self.value_outputs[input_index].clone();
+                    should_input_value |= incoming.is_some();
 
-                value_inputs[j].write(incoming);
+                    // override any values coming in with values from the user, if any
+                    for override_input in node.to_input.drain(..) {
+                        value_inputs[override_input.0].write(Some(override_input.1));
+                    }
+
+                    value_inputs[j].write(incoming);
+                } else {
+                    value_inputs[j].write(None);
+                }
+
                 value_mapping_i += 1;
             }
 
             if should_input_value {
                 // SAFETY: 0..inputs is initialized above
-                node.accept_value_inputs(unsafe {
+                node.node.accept_value_inputs(unsafe {
                     mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..inputs])
                 });
             }
@@ -446,23 +423,25 @@ impl BufferedTraverser {
 
             // build the list of input references from other nodes' outputs
             for j in 0..inputs {
-                let output_index = self.stream_input_mappings[stream_mapping_i];
+                if let Some(input_index) = self.stream_input_mappings[stream_mapping_i] {
+                    // pointer alias debugging
+                    //
+                    // for i in output_index..(output_index + self.buffer_size) {
+                    //     if alias_test[i] == true {
+                    //         panic!("Aliasing at: {:?}", i);
+                    //     }
 
-                // pointer alias debugging
-                //
-                // for i in output_index..(output_index + self.buffer_size) {
-                //     if alias_test[i] == true {
-                //         panic!("Aliasing at: {:?}", i);
-                //     }
+                    //     alias_test[i] = true;
+                    // }
 
-                //     alias_test[i] = true;
-                // }
+                    // SAFETY: Make sure we don't have a slice exceed the length of the array
+                    assert!(input_index + self.buffer_size <= self.stream_outputs.len());
 
-                // SAFETY: Make sure we don't have a slice exceed the length of the array
-                assert!(output_index + self.buffer_size <= self.stream_outputs.len());
-
-                unsafe {
-                    stream_inputs[j].write(slice::from_raw_parts(outputs_ptr.add(output_index), self.buffer_size));
+                    unsafe {
+                        stream_inputs[j].write(slice::from_raw_parts(outputs_ptr.add(input_index), self.buffer_size));
+                    }
+                } else {
+                    stream_inputs[j].write(&nothing_in);
                 }
 
                 stream_mapping_i += 1;
@@ -470,7 +449,7 @@ impl BufferedTraverser {
 
             // ...and the list of output references
             for j in 0..outputs {
-                let output_index = stream_outputs_i + (advance_by.defaults + j) * self.buffer_size;
+                let output_index = stream_outputs_i + j * self.buffer_size;
 
                 // pointer alias debugging
                 //
@@ -494,7 +473,7 @@ impl BufferedTraverser {
                 }
             }
 
-            let res = node.process(
+            let res = node.node.process(
                 NodeProcessState {
                     current_time,
                     script_engine,
@@ -519,29 +498,31 @@ impl BufferedTraverser {
                 }
             }
 
-            stream_outputs_i += (advance_by.defaults + advance_by.outputs) * self.buffer_size;
+            stream_outputs_i += advance_by.outputs * self.buffer_size;
         }
 
         for (node, advance_by) in self.nodes.iter_mut().zip(&self.midi_advance_by) {
             let outputs = advance_by.outputs;
-            let output_index = midi_outputs_i + advance_by.defaults;
+            let output_index = midi_outputs_i;
 
-            // reset values back to None
+            // reset values back to None, they may be set after running `get_midi_outputs`
             self.midi_outputs[output_index..(output_index + outputs)].fill(None);
-            node.get_midi_outputs(&mut self.midi_outputs[output_index..(output_index + outputs)]);
+            node.node
+                .get_midi_outputs(&mut self.midi_outputs[output_index..(output_index + outputs)]);
 
-            midi_outputs_i += advance_by.defaults + advance_by.outputs;
+            midi_outputs_i += advance_by.outputs;
         }
 
         for (node, advance_by) in self.nodes.iter_mut().zip(&self.value_advance_by) {
             let outputs = advance_by.outputs;
-            let output_index = value_outputs_i + advance_by.defaults;
+            let output_index = value_outputs_i;
 
-            // reset values back to None
+            // reset values back to None, they may be set after running `get_value_outputs`
             self.value_outputs[output_index..(output_index + outputs)].fill(None);
-            node.get_value_outputs(&mut self.value_outputs[output_index..(output_index + outputs)]);
+            node.node
+                .get_value_outputs(&mut self.value_outputs[output_index..(output_index + outputs)]);
 
-            value_outputs_i += advance_by.defaults + advance_by.outputs;
+            value_outputs_i += advance_by.outputs;
         }
 
         ErrorsAndWarnings { errors, warnings }
@@ -552,7 +533,7 @@ impl BufferedTraverser {
             .iter_mut()
             .zip(&self.node_indexes)
             .find(|(_, index)| *index == &index_to_find)
-            .map(|(node, _)| node)
+            .map(|(node, _)| &mut node.node)
     }
 
     pub fn input_value_default(
@@ -577,7 +558,7 @@ impl BufferedTraverser {
                 let mut value_in = vec![None; mapping.midi_output_sockets.len()];
                 value_in[index] = Some(default);
 
-                node.accept_value_inputs(&value_in);
+                node.node.accept_value_inputs(&value_in);
 
                 Ok(())
             } else {

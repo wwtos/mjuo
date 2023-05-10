@@ -144,7 +144,7 @@ impl Node for MidiFilterNode {
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            midi_output(register("midi"), SmallVec::new()),
+            midi_output(register("midi")),
         ])
     }
 }

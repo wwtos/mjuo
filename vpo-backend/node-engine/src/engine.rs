@@ -48,7 +48,9 @@ impl NodeEngine {
                     self.io_nodes = engine.io_nodes;
                     self.current_time = engine.current_time;
                 }
-                NodeEngineUpdate::NewDefaults(defaults) => todo!(),
+                NodeEngineUpdate::NewDefaults(defaults) => {
+                    println!("not accounting for defaults: {defaults:?}");
+                }
             }
         }
     }

@@ -79,7 +79,7 @@ impl Node for BiquadFilterNode {
                 stream_input(register("audio"), 0.0),
                 value_input(register("frequency"), Primitive::Float(20000.0)),
                 value_input(register("resonance"), Primitive::Float(0.707)),
-                stream_output(register("audio"), 0.0),
+                stream_output(register("audio")),
             ],
             child_graph_io: None,
         }

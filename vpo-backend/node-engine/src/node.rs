@@ -21,7 +21,7 @@ use crate::property::{Property, PropertyType};
 pub enum NodeRow {
     // type, value, polyphonic?
     Input(Socket, SocketValue),
-    Output(Socket, SocketValue),
+    Output(Socket),
     Property(String, PropertyType, Property),
     InnerGraph,
 }
@@ -30,7 +30,7 @@ impl NodeRow {
     pub fn to_socket_and_direction(&self) -> Option<(Socket, SocketDirection)> {
         match self {
             NodeRow::Input(socket, _) => Some((*socket, SocketDirection::Input)),
-            NodeRow::Output(socket, _) => Some((*socket, SocketDirection::Output)),
+            NodeRow::Output(socket) => Some((*socket, SocketDirection::Output)),
             NodeRow::Property(..) => None,
             NodeRow::InnerGraph => None,
         }
@@ -39,7 +39,7 @@ impl NodeRow {
     pub fn to_socket_and_value(&self) -> Option<(Socket, SocketValue)> {
         match self {
             NodeRow::Input(socket, value) => Some((*socket, value.clone())),
-            NodeRow::Output(socket, value) => Some((*socket, value.clone())),
+            NodeRow::Output(_) => None,
             NodeRow::Property(..) => None,
             NodeRow::InnerGraph => None,
         }
@@ -48,7 +48,7 @@ impl NodeRow {
     pub fn from_type_and_direction(socket: Socket, direction: SocketDirection) -> Self {
         match direction {
             SocketDirection::Input => NodeRow::Input(socket, SocketValue::None),
-            SocketDirection::Output => NodeRow::Output(socket, SocketValue::None),
+            SocketDirection::Output => NodeRow::Output(socket),
         }
     }
 }
@@ -65,16 +65,16 @@ pub fn value_input(uid: u32, default: Primitive) -> NodeRow {
     NodeRow::Input(Socket::Simple(uid, SocketType::Value, 1), SocketValue::Value(default))
 }
 
-pub fn stream_output(uid: u32, default: f32) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::Stream(default))
+pub fn stream_output(uid: u32) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Stream, 1))
 }
 
-pub fn midi_output(uid: u32, default: MidiBundle) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::Midi(default))
+pub fn midi_output(uid: u32) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Midi, 1))
 }
 
-pub fn value_output(uid: u32, default: Primitive) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Value, 1), SocketValue::Value(default))
+pub fn value_output(uid: u32) -> NodeRow {
+    NodeRow::Output(Socket::Simple(uid, SocketType::Value, 1))
 }
 
 pub struct NodeIo {

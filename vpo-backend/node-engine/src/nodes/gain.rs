@@ -35,7 +35,7 @@ impl Node for GainNode {
         NodeIo::simple(vec![
             stream_input(register("audio"), 0.0),
             value_input(register("gain"), Primitive::Float(0.0)),
-            stream_output(register("audio"), 0.0),
+            stream_output(register("audio")),
         ])
     }
 }

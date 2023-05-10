@@ -58,7 +58,7 @@ impl Node for ButtonNode {
         NodeIo {
             node_rows: vec![
                 value_input(register("state"), Primitive::Boolean(false)),
-                value_output(register("state"), Primitive::Boolean(false)),
+                value_output(register("state")),
             ],
             child_graph_io: None,
         }
