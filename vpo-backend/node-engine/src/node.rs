@@ -131,6 +131,7 @@ pub struct NodeInitState<'a> {
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
     pub sound_config: &'a SoundConfig,
+    pub ui_state: &'a serde_json::Value,
 }
 
 pub struct NodeProcessState<'a> {
@@ -162,9 +163,15 @@ pub trait NodeRuntime: Debug + Clone {
         InitResult::nothing()
     }
 
-    fn linked_to_ui(&self) -> bool {
+    fn has_ui_state(&self) -> bool {
         false
     }
+
+    fn get_ui_state(&self) -> Option<serde_json::Value> {
+        None
+    }
+
+    fn set_ui_state(&mut self, state: serde_json::Value) {}
 
     /// Process received data.
     fn process(
