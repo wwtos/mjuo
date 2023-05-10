@@ -28,7 +28,7 @@ impl NodeRuntime for GainNode {
 
 impl Node for GainNode {
     fn new(_sound_config: &SoundConfig) -> Self {
-        GainNode { gain: 0.2 }
+        GainNode { gain: 0.0 }
     }
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {

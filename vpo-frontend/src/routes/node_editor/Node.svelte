@@ -57,17 +57,13 @@
                 variant: "SocketRow",
                 socket,
                 socketDirection: { variant: "Input" },
-                value: nodes.getNodeSocketDefault(nodeIndex, socket, {
-                    variant: "Input",
-                }),
+                value: nodes.getNodeSocketDefault(nodeIndex, socket),
             }),
-            Output: ({ data: [socket, defaultValue] }) => ({
+            Output: ({ data: socket }) => ({
                 variant: "SocketRow",
                 socket,
                 socketDirection: { variant: "Output" },
-                value: nodes.getNodeSocketDefault(nodeIndex, socket, {
-                    variant: "Output",
-                }),
+                value: { variant: "None" },
             }),
             Property: ({ data: [propName, propType, _defaultValue] }) => ({
                 variant: "PropertyRow",
@@ -135,7 +131,7 @@
                             deepEqual(event.detail.socket, socket)
                         );
                     },
-                    Output: ({ data: [socket] }) => {
+                    Output: ({ data: socket }) => {
                         return (
                             event.detail.direction.variant === "Output" &&
                             deepEqual(event.detail.socket, socket)
@@ -148,12 +144,12 @@
 
         if (index !== -1) {
             wrapper.defaultOverrides[index] = {
-                variant: event.detail.direction.variant,
+                variant: "Input",
                 data: [event.detail.socket, event.detail.newValue],
             };
         } else {
             wrapper.defaultOverrides.push({
-                variant: event.detail.direction.variant,
+                variant: "Input",
                 data: [event.detail.socket, event.detail.newValue],
             });
         }

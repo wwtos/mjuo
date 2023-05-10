@@ -29,7 +29,8 @@ struct AdvanceBy {
 }
 
 #[derive(Debug, Clone)]
-struct OutputLocations {
+struct Locations {
+    pub value_socket_to_index: Vec<(Socket, usize)>,
     pub stream_outputs_index: usize,
     pub stream_output_sockets: Vec<Socket>,
     pub midi_outputs_index: usize,
@@ -50,7 +51,7 @@ pub struct BufferedTraverser {
     buffer_size: usize,
     nodes: Vec<NodeState>,
     node_indexes: Vec<NodeIndex>,
-    node_to_location_mapping: BTreeMap<NodeIndex, OutputLocations>,
+    node_to_location_mapping: BTreeMap<NodeIndex, Locations>,
     stream_outputs: Vec<f32>,
     /// If none, it's a default and has no value
     stream_input_mappings: Vec<Option<usize>>,
@@ -173,6 +174,8 @@ impl BufferedTraverser {
             let mut midi_inputs = 0;
             let mut value_inputs = 0;
 
+            let mut value_socket_to_index = vec![];
+
             let mut to_input: SmallVec<[(usize, Primitive); 4]> = SmallVec::new();
 
             // go through the node by all its inputs
@@ -193,6 +196,8 @@ impl BufferedTraverser {
                             if !is_connected {
                                 to_input.push((value_inputs, default.as_value().unwrap()));
                             }
+
+                            value_socket_to_index.push((socket, value_inputs));
 
                             value_inputs += 1;
                         }
@@ -223,13 +228,14 @@ impl BufferedTraverser {
 
             self.node_to_location_mapping.insert(
                 *index,
-                OutputLocations {
+                Locations {
                     stream_outputs_index: self.stream_outputs.len(),
                     stream_output_sockets: stream_output_sockets.clone(),
                     midi_outputs_index: self.midi_outputs.len(),
                     midi_output_sockets: midi_output_sockets.clone(),
                     value_outputs_index: self.value_outputs.len(),
                     value_output_sockets: value_output_sockets.clone(),
+                    value_socket_to_index,
                 },
             );
 
@@ -391,17 +397,18 @@ impl BufferedTraverser {
                     let incoming = self.value_outputs[input_index].clone();
                     should_input_value |= incoming.is_some();
 
-                    // override any values coming in with values from the user, if any
-                    for override_input in node.to_input.drain(..) {
-                        value_inputs[override_input.0].write(Some(override_input.1));
-                    }
-
                     value_inputs[j].write(incoming);
                 } else {
                     value_inputs[j].write(None);
                 }
 
                 value_mapping_i += 1;
+            }
+
+            // override any values coming in with values from the user, if any
+            for override_input in node.to_input.drain(..) {
+                value_inputs[override_input.0].write(Some(override_input.1));
+                should_input_value = true;
             }
 
             if should_input_value {
@@ -437,9 +444,8 @@ impl BufferedTraverser {
                     // SAFETY: Make sure we don't have a slice exceed the length of the array
                     assert!(input_index + self.buffer_size <= self.stream_outputs.len());
 
-                    unsafe {
-                        stream_inputs[j].write(slice::from_raw_parts(outputs_ptr.add(input_index), self.buffer_size));
-                    }
+                    stream_inputs[j]
+                        .write(unsafe { slice::from_raw_parts(outputs_ptr.add(input_index), self.buffer_size) });
                 } else {
                     stream_inputs[j].write(&nothing_in);
                 }
@@ -465,12 +471,8 @@ impl BufferedTraverser {
                 // SAFETY: Make sure we don't have a slice exceed the length of the array
                 assert!(output_index + self.buffer_size <= self.stream_outputs.len());
 
-                unsafe {
-                    stream_outputs[j].write(slice::from_raw_parts_mut(
-                        outputs_ptr.add(output_index),
-                        self.buffer_size,
-                    ));
-                }
+                stream_outputs[j]
+                    .write(unsafe { slice::from_raw_parts_mut(outputs_ptr.add(output_index), self.buffer_size) });
             }
 
             let res = node.node.process(
@@ -540,25 +542,22 @@ impl BufferedTraverser {
         &mut self,
         node_index: NodeIndex,
         socket: Socket,
-        default: Primitive,
+        value: Primitive,
     ) -> Result<(), NodeError> {
         let node = self
             .node_to_location_mapping
-            .iter_mut()
+            .iter()
             .zip(self.nodes.iter_mut())
-            .find(|((index, _), _)| *index == &node_index);
+            .find(|((&index, _), _)| index == node_index);
 
         if let Some(((_index, mapping), node)) = node {
-            let socket_index = mapping
-                .midi_output_sockets
+            let value_index = mapping
+                .value_socket_to_index
                 .iter()
-                .position(|possible_socket| &socket == possible_socket);
+                .find_map(|&(possible_socket, index)| if possible_socket == socket { Some(index) } else { None });
 
-            if let Some(index) = socket_index {
-                let mut value_in = vec![None; mapping.midi_output_sockets.len()];
-                value_in[index] = Some(default);
-
-                node.node.accept_value_inputs(&value_in);
+            if let Some(value_index) = value_index {
+                node.to_input.push((value_index, value));
 
                 Ok(())
             } else {

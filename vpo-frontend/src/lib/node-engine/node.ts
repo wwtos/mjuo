@@ -11,7 +11,7 @@ export const NODE_WIDTH = 270;
 
 export type NodeRow = DiscriminatedUnion<"variant", {
     Input: { data: [Socket, SocketValue] },
-    Output: { data: [Socket, SocketValue] },
+    Output: { data: Socket },
     Property: { data: [string, PropertyType, Property] },
     InnerGraph: { data: undefined },
 }>;
@@ -27,7 +27,7 @@ export const NodeRow = {
                 socket: socket,
                 direction: { variant: "Input" }
             }),
-            Output: ({ data: [socket, _] }) => ({
+            Output: ({ data: socket }) => ({
                 socket: socket,
                 direction: { variant: "Output" }
             }),
@@ -46,14 +46,14 @@ export const NodeRow = {
         } else {
             return {
                 variant: "Output",
-                data: [socket, defaultValue]
+                data: socket
             };
         }
     },
     getDefault(nodeRow: NodeRow): SocketValue {
         return matchOrElse(nodeRow, {
             Input: ({ data: [_, defaultValue] }) => defaultValue,
-            Output: ({ data: [_, defaultValue] }) => defaultValue,
+            Output: ({ data: _ }) => ({ variant: "None" }),
         },  () => ({ variant: "None" }));
     },
     getHeight(nodeRow: NodeRow): number {

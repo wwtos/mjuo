@@ -8,6 +8,7 @@ use crate::{
     traversal::buffered_traverser::BufferedTraverser,
 };
 
+#[derive(Debug)]
 pub struct NodeEngine {
     pub current_time: i64,
     traverser: Option<BufferedTraverser>,
@@ -49,7 +50,11 @@ impl NodeEngine {
                     self.current_time = engine.current_time;
                 }
                 NodeEngineUpdate::NewDefaults(defaults) => {
-                    println!("not accounting for defaults: {defaults:?}");
+                    if let Some(traverser) = &mut self.traverser {
+                        for (node_index, socket, value) in defaults {
+                            traverser.input_value_default(node_index, socket, value).unwrap();
+                        }
+                    }
                 }
             }
         }

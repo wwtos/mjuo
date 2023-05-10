@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{
-    connection::{Socket, SocketValue},
+    connection::{Primitive, Socket, SocketValue},
     engine::NodeEngine,
     errors::{NodeError, WarningExt},
     global_state::GlobalState,
@@ -76,9 +76,10 @@ pub enum ActionInvalidation {
     None,
 }
 
+#[derive(Debug)]
 pub enum NodeEngineUpdate {
     NewNodeEngine(NodeEngine),
-    NewDefaults(Vec<(NodeIndex, Socket, SocketValue)>),
+    NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
 }
 
 #[derive(Clone, Debug)]
@@ -270,7 +271,13 @@ impl NodeState {
                         Some(NodeEngineUpdate::NewDefaults(
                             defaults
                                 .into_iter()
-                                .map(|(socket, value)| (index.node_index, socket, value))
+                                .filter_map(|(socket, value)| {
+                                    if let Some(value) = value.as_value() {
+                                        Some((index.node_index, socket, value))
+                                    } else {
+                                        None
+                                    }
+                                })
                                 .collect(),
                         ))
                     } else {
