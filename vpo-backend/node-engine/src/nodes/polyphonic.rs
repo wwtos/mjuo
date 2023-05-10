@@ -271,7 +271,7 @@ impl Node for PolyphonicNode {
                 midi_input(register("default"), SmallVec::new()),
                 NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
                 NodeRow::InnerGraph,
-                stream_output(register("audio"), 0.0),
+                stream_output(register("audio")),
             ],
             child_graph_io: Some(vec![
                 (

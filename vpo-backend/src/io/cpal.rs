@@ -2,14 +2,13 @@ use std::{
     collections::VecDeque,
     error,
     sync::{mpsc, Arc, RwLock},
-    time::Duration,
 };
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, Host, SampleFormat, SampleRate, Stream, StreamConfig, StreamInstant,
+    Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use node_engine::{connection::MidiBundle, engine::NodeEngine, global_state::Resources};
+use node_engine::{connection::MidiBundle, engine::NodeEngine, global_state::Resources, state::NodeEngineUpdate};
 use rtrb::RingBuffer;
 use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
@@ -51,7 +50,8 @@ impl CpalBackend {
         io_requested_buffer_size: usize,
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
-    ) -> Result<(Stream, mpsc::Sender<NodeEngine>, StreamConfig), EngineError> {
+        state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
+    ) -> Result<(Stream, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
         let config_bounds = configs
@@ -74,16 +74,17 @@ impl CpalBackend {
         };
 
         println!("Config: {:?}", config);
-        let (stream, sender) = self.build_output_callback(
+        let stream = self.build_output_callback(
             config.clone(),
             device,
             resources,
             buffer_size,
             config.sample_rate.0,
             midi_in,
+            state_update_in,
         )?;
 
-        Ok((stream, sender, config))
+        Ok((stream, config))
     }
 
     fn build_output_callback(
@@ -94,16 +95,13 @@ impl CpalBackend {
         buffer_size: usize,
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
-    ) -> Result<(Stream, mpsc::Sender<NodeEngine>), EngineError> {
-        let (sender, receiver) = mpsc::channel();
-
-        let mut engine: Option<NodeEngine> = None;
+        state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
+    ) -> Result<Stream, EngineError> {
+        let mut engine: NodeEngine = NodeEngine::uninitialized();
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);
 
         let mut buffer = vec![0_f32; buffer_size];
         let mut midi_buffer: VecDeque<MidiMessage> = VecDeque::new();
-
-        let mut start_instant: Option<StreamInstant> = None;
 
         let mut midi_time_offset: i64 = 0;
         let mut playback_time = 0;
@@ -113,13 +111,13 @@ impl CpalBackend {
                 &config,
                 // main callback
                 move |out: &mut [f32], _info| {
-                    if let Ok(new_engine) = receiver.try_recv() {
-                        engine = Some(new_engine);
+                    if let Ok(new_state) = state_update_in.try_recv() {
+                        engine.apply_state_updates(new_state);
                         playback_time = 0;
                         midi_time_offset = 0;
                     }
 
-                    if let Some(engine) = &mut engine {
+                    if engine.initialized() {
                         // timing stuff (not fun)
                         let playback_time_micros = ((playback_time as f64 / sample_rate as f64) * 1_000_000f64) as i64;
                         let resources = resources.try_read();
@@ -183,7 +181,7 @@ impl CpalBackend {
             .whatever_context("Failed to build output stream")?;
         stream.play().whatever_context("Could not start stream")?;
 
-        Ok((stream, sender))
+        Ok(stream)
     }
 }
 

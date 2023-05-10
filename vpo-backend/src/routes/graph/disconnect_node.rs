@@ -26,29 +26,24 @@ pub fn route(
     let connection: Connection =
         serde_json::from_value(msg["payload"]["connection"].clone()).context(JsonParserSnafu)?;
 
-    let (.., traverser) = state
-        .commit(
-            ActionBundle::new(vec![Action::DisconnectNodes {
-                from: GlobalNodeIndex {
-                    graph_index,
-                    node_index: connection.from_node,
-                },
-                to: GlobalNodeIndex {
-                    graph_index,
-                    node_index: connection.to_node,
-                },
-                data: connection.data,
-            }]),
-            global_state,
-        )
+    let updates = state
+        .commit(ActionBundle::new(vec![Action::DisconnectNodes {
+            from: GlobalNodeIndex {
+                graph_index,
+                node_index: connection.from_node,
+            },
+            to: GlobalNodeIndex {
+                graph_index,
+                node_index: connection.to_node,
+            },
+            data: connection.data,
+        }]))
         .context(NodeSnafu)?;
 
     send_graph_updates(state, graph_index, to_server)?;
 
     Ok(Some(RouteReturn {
-        graph_to_reindex: Some(graph_index),
-        graph_operated_on: Some(graph_index),
-        new_traverser: traverser,
+        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
         new_project: false,
     }))
 }

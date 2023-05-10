@@ -5,17 +5,15 @@ pub mod io;
 
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
-    global_state::GlobalState, graph_manager::GraphIndex, state::NodeState,
-    traversal::buffered_traverser::BufferedTraverser,
+    global_state::GlobalState,
+    state::{NodeEngineUpdate, NodeState},
 };
 use serde_json::Value;
 
 use crate::{errors::EngineError, Sender};
 #[derive(Default)]
 pub struct RouteReturn {
-    pub graph_to_reindex: Option<GraphIndex>,
-    pub graph_operated_on: Option<GraphIndex>,
-    pub new_traverser: Option<BufferedTraverser>,
+    pub engine_updates: Vec<NodeEngineUpdate>,
     pub new_project: bool,
 }
 

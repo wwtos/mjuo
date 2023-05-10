@@ -7,7 +7,7 @@ use crate::connection::Socket;
 use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
 use crate::socket_registry::SocketRegistry;
-use crate::state::ActionInvalidations;
+use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 #[derive(Debug, Clone)]
@@ -154,12 +154,12 @@ impl GraphManager {
 }
 
 impl GraphManager {
-    pub fn create_node(
+    pub(crate) fn create_node(
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
         registry: &mut SocketRegistry,
-    ) -> NodeResult<(GraphManagerDiff, ActionInvalidations)> {
+    ) -> NodeResult<(GraphManagerDiff, ActionInvalidation)> {
         let mut diff = vec![];
         let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
         let creation_result = graph.add_node(node_type.into(), registry)?;
@@ -200,29 +200,25 @@ impl GraphManager {
             new_node.set_child_graph_index(child_graph_index);
         }
 
-        let invalidations = ActionInvalidations {
-            graph_to_reindex: None,
-            graph_operated_on: Some(graph_index),
-            defaults_to_update: None,
-            nodes_created: vec![GlobalNodeIndex {
-                node_index: new_node_index,
-                graph_index,
-            }],
-        };
-
         Ok(NodeOk::new(
-            (GraphManagerDiff(diff), invalidations),
+            (
+                GraphManagerDiff(diff),
+                ActionInvalidation::NewNode(GlobalNodeIndex {
+                    graph_index,
+                    node_index: new_node_index,
+                }),
+            ),
             creation_result.warnings,
         ))
     }
 
-    pub fn connect_nodes(
+    pub(crate) fn connect_nodes(
         &mut self,
         from: GlobalNodeIndex,
         from_socket_type: Socket,
         to: GlobalNodeIndex,
         to_socket_type: Socket,
-    ) -> Result<(GraphManagerDiff, ActionInvalidations), NodeError> {
+    ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         if from.graph_index != to.graph_index {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
@@ -231,25 +227,18 @@ impl GraphManager {
 
         let (_, graph_diff) = graph.connect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
 
-        let invalidations = ActionInvalidations {
-            graph_to_reindex: Some(from.graph_index),
-            graph_operated_on: Some(from.graph_index),
-            defaults_to_update: None,
-            nodes_created: vec![],
-        };
-
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
 
-        Ok((diff, invalidations))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
     }
 
-    pub fn disconnect_nodes(
+    pub(crate) fn disconnect_nodes(
         &mut self,
         from: GlobalNodeIndex,
         from_socket_type: Socket,
         to: GlobalNodeIndex,
         to_socket_type: Socket,
-    ) -> Result<(GraphManagerDiff, ActionInvalidations), NodeError> {
+    ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         if from.graph_index != to.graph_index {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
@@ -258,22 +247,15 @@ impl GraphManager {
 
         let (_, graph_diff) = graph.disconnect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
 
-        let invalidations = ActionInvalidations {
-            graph_to_reindex: Some(from.graph_index),
-            graph_operated_on: Some(from.graph_index),
-            defaults_to_update: None,
-            nodes_created: vec![],
-        };
-
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
 
-        Ok((diff, invalidations))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
     }
 
-    pub fn remove_node(
+    pub(crate) fn remove_node(
         &mut self,
         index: GlobalNodeIndex,
-    ) -> Result<(GraphManagerDiff, ActionInvalidations), NodeError> {
+    ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         let GlobalNodeIndex {
             graph_index,
             node_index,
@@ -299,36 +281,23 @@ impl GraphManager {
         let (_, remove_diff) = graph.remove_node(node_index)?;
         diff.push(DiffElement::ChildGraphDiff(graph_index, remove_diff));
 
-        let invalidations = ActionInvalidations {
-            graph_to_reindex: Some(graph_index),
-            graph_operated_on: Some(graph_index),
-            defaults_to_update: None,
-            nodes_created: vec![],
-        };
-
-        Ok((GraphManagerDiff(diff), invalidations))
+        Ok((
+            GraphManagerDiff(diff),
+            ActionInvalidation::GraphReindexNeeded(graph_index),
+        ))
     }
 
-    pub fn reapply_action(&mut self, diff: GraphManagerDiff) -> Result<ActionInvalidations, NodeError> {
-        let mut invalidations = ActionInvalidations {
-            graph_to_reindex: None,
-            graph_operated_on: None,
-            defaults_to_update: None,
-            nodes_created: vec![],
-        };
+    pub(crate) fn reapply_action(&mut self, diff: GraphManagerDiff) -> Result<Vec<ActionInvalidation>, NodeError> {
+        let mut invalidations = vec![];
 
         for part in diff.0 {
             match part {
                 DiffElement::GraphManagerDiff(diff) => self.node_graphs.apply_diff(diff)?,
                 DiffElement::ChildGraphDiff(graph_index, diff) => {
-                    invalidations.graph_to_reindex = Some(graph_index);
-                    invalidations.graph_operated_on = Some(graph_index);
+                    let new_invalidation = ActionInvalidation::GraphReindexNeeded(graph_index);
 
-                    if let GraphDiff::AddVertex(diff) = &diff {
-                        invalidations.nodes_created.push(GlobalNodeIndex {
-                            node_index: NodeIndex(diff.get_vertex_index()),
-                            graph_index,
-                        })
+                    if !invalidations.iter().any(|inv| inv == &new_invalidation) {
+                        invalidations.push(new_invalidation);
                     }
 
                     self.get_graph(graph_index)?.graph.borrow_mut().apply_diff(diff)?
@@ -339,20 +308,18 @@ impl GraphManager {
         Ok(invalidations)
     }
 
-    pub fn rollback_action(&mut self, diff: GraphManagerDiff) -> Result<ActionInvalidations, NodeError> {
-        let mut invalidations = ActionInvalidations {
-            graph_to_reindex: None,
-            graph_operated_on: None,
-            defaults_to_update: None,
-            nodes_created: vec![],
-        };
+    pub(crate) fn rollback_action(&mut self, diff: GraphManagerDiff) -> Result<Vec<ActionInvalidation>, NodeError> {
+        let mut invalidations = vec![];
 
         for part in diff.0 {
             match part {
                 DiffElement::GraphManagerDiff(diff) => self.node_graphs.rollback_diff(diff)?,
                 DiffElement::ChildGraphDiff(graph_index, diff) => {
-                    invalidations.graph_to_reindex = Some(graph_index);
-                    invalidations.graph_operated_on = Some(graph_index);
+                    let new_invalidation = ActionInvalidation::GraphReindexNeeded(graph_index);
+
+                    if !invalidations.iter().any(|inv| inv == &new_invalidation) {
+                        invalidations.push(new_invalidation);
+                    }
 
                     self.get_graph(graph_index)?.graph.borrow_mut().rollback_diff(diff)?
                 }

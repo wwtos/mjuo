@@ -1,5 +1,8 @@
 use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, state::NodeState};
+use node_engine::{
+    global_state::GlobalState,
+    state::{ActionInvalidation, NodeState},
+};
 use serde_json::Value;
 use snafu::ResultExt;
 
@@ -16,16 +19,16 @@ pub fn route(
     state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
-    let (graphs_changed, _, traverser) = state.redo(global_state).context(NodeSnafu)?;
+    let updates = state.redo().context(NodeSnafu)?;
 
-    for graph_index in graphs_changed {
-        send_graph_updates(state, graph_index, to_server)?;
+    for update in &updates {
+        if let ActionInvalidation::GraphReindexNeeded(index) | ActionInvalidation::GraphModified(index) = update {
+            send_graph_updates(state, *index, to_server)?;
+        }
     }
 
     Ok(Some(RouteReturn {
-        new_traverser: traverser,
-        graph_operated_on: None,
-        graph_to_reindex: None,
+        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
         new_project: false,
     }))
 }

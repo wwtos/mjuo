@@ -63,7 +63,7 @@ impl Node for EnvelopeNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("gate"), Primitive::Boolean(false)),
-            stream_output(register("gain"), 0.0),
+            stream_output(register("gain")),
             value_input(register("attack"), Primitive::Float(0.01)),
             value_input(register("decay"), Primitive::Float(0.3)),
             value_input(register("sustain"), Primitive::Float(0.8)),

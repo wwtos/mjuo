@@ -2,7 +2,7 @@ use ddgg::GraphError;
 use lazy_static::lazy_static;
 use smallvec::SmallVec;
 
-use crate::connection::{Primitive, Socket, SocketType};
+use crate::connection::{Socket, SocketType};
 use crate::errors::NodeError;
 use crate::node::{midi_input, stream_input, stream_output, value_output, NodeRow};
 use crate::node_graph::NodeGraph;
@@ -14,8 +14,8 @@ lazy_static! {
             stream_input(0, 0.0),
             stream_input(1, 0.0),
             midi_input(2, SmallVec::new()),
-            stream_output(0, 0.0),
-            value_output(3, Primitive::Float(0.0)),
+            stream_output(0),
+            value_output(3),
         ]
     };
 }

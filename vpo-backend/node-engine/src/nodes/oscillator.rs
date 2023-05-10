@@ -55,7 +55,7 @@ impl Node for OscillatorNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("frequency"), Primitive::Float(440.0)),
-            stream_output(register("audio"), 0.0),
+            stream_output(register("audio")),
             NodeRow::Property(
                 "waveform".to_string(),
                 PropertyType::MultipleChoice(vec![

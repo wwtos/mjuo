@@ -16,7 +16,6 @@ use sound_engine::sampling::{
     envelope::{calc_sample_metadata, SampleMetadata},
     rank::{Pipe, Rank},
 };
-use tokio::sync::broadcast;
 
 use crate::{
     errors::{EngineError, IoSnafu, JsonParserSnafu},
@@ -38,7 +37,7 @@ struct Payload {
 pub async fn route(
     mut msg: Value,
     _to_server: &Sender<IpcMessage>,
-    state: &mut NodeState,
+    _state: &mut NodeState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let Payload { file_name, rank_name } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;

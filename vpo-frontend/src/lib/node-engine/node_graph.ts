@@ -162,7 +162,7 @@ export class NodeGraph {
         return connections as OutputSideConnection[];
     }
 
-    getNodeSocketDefault(vertexIndex: VertexIndex, socket: Socket, direction: SocketDirection): SocketValue {
+    getNodeSocketDefault(vertexIndex: VertexIndex, socket: Socket): SocketValue {
         const node = this.getNode(vertexIndex);
 
         if (node) {
@@ -176,7 +176,7 @@ export class NodeGraph {
                     } = typeAndDirection;
 
                     return deepEqual(socket, overrideSocketType) &&
-                        direction.variant === overrideDirection.variant;
+                        overrideDirection.variant === "Input";
                 }
             });
 
@@ -192,7 +192,7 @@ export class NodeGraph {
                     } = typeAndDirection;
 
                     return deepEqual(socket, nodeRowSocketType) &&
-                        direction.variant === nodeRowDirection.variant;
+                        nodeRowDirection.variant === "Input";
                 }
             });
 

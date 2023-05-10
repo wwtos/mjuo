@@ -96,7 +96,7 @@ impl Node for StreamExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            stream_output(register("audio"), 0.0),
+            stream_output(register("audio")),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {

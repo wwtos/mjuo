@@ -34,24 +34,19 @@ pub fn route(
         node_index,
     } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
-    let (.., traverser) = state
-        .commit(
-            ActionBundle::new(vec![Action::RemoveNode {
-                index: GlobalNodeIndex {
-                    node_index,
-                    graph_index,
-                },
-            }]),
-            global_state,
-        )
+    let updates = state
+        .commit(ActionBundle::new(vec![Action::RemoveNode {
+            index: GlobalNodeIndex {
+                node_index,
+                graph_index,
+            },
+        }]))
         .context(NodeSnafu)?;
 
     send_graph_updates(state, graph_index, to_server)?;
 
     Ok(Some(RouteReturn {
-        graph_to_reindex: Some(graph_index),
-        graph_operated_on: Some(graph_index),
-        new_traverser: traverser,
+        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
         new_project: false,
     }))
 }

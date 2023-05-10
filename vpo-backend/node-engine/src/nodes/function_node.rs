@@ -82,7 +82,7 @@ impl Node for FunctionNode {
             node_rows: vec![
                 stream_input(register("audio"), 0.0),
                 NodeRow::InnerGraph,
-                stream_output(register("audio"), 0.0),
+                stream_output(register("audio")),
             ],
             child_graph_io: Some(vec![
                 (

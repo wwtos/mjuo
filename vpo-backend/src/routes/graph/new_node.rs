@@ -4,7 +4,7 @@ use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
     graph_manager::GraphIndex,
-    state::{Action, ActionBundle, NodeState},
+    state::{Action, ActionBundle, ActionInvalidation, NodeState},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -37,17 +37,20 @@ pub fn route(
         graph_index,
     } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
 
-    let (_, created_nodes, _) = state
-        .commit(
-            ActionBundle::new(vec![Action::AddNode {
-                node_type,
-                graph: graph_index,
-            }]),
-            global_state,
-        )
+    let mut updates = state
+        .commit(ActionBundle::new(vec![Action::AddNode {
+            node_type,
+            graph: graph_index,
+        }]))
         .context(NodeSnafu)?;
 
-    let created = created_nodes.last().unwrap();
+    let created = updates
+        .iter()
+        .find_map(|update| match update {
+            ActionInvalidation::NewNode(index) => Some(index),
+            _ => None,
+        })
+        .unwrap();
 
     let mut new_ui_data = state
         .get_graph_manager()
@@ -62,24 +65,21 @@ pub fn route(
 
     new_ui_data.extend(ui_data);
 
-    let (.., traverser) = state
-        .commit(
-            ActionBundle::new(vec![Action::ChangeNodeUiData {
-                index: *created,
-                data: new_ui_data,
-            }]),
-            global_state,
-        )
+    let other_updates = state
+        .commit(ActionBundle::new(vec![Action::ChangeNodeUiData {
+            index: *created,
+            data: new_ui_data,
+        }]))
         .context(NodeSnafu)?;
 
     send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, graph_index, to_server)?;
     send_global_state_updates(global_state, to_server)?;
 
+    updates.extend(other_updates.into_iter());
+
     Ok(Some(RouteReturn {
-        graph_to_reindex: Some(graph_index),
-        graph_operated_on: Some(graph_index),
-        new_traverser: traverser,
         new_project: false,
+        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
     }))
 }

@@ -109,31 +109,31 @@ impl SocketValue {
 
 impl Primitive {
     #[inline]
-    pub fn as_float(self) -> Option<f32> {
+    pub fn as_float(&self) -> Option<f32> {
         match self {
-            Primitive::Float(float) => Some(float),
-            Primitive::Int(int) => Some(int as f32),
-            Primitive::Boolean(boolean) => Some(if boolean { 1.0 } else { 0.0 }),
+            Primitive::Float(float) => Some(*float),
+            Primitive::Int(int) => Some(*int as f32),
+            Primitive::Boolean(boolean) => Some(if *boolean { 1.0 } else { 0.0 }),
             _ => None,
         }
     }
 
     #[inline]
-    pub fn as_int(self) -> Option<i32> {
+    pub fn as_int(&self) -> Option<i32> {
         match self {
-            Primitive::Float(float) => Some(float as i32),
-            Primitive::Int(int) => Some(int),
-            Primitive::Boolean(boolean) => Some(i32::from(boolean)),
+            Primitive::Float(float) => Some(*float as i32),
+            Primitive::Int(int) => Some(*int),
+            Primitive::Boolean(boolean) => Some(i32::from(*boolean)),
             _ => None,
         }
     }
 
     #[inline]
-    pub fn as_boolean(self) -> Option<bool> {
+    pub fn as_boolean(&self) -> Option<bool> {
         match self {
-            Primitive::Float(float) => Some(float > 0.01),
-            Primitive::Int(int) => Some(int > 0),
-            Primitive::Boolean(boolean) => Some(boolean),
+            Primitive::Float(float) => Some(*float > 0.01),
+            Primitive::Int(int) => Some(*int > 0),
+            Primitive::Boolean(boolean) => Some(*boolean),
             _ => None,
         }
     }

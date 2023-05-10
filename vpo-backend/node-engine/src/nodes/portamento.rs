@@ -111,7 +111,7 @@ impl Node for PortamentoNode {
             value_input(register("gate"), Primitive::Boolean(false)),
             value_input(register("frequency"), Primitive::Float(440.0)),
             value_input(register("speed"), Primitive::Float(0.2)),
-            value_output(register("frequency"), Primitive::Float(440.0)),
+            value_output(register("frequency")),
         ])
     }
 }

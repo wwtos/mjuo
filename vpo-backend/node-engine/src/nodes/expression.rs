@@ -135,7 +135,7 @@ impl Node for ExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            value_output(register("default"), Primitive::Float(0.0)),
+            value_output(register("default")),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {

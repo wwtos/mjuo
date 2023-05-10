@@ -134,7 +134,7 @@ impl Node for RankPlayerNode {
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
             midi_input(register("midi"), SmallVec::new()),
-            stream_output(register("audio"), 0.0),
+            stream_output(register("audio")),
         ])
     }
 }
