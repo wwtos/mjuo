@@ -77,17 +77,13 @@ pub fn route(
         .flatten()
         .collect();
 
-    let (.., traverser) = state
-        .commit(ActionBundle::new(actions), global_state)
-        .context(NodeSnafu)?;
+    let updates = state.commit(ActionBundle::new(actions)).context(NodeSnafu)?;
 
     send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(Some(RouteReturn {
-        new_traverser: traverser,
-        graph_operated_on: None,
-        graph_to_reindex: None,
+        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
         new_project: false,
     }))
 }

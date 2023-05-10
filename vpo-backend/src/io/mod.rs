@@ -192,19 +192,12 @@ pub fn load(
 
     let json_state = &mut json["state"];
 
-    let graph_manager = serde_json::from_value(json_state["graph_manager"].take()).context(JsonParserSnafu)?;
-    let root_graph_index = serde_json::from_value(json_state["root_graph_index"].take()).context(JsonParserSnafu)?;
-    let output_node = serde_json::from_value(json_state["output_node"].take()).context(JsonParserSnafu)?;
-    let midi_in_node = serde_json::from_value(json_state["midi_in_node"].take()).context(JsonParserSnafu)?;
-    let socket_registry = serde_json::from_value(json_state["socket_registry"].take()).context(JsonParserSnafu)?;
+    let graph_manager = serde_json::from_value(json_state["graphManager"].take()).context(JsonParserSnafu)?;
+    let root_graph_index = serde_json::from_value(json_state["rootGraphIndex"].take()).context(JsonParserSnafu)?;
+    let io_nodes = serde_json::from_value(json_state["ioNodes"].take()).context(JsonParserSnafu)?;
+    let socket_registry = serde_json::from_value(json_state["socketRegistry"].take()).context(JsonParserSnafu)?;
 
-    state.load_state(
-        graph_manager,
-        root_graph_index,
-        output_node,
-        midi_in_node,
-        socket_registry,
-    );
+    state.load_state(graph_manager, root_graph_index, io_nodes, socket_registry);
 
     let (tx, rx) = mpsc::channel();
     let mut watcher =

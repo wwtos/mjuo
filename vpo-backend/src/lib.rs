@@ -26,7 +26,10 @@ use ipc::ipc_message::IpcMessage;
 use ipc::send_buffer::SendBuffer;
 
 use io::file_watcher::FileWatcher;
-use node_engine::{engine::NodeEngine, global_state::GlobalState, state::NodeState};
+use node_engine::{
+    global_state::GlobalState,
+    state::{NodeEngineUpdate, NodeState},
+};
 use routes::route;
 use serde_json::json;
 
@@ -50,26 +53,15 @@ pub async fn handle_msg(
     to_server: &broadcast::Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
-    sender: &mpsc::Sender<NodeEngine>,
+    sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
 ) {
     let result = route(msg, to_server, state, global_state).await;
 
     match result {
         Ok(Some(route_result)) => {
-            if let Some(traverser) = route_result.new_traverser {
-                let scripting_engine = rhai::Engine::new_raw();
-                let (midi_in_node, output_node) = state.get_node_indexes();
-
-                sender
-                    .send(NodeEngine::new(
-                        traverser,
-                        scripting_engine,
-                        midi_in_node,
-                        output_node,
-                        global_state.sound_config.clone(),
-                    ))
-                    .unwrap();
+            if !route_result.engine_updates.is_empty() {
+                sender.send(route_result.engine_updates).unwrap();
             }
 
             if route_result.new_project {

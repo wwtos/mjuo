@@ -1,10 +1,12 @@
+use std::sync::mpsc;
+
 use futures::executor::block_on;
 use futures::future::join;
 use futures::lock::MutexGuard;
 use futures::StreamExt;
 use node_engine::global_state::GlobalState;
 
-use node_engine::state::NodeState;
+use node_engine::state::{NodeEngineUpdate, NodeState};
 use sound_engine::SoundConfig;
 use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
@@ -26,34 +28,40 @@ async fn main_async() {
     let mut global_state = GlobalState::new(SoundConfig::default());
 
     // start up midi and audio
-    let (receiver, _midi_stream) = connect_midir_backend().unwrap();
+    let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
+    let (state_update_sender, state_update_receiver) = mpsc::channel();
 
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
 
     let (mut file_watcher, mut file_receiver) = FileWatcher::new().unwrap();
 
-    let (_stream, sender, config) = backend
+    let (_stream, config) = backend
         .connect(
             output_device,
             global_state.resources.clone(),
             engine_buffer_size,
             io_requested_buffer_size,
             48_000,
-            receiver,
+            midi_receiver,
+            state_update_receiver,
         )
         .unwrap();
 
-    println!("sample rate: {}", config.sample_rate.0);
-
+    // set up state
     global_state.sound_config = SoundConfig {
         sample_rate: config.sample_rate.0,
         buffer_size: engine_buffer_size,
     };
 
-    // set up state
     let mut node_state = NodeState::new(&global_state).unwrap();
-    sender.send(node_state.get_engine(&global_state).unwrap()).unwrap();
+    state_update_sender
+        .send(vec![NodeEngineUpdate::NewNodeEngine(
+            node_state.get_engine(&global_state).unwrap(),
+        )])
+        .unwrap();
+
+    println!("sample rate: {}", config.sample_rate.0);
 
     let global_state = futures::lock::Mutex::new(global_state);
 
@@ -72,7 +80,7 @@ async fn main_async() {
                                 &to_server,
                                 &mut node_state,
                                 global_state,
-                                &sender,
+                                &state_update_sender,
                                 &mut file_watcher,
                             )
                             .await;

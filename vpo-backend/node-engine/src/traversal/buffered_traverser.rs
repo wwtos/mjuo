@@ -32,13 +32,13 @@ struct AdvanceBy {
 struct OutputLocations {
     pub stream_outputs_index: usize,
     pub stream_defaults_index: usize,
-    pub stream_outputs: Vec<Socket>,
+    pub stream_output_sockets: Vec<Socket>,
     pub midi_outputs_index: usize,
     pub midi_defaults_index: usize,
-    pub midi_outputs: Vec<Socket>,
+    pub midi_output_sockets: Vec<Socket>,
     pub value_outputs_index: usize,
     pub value_defaults_index: usize,
-    pub value_outputs: Vec<Socket>,
+    pub value_output_sockets: Vec<Socket>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -173,9 +173,9 @@ impl BufferedTraverser {
             let mut midi_inputs = 0;
             let mut value_inputs = 0;
 
-            let mut stream_outputs = vec![];
-            let mut midi_outputs = vec![];
-            let mut value_outputs = vec![];
+            let mut stream_output_sockets = vec![];
+            let mut midi_output_sockets = vec![];
+            let mut value_output_sockets = vec![];
 
             for socket in node_wrapper.list_input_sockets() {
                 let default_row = node_wrapper.get_default(socket).unwrap();
@@ -212,9 +212,9 @@ impl BufferedTraverser {
 
             for socket in node_wrapper.list_output_sockets() {
                 match socket.socket_type() {
-                    SocketType::Stream => stream_outputs.push(socket),
-                    SocketType::Midi => midi_outputs.push(socket),
-                    SocketType::Value => value_outputs.push(socket),
+                    SocketType::Stream => stream_output_sockets.push(socket),
+                    SocketType::Midi => midi_output_sockets.push(socket),
+                    SocketType::Value => value_output_sockets.push(socket),
                     _ => {}
                 }
             }
@@ -244,39 +244,39 @@ impl BufferedTraverser {
                 OutputLocations {
                     stream_outputs_index: self.stream_outputs.len(),
                     stream_defaults_index,
-                    stream_outputs: stream_outputs.clone(),
+                    stream_output_sockets: stream_output_sockets.clone(),
                     midi_outputs_index: self.midi_outputs.len(),
                     midi_defaults_index,
-                    midi_outputs: midi_outputs.clone(),
+                    midi_output_sockets: midi_output_sockets.clone(),
                     value_outputs_index: self.value_outputs.len(),
                     value_defaults_index,
-                    value_outputs: value_outputs.clone(),
+                    value_output_sockets: value_output_sockets.clone(),
                 },
             );
 
             // figure out how much the traverser needs to advance between each node
             self.stream_advance_by.push(AdvanceBy {
                 inputs: stream_inputs,
-                outputs: stream_outputs.len(),
+                outputs: stream_output_sockets.len(),
                 defaults: needed_stream_defaults.len(),
             });
 
             self.midi_advance_by.push(AdvanceBy {
                 inputs: midi_inputs,
-                outputs: midi_outputs.len(),
+                outputs: midi_output_sockets.len(),
                 defaults: needed_midi_defaults.len(),
             });
 
             self.value_advance_by.push(AdvanceBy {
                 inputs: value_inputs,
-                outputs: value_outputs.len(),
+                outputs: value_output_sockets.len(),
                 defaults: needed_value_defaults.len(),
             });
 
             self.stream_outputs
-                .extend(repeat(0.0).take(stream_outputs.len() * self.buffer_size));
-            self.midi_outputs.extend(repeat(None).take(midi_outputs.len()));
-            self.value_outputs.extend(repeat(None).take(value_outputs.len()));
+                .extend(repeat(0.0).take(stream_output_sockets.len() * self.buffer_size));
+            self.midi_outputs.extend(repeat(None).take(midi_output_sockets.len()));
+            self.value_outputs.extend(repeat(None).take(value_output_sockets.len()));
         }
 
         // the next step is to populate the input mappings, since we know where all the nodes are now
@@ -303,7 +303,7 @@ impl BufferedTraverser {
                     match input.socket_type() {
                         SocketType::Stream => {
                             let position_in_stream = other_outputs
-                                .stream_outputs
+                                .stream_output_sockets
                                 .iter()
                                 .position(|&other_socket| other_socket == connection.data.from_socket)
                                 .unwrap()
@@ -314,7 +314,7 @@ impl BufferedTraverser {
                         }
                         SocketType::Midi => {
                             let position_in_midi = other_outputs
-                                .midi_outputs
+                                .midi_output_sockets
                                 .iter()
                                 .position(|&other_socket| other_socket == connection.data.from_socket)
                                 .unwrap()
@@ -324,7 +324,7 @@ impl BufferedTraverser {
                         }
                         SocketType::Value => {
                             let position_in_value = other_outputs
-                                .value_outputs
+                                .value_output_sockets
                                 .iter()
                                 .position(|&other_socket| other_socket == connection.data.from_socket)
                                 .unwrap()
@@ -553,5 +553,38 @@ impl BufferedTraverser {
             .zip(&self.node_indexes)
             .find(|(_, index)| *index == &index_to_find)
             .map(|(node, _)| node)
+    }
+
+    pub fn input_value_default(
+        &mut self,
+        node_index: NodeIndex,
+        socket: Socket,
+        default: Primitive,
+    ) -> Result<(), NodeError> {
+        let node = self
+            .node_to_location_mapping
+            .iter_mut()
+            .zip(self.nodes.iter_mut())
+            .find(|((index, _), _)| *index == &node_index);
+
+        if let Some(((_index, mapping), node)) = node {
+            let socket_index = mapping
+                .midi_output_sockets
+                .iter()
+                .position(|possible_socket| &socket == possible_socket);
+
+            if let Some(index) = socket_index {
+                let mut value_in = vec![None; mapping.midi_output_sockets.len()];
+                value_in[index] = Some(default);
+
+                node.accept_value_inputs(&value_in);
+
+                Ok(())
+            } else {
+                Err(NodeError::SocketDoesNotExist { socket })
+            }
+        } else {
+            Err(NodeError::NodeDoesNotExist { node_index })
+        }
     }
 }

@@ -36,6 +36,15 @@ impl NodeRow {
         }
     }
 
+    pub fn to_socket_and_value(&self) -> Option<(Socket, SocketValue)> {
+        match self {
+            NodeRow::Input(socket, value) => Some((*socket, value.clone())),
+            NodeRow::Output(socket, value) => Some((*socket, value.clone())),
+            NodeRow::Property(..) => None,
+            NodeRow::InnerGraph => None,
+        }
+    }
+
     pub fn from_type_and_direction(socket: Socket, direction: SocketDirection) -> Self {
         match direction {
             SocketDirection::Input => NodeRow::Input(socket, SocketValue::None),

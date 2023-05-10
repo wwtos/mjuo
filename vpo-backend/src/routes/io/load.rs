@@ -1,7 +1,10 @@
 use std::path::Path;
 
 use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, state::NodeState};
+use node_engine::{
+    global_state::GlobalState,
+    state::{NodeEngineUpdate, NodeState},
+};
 use rfd::AsyncFileDialog;
 use serde_json::Value;
 use snafu::ResultExt;
@@ -35,13 +38,11 @@ pub async fn route(
         send_graph_updates(state, state.get_root_graph_index(), to_server)?;
 
         return Ok(Some(RouteReturn {
-            graph_to_reindex: None,
-            graph_operated_on: None,
-            new_traverser: Some(
+            engine_updates: vec![NodeEngineUpdate::NewNodeEngine(
                 state
-                    .get_traverser(global_state)
+                    .get_engine(global_state)
                     .whatever_context("could not create traverser")?,
-            ),
+            )],
             new_project: true,
         }));
     }
