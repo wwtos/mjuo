@@ -80,6 +80,7 @@ pub enum ActionInvalidation {
 pub enum NodeEngineUpdate {
     NewNodeEngine(NodeEngine),
     NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
+    NewUiState(Vec<(NodeIndex, serde_json::Value)>),
 }
 
 #[derive(Clone, Debug)]
@@ -498,7 +499,7 @@ impl NodeState {
                 let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
                 let node = graph.get_node_mut(index.node_index)?;
 
-                let before = node.replace_ui_data(after.clone());
+                let before = node.set_ui_data(after.clone());
 
                 action_result.push(ActionInvalidation::GraphModified(index.graph_index));
 
@@ -508,7 +509,7 @@ impl NodeState {
                 let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
                 let node = graph.get_node_mut(index.node_index)?;
 
-                node.replace_default_overrides(after.clone());
+                node.set_default_overrides(after.clone());
 
                 let changed: Vec<(Socket, SocketValue)> = after
                     .iter()

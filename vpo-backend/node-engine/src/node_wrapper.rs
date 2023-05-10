@@ -19,6 +19,7 @@ pub struct NodeWrapper {
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
+    ui_state: Value,
     child_graph_index: Option<GraphIndex>,
     child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
 }
@@ -44,6 +45,7 @@ impl NodeWrapper {
             node_rows,
             properties,
             ui_data: HashMap::new(),
+            ui_state: Value::Null,
             child_graph_index: None,
             child_graph_io_indexes: None,
         };
@@ -104,27 +106,27 @@ impl NodeWrapper {
     }
 
     pub fn set_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
-        std::mem::replace(&mut self.properties, properties)
+        mem::replace(&mut self.properties, properties)
+    }
+
+    pub fn get_ui_state(&self) -> &Value {
+        &self.ui_state
+    }
+
+    pub fn set_ui_state(&mut self, state: Value) -> Value {
+        mem::replace(&mut self.ui_state, state)
     }
 
     pub fn get_ui_data(&self) -> &HashMap<String, Value> {
         &self.ui_data
     }
 
-    pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) {
-        self.ui_data = ui_data;
+    pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
+        mem::replace(&mut self.ui_data, ui_data)
     }
 
-    pub fn replace_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
-        std::mem::replace(&mut self.ui_data, ui_data)
-    }
-
-    pub fn set_default_overrides(&mut self, default_overrides: Vec<NodeRow>) {
-        self.default_overrides = default_overrides;
-    }
-
-    pub fn replace_default_overrides(&mut self, default_overrides: Vec<NodeRow>) -> Vec<NodeRow> {
-        std::mem::replace(&mut self.default_overrides, default_overrides)
+    pub fn set_default_overrides(&mut self, default_overrides: Vec<NodeRow>) -> Vec<NodeRow> {
+        mem::replace(&mut self.default_overrides, default_overrides)
     }
 
     pub fn set_ui_data_property(&mut self, key: String, value: Value) {

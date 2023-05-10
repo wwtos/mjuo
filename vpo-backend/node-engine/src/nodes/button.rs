@@ -13,6 +13,14 @@ impl NodeRuntime for ButtonNode {
         InitResult::nothing()
     }
 
+    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
+        self.input = ProcessState::Unprocessed(values_in[0].as_ref().and_then(|x| x.as_boolean()).unwrap());
+    }
+
+    fn set_ui_state(&mut self, state: serde_json::Value) {
+        self.input = ProcessState::Unprocessed(state.as_bool().unwrap());
+    }
+
     fn process(
         &mut self,
         _state: NodeProcessState,
@@ -31,8 +39,12 @@ impl NodeRuntime for ButtonNode {
         NodeOk::no_warnings(())
     }
 
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.input = ProcessState::Unprocessed(values_in[0].clone().unwrap().as_boolean().unwrap());
+    fn get_ui_state(&self) -> Option<serde_json::Value> {
+        if matches!(self.input, ProcessState::Processed) {
+            Some(serde_json::Value::Bool(self.state))
+        } else {
+            None
+        }
     }
 
     fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
@@ -41,7 +53,7 @@ impl NodeRuntime for ButtonNode {
         }
     }
 
-    fn linked_to_ui(&self) -> bool {
+    fn has_ui_state(&self) -> bool {
         true
     }
 }

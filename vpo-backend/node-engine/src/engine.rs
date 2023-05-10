@@ -3,6 +3,7 @@ use rhai::Engine;
 use crate::{
     connection::MidiBundle,
     global_state::Resources,
+    node::NodeIndex,
     nodes::variants::NodeVariant,
     state::{IoNodes, NodeEngineUpdate},
     traversal::buffered_traverser::BufferedTraverser,
@@ -14,6 +15,7 @@ pub struct NodeEngine {
     traverser: Option<BufferedTraverser>,
     io_nodes: Option<IoNodes>,
     scripting_engine: Engine,
+    new_ui_states: Vec<(NodeIndex, serde_json::Value)>,
 }
 
 impl NodeEngine {
@@ -23,6 +25,7 @@ impl NodeEngine {
             traverser: Some(traverser),
             io_nodes: Some(io_nodes),
             scripting_engine,
+            new_ui_states: vec![],
         }
     }
 
@@ -34,6 +37,7 @@ impl NodeEngine {
             traverser: None,
             io_nodes: None,
             scripting_engine: engine,
+            new_ui_states: vec![],
         }
     }
 
@@ -56,6 +60,9 @@ impl NodeEngine {
                         }
                     }
                 }
+                NodeEngineUpdate::NewUiState(incoming) => {
+                    self.new_ui_states.extend(incoming.into_iter());
+                }
             }
         }
     }
@@ -75,7 +82,12 @@ impl NodeEngine {
                 }
             }
 
-            let traversal_errors = traverser.traverse(self.current_time, &self.scripting_engine, resources);
+            let traversal_errors = traverser.traverse(
+                self.current_time,
+                &self.scripting_engine,
+                resources,
+                self.new_ui_states.drain(..).collect(),
+            );
             self.current_time += out.len() as i64;
 
             let output_node = traverser.get_node_mut(io_nodes.output);
