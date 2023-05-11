@@ -107,7 +107,7 @@ impl BufferedTraverser {
     ) -> Result<ErrorsAndWarnings, NodeError> {
         self.buffer_size = sound_config.buffer_size;
 
-        let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
+        let graph = graph_manager.get_graph(graph_index)?;
 
         // figure out what order we should go through the nodes
         let traversal_order = calculate_graph_traverse_order(&graph);
@@ -576,20 +576,16 @@ impl BufferedTraverser {
         socket: Socket,
         value: Primitive,
     ) -> Result<(), NodeError> {
-        let node = self
-            .node_to_location_mapping
-            .iter()
-            .zip(self.nodes.iter_mut())
-            .find(|((&index, _), _)| index == node_index);
+        let locations = self.node_to_location_mapping.get(&node_index);
 
-        if let Some(((_index, mapping), node)) = node {
-            let value_index = mapping
+        if let Some(locations) = locations {
+            let value_index = locations
                 .value_socket_to_index
                 .iter()
                 .find_map(|&(possible_socket, index)| if possible_socket == socket { Some(index) } else { None });
 
             if let Some(value_index) = value_index {
-                node.to_input.push((value_index, value));
+                self.nodes[locations.vec_index].to_input.push((value_index, value));
 
                 Ok(())
             } else {

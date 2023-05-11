@@ -56,8 +56,6 @@ pub fn route(
         .get_graph_manager()
         .get_graph(created.graph_index)
         .context(NodeSnafu)?
-        .graph
-        .borrow()
         .get_node(created.node_index)
         .context(NodeSnafu)?
         .get_ui_data()

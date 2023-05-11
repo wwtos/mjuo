@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +10,7 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 
 #[derive(Debug, Clone)]
 pub enum DiffElement {
-    GraphManagerDiff(GraphDiff<NodeGraphWrapper, ConnectedThrough>),
+    GraphManagerDiff(GraphDiff<NodeGraph, ConnectedThrough>),
     ChildGraphDiff(GraphIndex, NodeGraphDiff),
 }
 
@@ -33,27 +31,17 @@ pub struct GlobalNodeIndex {
     pub node_index: NodeIndex,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct NodeGraphWrapper {
-    pub graph: RefCell<NodeGraph>,
-}
-
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GraphManager {
-    node_graphs: Graph<NodeGraphWrapper, ConnectedThrough>,
+    node_graphs: Graph<NodeGraph, ConnectedThrough>,
     root_index: GraphIndex,
 }
 
 impl GraphManager {
     pub fn new() -> Self {
         let mut graph = Graph::new();
-        let (root_index, _) = graph
-            .add_vertex(NodeGraphWrapper {
-                graph: RefCell::new(NodeGraph::new()),
-            })
-            .unwrap();
+        let (root_index, _) = graph.add_vertex(NodeGraph::new()).unwrap();
 
         GraphManager {
             node_graphs: graph,
@@ -62,9 +50,7 @@ impl GraphManager {
     }
 
     pub fn new_graph(&mut self) -> Result<(GraphIndex, GraphManagerDiff), NodeError> {
-        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraphWrapper {
-            graph: RefCell::new(NodeGraph::new()),
-        })?;
+        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new())?;
 
         let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(add_diff)]);
 
@@ -108,10 +94,7 @@ impl GraphManager {
     }
 
     /// Will error out if there's more than one parent node connected
-    pub fn remove_graph(
-        &mut self,
-        graph_index: &GraphIndex,
-    ) -> Result<(NodeGraphWrapper, GraphManagerDiff), NodeError> {
+    pub fn remove_graph(&mut self, graph_index: &GraphIndex) -> Result<(NodeGraph, GraphManagerDiff), NodeError> {
         let parent_nodes = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
 
         if !parent_nodes.is_empty() {
@@ -129,11 +112,11 @@ impl GraphManager {
         self.root_index
     }
 
-    pub fn get_graph(&self, index: GraphIndex) -> Result<&NodeGraphWrapper, NodeError> {
+    pub fn get_graph(&self, index: GraphIndex) -> Result<&NodeGraph, NodeError> {
         Ok(self.node_graphs.get_vertex_data(index.0)?)
     }
 
-    pub fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraphWrapper, NodeError> {
+    pub fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraph, NodeError> {
         Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
     }
 
@@ -159,9 +142,9 @@ impl GraphManager {
         node_type: &str,
         graph_index: GraphIndex,
         registry: &mut SocketRegistry,
-    ) -> NodeResult<(GraphManagerDiff, ActionInvalidation)> {
+    ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff = vec![];
-        let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
+        let graph = self.get_graph_mut(graph_index)?;
         let creation_result = graph.add_node(node_type.into(), registry)?;
 
         let new_node_index = creation_result.value.0;
@@ -171,8 +154,6 @@ impl GraphManager {
         // does this node need a child graph?
         let new_node_wrapper = graph.get_node(new_node_index)?;
         let uses_child_graph = new_node_wrapper.uses_child_graph();
-
-        drop(graph);
 
         let child_graph_index = if uses_child_graph {
             let new_graph_index = {
@@ -193,8 +174,7 @@ impl GraphManager {
             None
         };
 
-        let graph = &mut self.get_graph(graph_index)?.graph.borrow_mut();
-        let new_node = graph.get_node_mut(new_node_index)?;
+        let new_node = self.get_graph_mut(graph_index)?.get_node_mut(new_node_index)?;
 
         if let Some(child_graph_index) = child_graph_index {
             new_node.set_child_graph_index(child_graph_index);
@@ -203,10 +183,13 @@ impl GraphManager {
         Ok(NodeOk::new(
             (
                 GraphManagerDiff(diff),
-                ActionInvalidation::NewNode(GlobalNodeIndex {
-                    graph_index,
-                    node_index: new_node_index,
-                }),
+                vec![
+                    ActionInvalidation::NewNode(GlobalNodeIndex {
+                        graph_index,
+                        node_index: new_node_index,
+                    }),
+                    ActionInvalidation::GraphReindexNeeded(graph_index),
+                ],
             ),
             creation_result.warnings,
         ))
@@ -223,9 +206,12 @@ impl GraphManager {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
 
-        let mut graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
-
-        let (_, graph_diff) = graph.connect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
+        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.connect(
+            from.node_index,
+            from_socket_type,
+            to.node_index,
+            to_socket_type,
+        )?;
 
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
 
@@ -243,9 +229,12 @@ impl GraphManager {
             return Err(NodeError::MismatchedNodeGraphs { from, to });
         }
 
-        let mut graph = self.get_graph(from.graph_index)?.graph.borrow_mut();
-
-        let (_, graph_diff) = graph.disconnect(from.node_index, from_socket_type, to.node_index, to_socket_type)?;
+        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.disconnect(
+            from.node_index,
+            from_socket_type,
+            to.node_index,
+            to_socket_type,
+        )?;
 
         let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
 
@@ -273,12 +262,8 @@ impl GraphManager {
             diff.extend(remove_diff.0);
         }
 
-        // now that we've ensured that the graph is disconnected, we can safely delete the node
-        // but first, we need to make a list of its current connections (for undo)
-        let mut graph = self.get_graph(graph_index)?.graph.borrow_mut();
-
         // now, we can remove the node
-        let (_, remove_diff) = graph.remove_node(node_index)?;
+        let (_, remove_diff) = self.get_graph_mut(graph_index)?.remove_node(node_index)?;
         diff.push(DiffElement::ChildGraphDiff(graph_index, remove_diff));
 
         Ok((
@@ -300,7 +285,7 @@ impl GraphManager {
                         invalidations.push(new_invalidation);
                     }
 
-                    self.get_graph(graph_index)?.graph.borrow_mut().apply_diff(diff)?
+                    self.get_graph_mut(graph_index)?.apply_diff(diff)?
                 }
             }
         }
@@ -321,7 +306,7 @@ impl GraphManager {
                         invalidations.push(new_invalidation);
                     }
 
-                    self.get_graph(graph_index)?.graph.borrow_mut().rollback_diff(diff)?
+                    self.get_graph_mut(graph_index)?.rollback_diff(diff)?
                 }
             }
         }

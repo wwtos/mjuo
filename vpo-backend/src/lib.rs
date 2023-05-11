@@ -53,7 +53,7 @@ pub async fn handle_msg(
     to_server: &broadcast::Sender<IpcMessage>,
     state: &mut NodeState,
     global_state: &mut GlobalState,
-    sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
+    engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
 ) {
     let result = route(msg, to_server, state, global_state).await;
@@ -61,7 +61,7 @@ pub async fn handle_msg(
     match result {
         Ok(Some(route_result)) => {
             if !route_result.engine_updates.is_empty() {
-                sender.send(route_result.engine_updates).unwrap();
+                engine_sender.send(route_result.engine_updates).unwrap();
             }
 
             if route_result.new_project {
