@@ -71,6 +71,7 @@ impl Node for ButtonNode {
             node_rows: vec![
                 value_input(register("set_state"), Primitive::Boolean(false)),
                 value_output(register("state")),
+                NodeRow::Property("ui_name".into(), PropertyType::String, Property::String("".into())),
             ],
             child_graph_io: None,
         }

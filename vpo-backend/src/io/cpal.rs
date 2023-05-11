@@ -166,7 +166,6 @@ impl CpalBackend {
                                     };
 
                                     if let Some(from_engine) = from_engine {
-                                        println!("from engine: {:?}", from_engine);
                                         to_main.send(from_engine).unwrap();
                                     }
 

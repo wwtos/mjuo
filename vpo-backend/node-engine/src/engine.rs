@@ -102,10 +102,6 @@ impl NodeEngine {
             out.copy_from_slice(&output);
 
             if !ui_updates.is_empty() {
-                println!("ui updates: {:?}", ui_updates);
-            }
-
-            if !ui_updates.is_empty() {
                 Some(FromNodeEngine::UiUpdates(ui_updates))
             } else {
                 None

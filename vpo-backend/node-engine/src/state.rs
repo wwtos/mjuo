@@ -415,6 +415,12 @@ impl NodeState {
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
             Action::RemoveNode { index } => {
+                if index.graph_index == self.root_graph_index
+                    && (index.node_index == self.io_nodes.input || index.node_index == self.io_nodes.output)
+                {
+                    return Err(NodeError::CannotDeleteRootNode);
+                }
+
                 let (diff, invalidations) = self.graph_manager.remove_node(index)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])

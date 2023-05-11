@@ -48,6 +48,8 @@ pub enum NodeError {
     GraphError { error: GraphError },
     #[snafu(display("Expected node type {expected}, got {actual}"))]
     IncorrectNodeType { expected: String, actual: String },
+    #[snafu(display("Can't delete root node"))]
+    CannotDeleteRootNode,
 }
 
 impl From<GraphError> for NodeError {
