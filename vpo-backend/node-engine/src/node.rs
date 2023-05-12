@@ -187,13 +187,16 @@ pub trait NodeRuntime: Debug + Clone {
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {}
 
     /// Return outgoing midi data (ordered based on rows returned from `init`)
-    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {}
+    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {}
 
     /// Accept incoming value data (ordered based on rows returned from `init`)
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {}
 
     /// Return outgoing value data (ordered based on rows returned from `init`)
-    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {}
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {}
+
+    /// Runs at the end every frame
+    fn finish(&mut self) {}
 }
 
 /// A static method returning a node's IO list. Note this is dynamic, but it cannot be dependent on

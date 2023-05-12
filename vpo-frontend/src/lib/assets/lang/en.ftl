@@ -34,4 +34,5 @@ node =
     .RankPlayerNode = Rank Player
     .StreamExpressionNode = Expression (stream)
     .WavetableNode = Wavetable Oscillator
+    .MidiMergerNode = Midi Merger
 

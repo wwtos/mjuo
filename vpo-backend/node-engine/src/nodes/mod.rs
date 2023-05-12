@@ -8,6 +8,7 @@ pub mod gain;
 pub mod inputs;
 pub mod midi_filter;
 pub mod midi_input;
+pub mod midi_merger;
 pub mod midi_to_values;
 pub mod mixer;
 pub mod oscillator;

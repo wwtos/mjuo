@@ -535,7 +535,7 @@ impl BufferedTraverser {
             }
         }
 
-        for (node, advance_by) in self.nodes.iter().zip(&self.midi_advance_by) {
+        for (node, advance_by) in self.nodes.iter_mut().zip(&self.midi_advance_by) {
             let outputs = advance_by.outputs;
             let output_index = midi_outputs_i;
 
@@ -547,7 +547,7 @@ impl BufferedTraverser {
             midi_outputs_i += advance_by.outputs;
         }
 
-        for (node, advance_by) in self.nodes.iter().zip(&self.value_advance_by) {
+        for (node, advance_by) in self.nodes.iter_mut().zip(&self.value_advance_by) {
             let outputs = advance_by.outputs;
             let output_index = value_outputs_i;
 
@@ -557,6 +557,10 @@ impl BufferedTraverser {
                 .get_value_outputs(&mut self.value_outputs[output_index..(output_index + outputs)]);
 
             value_outputs_i += advance_by.outputs;
+        }
+
+        for node in &mut self.nodes {
+            node.node.finish();
         }
 
         (new_ui_states, ErrorsAndWarnings { errors, warnings })

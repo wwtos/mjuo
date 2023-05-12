@@ -20,10 +20,6 @@ impl NodeRuntime for MixerNode {
 
         NodeOk::no_warnings(())
     }
-
-    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        InitResult::nothing()
-    }
 }
 
 impl Node for MixerNode {

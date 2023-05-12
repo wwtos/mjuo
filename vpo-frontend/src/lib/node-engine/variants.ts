@@ -64,4 +64,8 @@ export const variants: NodeVariant[] = [
         internal: "RankPlayerNode",
         category: "audio"
     },
+    {
+        internal: "MidiMergerNode",
+        category: "midi"
+    },
 ];

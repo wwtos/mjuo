@@ -80,7 +80,6 @@ pub enum SocketValue {
     Stream(f32),
     Midi(MidiBundle),
     Value(Primitive),
-    NodeRef,
     None,
 }
 

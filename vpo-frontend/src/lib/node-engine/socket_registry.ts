@@ -31,7 +31,7 @@ export class SocketRegistry {
                 const socketFound = Object.entries(this.nameToSocketType).find(([_, uid]) => uid === uidLookingFor);
 
                 if (socketFound) {
-                    return [socketFound[0], associatedData];
+                    return [socketFound[0], {id: associatedData}];
                 }
 
                 return ["", undefined];

@@ -1,48 +1,34 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct MidiInNode {
     midi_in: MidiBundle,
-    has_midi_been_processed: bool,
 }
 
 impl MidiInNode {
     pub fn set_midi_output(&mut self, midi_in: MidiBundle) {
         self.midi_in = midi_in;
-        self.has_midi_been_processed = false;
     }
 }
 
 impl NodeRuntime for MidiInNode {
-    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
+    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
         if !self.midi_in.is_empty() {
             midi_out[0] = Some(self.midi_in.clone());
         }
     }
 
-    fn process(
-        &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
-    ) -> NodeResult<()> {
-        if !self.has_midi_been_processed {
-            self.has_midi_been_processed = true;
-        } else if !self.midi_in.is_empty() {
-            self.midi_in.clear();
-        }
-
-        NodeOk::no_warnings(())
+    fn finish(&mut self) {
+        self.midi_in.clear();
     }
 }
 
 impl Node for MidiInNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         MidiInNode {
-            midi_in: smallvec![],
-            has_midi_been_processed: false,
+            midi_in: SmallVec::new(),
         }
     }
 

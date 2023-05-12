@@ -34,23 +34,23 @@ impl Property {
         }
     }
 
-    pub fn as_boolean(self) -> Option<bool> {
+    pub fn as_boolean(&self) -> Option<bool> {
         match self {
-            Property::Bool(value) => Some(value),
+            Property::Bool(value) => Some(*value),
             _ => None,
         }
     }
 
-    pub fn as_integer(self) -> Option<i32> {
+    pub fn as_integer(&self) -> Option<i32> {
         match self {
-            Property::Integer(value) => Some(value),
+            Property::Integer(value) => Some(*value),
             _ => None,
         }
     }
 
-    pub fn as_float(self) -> Option<f32> {
+    pub fn as_float(&self) -> Option<f32> {
         match self {
-            Property::Float(value) => Some(value),
+            Property::Float(value) => Some(*value),
             _ => None,
         }
     }
