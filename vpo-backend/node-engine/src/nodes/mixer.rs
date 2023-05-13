@@ -40,7 +40,7 @@ impl Node for MixerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Stream, 1),
+                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Stream, 1),
                 SocketValue::Stream(0.0),
             ));
         }

@@ -66,7 +66,7 @@ impl PipePlayer {
             queued_action: QueuedAction::None,
             audio_position: 0.0,
             audio_amplitude: 0.0,
-            playback_rate: 0.0,
+            playback_rate: 1.0,
             crossfade_position: 0.0,
             crossfade_amplitude: 0.0,
             crossfade_start: 0.0,

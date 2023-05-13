@@ -27,6 +27,7 @@ pub struct RankPlayer {
     polyphony: usize,
     voices: Vec<Voice>,
     note_to_sample_map: BTreeMap<u8, ResourceIndex>,
+    playback_rate: f32,
 }
 
 impl RankPlayer {
@@ -43,6 +44,7 @@ impl RankPlayer {
             polyphony,
             voices: Vec::with_capacity(polyphony),
             note_to_sample_map,
+            playback_rate: 1.0,
         }
     }
 
@@ -90,7 +92,9 @@ impl RankPlayer {
             open_voice.active = true;
 
             if open_voice.player.is_uninitialized() {
-                let player = PipePlayer::new(pipe, sample);
+                let mut player = PipePlayer::new(pipe, sample);
+
+                player.set_playback_rate(self.playback_rate);
 
                 open_voice.player = player;
                 open_voice.note = note;
@@ -98,9 +102,21 @@ impl RankPlayer {
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
                 open_voice.player = PipePlayer::new(pipe, sample);
+                open_voice.player.set_playback_rate(self.playback_rate);
+
                 open_voice.note = note;
             }
         }
+    }
+
+    pub fn set_playback_rate(&mut self, rate: f32) {
+        let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
+
+        for voice in active_voices {
+            voice.player.set_playback_rate(rate);
+        }
+
+        self.playback_rate = rate;
     }
 
     pub fn next_buffered(

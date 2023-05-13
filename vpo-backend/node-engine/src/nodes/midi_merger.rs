@@ -101,7 +101,7 @@ impl Node for MidiMergerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Midi, 1),
+                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Midi, 1),
                 SocketValue::None,
             ));
         }

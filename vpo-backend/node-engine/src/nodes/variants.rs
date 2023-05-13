@@ -23,7 +23,7 @@ use super::wavetable::WavetableNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
     gain::GainNode, midi_input::MidiInNode, midi_merger::MidiMergerNode, midi_to_values::MidiToValuesNode,
-    mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
+    midi_transpose::MidiTransposeNode, mixer::MixerNode, oscillator::OscillatorNode, output::OutputNode,
 };
 
 #[enum_dispatch]
@@ -50,6 +50,7 @@ pub enum NodeVariant {
     ButtonNode,
     RankPlayerNode,
     MidiMergerNode,
+    MidiTransposeNode,
 }
 
 impl Default for NodeVariant {
@@ -81,6 +82,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new(config))),
         "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::new(config))),
         "MidiMergerNode" => Ok(NodeVariant::MidiMergerNode(MidiMergerNode::new(config))),
+        "MidiTransposeNode" => Ok(NodeVariant::MidiTransposeNode(MidiTransposeNode::new(config))),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -112,6 +114,7 @@ pub fn variant_io(
         "ButtonNode" => Ok(ButtonNode::get_io(props, register)),
         "RankPlayerNode" => Ok(RankPlayerNode::get_io(props, register)),
         "MidiMergerNode" => Ok(MidiMergerNode::get_io(props, register)),
+        "MidiTransposeNode" => Ok(MidiTransposeNode::get_io(props, register)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

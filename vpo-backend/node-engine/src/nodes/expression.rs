@@ -141,7 +141,7 @@ impl Node for ExpressionNode {
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
             for i in 0..(*values_in_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered(register("socket-variable-numbered"), i + 1, SocketType::Value, 1),
+                    Socket::Numbered(register("variable-numbered"), i + 1, SocketType::Value, 1),
                     SocketValue::Value(Primitive::Float(0.0)),
                 ));
             }

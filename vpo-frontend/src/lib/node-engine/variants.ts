@@ -68,4 +68,8 @@ export const variants: NodeVariant[] = [
         internal: "MidiMergerNode",
         category: "midi"
     },
+    {
+        internal: "MidiTransposeNode",
+        category: "midi"
+    }
 ];
