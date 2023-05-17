@@ -109,6 +109,14 @@ impl NodeRuntime for ExpressionNode {
 
         InitResult::nothing()
     }
+
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
+        if self.have_values_changed {
+            values_out[0] = self.value_out.clone();
+        }
+
+        self.have_values_changed = false;
+    }
 }
 
 impl Node for ExpressionNode {

@@ -15,7 +15,8 @@ socket =
     .variable-numbered = x{ $id }
     .default = Default
     .transpose = Transpose
-    .playback_rate = Playback rate
+    .air_detune = Air detune
+    .air_amplitude = Air amplitude
 
 node =
     .BiquadFilterNode = Filter (12db/octave)
@@ -40,6 +41,7 @@ node =
     .WavetableNode = Wavetable Oscillator
     .MidiMergerNode = Midi Merger
     .MidiTransposeNode = Midi Transpose
+    .WavetableSequencerNode = Wavetable Sequencer
 
 property =
     .input_count = Input count
@@ -47,3 +49,4 @@ property =
     .rank = Rank
     .expression = Expression
     .values_in_count = Values in count
+    .wavetable = Wavetable

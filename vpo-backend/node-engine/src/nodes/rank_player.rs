@@ -105,9 +105,15 @@ impl NodeRuntime for RankPlayerNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(playback_rate) = values_in[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(air_detune) = values_in[0].as_ref().and_then(|x| x.as_float()) {
             if let Some(player) = &mut self.player {
-                player.set_playback_rate(playback_rate);
+                player.set_air_detune(air_detune);
+            }
+        }
+
+        if let Some(air_amplitude) = values_in[1].as_ref().and_then(|x| x.as_float()) {
+            if let Some(player) = &mut self.player {
+                player.set_air_amplitude(air_amplitude);
             }
         }
     }
@@ -142,7 +148,8 @@ impl Node for RankPlayerNode {
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
             midi_input(register("midi"), SmallVec::new()),
-            value_input(register("playback_rate"), Primitive::Float(1.0)),
+            value_input(register("air_detune"), Primitive::Float(1.0)),
+            value_input(register("air_amplitude"), Primitive::Float(1.0)),
             stream_output(register("audio")),
         ])
     }

@@ -51,7 +51,7 @@ impl NodeRuntime for MidiFilterNode {
                     self.output = Some(
                         midi.iter()
                             .filter_map(|message| {
-                                let midi_json = serde_json::to_value(message).unwrap();
+                                let midi_json = serde_json::to_value(&message.data).unwrap();
 
                                 for (key, value) in midi_json.as_object().unwrap() {
                                     self.scope.push(key.as_str(), value_to_dynamic(value.clone()));

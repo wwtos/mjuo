@@ -71,5 +71,9 @@ export const variants: NodeVariant[] = [
     {
         internal: "MidiTransposeNode",
         category: "midi"
+    },
+    {
+        internal: "WavetableSequencerNode",
+        category: "base"
     }
 ];

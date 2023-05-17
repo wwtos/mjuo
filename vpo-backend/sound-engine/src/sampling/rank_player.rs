@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{midi::messages::MidiData, MidiBundle, MonoSample};
+use crate::{midi::messages::MidiData, util::lerp, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
 use resource_manager::{ResourceIndex, ResourceManager};
@@ -27,7 +27,10 @@ pub struct RankPlayer {
     polyphony: usize,
     voices: Vec<Voice>,
     note_to_sample_map: BTreeMap<u8, ResourceIndex>,
-    playback_rate: f32,
+    air_detune: f32,
+    air_amplitude: f32,
+    last_air_detune: f32,
+    last_air_amplitude: f32,
 }
 
 impl RankPlayer {
@@ -44,7 +47,10 @@ impl RankPlayer {
             polyphony,
             voices: Vec::with_capacity(polyphony),
             note_to_sample_map,
-            playback_rate: 1.0,
+            air_detune: 1.0,
+            air_amplitude: 1.0,
+            last_air_detune: 1.0,
+            last_air_amplitude: 1.0,
         }
     }
 
@@ -94,7 +100,8 @@ impl RankPlayer {
             if open_voice.player.is_uninitialized() {
                 let mut player = PipePlayer::new(pipe, sample);
 
-                player.set_playback_rate(self.playback_rate);
+                player.set_air_detune(self.air_detune);
+                player.set_air_amplitude(self.air_amplitude);
 
                 open_voice.player = player;
                 open_voice.note = note;
@@ -102,21 +109,32 @@ impl RankPlayer {
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
                 open_voice.player = PipePlayer::new(pipe, sample);
-                open_voice.player.set_playback_rate(self.playback_rate);
+                open_voice.player.set_air_detune(self.air_detune);
+                open_voice.player.set_air_amplitude(self.air_amplitude);
 
                 open_voice.note = note;
             }
         }
     }
 
-    pub fn set_playback_rate(&mut self, rate: f32) {
+    pub fn set_air_detune(&mut self, rate: f32) {
         let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
 
         for voice in active_voices {
-            voice.player.set_playback_rate(rate);
+            voice.player.set_air_detune(rate);
         }
 
-        self.playback_rate = rate;
+        self.air_detune = rate;
+    }
+
+    pub fn set_air_amplitude(&mut self, amplitude: f32) {
+        let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
+
+        for voice in active_voices {
+            voice.player.set_air_amplitude(amplitude);
+        }
+
+        self.air_amplitude = amplitude;
     }
 
     pub fn next_buffered(
@@ -127,6 +145,8 @@ impl RankPlayer {
         samples: &ResourceManager<MonoSample>,
         out: &mut [f32],
     ) {
+        let out_len = out.len();
+
         for output in out.iter_mut() {
             *output = 0.0;
         }
@@ -185,6 +205,16 @@ impl RankPlayer {
                         midi_position += 1;
                     }
 
+                    voice
+                        .player
+                        .set_air_detune(lerp(self.last_air_detune, self.air_detune, i as f32 / out_len as f32));
+
+                    voice.player.set_air_amplitude(lerp(
+                        self.last_air_amplitude,
+                        self.air_amplitude,
+                        i as f32 / out_len as f32,
+                    ));
+
                     *output += voice.player.next_sample(pipe, sample);
 
                     if voice.player.is_done() {
@@ -196,5 +226,8 @@ impl RankPlayer {
                 }
             }
         }
+
+        self.last_air_detune = self.air_detune;
+        self.last_air_amplitude = self.air_amplitude;
     }
 }
