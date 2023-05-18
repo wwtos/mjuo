@@ -108,6 +108,10 @@ impl GraphManager {
         }
     }
 
+    pub fn graphs(&self) -> impl Iterator<Item = GraphIndex> + '_ {
+        self.node_graphs.vertex_indexes().map(GraphIndex)
+    }
+
     pub fn root_index(&self) -> GraphIndex {
         self.root_index
     }

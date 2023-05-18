@@ -4,6 +4,7 @@ pub mod envelope;
 pub mod mono_buffer_player;
 pub mod oscillator;
 pub mod ramp;
+pub mod shelf_filter;
 pub mod wavetable_oscillator;
 
 use core::fmt;

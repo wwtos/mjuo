@@ -11,6 +11,7 @@ use crate::{
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow},
     node_graph::NodeConnection,
+    nodes::variants::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
     traversal::buffered_traverser::BufferedTraverser,
@@ -632,5 +633,29 @@ impl NodeState {
         self.root_graph_index = root_graph_index;
         self.io_nodes = io_nodes;
         self.socket_registry = socket_registry;
+
+        let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
+        for graph_index in graphs {
+            let graph = self
+                .graph_manager
+                .get_graph_mut(graph_index)
+                .expect("graph_index to exist");
+
+            let nodes: Vec<NodeIndex> = graph.node_indexes().collect();
+
+            for node_index in nodes {
+                let node = graph.get_node_mut(node_index).expect("node_index to exist");
+
+                node.set_node_rows(
+                    variant_io(
+                        &node.get_node_type(),
+                        node.get_properties().clone(),
+                        &mut |name: &str| self.socket_registry.register_socket(name),
+                    )
+                    .unwrap()
+                    .node_rows,
+                );
+            }
+        }
     }
 }

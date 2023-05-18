@@ -52,7 +52,12 @@ impl NodeRuntime for RankPlayerNode {
             let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
 
             if let Some(rank) = rank {
-                let player = RankPlayer::new(&state.resources.samples, rank, self.polyphony);
+                let player = RankPlayer::new(
+                    &state.resources.samples,
+                    rank,
+                    self.polyphony,
+                    state.sound_config.sample_rate,
+                );
                 self.player = Some(player);
             }
         }
@@ -105,15 +110,17 @@ impl NodeRuntime for RankPlayerNode {
     }
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(air_detune) = values_in[0].as_ref().and_then(|x| x.as_float()) {
-            if let Some(player) = &mut self.player {
+        if let Some(player) = &mut self.player {
+            if let Some(air_detune) = values_in[0].as_ref().and_then(|x| x.as_float()) {
                 player.set_air_detune(air_detune);
             }
-        }
 
-        if let Some(air_amplitude) = values_in[1].as_ref().and_then(|x| x.as_float()) {
-            if let Some(player) = &mut self.player {
+            if let Some(air_amplitude) = values_in[1].as_ref().and_then(|x| x.as_float()) {
                 player.set_air_amplitude(air_amplitude);
+            }
+
+            if let Some(shelf_gain) = values_in[2].as_ref().and_then(|x| x.as_float()) {
+                player.set_shelf_gain(shelf_gain);
             }
         }
     }
@@ -150,6 +157,7 @@ impl Node for RankPlayerNode {
             midi_input(register("midi"), SmallVec::new()),
             value_input(register("air_detune"), Primitive::Float(1.0)),
             value_input(register("air_amplitude"), Primitive::Float(1.0)),
+            value_input(register("shelf_gain"), Primitive::Float(1.0)),
             stream_output(register("audio")),
         ])
     }

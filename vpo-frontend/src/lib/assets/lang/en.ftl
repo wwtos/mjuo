@@ -17,6 +17,7 @@ socket =
     .transpose = Transpose
     .air_detune = Air detune
     .air_amplitude = Air amplitude
+    .shelf_gain = Shelf gain
 
 node =
     .BiquadFilterNode = Filter (12db/octave)

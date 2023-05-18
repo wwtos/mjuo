@@ -22,8 +22,11 @@ pub fn load_sample(location: &Path) -> Result<MonoSample, EngineError> {
 
     let (audio, spec) = decode_audio(file, hint)?;
 
+    let audio = first_channel_only(&audio, spec.channels.count());
+    // TODO: resample with rubato library
+
     Ok(MonoSample {
-        audio_raw: first_channel_only(&audio, spec.channels.count()),
+        audio_raw: audio,
         sample_rate: spec.rate,
     })
 }
