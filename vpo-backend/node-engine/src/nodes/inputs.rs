@@ -20,7 +20,7 @@ impl NodeRuntime for InputsNode {
         self.midis.clone_from_slice(midi_in);
     }
 
-    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
+    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
         midi_out.clone_from_slice(&self.midis[..]);
     }
 
@@ -28,7 +28,7 @@ impl NodeRuntime for InputsNode {
         self.values.clone_from_slice(values_in);
     }
 
-    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
         values_out.clone_from_slice(&self.values[..]);
     }
 }

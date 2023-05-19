@@ -41,6 +41,16 @@ impl PhaseCalculator {
         f32::atan2(cos_sum, sin_sum)
     }
 
+    /// calculates the needed index offset for `sample_to` in order for continous in phase playback
+    pub fn calc_phase_shift(&self, sample_from: &[f32], sample_to: &[f32]) -> f32 {
+        let phase_from = self.calc_phase(sample_from);
+        let phase_to = self.calc_phase(sample_to);
+
+        let phase_diff = (phase_from - phase_to).rem_euclid(PI * 2.0);
+
+        (phase_diff / (PI * 2.0)) * self.window() as f32
+    }
+
     pub fn window(&self) -> usize {
         self.cos_sin_table.len()
     }

@@ -11,6 +11,7 @@ use crate::{
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow},
     node_graph::NodeConnection,
+    nodes::variants::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
     traversal::buffered_traverser::BufferedTraverser,
@@ -80,6 +81,12 @@ pub enum ActionInvalidation {
 pub enum NodeEngineUpdate {
     NewNodeEngine(NodeEngine),
     NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
+    NewUiState(Vec<(NodeIndex, serde_json::Value)>),
+}
+
+#[derive(Debug, Clone)]
+pub enum FromNodeEngine {
+    UiUpdates(Vec<(NodeIndex, serde_json::Value)>),
 }
 
 #[derive(Clone, Debug)]
@@ -125,13 +132,13 @@ impl NodeState {
         let history = Vec::new();
         let place_in_history = 0;
 
-        let graph_manager: GraphManager = GraphManager::new();
+        let mut graph_manager: GraphManager = GraphManager::new();
         let mut socket_registry = SocketRegistry::default();
 
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, input_node) = {
-            let mut graph = graph_manager.get_graph(root_graph_index)?.graph.borrow_mut();
+            let graph = graph_manager.get_graph_mut(root_graph_index)?;
 
             let output_node = graph.add_node("OutputNode".into(), &mut socket_registry).unwrap().value;
             let input_node = graph.add_node("MidiInNode".into(), &mut socket_registry).unwrap().value;
@@ -226,7 +233,7 @@ impl NodeState {
                 node_index: parent_node_index,
             } in parent_nodes
             {
-                let mut parent_node_graph = self.graph_manager.get_graph(parent_node_graph)?.graph.borrow_mut();
+                let parent_node_graph = self.graph_manager.get_graph(parent_node_graph)?;
                 // let subgraph = &mut self.graph_manager.get_graph(graph_index)?.graph.borrow_mut();
 
                 // let node = parent_node_graph.get_node_mut(parent_node_index)?;
@@ -380,8 +387,6 @@ impl NodeState {
     }
 
     fn apply_action(&mut self, action: Action) -> Result<(HistoryAction, Vec<ActionInvalidation>), NodeError> {
-        println!("Applying action: {:?}", action);
-
         let mut warnings = vec![];
 
         let new_action = match action {
@@ -394,7 +399,7 @@ impl NodeState {
                     .create_node(&node_type, graph_index, &mut self.socket_registry)
                     .append_warnings(&mut warnings)?;
 
-                (HistoryAction::GraphAction { diff }, vec![invalidations])
+                (HistoryAction::GraphAction { diff }, invalidations)
             }
             Action::ConnectNodes { from, to, data } => {
                 let (diff, invalidations) =
@@ -411,18 +416,22 @@ impl NodeState {
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
             Action::RemoveNode { index } => {
+                if index.graph_index == self.root_graph_index
+                    && (index.node_index == self.io_nodes.input || index.node_index == self.io_nodes.output)
+                {
+                    return Err(NodeError::CannotDeleteRootNode);
+                }
+
                 let (diff, invalidations) = self.graph_manager.remove_node(index)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
             Action::ChangeNodeProperties { index, props } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
                 let before_props = node.set_properties(props.clone());
                 let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
-
-                drop(graph);
 
                 let graph_diff = GraphManagerDiff(
                     graph_diffs
@@ -468,7 +477,7 @@ impl NodeState {
                 after,
                 graph_diff: _,
             } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(after.clone());
@@ -495,20 +504,20 @@ impl NodeState {
                 before: _,
                 after,
             } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
-                let before = node.replace_ui_data(after.clone());
+                let before = node.set_ui_data(after.clone());
 
                 action_result.push(ActionInvalidation::GraphModified(index.graph_index));
 
                 HistoryAction::ChangeNodeUiData { index, before, after }
             }
             HistoryAction::ChangeNodeOverrides { index, before, after } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
-                node.replace_default_overrides(after.clone());
+                node.set_default_overrides(after.clone());
 
                 let changed: Vec<(Socket, SocketValue)> = after
                     .iter()
@@ -545,13 +554,11 @@ impl NodeState {
                 after,
                 graph_diff,
             } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(before.clone());
                 graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
-
-                drop(graph);
 
                 let cloned = graph_diff.clone();
                 action_result = self.graph_manager.rollback_action(graph_diff)?;
@@ -565,7 +572,7 @@ impl NodeState {
                 }
             }
             HistoryAction::ChangeNodeUiData { index, before, after } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_ui_data(before.clone());
@@ -575,7 +582,7 @@ impl NodeState {
                 HistoryAction::ChangeNodeUiData { index, before, after }
             }
             HistoryAction::ChangeNodeOverrides { index, before, after } => {
-                let mut graph = self.graph_manager.get_graph(index.graph_index)?.graph.borrow_mut();
+                let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_default_overrides(before.clone());
@@ -626,5 +633,29 @@ impl NodeState {
         self.root_graph_index = root_graph_index;
         self.io_nodes = io_nodes;
         self.socket_registry = socket_registry;
+
+        let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
+        for graph_index in graphs {
+            let graph = self
+                .graph_manager
+                .get_graph_mut(graph_index)
+                .expect("graph_index to exist");
+
+            let nodes: Vec<NodeIndex> = graph.node_indexes().collect();
+
+            for node_index in nodes {
+                let node = graph.get_node_mut(node_index).expect("node_index to exist");
+
+                node.set_node_rows(
+                    variant_io(
+                        &node.get_node_type(),
+                        node.get_properties().clone(),
+                        &mut |name: &str| self.socket_registry.register_socket(name),
+                    )
+                    .unwrap()
+                    .node_rows,
+                );
+            }
+        }
     }
 }

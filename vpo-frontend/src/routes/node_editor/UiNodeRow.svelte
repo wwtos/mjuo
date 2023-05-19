@@ -111,6 +111,20 @@
                         </div>
                     </label>
                 </div>
+            {:else if value.data.variant === "Int"}
+                <div class="flex">
+                    <label>
+                        <input
+                            value={value.data.data}
+                            on:mousedown|stopPropagation
+                            on:change={bubbleOverrides}
+                            on:keydown={preventHistoryKeyActions}
+                        />
+                        <div>
+                            <span class="input-hover-text">{label}</span>
+                        </div>
+                    </label>
+                </div>
             {:else if value.data.variant === "Boolean"}
                 <input
                     type="checkbox"
@@ -121,20 +135,6 @@
                 />
                 <div class="text">{label}</div>
             {/if}
-        {:else if value.variant === "Stream"}
-            <div class="flex">
-                <label>
-                    <input
-                        value={fixDigits(value.data, 3)}
-                        on:mousedown|stopPropagation
-                        on:change={bubbleOverrides}
-                        on:keydown={preventHistoryKeyActions}
-                    />
-                    <div>
-                        <span class="input-hover-text">{label}</span>
-                    </div>
-                </label>
-            </div>
         {:else}
             <div class="text">{label}</div>
         {/if}

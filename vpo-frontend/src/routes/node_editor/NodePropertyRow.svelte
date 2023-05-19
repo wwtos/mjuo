@@ -4,6 +4,7 @@
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { Property, PropertyType } from "$lib/node-engine/property";
     import { matchOrElse } from "$lib/util/discriminated-union";
+    import { localize } from "@nubolab-ffwd/svelte-fluent";
     import { deepEqual } from "fast-equals";
     import { preventHistoryKeyActions } from "./editor-utils";
 
@@ -35,15 +36,11 @@
                     return { variant: "String", data: newValue };
                 },
                 Resource: (): Property => {
-                    let parts = newValue.split(":");
-                    let namespace = parts[0];
-                    let resource = parts.slice(1).join(":");
-
                     return {
                         variant: "Resource",
                         data: {
-                            namespace,
-                            resource,
+                            namespace: dataAsResource.namespace,
+                            resource: newValue,
                         },
                     };
                 },
@@ -89,7 +86,9 @@
                     on:keydown={preventHistoryKeyActions}
                 />
                 <div>
-                    <span class="input-hover-text">{propName}</span>
+                    <span class="input-hover-text"
+                        >{$localize("property." + propName)}</span
+                    >
                 </div>
             </label>
         </div>
@@ -99,14 +98,16 @@
                 <input
                     type="text"
                     value={value.data}
-                    title={propName}
+                    title={$localize("property." + propName)}
                     on:mousedown|stopPropagation
                     on:change={updateProperties}
                     on:keydown={preventHistoryKeyActions}
                 />
                 {#if dataAsAny.length < 15}
                     <div>
-                        <span class="input-hover-text">{propName}</span>
+                        <span class="input-hover-text"
+                            >{$localize("property." + propName)}</span
+                        >
                     </div>
                 {/if}
             </label>
@@ -114,19 +115,20 @@
     {:else if propType.variant == "Resource"}
         <div class="flex">
             <label>
+                {dataAsResource.namespace}:&nbsp;
                 <input
                     type="text"
-                    value={dataAsResource.namespace +
-                        ":" +
-                        dataAsResource.resource}
-                    title={propName}
+                    value={dataAsResource.resource}
+                    title={$localize("property." + propName)}
                     on:mousedown|stopPropagation
                     on:change={updateProperties}
                     on:keydown={preventHistoryKeyActions}
                 />
                 {#if (dataAsResource.namespace + ":" + dataAsResource.resource).length < 15}
                     <div>
-                        <span class="input-hover-text">{propName}</span>
+                        <span class="input-hover-text"
+                            >{$localize("property." + propName)}</span
+                        >
                     </div>
                 {/if}
             </label>

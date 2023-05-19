@@ -109,6 +109,14 @@ impl NodeRuntime for ExpressionNode {
 
         InitResult::nothing()
     }
+
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
+        if self.have_values_changed {
+            values_out[0] = self.value_out.clone();
+        }
+
+        self.have_values_changed = false;
+    }
 }
 
 impl Node for ExpressionNode {
@@ -141,7 +149,7 @@ impl Node for ExpressionNode {
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
             for i in 0..(*values_in_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered(register("socket-variable-numbered"), i + 1, SocketType::Value, 1),
+                    Socket::Numbered(register("variable-numbered"), i + 1, SocketType::Value, 1),
                     SocketValue::Value(Primitive::Float(0.0)),
                 ));
             }

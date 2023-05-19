@@ -8,11 +8,17 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
-use node_engine::{connection::MidiBundle, engine::NodeEngine, global_state::Resources, state::NodeEngineUpdate};
+use node_engine::{
+    connection::MidiBundle,
+    engine::NodeEngine,
+    global_state::Resources,
+    state::{FromNodeEngine, NodeEngineUpdate},
+};
 use rtrb::RingBuffer;
 use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
 use sound_engine::midi::messages::MidiMessage;
+use tokio::sync::broadcast;
 
 use crate::errors::EngineError;
 
@@ -51,6 +57,7 @@ impl CpalBackend {
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
+        to_main: broadcast::Sender<FromNodeEngine>,
     ) -> Result<(Stream, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
@@ -82,6 +89,7 @@ impl CpalBackend {
             config.sample_rate.0,
             midi_in,
             state_update_in,
+            to_main,
         )?;
 
         Ok((stream, config))
@@ -96,6 +104,7 @@ impl CpalBackend {
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
+        to_main: broadcast::Sender<FromNodeEngine>,
     ) -> Result<Stream, EngineError> {
         let mut engine: NodeEngine = NodeEngine::uninitialized();
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);
@@ -142,18 +151,22 @@ impl CpalBackend {
                                     }));
 
                                     // figure out how far before the midi messages exceed the current buffer time
-                                    match midi_buffer
+                                    let from_engine = match midi_buffer
                                         .iter()
                                         .position(|message| message.timestamp > playback_time + buffer_size as i64)
                                     {
                                         Some(stop_at) => {
                                             let midi_constrained: MidiBundle = midi_buffer.drain(..stop_at).collect();
-                                            engine.step(midi_constrained, &resources, &mut buffer);
+                                            engine.step(midi_constrained, &resources, &mut buffer)
                                         }
                                         None => {
                                             let midi_all: MidiBundle = midi_buffer.drain(..).collect();
-                                            engine.step(midi_all, &resources, &mut buffer);
+                                            engine.step(midi_all, &resources, &mut buffer)
                                         }
+                                    };
+
+                                    if let Some(from_engine) = from_engine {
+                                        to_main.send(from_engine).unwrap();
                                     }
 
                                     for buffer_frame in &buffer {
@@ -185,7 +198,7 @@ impl CpalBackend {
     }
 }
 
-fn enumerate_devices() -> Result<(), Box<dyn error::Error>> {
+fn _enumerate_devices() -> Result<(), Box<dyn error::Error>> {
     println!("Supported hosts:\n  {:?}", cpal::ALL_HOSTS);
     let available_hosts = cpal::available_hosts();
     println!("Available hosts:\n  {:?}", available_hosts);

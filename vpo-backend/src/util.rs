@@ -17,21 +17,18 @@ pub fn send_graph_updates(
 ) -> Result<(), EngineError> {
     let graph = state
         .get_graph_manager()
-        .get_graph(graph_index)
-        .context(NodeSnafu)?
-        .graph
-        .borrow_mut();
+        .get_graph_mut(graph_index)
+        .context(NodeSnafu)?;
     let json = serde_json::to_value(&*graph).unwrap();
 
-    to_server
-        .send(IpcMessage::Json(json! {{
-            "action": "graph/updateGraph",
-            "payload": {
-                "nodes": json["nodes"],
-                "graphIndex": graph_index
-            }
-        }}))
-        .unwrap();
+    // we don't care if there's no receivers to state updates
+    let _ = to_server.send(IpcMessage::Json(json! {{
+        "action": "graph/updateGraph",
+        "payload": {
+            "nodes": json["nodes"],
+            "graphIndex": graph_index
+        }
+    }}));
 
     Ok(())
 }

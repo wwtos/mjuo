@@ -7,7 +7,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
-    util::{send_graph_updates, send_registry_updates},
+    util::send_graph_updates,
     Sender,
 };
 
@@ -28,19 +28,16 @@ pub fn route(
 
     for (mut node_json, index) in payload.updated_nodes {
         if let Value::Object(ui_data) = node_json["uiData"].take() {
-            let mut graph = state
+            let graph = state
                 .get_graph_manager()
-                .get_graph(payload.graph_index)
-                .context(NodeSnafu)?
-                .graph
-                .borrow_mut();
+                .get_graph_mut(payload.graph_index)
+                .context(NodeSnafu)?;
 
             let node = graph.get_node_mut(index).context(NodeSnafu)?;
             node.set_ui_data(ui_data.into_iter().collect());
         }
     }
 
-    send_registry_updates(state.get_registry(), to_server)?;
     send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(None)

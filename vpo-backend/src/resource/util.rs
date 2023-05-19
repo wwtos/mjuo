@@ -1,4 +1,4 @@
-pub fn mix_to_mono(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
+pub fn _mix_to_mono(audio: &Vec<f32>, channel_count: usize) -> Vec<f32> {
     let duration = audio.len() / channel_count;
     let mut result: Vec<f32> = Vec::with_capacity(duration);
 

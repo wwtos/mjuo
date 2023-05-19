@@ -85,7 +85,7 @@ impl NodeRuntime for PortamentoNode {
         self.active = true;
     }
 
-    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
         values_out[0] = self.value_out.clone();
     }
 }

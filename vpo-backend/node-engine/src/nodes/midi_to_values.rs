@@ -57,7 +57,7 @@ impl NodeRuntime for MidiToValuesNode {
         NodeOk::no_warnings(())
     }
 
-    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
         if matches!(self.process_state, ProcessState::Processed) {
             values_out[0] = Some(Primitive::Float(self.frequency));
             values_out[1] = Some(Primitive::Boolean(self.gate));

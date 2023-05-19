@@ -1,17 +1,19 @@
 use std::sync::mpsc;
 
 use futures::executor::block_on;
-use futures::future::join;
+use futures::join;
 use futures::lock::MutexGuard;
 use futures::StreamExt;
 use node_engine::global_state::GlobalState;
 
-use node_engine::state::{NodeEngineUpdate, NodeState};
+use node_engine::state::{FromNodeEngine, NodeEngineUpdate, NodeState};
 use sound_engine::SoundConfig;
+use tokio::sync::broadcast;
 use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::io::midir::connect_midir_backend;
+use vpo_backend::util::send_graph_updates;
 use vpo_backend::{handle_msg, start_ipc};
 
 #[tokio::main]
@@ -30,6 +32,7 @@ async fn main_async() {
     // start up midi and audio
     let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
     let (state_update_sender, state_update_receiver) = mpsc::channel();
+    let (to_main, mut from_engine) = broadcast::channel(16);
 
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
@@ -45,6 +48,7 @@ async fn main_async() {
             48_000,
             midi_receiver,
             state_update_receiver,
+            to_main,
         )
         .unwrap();
 
@@ -54,7 +58,7 @@ async fn main_async() {
         buffer_size: engine_buffer_size,
     };
 
-    let mut node_state = NodeState::new(&global_state).unwrap();
+    let node_state = NodeState::new(&global_state).unwrap();
     state_update_sender
         .send(vec![NodeEngineUpdate::NewNodeEngine(
             node_state.get_engine(&global_state).unwrap(),
@@ -64,29 +68,36 @@ async fn main_async() {
     println!("sample rate: {}", config.sample_rate.0);
 
     let global_state = futures::lock::Mutex::new(global_state);
+    let node_state = futures::lock::Mutex::new(node_state);
 
     // debugging
     // let mut output_file = File::create("out.pcm").unwrap();
-    join(
+    join!(
         async {
             loop {
                 let msg = from_server.recv().await;
 
                 if let Ok(msg) = msg {
-                    MutexGuard::map(global_state.lock().await, |global_state| {
-                        block_on(async {
-                            handle_msg(
-                                msg,
-                                &to_server,
-                                &mut node_state,
-                                global_state,
-                                &state_update_sender,
-                                &mut file_watcher,
-                            )
-                            .await;
+                    let (node_state_lock, global_state_lock) = join!(node_state.lock(), global_state.lock());
+
+                    MutexGuard::map(node_state_lock, |node_state| {
+                        MutexGuard::map(global_state_lock, |global_state| {
+                            block_on(async {
+                                handle_msg(
+                                    msg,
+                                    &to_server,
+                                    node_state,
+                                    global_state,
+                                    &state_update_sender,
+                                    &mut file_watcher,
+                                )
+                                .await;
+                            });
+
+                            global_state
                         });
 
-                        global_state
+                        node_state
                     });
                 }
             }
@@ -107,6 +118,28 @@ async fn main_async() {
                 }
             }
         },
-    )
-    .await;
+        async {
+            while let Ok(engine_update) = from_engine.recv().await {
+                match engine_update {
+                    FromNodeEngine::UiUpdates(updates) => {
+                        MutexGuard::map(node_state.lock().await, |node_state| {
+                            let root_index = node_state.get_root_graph_index();
+
+                            let graph = node_state.get_graph_manager().get_graph_mut(root_index).unwrap();
+
+                            for (node_index, new_ui_state) in updates {
+                                if let Ok(node) = graph.get_node_mut(node_index) {
+                                    node.set_ui_state(new_ui_state);
+                                }
+                            }
+
+                            send_graph_updates(node_state, root_index, &to_server).unwrap();
+
+                            node_state
+                        });
+                    }
+                }
+            }
+        }
+    );
 }

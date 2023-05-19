@@ -20,10 +20,6 @@ impl NodeRuntime for MixerNode {
 
         NodeOk::no_warnings(())
     }
-
-    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        InitResult::nothing()
-    }
 }
 
 impl Node for MixerNode {
@@ -44,7 +40,7 @@ impl Node for MixerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("socket-input-numbered"), i + 1, SocketType::Stream, 1),
+                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Stream, 1),
                 SocketValue::Stream(0.0),
             ));
         }

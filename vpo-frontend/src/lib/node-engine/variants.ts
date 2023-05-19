@@ -64,4 +64,16 @@ export const variants: NodeVariant[] = [
         internal: "RankPlayerNode",
         category: "audio"
     },
+    {
+        internal: "MidiMergerNode",
+        category: "midi"
+    },
+    {
+        internal: "MidiTransposeNode",
+        category: "midi"
+    },
+    {
+        internal: "WavetableSequencerNode",
+        category: "base"
+    }
 ];

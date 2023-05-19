@@ -3,8 +3,9 @@ use rhai::Engine;
 use crate::{
     connection::MidiBundle,
     global_state::Resources,
+    node::NodeIndex,
     nodes::variants::NodeVariant,
-    state::{IoNodes, NodeEngineUpdate},
+    state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
     traversal::buffered_traverser::BufferedTraverser,
 };
 
@@ -14,6 +15,7 @@ pub struct NodeEngine {
     traverser: Option<BufferedTraverser>,
     io_nodes: Option<IoNodes>,
     scripting_engine: Engine,
+    new_ui_states: Vec<(NodeIndex, serde_json::Value)>,
 }
 
 impl NodeEngine {
@@ -23,6 +25,7 @@ impl NodeEngine {
             traverser: Some(traverser),
             io_nodes: Some(io_nodes),
             scripting_engine,
+            new_ui_states: vec![],
         }
     }
 
@@ -34,6 +37,7 @@ impl NodeEngine {
             traverser: None,
             io_nodes: None,
             scripting_engine: engine,
+            new_ui_states: vec![],
         }
     }
 
@@ -56,11 +60,14 @@ impl NodeEngine {
                         }
                     }
                 }
+                NodeEngineUpdate::NewUiState(incoming) => {
+                    self.new_ui_states.extend(incoming.into_iter());
+                }
             }
         }
     }
 
-    pub fn step(&mut self, midi_in: MidiBundle, resources: &Resources, out: &mut [f32]) {
+    pub fn step(&mut self, midi_in: MidiBundle, resources: &Resources, out: &mut [f32]) -> Option<FromNodeEngine> {
         if let (Some(traverser), Some(io_nodes)) = (self.traverser.as_mut(), self.io_nodes.as_mut()) {
             if !midi_in.is_empty() {
                 let input_node = traverser.get_node_mut(io_nodes.input);
@@ -75,7 +82,12 @@ impl NodeEngine {
                 }
             }
 
-            let traversal_errors = traverser.traverse(self.current_time, &self.scripting_engine, resources);
+            let (ui_updates, traversal_errors) = traverser.traverse(
+                self.current_time,
+                &self.scripting_engine,
+                resources,
+                self.new_ui_states.drain(..).collect(),
+            );
             self.current_time += out.len() as i64;
 
             let output_node = traverser.get_node_mut(io_nodes.output);
@@ -87,7 +99,15 @@ impl NodeEngine {
                 }
             };
 
-            out.copy_from_slice(&output)
+            out.copy_from_slice(&output);
+
+            if !ui_updates.is_empty() {
+                Some(FromNodeEngine::UiUpdates(ui_updates))
+            } else {
+                None
+            }
+        } else {
+            None
         }
     }
 }

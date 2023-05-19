@@ -1,11 +1,9 @@
 use crate::nodes::prelude::*;
 
-use super::util::ProcessState;
-
 #[derive(Debug, Clone)]
 pub struct ButtonNode {
     state: bool,
-    input: ProcessState<bool>,
+    updated: bool,
 }
 
 impl NodeRuntime for ButtonNode {
@@ -13,36 +11,36 @@ impl NodeRuntime for ButtonNode {
         InitResult::nothing()
     }
 
-    fn process(
-        &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
-    ) -> NodeResult<()> {
-        self.input = match self.input {
-            ProcessState::Unprocessed(new_value) => {
-                self.state = new_value;
-                ProcessState::Processed
-            }
-            ProcessState::Processed => ProcessState::None,
-            ProcessState::None => ProcessState::None,
-        };
-
-        NodeOk::no_warnings(())
-    }
-
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.input = ProcessState::Unprocessed(values_in[0].clone().unwrap().as_boolean().unwrap());
+        self.state = values_in[0].as_ref().and_then(|x| x.as_boolean()).unwrap();
+        self.updated = true;
     }
 
-    fn get_value_outputs(&self, values_out: &mut [Option<Primitive>]) {
-        if matches!(self.input, ProcessState::Processed) {
+    fn set_ui_state(&mut self, state: serde_json::Value) {
+        self.state = state.as_bool().unwrap();
+        self.updated = true;
+    }
+
+    fn get_ui_state(&self) -> Option<serde_json::Value> {
+        if self.updated {
+            Some(serde_json::Value::Bool(self.state))
+        } else {
+            None
+        }
+    }
+
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
+        if self.updated {
             values_out[0] = Some(Primitive::Boolean(self.state));
         }
     }
 
-    fn linked_to_ui(&self) -> bool {
+    fn has_ui_state(&self) -> bool {
         true
+    }
+
+    fn finish(&mut self) {
+        self.updated = false;
     }
 }
 
@@ -50,15 +48,16 @@ impl Node for ButtonNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         ButtonNode {
             state: false,
-            input: ProcessState::None,
+            updated: false,
         }
     }
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                value_input(register("state"), Primitive::Boolean(false)),
+                value_input(register("set_state"), Primitive::Boolean(false)),
                 value_output(register("state")),
+                NodeRow::Property("ui_name".into(), PropertyType::String, Property::String("".into())),
             ],
             child_graph_io: None,
         }

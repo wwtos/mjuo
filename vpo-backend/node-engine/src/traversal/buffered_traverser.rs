@@ -37,6 +37,7 @@ struct Locations {
     pub midi_output_sockets: Vec<Socket>,
     pub value_outputs_index: usize,
     pub value_output_sockets: Vec<Socket>,
+    pub vec_index: usize,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -49,17 +50,22 @@ struct NodeState {
 #[derive(Debug, Clone, Default)]
 pub struct BufferedTraverser {
     buffer_size: usize,
+
     nodes: Vec<NodeState>,
     node_indexes: Vec<NodeIndex>,
+    nodes_linked_to_ui: Vec<(usize, NodeIndex)>,
+
     node_to_location_mapping: BTreeMap<NodeIndex, Locations>,
+
     stream_outputs: Vec<f32>,
-    /// If none, it's a default and has no value
+    midi_outputs: Vec<Option<MidiBundle>>,
+    value_outputs: Vec<Option<Primitive>>,
+
+    /// If none, it's not connected to anything
     stream_input_mappings: Vec<Option<usize>>,
     stream_advance_by: Vec<AdvanceBy>,
-    midi_outputs: Vec<Option<MidiBundle>>,
     midi_input_mappings: Vec<Option<usize>>,
     midi_advance_by: Vec<AdvanceBy>,
-    value_outputs: Vec<Option<Primitive>>,
     value_input_mappings: Vec<Option<usize>>,
     value_advance_by: Vec<AdvanceBy>,
 }
@@ -88,7 +94,7 @@ impl BufferedTraverser {
     }
 
     // things are stored as follows:
-    // outputs: [node1_defaults]|[node1_outputs]|[node2_defaults]|[node2_ouputs]...
+    // outputs: [node1_outputs]|[node2_ouputs]...
     // input_mappings maps to the position of each of the node's inputs
     pub fn init_graph(
         &mut self,
@@ -101,7 +107,7 @@ impl BufferedTraverser {
     ) -> Result<ErrorsAndWarnings, NodeError> {
         self.buffer_size = sound_config.buffer_size;
 
-        let graph = graph_manager.get_graph(graph_index)?.graph.borrow();
+        let graph = graph_manager.get_graph(graph_index)?;
 
         // figure out what order we should go through the nodes
         let traversal_order = calculate_graph_traverse_order(&graph);
@@ -128,16 +134,17 @@ impl BufferedTraverser {
         self.value_outputs.clear();
         self.value_input_mappings.clear();
         self.value_advance_by.clear();
+        self.nodes_linked_to_ui.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
         // now for the fun part
-        for index in &traversal_order {
+        for (vec_index, node_index) in traversal_order.iter().enumerate() {
             // create and init the node
-            let node_wrapper = graph.get_node(*index)?;
+            let node_wrapper = graph.get_node(*node_index)?;
 
-            let mut variant = if let Some(previous_node) = old_nodes.remove(index) {
+            let mut variant = if let Some(previous_node) = old_nodes.remove(node_index) {
                 previous_node.node
             } else {
                 new_variant(&node_wrapper.get_node_type(), &sound_config)?
@@ -154,6 +161,7 @@ impl BufferedTraverser {
                     current_time,
                     graph_manager,
                     sound_config: &sound_config,
+                    ui_state: node_wrapper.get_ui_state(),
                 },
                 child_graph_info,
             );
@@ -162,13 +170,17 @@ impl BufferedTraverser {
             match init_result_res {
                 Ok(init_result) => {
                     for warning in init_result.warnings.into_iter() {
-                        warnings.push((*index, warning))
+                        warnings.push((*node_index, warning))
                     }
                 }
                 Err(err) => {
-                    errors.push((*index, err));
+                    errors.push((*node_index, err));
                 }
             };
+
+            if variant.has_ui_state() {
+                self.nodes_linked_to_ui.push((vec_index, *node_index));
+            }
 
             let mut stream_inputs = 0;
             let mut midi_inputs = 0;
@@ -183,7 +195,7 @@ impl BufferedTraverser {
                 let default_row = node_wrapper.get_default(socket).unwrap();
 
                 if let NodeRow::Input(socket, default) = default_row {
-                    let is_connected = graph.get_input_connection_index(*index, socket)?.is_some();
+                    let is_connected = graph.get_input_connection_index(*node_index, socket)?.is_some();
 
                     match socket.socket_type() {
                         SocketType::Stream => {
@@ -224,10 +236,10 @@ impl BufferedTraverser {
                 node: variant,
                 to_input,
             });
-            self.node_indexes.push(*index);
+            self.node_indexes.push(*node_index);
 
             self.node_to_location_mapping.insert(
-                *index,
+                *node_index,
                 Locations {
                     stream_outputs_index: self.stream_outputs.len(),
                     stream_output_sockets: stream_output_sockets.clone(),
@@ -236,6 +248,7 @@ impl BufferedTraverser {
                     value_outputs_index: self.value_outputs.len(),
                     value_output_sockets: value_output_sockets.clone(),
                     value_socket_to_index,
+                    vec_index,
                 },
             );
 
@@ -337,9 +350,17 @@ impl BufferedTraverser {
         Ok(ErrorsAndWarnings { errors, warnings })
     }
 
-    pub fn traverse(&mut self, current_time: i64, script_engine: &Engine, resources: &Resources) -> ErrorsAndWarnings {
+    pub fn traverse(
+        &mut self,
+        current_time: i64,
+        script_engine: &Engine,
+        resources: &Resources,
+        updated_ui_states: Vec<(NodeIndex, serde_json::Value)>,
+    ) -> (Vec<(NodeIndex, serde_json::Value)>, ErrorsAndWarnings) {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
+
+        let mut new_ui_states: Vec<(NodeIndex, serde_json::Value)> = vec![];
 
         // used as a default pointer if a node doesn't have an input connected
         let nothing_in = vec![0.0_f32; self.buffer_size];
@@ -417,6 +438,11 @@ impl BufferedTraverser {
                     mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..inputs])
                 });
             }
+        }
+
+        for (node_index, new_ui_state) in updated_ui_states.into_iter() {
+            let node = &mut self.nodes[self.node_to_location_mapping.get(&node_index).unwrap().vec_index];
+            node.node.set_ui_state(new_ui_state);
         }
 
         for (i, (node, advance_by)) in self.nodes.iter_mut().zip(&self.stream_advance_by).enumerate() {
@@ -503,6 +529,12 @@ impl BufferedTraverser {
             stream_outputs_i += advance_by.outputs * self.buffer_size;
         }
 
+        for (vec_index, node_index) in &self.nodes_linked_to_ui {
+            if let Some(new_ui_state) = self.nodes[*vec_index].node.get_ui_state() {
+                new_ui_states.push((*node_index, new_ui_state));
+            }
+        }
+
         for (node, advance_by) in self.nodes.iter_mut().zip(&self.midi_advance_by) {
             let outputs = advance_by.outputs;
             let output_index = midi_outputs_i;
@@ -527,7 +559,11 @@ impl BufferedTraverser {
             value_outputs_i += advance_by.outputs;
         }
 
-        ErrorsAndWarnings { errors, warnings }
+        for node in &mut self.nodes {
+            node.node.finish();
+        }
+
+        (new_ui_states, ErrorsAndWarnings { errors, warnings })
     }
 
     pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {
@@ -544,20 +580,16 @@ impl BufferedTraverser {
         socket: Socket,
         value: Primitive,
     ) -> Result<(), NodeError> {
-        let node = self
-            .node_to_location_mapping
-            .iter()
-            .zip(self.nodes.iter_mut())
-            .find(|((&index, _), _)| index == node_index);
+        let locations = self.node_to_location_mapping.get(&node_index);
 
-        if let Some(((_index, mapping), node)) = node {
-            let value_index = mapping
+        if let Some(locations) = locations {
+            let value_index = locations
                 .value_socket_to_index
                 .iter()
                 .find_map(|&(possible_socket, index)| if possible_socket == socket { Some(index) } else { None });
 
             if let Some(value_index) = value_index {
-                node.to_input.push((value_index, value));
+                self.nodes[locations.vec_index].to_input.push((value_index, value));
 
                 Ok(())
             } else {

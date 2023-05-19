@@ -1,9 +1,11 @@
-use rhai::{Dynamic, Scope, AST};
+use std::mem;
+
+use rhai::{Scope, AST};
 use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
 
-use super::util::ProcessState;
+use super::util::{value_to_dynamic, ProcessState};
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
@@ -12,28 +14,6 @@ pub struct MidiFilterNode {
     midi_state: ProcessState<MidiBundle>,
     scope: Scope<'static>,
     output: Option<MidiBundle>,
-}
-
-fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
-    match value {
-        serde_json::Value::Null => Dynamic::from(()),
-        serde_json::Value::Bool(value) => Dynamic::from(value),
-        serde_json::Value::Number(value) => {
-            if value.is_i64() {
-                Dynamic::from(value.as_i64().unwrap() as i32)
-            } else {
-                Dynamic::from(value.as_f64().unwrap() as f32)
-            }
-        }
-        serde_json::Value::String(value) => Dynamic::from(value),
-        serde_json::Value::Array(array) => Dynamic::from(array.into_iter().map(value_to_dynamic)),
-        serde_json::Value::Object(object) => Dynamic::from(
-            object
-                .into_iter()
-                .map(|(k, v)| (smartstring::SmartString::from(k), value_to_dynamic(v)))
-                .collect::<rhai::Map>(),
-        ),
-    }
 }
 
 impl NodeRuntime for MidiFilterNode {
@@ -71,7 +51,7 @@ impl NodeRuntime for MidiFilterNode {
                     self.output = Some(
                         midi.iter()
                             .filter_map(|message| {
-                                let midi_json = serde_json::to_value(message).unwrap();
+                                let midi_json = serde_json::to_value(&message.data).unwrap();
 
                                 for (key, value) in midi_json.as_object().unwrap() {
                                     self.scope.push(key.as_str(), value_to_dynamic(value.clone()));
@@ -120,8 +100,8 @@ impl NodeRuntime for MidiFilterNode {
         self.midi_state = ProcessState::Unprocessed(midi_in[0].clone().unwrap());
     }
 
-    fn get_midi_outputs(&self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out[0] = self.output.clone();
+    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
+        midi_out[0] = mem::replace(&mut self.output, None);
     }
 }
 

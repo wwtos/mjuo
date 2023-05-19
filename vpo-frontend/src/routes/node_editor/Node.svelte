@@ -154,8 +154,21 @@
             });
         }
 
-        nodes.markNodeAsUpdated(nodeIndex);
-        nodes.writeChangedNodesToServer();
+        nodes.ipcSocket.send({
+            action: "graph/updateNodes",
+            payload: {
+                graphIndex: nodes.graphIndex,
+                updatedNodes: [
+                    [
+                        {
+                            defaultOverrides:
+                                nodes.getNode(nodeIndex)?.defaultOverrides,
+                        },
+                        nodeIndex,
+                    ],
+                ],
+            },
+        });
     }
 </script>
 

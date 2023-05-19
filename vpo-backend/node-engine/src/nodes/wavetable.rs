@@ -28,10 +28,12 @@ impl NodeRuntime for WavetableNode {
         }
 
         if self.oscillator.is_none() || did_index_change {
-            let wavetable = state.resources.samples.borrow_resource(self.index.unwrap());
+            if let Some(index) = self.index {
+                let wavetable = state.resources.samples.borrow_resource(index);
 
-            if let Some(wavetable) = wavetable {
-                self.oscillator = Some(WavetableOscillator::new(self.config.clone(), wavetable));
+                if let Some(wavetable) = wavetable {
+                    self.oscillator = Some(WavetableOscillator::new(self.config.clone(), wavetable));
+                }
             }
         }
 
