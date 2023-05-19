@@ -215,9 +215,9 @@ impl RankPlayer {
                         i as f32 / out_len as f32,
                     ));
 
-                    if (self.last_shelf_gain - self.shelf_gain).abs() > 0.01 {
-                        voice.player.set_shelf_gain(self.shelf_gain);
-                    }
+                    voice
+                        .player
+                        .set_shelf_gain(lerp(self.last_shelf_gain, self.shelf_gain, i as f32 / out_len as f32));
 
                     *output += voice.player.next_sample(pipe, sample);
 

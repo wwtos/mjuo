@@ -15,6 +15,7 @@ pub struct ShelfFilter {
     w_sin: f32,
     w_cos: f32,
     beta: f32,
+    gain: f32,
     filter_type: ShelfFilterType,
 }
 
@@ -64,6 +65,7 @@ impl ShelfFilter {
             w_cos,
             beta,
             filter_type,
+            gain,
         }
     }
 
@@ -78,11 +80,18 @@ impl ShelfFilter {
             w_sin: 0.0,
             w_cos: 0.0,
             beta: 0.0,
+            gain: 0.0,
             filter_type: ShelfFilterType::HighShelf,
         }
     }
 
+    pub fn get_gain(&self) -> f32 {
+        self.gain
+    }
+
     pub fn set_gain(&mut self, gain: f32) {
+        self.gain = gain;
+
         let A = gain.sqrt();
         let a0 = (A + 1.0) - ((A - 1.0) * self.w_cos) + (self.beta * self.w_sin);
 
