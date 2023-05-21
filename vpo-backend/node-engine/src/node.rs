@@ -1,6 +1,6 @@
 //! Node module
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
 use ddgg::VertexIndex;
@@ -134,10 +134,17 @@ pub struct NodeInitState<'a> {
     pub ui_state: &'a serde_json::Value,
 }
 
+pub struct StateInterface<'a> {
+    request_node_states: &'a mut dyn FnMut(),
+    enqueue_state_updates: &'a mut dyn FnMut(BTreeMap<NodeIndex, serde_json::Value>),
+    states: Option<&'a BTreeMap<NodeIndex, serde_json::Value>>,
+}
+
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
+    pub state: StateInterface<'a>,
 }
 
 pub struct NodeGraphAndIo {
@@ -163,15 +170,15 @@ pub trait NodeRuntime: Debug + Clone {
         InitResult::nothing()
     }
 
-    fn has_ui_state(&self) -> bool {
+    fn has_state(&self) -> bool {
         false
     }
 
-    fn get_ui_state(&self) -> Option<serde_json::Value> {
+    fn get_state(&self) -> Option<serde_json::Value> {
         None
     }
 
-    fn set_ui_state(&mut self, state: serde_json::Value) {}
+    fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process received data.
     fn process(

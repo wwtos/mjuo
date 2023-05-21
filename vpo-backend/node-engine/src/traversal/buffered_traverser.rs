@@ -178,7 +178,7 @@ impl BufferedTraverser {
                 }
             };
 
-            if variant.has_ui_state() {
+            if variant.has_state() {
                 self.nodes_linked_to_ui.push((vec_index, *node_index));
             }
 
@@ -442,7 +442,7 @@ impl BufferedTraverser {
 
         for (node_index, new_ui_state) in updated_ui_states.into_iter() {
             let node = &mut self.nodes[self.node_to_location_mapping.get(&node_index).unwrap().vec_index];
-            node.node.set_ui_state(new_ui_state);
+            node.node.set_state(new_ui_state);
         }
 
         for (i, (node, advance_by)) in self.nodes.iter_mut().zip(&self.stream_advance_by).enumerate() {
@@ -530,7 +530,7 @@ impl BufferedTraverser {
         }
 
         for (vec_index, node_index) in &self.nodes_linked_to_ui {
-            if let Some(new_ui_state) = self.nodes[*vec_index].node.get_ui_state() {
+            if let Some(new_ui_state) = self.nodes[*vec_index].node.get_state() {
                 new_ui_states.push((*node_index, new_ui_state));
             }
         }
