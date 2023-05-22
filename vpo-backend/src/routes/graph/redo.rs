@@ -1,7 +1,7 @@
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
-    state::{ActionInvalidation, NodeState},
+    state::{ActionInvalidation, GraphState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
@@ -16,7 +16,7 @@ use crate::{
 pub fn route(
     _msg: Value,
     to_server: &Sender<IpcMessage>,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let updates = state.redo().context(NodeSnafu)?;

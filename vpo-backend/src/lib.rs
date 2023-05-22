@@ -28,7 +28,7 @@ use ipc::send_buffer::SendBuffer;
 use io::file_watcher::FileWatcher;
 use node_engine::{
     global_state::GlobalState,
-    state::{NodeEngineUpdate, NodeState},
+    state::{GraphState, NodeEngineUpdate},
 };
 use routes::route;
 use serde_json::json;
@@ -51,7 +51,7 @@ pub async fn start_ipc() -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<
 pub async fn handle_msg(
     msg: IpcMessage,
     to_server: &broadcast::Sender<IpcMessage>,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
     engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,

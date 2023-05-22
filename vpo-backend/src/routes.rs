@@ -6,7 +6,7 @@ pub mod io;
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
-    state::{NodeEngineUpdate, NodeState},
+    state::{GraphState, NodeEngineUpdate},
 };
 use serde_json::Value;
 
@@ -20,7 +20,7 @@ pub struct RouteReturn {
 pub async fn route(
     msg: IpcMessage,
     to_server: &Sender<IpcMessage>,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let IpcMessage::Json(json) = msg;

@@ -6,7 +6,7 @@ use std::{
 
 use futures::future::join_all;
 use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, state::NodeState};
+use node_engine::{global_state::GlobalState, state::GraphState};
 use resource_manager::ResourceId;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
@@ -37,7 +37,7 @@ struct Payload {
 pub async fn route(
     mut msg: Value,
     _to_server: &Sender<IpcMessage>,
-    _state: &mut NodeState,
+    _state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let Payload { file_name, rank_name } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;

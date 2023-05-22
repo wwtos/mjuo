@@ -118,7 +118,7 @@ pub struct HistoryActionBundle {
 }
 
 #[derive(Debug)]
-pub struct NodeState {
+pub struct GraphState {
     history: Vec<HistoryActionBundle>,
     place_in_history: usize,
     graph_manager: GraphManager,
@@ -127,8 +127,8 @@ pub struct NodeState {
     socket_registry: SocketRegistry,
 }
 
-impl NodeState {
-    pub fn new(global_state: &GlobalState) -> Result<NodeState, NodeError> {
+impl GraphState {
+    pub fn new(global_state: &GlobalState) -> Result<GraphState, NodeError> {
         let history = Vec::new();
         let place_in_history = 0;
 
@@ -158,7 +158,7 @@ impl NodeState {
             global_state.sound_config.clone(),
         )?;
 
-        Ok(NodeState {
+        Ok(GraphState {
             history,
             place_in_history,
             graph_manager,
@@ -244,7 +244,7 @@ impl NodeState {
     }
 }
 
-impl NodeState {
+impl GraphState {
     pub fn get_history(&self) -> &Vec<HistoryActionBundle> {
         &self.history
     }
@@ -610,7 +610,7 @@ impl NodeState {
     }
 }
 
-impl NodeState {
+impl GraphState {
     pub fn to_json(&self) -> Value {
         json!({
             "graphManager": self.graph_manager,

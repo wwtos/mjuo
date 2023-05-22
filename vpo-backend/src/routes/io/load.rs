@@ -3,7 +3,7 @@ use std::path::Path;
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
     global_state::GlobalState,
-    state::{NodeEngineUpdate, NodeState},
+    state::{GraphState, NodeEngineUpdate},
 };
 use rfd::AsyncFileDialog;
 use serde_json::Value;
@@ -20,7 +20,7 @@ use crate::{
 pub async fn route(
     _msg: Value,
     to_server: &Sender<IpcMessage>,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let file = AsyncFileDialog::new().pick_file().await;
