@@ -153,6 +153,12 @@ pub struct NodeGraphAndIo {
     pub output_index: NodeIndex,
 }
 
+pub struct NodeState {
+    counted_during_mapset: bool,
+    value: serde_json::Value,
+    other: serde_json::Value,
+}
+
 /// NodeRuntime trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -174,7 +180,7 @@ pub trait NodeRuntime: Debug + Clone {
         false
     }
 
-    fn get_state(&self) -> Option<serde_json::Value> {
+    fn get_state(&self) -> Option<NodeState> {
         None
     }
 
