@@ -7,7 +7,7 @@ use sound_engine::SoundConfig;
 use crate::connection::{MidiBundle, Primitive};
 use crate::errors::NodeError;
 use crate::errors::NodeResult;
-use crate::node::{InitResult, Node, NodeGraphAndIo, NodeInitState, NodeIo, NodeProcessState, NodeRuntime};
+use crate::node::{InitResult, Node, NodeGraphAndIo, NodeInitState, NodeIo, NodeProcessState, NodeRuntime, NodeState};
 use crate::property::Property;
 
 use super::button::ButtonNode;

@@ -1,12 +1,14 @@
+use std::collections::BTreeMap;
+
 use rhai::Engine;
 
 use crate::{
     connection::MidiBundle,
     global_state::Resources,
-    node::NodeIndex,
+    node::{NodeIndex, NodeState},
     nodes::variants::NodeVariant,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
-    traversal::buffered_traverser::BufferedTraverser,
+    traversal::buffered_traverser::{BufferedTraverser, TraverserResult},
 };
 
 #[derive(Debug)]
@@ -15,7 +17,8 @@ pub struct NodeEngine {
     traverser: Option<BufferedTraverser>,
     io_nodes: Option<IoNodes>,
     scripting_engine: Engine,
-    new_ui_states: Vec<(NodeIndex, serde_json::Value)>,
+    new_states: Vec<(NodeIndex, serde_json::Value)>,
+    current_graph_state: Option<BTreeMap<NodeIndex, NodeState>>,
 }
 
 impl NodeEngine {
@@ -25,7 +28,8 @@ impl NodeEngine {
             traverser: Some(traverser),
             io_nodes: Some(io_nodes),
             scripting_engine,
-            new_ui_states: vec![],
+            new_states: vec![],
+            current_graph_state: None,
         }
     }
 
@@ -37,7 +41,8 @@ impl NodeEngine {
             traverser: None,
             io_nodes: None,
             scripting_engine: engine,
-            new_ui_states: vec![],
+            new_states: vec![],
+            current_graph_state: None,
         }
     }
 
@@ -60,14 +65,19 @@ impl NodeEngine {
                         }
                     }
                 }
-                NodeEngineUpdate::NewUiState(incoming) => {
-                    self.new_ui_states.extend(incoming.into_iter());
+                NodeEngineUpdate::NewNodeState(incoming) => {
+                    self.new_states.extend(incoming.into_iter());
+                }
+                NodeEngineUpdate::CurrentNodeStates(state) => {
+                    self.current_graph_state = Some(state);
                 }
             }
         }
     }
 
-    pub fn step(&mut self, midi_in: MidiBundle, resources: &Resources, out: &mut [f32]) -> Option<FromNodeEngine> {
+    pub fn step(&mut self, midi_in: MidiBundle, resources: &Resources, out: &mut [f32]) -> Vec<FromNodeEngine> {
+        let mut messages_out = vec![];
+
         if let (Some(traverser), Some(io_nodes)) = (self.traverser.as_mut(), self.io_nodes.as_mut()) {
             if !midi_in.is_empty() {
                 let input_node = traverser.get_node_mut(io_nodes.input);
@@ -82,11 +92,17 @@ impl NodeEngine {
                 }
             }
 
-            let (ui_updates, traversal_errors) = traverser.traverse(
+            let TraverserResult {
+                errors_and_warnings,
+                state_changes,
+                requested_state_updates,
+                request_for_graph_state,
+            } = traverser.traverse(
                 self.current_time,
                 &self.scripting_engine,
                 resources,
-                self.new_ui_states.drain(..).collect(),
+                self.new_states.drain(..).collect(),
+                self.current_graph_state.as_ref(),
             );
             self.current_time += out.len() as i64;
 
@@ -101,13 +117,19 @@ impl NodeEngine {
 
             out.copy_from_slice(&output);
 
-            if !ui_updates.is_empty() {
-                Some(FromNodeEngine::UiUpdates(ui_updates))
-            } else {
-                None
+            if !state_changes.is_empty() {
+                messages_out.push(FromNodeEngine::UiUpdates(state_changes));
             }
-        } else {
-            None
+
+            if !requested_state_updates.is_empty() {
+                messages_out.push(FromNodeEngine::RequestedStateUpdates(requested_state_updates));
+            }
+
+            if request_for_graph_state {
+                messages_out.push(FromNodeEngine::GraphStateRequested);
+            }
         }
+
+        messages_out
     }
 }

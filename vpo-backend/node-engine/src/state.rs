@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -9,7 +9,7 @@ use crate::{
     errors::{NodeError, WarningExt},
     global_state::GlobalState,
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
-    node::{NodeIndex, NodeRow},
+    node::{NodeIndex, NodeRow, NodeState},
     node_graph::NodeConnection,
     nodes::variants::variant_io,
     property::Property,
@@ -81,12 +81,15 @@ pub enum ActionInvalidation {
 pub enum NodeEngineUpdate {
     NewNodeEngine(NodeEngine),
     NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
-    NewUiState(Vec<(NodeIndex, serde_json::Value)>),
+    NewNodeState(Vec<(NodeIndex, serde_json::Value)>),
+    CurrentNodeStates(BTreeMap<NodeIndex, NodeState>),
 }
 
 #[derive(Debug, Clone)]
 pub enum FromNodeEngine {
-    UiUpdates(Vec<(NodeIndex, serde_json::Value)>),
+    UiUpdates(Vec<(NodeIndex, NodeState)>),
+    RequestedStateUpdates(Vec<(NodeIndex, serde_json::Value)>),
+    GraphStateRequested,
 }
 
 #[derive(Clone, Debug)]
@@ -201,6 +204,23 @@ impl GraphState {
         )?;
 
         Ok(NodeEngine::new(traverser, script_engine, self.io_nodes.clone()))
+    }
+
+    pub fn get_node_state(&self) -> BTreeMap<NodeIndex, NodeState> {
+        let root = self
+            .graph_manager
+            .get_graph(self.root_graph_index)
+            .expect("root graph to exist");
+
+        let mut result = BTreeMap::new();
+
+        for (index, node) in root.nodes_iter() {
+            if !matches!(node.get_state().value, Value::Null) {
+                result.insert(index, node.get_state().clone());
+            }
+        }
+
+        result
     }
 
     pub fn clear_history(&mut self) {

@@ -131,13 +131,13 @@ pub struct NodeInitState<'a> {
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
     pub sound_config: &'a SoundConfig,
-    pub ui_state: &'a serde_json::Value,
+    pub state: &'a NodeState,
 }
 
 pub struct StateInterface<'a> {
-    request_node_states: &'a mut dyn FnMut(),
-    enqueue_state_updates: &'a mut dyn FnMut(BTreeMap<NodeIndex, serde_json::Value>),
-    states: Option<&'a BTreeMap<NodeIndex, serde_json::Value>>,
+    pub request_node_states: &'a mut dyn FnMut(),
+    pub enqueue_state_updates: &'a mut dyn FnMut(BTreeMap<NodeIndex, serde_json::Value>),
+    pub states: Option<&'a BTreeMap<NodeIndex, NodeState>>,
 }
 
 pub struct NodeProcessState<'a> {
@@ -153,10 +153,21 @@ pub struct NodeGraphAndIo {
     pub output_index: NodeIndex,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeState {
-    counted_during_mapset: bool,
-    value: serde_json::Value,
-    other: serde_json::Value,
+    pub counted_during_mapset: bool,
+    pub value: serde_json::Value,
+    pub other: serde_json::Value,
+}
+
+impl Default for NodeState {
+    fn default() -> Self {
+        NodeState {
+            counted_during_mapset: false,
+            value: serde_json::Value::Null,
+            other: serde_json::Value::Null,
+        }
+    }
 }
 
 /// NodeRuntime trait

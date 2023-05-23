@@ -25,11 +25,15 @@ impl NodeRuntime for ButtonNode {
         self.updated = true;
     }
 
-    fn get_state(&self) -> Option<serde_json::Value> {
+    fn get_state(&self) -> Option<NodeState> {
         if self.updated {
-            Some(json! ({
-                "value": self.state
-            }))
+            Some(NodeState {
+                counted_during_mapset: self.state,
+                value: json! ({
+                    "value": self.state
+                }),
+                other: serde_json::Value::Null,
+            })
         } else {
             None
         }

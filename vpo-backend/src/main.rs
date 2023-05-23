@@ -127,13 +127,29 @@ async fn main_async() {
 
                             let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
 
-                            for (node_index, new_ui_state) in updates {
+                            for (node_index, new_state) in updates {
                                 if let Ok(node) = graph.get_node_mut(node_index) {
-                                    node.set_ui_state(new_ui_state);
+                                    node.set_state(new_state);
                                 }
                             }
 
                             send_graph_updates(graph_state, root_index, &to_server).unwrap();
+
+                            graph_state
+                        });
+                    }
+                    FromNodeEngine::RequestedStateUpdates(updates) => {
+                        // TODO: don't unwrap here, instead recreate the engine if it fails
+                        state_update_sender
+                            .send(vec![NodeEngineUpdate::NewNodeState(updates)])
+                            .unwrap();
+                    }
+                    FromNodeEngine::GraphStateRequested => {
+                        MutexGuard::map(graph_state.lock().await, |graph_state| {
+                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            state_update_sender
+                                .send(vec![NodeEngineUpdate::CurrentNodeStates(graph_state.get_node_state())])
+                                .unwrap();
 
                             graph_state
                         });
