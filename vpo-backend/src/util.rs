@@ -1,6 +1,6 @@
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
-    global_state::GlobalState, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::NodeState,
+    global_state::GlobalState, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::GraphState,
 };
 use serde_json::json;
 use snafu::ResultExt;
@@ -11,7 +11,7 @@ use crate::{
 };
 
 pub fn send_graph_updates(
-    state: &mut NodeState,
+    state: &mut GraphState,
     graph_index: GraphIndex,
     to_server: &Sender<IpcMessage>,
 ) -> Result<(), EngineError> {

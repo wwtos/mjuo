@@ -75,5 +75,9 @@ export const variants: NodeVariant[] = [
     {
         internal: "WavetableSequencerNode",
         category: "base"
+    },
+    {
+        internal: "MemoryNode",
+        category: "base"
     }
 ];

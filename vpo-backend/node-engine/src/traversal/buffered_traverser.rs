@@ -14,7 +14,7 @@ use crate::{
     errors::{ErrorsAndWarnings, NodeError, NodeOk, NodeWarning},
     global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
-    node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime},
+    node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime, NodeState, StateInterface},
     nodes::variants::{new_variant, NodeVariant},
 };
 
@@ -26,6 +26,13 @@ const BUFFER_SIZE: usize = 128;
 struct AdvanceBy {
     pub inputs: usize,
     pub outputs: usize,
+}
+
+pub struct TraverserResult {
+    pub errors_and_warnings: ErrorsAndWarnings,
+    pub state_changes: Vec<(NodeIndex, NodeState)>,
+    pub requested_state_updates: Vec<(NodeIndex, serde_json::Value)>,
+    pub request_for_graph_state: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -41,7 +48,7 @@ struct Locations {
 }
 
 #[derive(Debug, Clone, Default)]
-struct NodeState {
+struct NodeTraversalWrapper {
     pub node: NodeVariant,
     /// A mapping of a value to input to its location
     pub to_input: SmallVec<[(usize, Primitive); 4]>,
@@ -51,7 +58,7 @@ struct NodeState {
 pub struct BufferedTraverser {
     buffer_size: usize,
 
-    nodes: Vec<NodeState>,
+    nodes: Vec<NodeTraversalWrapper>,
     node_indexes: Vec<NodeIndex>,
     nodes_linked_to_ui: Vec<(usize, NodeIndex)>,
 
@@ -161,7 +168,7 @@ impl BufferedTraverser {
                     current_time,
                     graph_manager,
                     sound_config: &sound_config,
-                    ui_state: node_wrapper.get_ui_state(),
+                    state: node_wrapper.get_state(),
                 },
                 child_graph_info,
             );
@@ -178,7 +185,7 @@ impl BufferedTraverser {
                 }
             };
 
-            if variant.has_ui_state() {
+            if variant.has_state() {
                 self.nodes_linked_to_ui.push((vec_index, *node_index));
             }
 
@@ -232,7 +239,7 @@ impl BufferedTraverser {
                 }
             }
 
-            self.nodes.push(NodeState {
+            self.nodes.push(NodeTraversalWrapper {
                 node: variant,
                 to_input,
             });
@@ -355,12 +362,13 @@ impl BufferedTraverser {
         current_time: i64,
         script_engine: &Engine,
         resources: &Resources,
-        updated_ui_states: Vec<(NodeIndex, serde_json::Value)>,
-    ) -> (Vec<(NodeIndex, serde_json::Value)>, ErrorsAndWarnings) {
+        updated_node_states: Vec<(NodeIndex, serde_json::Value)>,
+        graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
+    ) -> TraverserResult {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
-        let mut new_ui_states: Vec<(NodeIndex, serde_json::Value)> = vec![];
+        let mut state_changes: Vec<(NodeIndex, NodeState)> = vec![];
 
         // used as a default pointer if a node doesn't have an input connected
         let nothing_in = vec![0.0_f32; self.buffer_size];
@@ -380,6 +388,9 @@ impl BufferedTraverser {
         let mut stream_outputs_i = 0;
 
         let mut stream_outputs: [MaybeUninit<&mut [f32]>; BUFFER_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
+
+        let mut requesting_graph_state = false;
+        let mut requested_state_updates = vec![];
 
         // build the midi inputs and input
         for (i, node) in self.nodes.iter_mut().enumerate() {
@@ -440,9 +451,9 @@ impl BufferedTraverser {
             }
         }
 
-        for (node_index, new_ui_state) in updated_ui_states.into_iter() {
+        for (node_index, new_node_state) in updated_node_states.into_iter() {
             let node = &mut self.nodes[self.node_to_location_mapping.get(&node_index).unwrap().vec_index];
-            node.node.set_ui_state(new_ui_state);
+            node.node.set_state(new_node_state);
         }
 
         for (i, (node, advance_by)) in self.nodes.iter_mut().zip(&self.stream_advance_by).enumerate() {
@@ -506,6 +517,11 @@ impl BufferedTraverser {
                     current_time,
                     script_engine,
                     resources,
+                    state: StateInterface {
+                        states: graph_state,
+                        request_node_states: &mut || requesting_graph_state = true,
+                        enqueue_state_updates: &mut |updates| requested_state_updates.extend(updates.into_iter()),
+                    },
                 },
                 // SAFETY: we've already initialized 0..inputs and 0..outputs above
                 unsafe { mem::transmute::<_, &[&[f32]]>(&stream_inputs[0..inputs]) },
@@ -530,8 +546,8 @@ impl BufferedTraverser {
         }
 
         for (vec_index, node_index) in &self.nodes_linked_to_ui {
-            if let Some(new_ui_state) = self.nodes[*vec_index].node.get_ui_state() {
-                new_ui_states.push((*node_index, new_ui_state));
+            if let Some(new_node_state) = self.nodes[*vec_index].node.get_state() {
+                state_changes.push((*node_index, new_node_state));
             }
         }
 
@@ -563,7 +579,12 @@ impl BufferedTraverser {
             node.node.finish();
         }
 
-        (new_ui_states, ErrorsAndWarnings { errors, warnings })
+        TraverserResult {
+            errors_and_warnings: ErrorsAndWarnings { errors, warnings },
+            state_changes,
+            request_for_graph_state: requesting_graph_state,
+            requested_state_updates: requested_state_updates,
+        }
     }
 
     pub fn get_node_mut(&mut self, index_to_find: NodeIndex) -> Option<&mut NodeVariant> {

@@ -6,7 +6,7 @@ use futures::lock::MutexGuard;
 use futures::StreamExt;
 use node_engine::global_state::GlobalState;
 
-use node_engine::state::{FromNodeEngine, NodeEngineUpdate, NodeState};
+use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
 use sound_engine::SoundConfig;
 use tokio::sync::broadcast;
 use vpo_backend::io::cpal::CpalBackend;
@@ -58,17 +58,17 @@ async fn main_async() {
         buffer_size: engine_buffer_size,
     };
 
-    let node_state = NodeState::new(&global_state).unwrap();
+    let graph_state = GraphState::new(&global_state).unwrap();
     state_update_sender
         .send(vec![NodeEngineUpdate::NewNodeEngine(
-            node_state.get_engine(&global_state).unwrap(),
+            graph_state.get_engine(&global_state).unwrap(),
         )])
         .unwrap();
 
     println!("sample rate: {}", config.sample_rate.0);
 
     let global_state = futures::lock::Mutex::new(global_state);
-    let node_state = futures::lock::Mutex::new(node_state);
+    let graph_state = futures::lock::Mutex::new(graph_state);
 
     // debugging
     // let mut output_file = File::create("out.pcm").unwrap();
@@ -78,15 +78,15 @@ async fn main_async() {
                 let msg = from_server.recv().await;
 
                 if let Ok(msg) = msg {
-                    let (node_state_lock, global_state_lock) = join!(node_state.lock(), global_state.lock());
+                    let (graph_state_lock, global_state_lock) = join!(graph_state.lock(), global_state.lock());
 
-                    MutexGuard::map(node_state_lock, |node_state| {
+                    MutexGuard::map(graph_state_lock, |graph_state| {
                         MutexGuard::map(global_state_lock, |global_state| {
                             block_on(async {
                                 handle_msg(
                                     msg,
                                     &to_server,
-                                    node_state,
+                                    graph_state,
                                     global_state,
                                     &state_update_sender,
                                     &mut file_watcher,
@@ -97,7 +97,7 @@ async fn main_async() {
                             global_state
                         });
 
-                        node_state
+                        graph_state
                     });
                 }
             }
@@ -122,20 +122,36 @@ async fn main_async() {
             while let Ok(engine_update) = from_engine.recv().await {
                 match engine_update {
                     FromNodeEngine::UiUpdates(updates) => {
-                        MutexGuard::map(node_state.lock().await, |node_state| {
-                            let root_index = node_state.get_root_graph_index();
+                        MutexGuard::map(graph_state.lock().await, |graph_state| {
+                            let root_index = graph_state.get_root_graph_index();
 
-                            let graph = node_state.get_graph_manager().get_graph_mut(root_index).unwrap();
+                            let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
 
-                            for (node_index, new_ui_state) in updates {
+                            for (node_index, new_state) in updates {
                                 if let Ok(node) = graph.get_node_mut(node_index) {
-                                    node.set_ui_state(new_ui_state);
+                                    node.set_state(new_state);
                                 }
                             }
 
-                            send_graph_updates(node_state, root_index, &to_server).unwrap();
+                            send_graph_updates(graph_state, root_index, &to_server).unwrap();
 
-                            node_state
+                            graph_state
+                        });
+                    }
+                    FromNodeEngine::RequestedStateUpdates(updates) => {
+                        // TODO: don't unwrap here, instead recreate the engine if it fails
+                        state_update_sender
+                            .send(vec![NodeEngineUpdate::NewNodeState(updates)])
+                            .unwrap();
+                    }
+                    FromNodeEngine::GraphStateRequested => {
+                        MutexGuard::map(graph_state.lock().await, |graph_state| {
+                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            state_update_sender
+                                .send(vec![NodeEngineUpdate::CurrentNodeStates(graph_state.get_node_state())])
+                                .unwrap();
+
+                            graph_state
                         });
                     }
                 }

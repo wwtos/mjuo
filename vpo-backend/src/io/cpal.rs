@@ -165,8 +165,8 @@ impl CpalBackend {
                                         }
                                     };
 
-                                    if let Some(from_engine) = from_engine {
-                                        to_main.send(from_engine).unwrap();
+                                    for message in from_engine.into_iter() {
+                                        to_main.send(message).unwrap();
                                     }
 
                                     for buffer_frame in &buffer {

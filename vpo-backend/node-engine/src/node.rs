@@ -1,6 +1,6 @@
 //! Node module
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
 use ddgg::VertexIndex;
@@ -131,19 +131,44 @@ pub struct NodeInitState<'a> {
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
     pub sound_config: &'a SoundConfig,
-    pub ui_state: &'a serde_json::Value,
+    pub state: &'a NodeState,
+}
+
+pub struct StateInterface<'a> {
+    pub request_node_states: &'a mut dyn FnMut(),
+    pub enqueue_state_updates: &'a mut dyn FnMut(Vec<(NodeIndex, serde_json::Value)>),
+    pub states: Option<&'a BTreeMap<NodeIndex, NodeState>>,
 }
 
 pub struct NodeProcessState<'a> {
     pub current_time: i64,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
+    pub state: StateInterface<'a>,
 }
 
 pub struct NodeGraphAndIo {
     pub graph: GraphIndex,
     pub input_index: NodeIndex,
     pub output_index: NodeIndex,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeState {
+    pub counted_during_mapset: bool,
+    pub value: serde_json::Value,
+    pub other: serde_json::Value,
+}
+
+impl Default for NodeState {
+    fn default() -> Self {
+        NodeState {
+            counted_during_mapset: false,
+            value: serde_json::Value::Null,
+            other: serde_json::Value::Null,
+        }
+    }
 }
 
 /// NodeRuntime trait
@@ -163,15 +188,15 @@ pub trait NodeRuntime: Debug + Clone {
         InitResult::nothing()
     }
 
-    fn has_ui_state(&self) -> bool {
+    fn has_state(&self) -> bool {
         false
     }
 
-    fn get_ui_state(&self) -> Option<serde_json::Value> {
+    fn get_state(&self) -> Option<NodeState> {
         None
     }
 
-    fn set_ui_state(&mut self, state: serde_json::Value) {}
+    fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process received data.
     fn process(

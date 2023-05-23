@@ -309,6 +309,12 @@ impl NodeGraph {
         self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
+        self.nodes
+            .vertex_iter()
+            .map(|(index, vertex)| (NodeIndex(index), vertex))
+    }
+
     pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {
         &self.nodes
     }

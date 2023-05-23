@@ -7,7 +7,7 @@ use crate::{
     connection::{Socket, SocketDirection},
     errors::{NodeError, NodeOk},
     graph_manager::GraphIndex,
-    node::{NodeGraphAndIo, NodeIndex, NodeRow},
+    node::{NodeGraphAndIo, NodeIndex, NodeRow, NodeState},
     property::Property,
 };
 
@@ -19,7 +19,7 @@ pub struct NodeWrapper {
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
-    ui_state: Value,
+    state: NodeState,
     child_graph_index: Option<GraphIndex>,
     child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
 }
@@ -45,7 +45,7 @@ impl NodeWrapper {
             node_rows,
             properties,
             ui_data: HashMap::new(),
-            ui_state: Value::Null,
+            state: NodeState::default(),
             child_graph_index: None,
             child_graph_io_indexes: None,
         };
@@ -109,12 +109,12 @@ impl NodeWrapper {
         mem::replace(&mut self.properties, properties)
     }
 
-    pub fn get_ui_state(&self) -> &Value {
-        &self.ui_state
+    pub fn get_state(&self) -> &NodeState {
+        &self.state
     }
 
-    pub fn set_ui_state(&mut self, state: Value) -> Value {
-        mem::replace(&mut self.ui_state, state)
+    pub fn set_state(&mut self, state: NodeState) -> NodeState {
+        mem::replace(&mut self.state, state)
     }
 
     pub fn get_ui_data(&self) -> &HashMap<String, Value> {

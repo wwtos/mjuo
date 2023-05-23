@@ -13,7 +13,7 @@ use std::thread::available_parallelism;
 
 use lazy_static::lazy_static;
 
-use node_engine::{global_state::GlobalState, state::NodeState};
+use node_engine::{global_state::GlobalState, state::GraphState};
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use resource_manager::ResourceManager;
 use semver::Version;
@@ -34,7 +34,7 @@ lazy_static! {
     pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
 }
 
-pub fn save(state: &NodeState, path: &Path) -> Result<(), EngineError> {
+pub fn save(state: &GraphState, path: &Path) -> Result<(), EngineError> {
     let state = json!({
         "version": VERSION.to_string(),
         "state": state.to_json()
@@ -153,7 +153,7 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
 
 pub fn load(
     path: &Path,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
@@ -172,7 +172,7 @@ pub fn load(
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = NodeState::new(global_state).unwrap();
+    *state = GraphState::new(global_state).unwrap();
     global_state.reset();
 
     let mut resources = global_state.resources.write().unwrap();

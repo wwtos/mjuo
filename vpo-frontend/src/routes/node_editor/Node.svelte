@@ -217,6 +217,9 @@
             </div>
         {/if}
     {/each}
+    {#if wrapper.state.value !== null || wrapper.state.other !== null}
+        {JSON.stringify(wrapper.state)}
+    {/if}
 </div>
 
 <style>

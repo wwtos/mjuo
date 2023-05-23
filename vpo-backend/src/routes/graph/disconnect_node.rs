@@ -3,7 +3,7 @@ use node_engine::{
     connection::Connection,
     global_state::GlobalState,
     graph_manager::{GlobalNodeIndex, GraphIndex},
-    state::{Action, ActionBundle, NodeState},
+    state::{Action, ActionBundle, GraphState},
 };
 use serde_json::Value;
 use snafu::ResultExt;
@@ -18,7 +18,7 @@ use crate::{
 pub fn route(
     mut msg: Value,
     to_server: &Sender<IpcMessage>,
-    state: &mut NodeState,
+    state: &mut GraphState,
     global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
     let graph_index: GraphIndex =
