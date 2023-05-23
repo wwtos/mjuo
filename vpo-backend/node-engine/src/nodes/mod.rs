@@ -1,5 +1,4 @@
 pub mod biquad_filter;
-pub mod button;
 pub mod dummy;
 pub mod envelope;
 pub mod expression;
@@ -21,6 +20,7 @@ pub mod portamento;
 pub mod prelude;
 pub mod rank_player;
 pub mod stream_expression;
+pub mod toggle;
 pub mod util;
 pub mod variants;
 pub mod wavetable;

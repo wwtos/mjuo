@@ -10,7 +10,6 @@ use crate::errors::NodeResult;
 use crate::node::{InitResult, Node, NodeGraphAndIo, NodeInitState, NodeIo, NodeProcessState, NodeRuntime, NodeState};
 use crate::property::Property;
 
-use super::button::ButtonNode;
 use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
@@ -19,6 +18,7 @@ use super::polyphonic::PolyphonicNode;
 use super::portamento::PortamentoNode;
 use super::rank_player::RankPlayerNode;
 use super::stream_expression::StreamExpressionNode;
+use super::toggle::ToggleNode;
 use super::wavetable::WavetableNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
@@ -48,7 +48,7 @@ pub enum NodeVariant {
     MidiFilterNode,
     WavetableNode,
     PortamentoNode,
-    ButtonNode,
+    ToggleNode,
     RankPlayerNode,
     MidiMergerNode,
     MidiTransposeNode,
@@ -82,7 +82,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MidiFilterNode" => Ok(NodeVariant::MidiFilterNode(MidiFilterNode::new(config))),
         "WavetableNode" => Ok(NodeVariant::WavetableNode(WavetableNode::new(config))),
         "PortamentoNode" => Ok(NodeVariant::PortamentoNode(PortamentoNode::new(config))),
-        "ButtonNode" => Ok(NodeVariant::ButtonNode(ButtonNode::new(config))),
+        "ToggleNode" => Ok(NodeVariant::ToggleNode(ToggleNode::new(config))),
         "RankPlayerNode" => Ok(NodeVariant::RankPlayerNode(RankPlayerNode::new(config))),
         "MidiMergerNode" => Ok(NodeVariant::MidiMergerNode(MidiMergerNode::new(config))),
         "MidiTransposeNode" => Ok(NodeVariant::MidiTransposeNode(MidiTransposeNode::new(config))),
@@ -116,7 +116,7 @@ pub fn variant_io(
         "MidiFilterNode" => Ok(MidiFilterNode::get_io(props, register)),
         "WavetableNode" => Ok(WavetableNode::get_io(props, register)),
         "PortamentoNode" => Ok(PortamentoNode::get_io(props, register)),
-        "ButtonNode" => Ok(ButtonNode::get_io(props, register)),
+        "ToggleNode" => Ok(ToggleNode::get_io(props, register)),
         "RankPlayerNode" => Ok(RankPlayerNode::get_io(props, register)),
         "MidiMergerNode" => Ok(MidiMergerNode::get_io(props, register)),
         "MidiTransposeNode" => Ok(MidiTransposeNode::get_io(props, register)),

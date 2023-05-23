@@ -57,7 +57,7 @@ export const variants: NodeVariant[] = [
         category: "base"
     },
     {
-        internal: "ButtonNode",
+        internal: "ToggleNode",
         category: "ui"
     },
     {
