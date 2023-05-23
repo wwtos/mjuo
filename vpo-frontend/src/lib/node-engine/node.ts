@@ -83,6 +83,11 @@ export interface NodeWrapper {
     properties: { [key: string]: Property };
     uiData: UiData;
     childGraphIndex: Index | null;
+    state: {
+        countedDuringMapset: boolean,
+        value: any,
+        other: any,
+    }
 }
 export interface GenerationalNode {
     node: NodeWrapper;

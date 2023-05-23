@@ -18,6 +18,12 @@ socket =
     .air_detune = Air detune
     .air_amplitude = Air amplitude
     .shelf_gain = Shelf gain
+    .activate = Activate
+    .load_mode = Set mode to "load"
+    .set_mode = Set mode to "set"
+    .map_set_mode = Set mode to "map set"
+    .set_state = Set state
+    .state = State
 
 node =
     .BiquadFilterNode = Filter (12db/octave)
@@ -43,6 +49,7 @@ node =
     .MidiMergerNode = Midi Merger
     .MidiTransposeNode = Midi Transpose
     .WavetableSequencerNode = Wavetable Sequencer
+    .MemoryNode = Memory
 
 property =
     .input_count = Input count
@@ -51,3 +58,4 @@ property =
     .expression = Expression
     .values_in_count = Values in count
     .wavetable = Wavetable
+    .ui_name = UI name

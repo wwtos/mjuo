@@ -1,9 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::SoundConfig;
-
-const GATE_THRESHOLD: f32 = 0.001;
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EnvelopeState {
     Attacking,
@@ -15,7 +11,7 @@ pub enum EnvelopeState {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Envelope {
-    sample_rate: u32,
+    samples_per_second: f32,
     pub attack: f32,
     pub decay: f32,
     pub sustain: f32,
@@ -31,9 +27,9 @@ pub struct Envelope {
 
 // TODO: ADSR linear only
 impl Envelope {
-    pub fn new(config: &SoundConfig, attack: f32, decay: f32, sustain: f32, release: f32) -> Envelope {
+    pub fn new(samples_per_second: f32, attack: f32, decay: f32, sustain: f32, release: f32) -> Envelope {
         Envelope {
-            sample_rate: config.sample_rate,
+            samples_per_second,
             attack,
             decay,
             sustain,
@@ -48,7 +44,7 @@ impl Envelope {
     fn process_gate_engaged(&mut self) {
         self.state = match &self.state {
             EnvelopeState::Attacking => {
-                let attack_rate = (1.0 / self.sample_rate as f32) / self.attack;
+                let attack_rate = (1.0 / self.samples_per_second) / self.attack;
                 self.curve_position += attack_rate;
 
                 // take `self.attack` seconds, even if attack started from not complete release
@@ -64,7 +60,7 @@ impl Envelope {
                 }
             }
             EnvelopeState::Decaying => {
-                let decay_rate = (1.0 / self.sample_rate as f32) / self.decay;
+                let decay_rate = (1.0 / self.samples_per_second) / self.decay;
                 self.curve_position += decay_rate;
 
                 self.current_value = decay(1.0, self.sustain, self.curve_position);
@@ -114,7 +110,7 @@ impl Envelope {
                 EnvelopeState::Releasing
             }
             EnvelopeState::Releasing => {
-                let release_rate = (1.0 / self.sample_rate as f32) / self.release;
+                let release_rate = (1.0 / self.samples_per_second) / self.release;
 
                 self.curve_position += release_rate;
 
@@ -127,6 +123,10 @@ impl Envelope {
                 EnvelopeState::Releasing
             }
         }
+    }
+
+    pub fn is_done(&self) -> bool {
+        matches!(self.state, EnvelopeState::Releasing) && self.current_value < 0.001
     }
 
     pub fn get_adsr(&self) -> (f32, f32, f32, f32) {
@@ -142,10 +142,8 @@ impl Envelope {
 }
 
 impl Envelope {
-    pub fn process(&mut self, gate: f32) -> f32 {
-        let engaged = gate > GATE_THRESHOLD;
-
-        if engaged {
+    pub fn process(&mut self, gate: bool) -> f32 {
+        if gate {
             self.process_gate_engaged();
         } else {
             self.process_gate_released();

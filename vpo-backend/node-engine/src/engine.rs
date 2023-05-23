@@ -105,6 +105,7 @@ impl NodeEngine {
                 self.current_graph_state.as_ref(),
             );
             self.current_time += out.len() as i64;
+            self.current_graph_state = None;
 
             let output_node = traverser.get_node_mut(io_nodes.output);
 

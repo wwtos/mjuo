@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::Value;
 
 use crate::nodes::prelude::*;
 
@@ -6,10 +6,18 @@ use crate::nodes::prelude::*;
 pub struct ButtonNode {
     state: bool,
     updated: bool,
+    first_time: bool,
 }
 
 impl NodeRuntime for ButtonNode {
-    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+        self.first_time = true;
+
+        if let Some(new_state) = state.state.value.as_bool() {
+            self.state = new_state;
+            self.updated = true;
+        }
+
         InitResult::nothing()
     }
 
@@ -21,7 +29,7 @@ impl NodeRuntime for ButtonNode {
     }
 
     fn set_state(&mut self, state: serde_json::Value) {
-        self.state = state.get("value").and_then(|x| x.as_bool()).unwrap_or(false);
+        self.state = state.as_bool().unwrap_or(false);
         self.updated = true;
     }
 
@@ -29,10 +37,8 @@ impl NodeRuntime for ButtonNode {
         if self.updated {
             Some(NodeState {
                 counted_during_mapset: self.state,
-                value: json! ({
-                    "value": self.state
-                }),
-                other: serde_json::Value::Null,
+                value: Value::Bool(self.state),
+                other: Value::Null,
             })
         } else {
             None
@@ -40,7 +46,7 @@ impl NodeRuntime for ButtonNode {
     }
 
     fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        if self.updated {
+        if self.updated || self.first_time {
             values_out[0] = Some(Primitive::Boolean(self.state));
         }
     }
@@ -51,6 +57,7 @@ impl NodeRuntime for ButtonNode {
 
     fn finish(&mut self) {
         self.updated = false;
+        self.first_time = false;
     }
 }
 
@@ -59,6 +66,7 @@ impl Node for ButtonNode {
         ButtonNode {
             state: false,
             updated: false,
+            first_time: true,
         }
     }
 

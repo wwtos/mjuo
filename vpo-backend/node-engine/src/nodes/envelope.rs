@@ -6,7 +6,8 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone)]
 pub struct EnvelopeNode {
     envelope: Envelope,
-    gate: f32,
+    gate: bool,
+    out: Option<f32>,
 }
 
 impl NodeRuntime for EnvelopeNode {
@@ -16,7 +17,7 @@ impl NodeRuntime for EnvelopeNode {
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let [gate, attack, decay, sustain, release] = values_in {
-            if let Some(gate) = gate.clone().and_then(|gate| gate.as_float()) {
+            if let Some(gate) = gate.clone().and_then(|gate| gate.as_boolean()) {
                 self.gate = gate;
             }
 
@@ -42,28 +43,35 @@ impl NodeRuntime for EnvelopeNode {
         &mut self,
         _state: NodeProcessState,
         _streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        for frame in streams_out[0].iter_mut() {
-            *frame = self.envelope.process(self.gate);
+        if !self.envelope.is_done() || self.gate {
+            self.out = Some(self.envelope.process(self.gate));
         }
 
         NodeOk::no_warnings(())
+    }
+
+    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
+        values_out[0] = self.out.take().map(Primitive::Float);
     }
 }
 
 impl Node for EnvelopeNode {
     fn new(config: &SoundConfig) -> Self {
+        let samples_per_second = config.sample_rate as f32 / config.buffer_size as f32;
+
         EnvelopeNode {
-            envelope: Envelope::new(config, 0.02, 0.2, 0.8, 0.5),
-            gate: 0.0,
+            envelope: Envelope::new(samples_per_second, 0.02, 0.2, 0.8, 0.5),
+            gate: false,
+            out: None,
         }
     }
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             value_input(register("gate"), Primitive::Boolean(false)),
-            stream_output(register("gain")),
+            value_output(register("gain")),
             value_input(register("attack"), Primitive::Float(0.01)),
             value_input(register("decay"), Primitive::Float(0.3)),
             value_input(register("sustain"), Primitive::Float(0.8)),

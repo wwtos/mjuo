@@ -136,7 +136,7 @@ pub struct NodeInitState<'a> {
 
 pub struct StateInterface<'a> {
     pub request_node_states: &'a mut dyn FnMut(),
-    pub enqueue_state_updates: &'a mut dyn FnMut(BTreeMap<NodeIndex, serde_json::Value>),
+    pub enqueue_state_updates: &'a mut dyn FnMut(Vec<(NodeIndex, serde_json::Value)>),
     pub states: Option<&'a BTreeMap<NodeIndex, NodeState>>,
 }
 
@@ -154,6 +154,7 @@ pub struct NodeGraphAndIo {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NodeState {
     pub counted_during_mapset: bool,
     pub value: serde_json::Value,
