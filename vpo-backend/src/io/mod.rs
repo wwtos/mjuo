@@ -28,6 +28,7 @@ use crate::errors::EngineError;
 use crate::migrations::migrate;
 use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
+use crate::resource::ui::load_ui_from_file;
 
 const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
@@ -145,6 +146,16 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
             let sample = load_sample(file)?;
             samples.add_resource(resource.into_owned(), sample);
         }
+        "ui" => {
+            let ui = &mut global_state.resources.write().expect("not poisoned").ui;
+
+            if ui.get_index(resource.as_ref()).is_some() {
+                ui.remove_resource(resource.as_ref());
+            }
+
+            let ui_element = load_ui_from_file(file)?;
+            ui.add_resource(resource.into_owned(), ui_element);
+        }
         _ => {}
     }
 
@@ -189,6 +200,7 @@ pub fn load(
         &["toml"],
         &load_rank_from_file,
     )?;
+    load_resources(&parent.join("ui"), &mut resources.ui, &["toml"], &load_ui_from_file)?;
 
     let json_state = &mut json["state"];
 

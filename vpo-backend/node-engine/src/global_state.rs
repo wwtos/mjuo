@@ -11,6 +11,7 @@ use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 pub struct Resources {
     pub samples: ResourceManager<MonoSample>,
     pub ranks: ResourceManager<Rank>,
+    pub ui: ResourceManager<String>,
 }
 
 #[derive(Debug)]
@@ -36,6 +37,7 @@ impl GlobalState {
 
         resources.ranks.clear();
         resources.samples.clear();
+        resources.ui.clear();
     }
 
     pub fn to_json(&self) -> Value {
