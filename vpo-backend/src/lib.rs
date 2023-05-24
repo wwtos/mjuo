@@ -15,6 +15,7 @@ type Sender<T> = SendBuffer<T>;
 #[cfg(any(unix, windows))]
 type Sender<T> = broadcast::Sender<T>;
 
+use std::path::PathBuf;
 use std::sync::mpsc;
 use std::{error::Error, io::Write};
 
@@ -34,7 +35,7 @@ use routes::route;
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
-pub async fn start_ipc() -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
+pub fn start_ipc(port: u32) -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
     use ipc::ipc_server;
 
     let (to_tokio, _from_main) = broadcast::channel(16);
@@ -42,7 +43,7 @@ pub async fn start_ipc() -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<
 
     let to_tokio_cloned = to_tokio.clone();
 
-    tokio::spawn(async move { ipc_server::start_ipc(to_tokio_cloned, to_main).await });
+    tokio::spawn(async move { ipc_server::start_ipc(to_tokio_cloned, to_main, port).await });
 
     (to_tokio, from_tokio)
 }
@@ -55,6 +56,7 @@ pub async fn handle_msg(
     global_state: &mut GlobalState,
     engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
+    project_dir_sender: &mut broadcast::Sender<PathBuf>,
 ) {
     let result = route(msg, to_server, state, global_state).await;
 
@@ -65,6 +67,16 @@ pub async fn handle_msg(
             }
 
             if route_result.new_project {
+                let _ = project_dir_sender.send(
+                    global_state
+                        .active_project
+                        .as_ref()
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .to_owned(),
+                );
+
                 file_watcher
                     .watch(global_state.active_project.as_ref().unwrap().parent().unwrap())
                     .unwrap();

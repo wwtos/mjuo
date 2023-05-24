@@ -8,8 +8,10 @@ use tokio_tungstenite::tungstenite::{self, Message};
 use crate::error::{IpcError, ReceiveSnafu, WebsocketSnafu};
 use crate::ipc_message::IpcMessage;
 
-pub async fn start_ipc(to_tokio: broadcast::Sender<IpcMessage>, to_main: broadcast::Sender<IpcMessage>) {
-    let listener = TcpListener::bind("127.0.0.1:26642").await.expect("failed to bind");
+pub async fn start_ipc(to_tokio: broadcast::Sender<IpcMessage>, to_main: broadcast::Sender<IpcMessage>, port: u32) {
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
+        .await
+        .expect("failed to bind");
 
     while let Ok((stream, _)) = listener.accept().await {
         tokio::spawn(create_connection_task(stream, to_tokio.subscribe(), to_main.clone()));
