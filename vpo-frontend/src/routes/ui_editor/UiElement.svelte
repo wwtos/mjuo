@@ -8,8 +8,6 @@
     export let uiName: string;
     export let x: number;
     export let y: number;
-    export let key: number | string;
-    export let nodeIndex: VertexIndex;
     export let nodeType: string;
     export let state: NodeWrapper["state"];
 

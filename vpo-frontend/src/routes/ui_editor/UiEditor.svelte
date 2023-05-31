@@ -150,8 +150,6 @@
                                 resourceId={uiElement.resourceId}
                                 x={uiElement.x}
                                 y={uiElement.y}
-                                key={elementIndex}
-                                nodeIndex={index}
                                 nodeType={node.nodeType}
                                 state={node.state}
                                 on:newposition={(e) =>

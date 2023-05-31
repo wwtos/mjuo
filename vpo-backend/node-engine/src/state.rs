@@ -87,7 +87,7 @@ pub enum NodeEngineUpdate {
 
 #[derive(Debug, Clone)]
 pub enum FromNodeEngine {
-    UiUpdates(Vec<(NodeIndex, NodeState)>),
+    NodeStateUpdates(Vec<(NodeIndex, NodeState)>),
     RequestedStateUpdates(Vec<(NodeIndex, serde_json::Value)>),
     GraphStateRequested,
 }

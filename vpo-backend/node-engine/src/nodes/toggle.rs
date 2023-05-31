@@ -23,13 +23,16 @@ impl NodeRuntime for ToggleNode {
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let Some(new_state) = values_in[0].as_ref().and_then(|x| x.as_boolean()) {
-            self.state = new_state;
-            self.updated = true;
+            if !self.first_time {
+                self.state = new_state;
+                self.updated = true;
+            }
         }
     }
 
     fn set_state(&mut self, state: serde_json::Value) {
         self.state = state.as_bool().unwrap_or(false);
+
         self.updated = true;
     }
 

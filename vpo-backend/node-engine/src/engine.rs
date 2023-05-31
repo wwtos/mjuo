@@ -119,7 +119,7 @@ impl NodeEngine {
             out.copy_from_slice(&output);
 
             if !state_changes.is_empty() {
-                messages_out.push(FromNodeEngine::UiUpdates(state_changes));
+                messages_out.push(FromNodeEngine::NodeStateUpdates(state_changes));
             }
 
             if !requested_state_updates.is_empty() {

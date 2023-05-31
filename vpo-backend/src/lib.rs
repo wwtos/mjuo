@@ -38,8 +38,8 @@ use serde_json::json;
 pub fn start_ipc(port: u32) -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
     use ipc::ipc_server;
 
-    let (to_tokio, _from_main) = broadcast::channel(16);
-    let (to_main, from_tokio) = broadcast::channel(16);
+    let (to_tokio, _from_main) = broadcast::channel(128);
+    let (to_main, from_tokio) = broadcast::channel(128);
 
     let to_tokio_cloned = to_tokio.clone();
 
