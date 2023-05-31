@@ -125,6 +125,10 @@ impl NodeWrapper {
         mem::replace(&mut self.ui_data, ui_data)
     }
 
+    pub fn get_default_overrides(&self) -> &Vec<NodeRow> {
+        &self.default_overrides
+    }
+
     pub fn set_default_overrides(&mut self, default_overrides: Vec<NodeRow>) -> Vec<NodeRow> {
         mem::replace(&mut self.default_overrides, default_overrides)
     }

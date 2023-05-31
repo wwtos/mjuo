@@ -6,6 +6,7 @@
     import NodeEditor from "./node_editor/NodeEditor.svelte";
     import SettingsEditor from "./settings_editor/SettingsEditor.svelte";
     import FileEditor from "./file_editor/FileEditor.svelte";
+    import UiEditor from "./ui_editor/UiEditor.svelte";
 
     export let data: PageData;
 
@@ -33,6 +34,14 @@
             graphManager={data.graphManager}
             ipcSocket={data.socket}
             socketRegistry={data.socketRegistry}
+        />
+    {:else if section === "uiEditor"}
+        <UiEditor
+            graphManager={data.graphManager}
+            globalState={data.globalEngineState}
+            socket={data.socket}
+            width={width - 48}
+            {height}
         />
     {:else if section === "fileEditor"}
         <FileEditor globalState={data.globalEngineState} socket={data.socket} />

@@ -5,5 +5,6 @@ pub mod new_node;
 pub mod redo;
 pub mod remove_node;
 pub mod undo;
+pub mod update_node_state;
 pub mod update_node_ui;
 pub mod update_nodes;

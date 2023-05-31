@@ -61,11 +61,21 @@ export const NodeRow = {
     }
 };
 
+export interface UiElementInstance {
+    resourceId: string,
+    properties: object,
+    x: number,
+    y: number,
+}
+
 export interface UiData {
     x: number;
     y: number;
     selected?: boolean;
     title?: string;
+    panelInstances?: {
+        [key: string]: UiElementInstance[]
+    }
 }
 
 export interface Node {
@@ -77,7 +87,7 @@ export interface Node {
 }
 
 export interface NodeWrapper {
-    node: Node;
+    nodeType: string;
     nodeRows: NodeRow[];
     defaultOverrides: NodeRow[];
     properties: { [key: string]: Property };

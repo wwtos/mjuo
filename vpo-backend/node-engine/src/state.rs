@@ -10,7 +10,7 @@ use crate::{
     global_state::GlobalState,
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow, NodeState},
-    node_graph::NodeConnection,
+    node_graph::{NodeConnection, NodeGraph},
     nodes::variants::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
@@ -236,6 +236,12 @@ impl GraphState {
         self.root_graph_index
     }
 
+    pub fn get_root_graph(&self) -> &NodeGraph {
+        self.graph_manager
+            .get_graph(self.root_graph_index)
+            .expect("root graph to exist")
+    }
+
     pub fn get_registry(&self) -> &SocketRegistry {
         &self.socket_registry
     }
@@ -390,7 +396,6 @@ impl GraphState {
             let (_, action_results) = to_redo
                 .actions
                 .into_iter()
-                .rev()
                 .map(|action| self.reapply_action(action))
                 .collect::<Result<Vec<(HistoryAction, Vec<ActionInvalidation>)>, NodeError>>()?
                 .into_iter()
@@ -446,11 +451,14 @@ impl GraphState {
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
-            Action::ChangeNodeProperties { index, props } => {
+            Action::ChangeNodeProperties {
+                index,
+                props: new_props,
+            } => {
                 let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
-                let before_props = node.set_properties(props.clone());
+                let before_props = node.set_properties(new_props.clone());
                 let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
 
                 let graph_diff = GraphManagerDiff(
@@ -464,21 +472,37 @@ impl GraphState {
                     HistoryAction::ChangeNodeProperties {
                         index,
                         before: before_props,
-                        after: props,
+                        after: new_props,
                         graph_diff,
                     },
                     vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
                 )
             }
-            Action::ChangeNodeUiData { index, data } => self.reapply_action(HistoryAction::ChangeNodeUiData {
-                index,
-                before: HashMap::new(),
-                after: data,
-            })?,
+            Action::ChangeNodeUiData { index, data } => {
+                let before = self
+                    .graph_manager
+                    .get_graph(index.graph_index)?
+                    .get_node(index.node_index)?
+                    .get_ui_data()
+                    .clone();
+
+                self.reapply_action(HistoryAction::ChangeNodeUiData {
+                    index,
+                    before,
+                    after: data,
+                })?
+            }
             Action::ChangeNodeOverrides { index, overrides } => {
+                let before = self
+                    .graph_manager
+                    .get_graph(index.graph_index)?
+                    .get_node(index.node_index)?
+                    .get_default_overrides()
+                    .clone();
+
                 self.reapply_action(HistoryAction::ChangeNodeOverrides {
                     index,
-                    before: Vec::new(),
+                    before,
                     after: overrides,
                 })?
             }
