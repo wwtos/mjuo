@@ -65,7 +65,7 @@ export const variants: NodeVariant[] = [
         category: "audio"
     },
     {
-        internal: "MidiMergerNode",
+        internal: "NoteMergerNode",
         category: "midi"
     },
     {

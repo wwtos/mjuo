@@ -6,13 +6,13 @@ use sound_engine::midi::messages::MidiData;
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct MidiMergerNode {
+pub struct NoteMergerNode {
     states: Vec<u128>,
     combined: u128,
     to_send: Option<MidiBundle>,
 }
 
-impl MidiMergerNode {
+impl NoteMergerNode {
     fn combine(&mut self) {
         let mut sum_state = 0_u128;
 
@@ -24,7 +24,7 @@ impl MidiMergerNode {
     }
 }
 
-impl NodeRuntime for MidiMergerNode {
+impl NodeRuntime for NoteMergerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let input_count = state.props.get("input_count").unwrap().as_integer().unwrap();
         self.states.resize(input_count as usize, 0);
@@ -79,9 +79,9 @@ impl NodeRuntime for MidiMergerNode {
     }
 }
 
-impl Node for MidiMergerNode {
+impl Node for NoteMergerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiMergerNode {
+        NoteMergerNode {
             states: vec![],
             to_send: None,
             combined: 0,

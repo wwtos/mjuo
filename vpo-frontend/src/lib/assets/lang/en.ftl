@@ -47,7 +47,7 @@ node =
     .StreamExpressionNode = Expression (stream)\
     .ToggleNode = Toggle
     .WavetableNode = Wavetable Oscillator
-    .MidiMergerNode = Midi Merger
+    .NoteMergerNode = Note Merger
     .MidiTransposeNode = Midi Transpose
     .WavetableSequencerNode = Wavetable Sequencer
 
