@@ -51,7 +51,7 @@ struct Locations {
 struct NodeTraversalWrapper {
     pub node: NodeVariant,
     /// A mapping of a value to input to its location
-    pub to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -241,7 +241,7 @@ impl BufferedTraverser {
 
             self.nodes.push(NodeTraversalWrapper {
                 node: variant,
-                to_input,
+                values_to_input: to_input,
             });
             self.node_indexes.push(*node_index);
 
@@ -392,13 +392,19 @@ impl BufferedTraverser {
         let mut requesting_graph_state = false;
         let mut requested_state_updates = vec![];
 
-        // build the midi inputs and input
+        // input updated node states
+        for (node_index, new_node_state) in updated_node_states.into_iter() {
+            let node = &mut self.nodes[self.node_to_location_mapping.get(&node_index).unwrap().vec_index];
+            node.node.set_state(new_node_state);
+        }
+
         for (i, node) in self.nodes.iter_mut().enumerate() {
-            let inputs = self.midi_advance_by[i].inputs;
+            // input midi inputs
+            let midi_input_count = self.midi_advance_by[i].inputs;
 
             let mut should_input_midi = false;
 
-            for j in 0..inputs {
+            for j in 0..midi_input_count {
                 if let Some(input_index) = self.midi_input_mappings[midi_mapping_i] {
                     let incoming = self.midi_outputs[input_index].clone();
                     should_input_midi |= incoming.is_some();
@@ -413,18 +419,17 @@ impl BufferedTraverser {
 
             if should_input_midi {
                 // SAFETY: 0..inputs is initialized above
-                node.node
-                    .accept_midi_inputs(unsafe { mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..inputs]) });
+                node.node.accept_midi_inputs(unsafe {
+                    mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..midi_input_count])
+                });
             }
-        }
 
-        // build the value inputs and input
-        for (i, node) in self.nodes.iter_mut().enumerate() {
-            let inputs = self.value_advance_by[i].inputs;
+            // next, handle value input
+            let value_input_count = self.value_advance_by[i].inputs;
 
             let mut should_input_value = false;
 
-            for j in 0..inputs {
+            for j in 0..value_input_count {
                 if let Some(input_index) = self.value_input_mappings[value_mapping_i] {
                     let incoming = self.value_outputs[input_index].clone();
                     should_input_value |= incoming.is_some();
@@ -438,7 +443,7 @@ impl BufferedTraverser {
             }
 
             // override any values coming in with values from the user, if any
-            for override_input in node.to_input.drain(..) {
+            for override_input in node.values_to_input.drain(..) {
                 value_inputs[override_input.0].write(Some(override_input.1));
                 should_input_value = true;
             }
@@ -446,19 +451,13 @@ impl BufferedTraverser {
             if should_input_value {
                 // SAFETY: 0..inputs is initialized above
                 node.node.accept_value_inputs(unsafe {
-                    mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..inputs])
+                    mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..value_input_count])
                 });
             }
-        }
 
-        for (node_index, new_node_state) in updated_node_states.into_iter() {
-            let node = &mut self.nodes[self.node_to_location_mapping.get(&node_index).unwrap().vec_index];
-            node.node.set_state(new_node_state);
-        }
-
-        for (i, (node, advance_by)) in self.nodes.iter_mut().zip(&self.stream_advance_by).enumerate() {
-            let inputs = advance_by.inputs;
-            let outputs = advance_by.outputs;
+            // input and output streams
+            let inputs = self.stream_advance_by[i].inputs;
+            let outputs = self.stream_advance_by[i].outputs;
 
             let outputs_ptr = self.stream_outputs.as_mut_ptr();
 
@@ -542,37 +541,36 @@ impl BufferedTraverser {
                 }
             }
 
-            stream_outputs_i += advance_by.outputs * self.buffer_size;
+            stream_outputs_i += self.stream_advance_by[i].outputs * self.buffer_size;
+
+            // get midi outputs
+            let midi_output_count = self.midi_advance_by[i].outputs;
+            let midi_output_index = midi_outputs_i;
+
+            // reset values back to None, they may be set after running `get_midi_outputs`
+            self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)].fill(None);
+            node.node
+                .get_midi_outputs(&mut self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)]);
+
+            midi_outputs_i += self.midi_advance_by[i].outputs;
+
+            // get value outputs
+            let value_output_count = self.value_advance_by[i].outputs;
+            let value_output_index = value_outputs_i;
+
+            // reset values back to None, they may be set after running `get_value_outputs`
+            self.value_outputs[value_output_index..(value_output_index + value_output_count)].fill(None);
+            node.node.get_value_outputs(
+                &mut self.value_outputs[value_output_index..(value_output_index + value_output_count)],
+            );
+
+            value_outputs_i += self.value_advance_by[i].outputs;
         }
 
         for (vec_index, node_index) in &self.nodes_linked_to_ui {
             if let Some(new_node_state) = self.nodes[*vec_index].node.get_state() {
                 state_changes.push((*node_index, new_node_state));
             }
-        }
-
-        for (node, advance_by) in self.nodes.iter_mut().zip(&self.midi_advance_by) {
-            let outputs = advance_by.outputs;
-            let output_index = midi_outputs_i;
-
-            // reset values back to None, they may be set after running `get_midi_outputs`
-            self.midi_outputs[output_index..(output_index + outputs)].fill(None);
-            node.node
-                .get_midi_outputs(&mut self.midi_outputs[output_index..(output_index + outputs)]);
-
-            midi_outputs_i += advance_by.outputs;
-        }
-
-        for (node, advance_by) in self.nodes.iter_mut().zip(&self.value_advance_by) {
-            let outputs = advance_by.outputs;
-            let output_index = value_outputs_i;
-
-            // reset values back to None, they may be set after running `get_value_outputs`
-            self.value_outputs[output_index..(output_index + outputs)].fill(None);
-            node.node
-                .get_value_outputs(&mut self.value_outputs[output_index..(output_index + outputs)]);
-
-            value_outputs_i += advance_by.outputs;
         }
 
         for node in &mut self.nodes {
@@ -610,7 +608,9 @@ impl BufferedTraverser {
                 .find_map(|&(possible_socket, index)| if possible_socket == socket { Some(index) } else { None });
 
             if let Some(value_index) = value_index {
-                self.nodes[locations.vec_index].to_input.push((value_index, value));
+                self.nodes[locations.vec_index]
+                    .values_to_input
+                    .push((value_index, value));
 
                 Ok(())
             } else {
