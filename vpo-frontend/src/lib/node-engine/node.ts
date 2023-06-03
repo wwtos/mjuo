@@ -66,6 +66,7 @@ export interface UiElementInstance {
     properties: object,
     x: number,
     y: number,
+    selected: boolean
 }
 
 export interface UiData {

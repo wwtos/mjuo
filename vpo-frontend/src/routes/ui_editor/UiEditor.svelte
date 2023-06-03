@@ -3,13 +3,10 @@
 
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
-    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
     import type { GlobalState } from "$lib/node-engine/global_state";
     import SplitView from "$lib/components/layout/SplitView.svelte";
     import { SplitDirection } from "$lib/components/layout/enums";
-    import Container from "$lib/components/layout/Container.svelte";
     import UiElement from "./UiElement.svelte";
-    import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { VertexIndex } from "$lib/ddgg/graph";
     import type { NodeWrapper } from "$lib/node-engine/node";
 
@@ -21,7 +18,13 @@
     export let height: number;
 
     let draggableWidth = 0;
-    let windowHeight = 0;
+    let viewportHeight = 0;
+
+    let currentlySelected: {
+        nodeIndex: VertexIndex;
+        instance: string;
+        elementIndex: number;
+    } | null = null;
 
     let uiNodes: Array<{
         index: VertexIndex;
@@ -68,6 +71,7 @@
             properties: {},
             x,
             y,
+            selected: false,
         };
 
         if (!node.uiData.panelInstances) {
@@ -92,38 +96,66 @@
 
         if (!node?.uiData.panelInstances) return;
 
+        for (let [index, node] of graph.getNodes()) {
+            for (let instance of Object.values(
+                node.uiData.panelInstances || {}
+            )) {
+                for (let element of instance) {
+                    element.selected = false;
+                }
+            }
+        }
+
         node.uiData.panelInstances["0"][elementIndex].x = x;
         node.uiData.panelInstances["0"][elementIndex].y = y;
+        node.uiData.panelInstances["0"][elementIndex].selected = true;
 
-        console.log(nodeIndex, elementIndex, x, y);
+        currentlySelected = {
+            nodeIndex: nodeIndex,
+            instance: "0",
+            elementIndex: elementIndex,
+        };
 
         graph.markNodeAsUpdated(nodeIndex);
         graph.writeChangedNodesToServerUi();
     }
 
-    $: console.log(uiNodes);
+    function onSkinSelected(event: CustomEvent<string>) {
+        const skinId = event.detail;
+
+        if (currentlySelected !== null) {
+            const node = graph.getNode(currentlySelected.nodeIndex);
+
+            if (!node || !node.uiData.panelInstances) return;
+
+            node.uiData.panelInstances[currentlySelected.instance][
+                currentlySelected.elementIndex
+            ].resourceId = skinId;
+
+            graph.markNodeAsUpdated(currentlySelected.nodeIndex);
+            graph.writeChangedNodesToServerUi();
+
+            console.log(currentlySelected, skinId);
+        }
+    }
 </script>
 
 <SplitView
     {width}
     {height}
-    bind:firstHeight={windowHeight}
+    bind:firstHeight={viewportHeight}
     direction={SplitDirection.HORIZONTAL}
     initialSplitRatio={0.8}
 >
-    <div slot="first" style="border-bottom: 1px solid black">
+    <div slot="first">
         <SplitView
             {width}
-            height={windowHeight}
+            height={viewportHeight}
             direction={SplitDirection.VERTICAL}
             bind:firstWidth={draggableWidth}
             initialSplitRatio={0.2}
         >
-            <div
-                slot="first"
-                style={`min-width: ${draggableWidth}px; border-right: 1px solid black`}
-                on:dragstart={onDragStart}
-            >
+            <div slot="first" class="container" on:dragstart={onDragStart}>
                 {#each uiNodes as { uiName, index }}
                     <div
                         class="ui-name"
@@ -135,13 +167,11 @@
                 {/each}
             </div>
             <div
-                class="panel"
+                class="panel container"
                 slot="second"
                 on:dragover={onDragOver}
                 on:drop={onDrop}
-                style={`min-width: ${
-                    width - draggableWidth
-                }px; min-height: ${height}px; position: relative`}
+                style="position: relative; height: {viewportHeight}px"
             >
                 {#each uiNodes as { node, index, uiName } (index)}
                     {#if node.uiData["panelInstances"] && node.uiData.panelInstances["0"]}
@@ -150,8 +180,10 @@
                                 resourceId={uiElement.resourceId}
                                 x={uiElement.x}
                                 y={uiElement.y}
+                                selected={uiElement.selected}
                                 nodeType={node.nodeType}
                                 state={node.state}
+                                choosable={false}
                                 on:newposition={(e) =>
                                     onNewPosition(
                                         index,
@@ -162,6 +194,7 @@
                                 on:newstate={(e) =>
                                     socket.updateNodeState([[index, e.detail]])}
                                 {uiName}
+                                {globalState}
                             />
                         {/each}
                     {/if}
@@ -169,10 +202,48 @@
             </div>
         </SplitView>
     </div>
-    <div slot="second">foobarbaz</div>
+    <div slot="second">
+        <SplitView
+            {width}
+            height={height - viewportHeight}
+            direction={SplitDirection.VERTICAL}
+        >
+            <div slot="first" class="container">
+                {#each Object.keys($globalState.resources.ui) as resource}
+                    <div style="position: relative; margin: 4px">
+                        <UiElement
+                            resourceId={resource}
+                            nodeType="ToggleNode"
+                            state={{
+                                countedDuringMapset: false,
+                                value: false,
+                                other: undefined,
+                            }}
+                            choosable={true}
+                            uiName="example"
+                            on:skinselected={onSkinSelected}
+                            {globalState}
+                        />
+                    </div>
+                {/each}
+            </div>
+            <div slot="second" class="container">
+                <textarea>here</textarea>
+            </div>
+        </SplitView>
+    </div>
 </SplitView>
 
 <style>
+    textarea {
+        width: 100%;
+        height: 100%;
+        resize: none;
+        border: none;
+        margin: 0;
+        border-radius: 0;
+    }
+
     .ui-name {
         padding: 4px;
         background-color: #eee;
@@ -189,5 +260,12 @@
 
     .panel {
         overflow: auto;
+    }
+
+    .container {
+        width: 100%;
+        height: 100%;
+        border-left: 1px solid black;
+        border-top: 1px solid black;
     }
 </style>

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use resource_manager::ResourceManager;
+use resource_manager::{serialize_resource_content, ResourceManager};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
@@ -11,6 +11,7 @@ use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 pub struct Resources {
     pub samples: ResourceManager<MonoSample>,
     pub ranks: ResourceManager<Rank>,
+    #[serde(serialize_with = "serialize_resource_content")]
     pub ui: ResourceManager<String>,
 }
 

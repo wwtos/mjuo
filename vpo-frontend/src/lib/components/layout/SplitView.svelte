@@ -100,8 +100,12 @@
                 />
             </div>
         {/if}
-        <slot name="first" />
-        <slot name="second" />
+        <div style="width: {firstWidth}px; height: {height}px">
+            <slot name="first" />
+        </div>
+        <div style="width: {width - firstWidth}px; height: {height}px">
+            <slot name="second" />
+        </div>
     </div>
 {:else if direction === SplitDirection.HORIZONTAL}
     <div
@@ -119,8 +123,12 @@
                 />
             </div>
         {/if}
-        <slot name="first" />
-        <slot name="second" />
+        <div style="width: {width}px; height: {firstHeight}px">
+            <slot name="first" />
+        </div>
+        <div style="width: {width}px; height: {height - firstHeight}px">
+            <slot name="second" />
+        </div>
     </div>
 {/if}
 

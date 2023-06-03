@@ -1,1 +1,1 @@
-export const FILE_PREFIX = "localhost:26643/";
+export const FILE_PREFIX = "http://localhost:26643/";
