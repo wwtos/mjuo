@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use sound_engine::{
     sampling::rank::{Pipe, Rank},
-    util::{amplitude_to_db, db_to_amplitude},
+    util::{db_to_gain, gain_to_db},
 };
 
 use crate::errors::{EngineError, TomlParserDeSnafu};
@@ -62,7 +62,7 @@ impl RankConfig {
                         release_index: pipe.release_index,
                         crossfade: Some(pipe.crossfade),
                         file: None,
-                        attenuation: amplitude_to_db(pipe.amplitude),
+                        attenuation: gain_to_db(pipe.amplitude),
                     },
                 )
             })
@@ -112,7 +112,7 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
                 resource,
                 note,
                 cents: entry.cents,
-                amplitude: db_to_amplitude(-(entry.attenuation + parsed.attenuation)),
+                amplitude: db_to_gain(-(entry.attenuation + parsed.attenuation)),
                 loop_start: entry.loop_start,
                 loop_end: entry.loop_end,
                 decay_index: entry.decay_index,

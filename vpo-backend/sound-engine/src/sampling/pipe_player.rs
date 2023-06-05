@@ -1,5 +1,5 @@
 use crate::{
-    node::shelf_filter::{ShelfFilter, ShelfFilterType},
+    node::shelf_filter::{max_shelf_q, ShelfFilter, ShelfFilterType},
     sampling::util::rms32,
     MonoSample,
 };
@@ -52,7 +52,7 @@ pub struct PipePlayer {
 
     // dynamic air values
     air_detune: f32,
-    air_amplitude: f32,
+    gain: f32,
     shelf_filter: ShelfFilter,
 
     crossfade_position: f32,
@@ -80,7 +80,7 @@ impl PipePlayer {
             audio_amplitude: 0.0,
 
             air_detune: 1.0,
-            air_amplitude: 1.0,
+            gain: 1.0,
             shelf_filter: ShelfFilter::empty(),
 
             crossfade_position: 0.0,
@@ -128,8 +128,14 @@ impl PipePlayer {
             crossfade_length: 256.0,
 
             air_detune: 1.0,
-            air_amplitude: 1.0,
-            shelf_filter: ShelfFilter::new(ShelfFilterType::HighShelf, freq * 2.0, 0.7, 1.0, sample_rate as f32),
+            gain: 1.0,
+            shelf_filter: ShelfFilter::new(
+                sample_rate as f32,
+                ShelfFilterType::HighShelf,
+                freq * 2.0,
+                max_shelf_q(0.0),
+                0.0,
+            ),
 
             attack_envelope_indexes,
             release_envelope_indexes,
@@ -289,7 +295,7 @@ impl PipePlayer {
 
         self.shelf_filter
             .filter_sample(hermite_interpolate(x0, x1, x2, x3, audio_fract))
-            * self.air_amplitude
+            * self.gain
             * self.audio_amplitude
     }
 
@@ -316,7 +322,7 @@ impl PipePlayer {
         let out = self
             .shelf_filter
             .filter_sample(hermite_interpolate(x0, x1, x2, x3, audio_fract))
-            * self.air_amplitude
+            * self.gain
             * self.audio_amplitude;
 
         (out, crossfade_factor >= 1.0)
@@ -349,17 +355,17 @@ impl PipePlayer {
         self.air_detune = detune;
     }
 
-    pub fn get_air_amplitude(&self) -> f32 {
-        self.air_amplitude
+    pub fn get_gain(&self) -> f32 {
+        self.gain
     }
 
-    pub fn set_air_amplitude(&mut self, amplitude: f32) {
-        self.air_amplitude = amplitude;
+    pub fn set_gain(&mut self, gain: f32) {
+        self.gain = gain;
     }
 
-    pub fn set_shelf_gain(&mut self, gain: f32) {
-        if (gain - self.shelf_filter.get_gain()).abs() > 0.05 {
-            self.shelf_filter.set_gain(gain);
+    pub fn set_shelf_db_gain(&mut self, db_gain: f32) {
+        if (db_gain - self.shelf_filter.get_db_gain()).abs() > 0.5 {
+            self.shelf_filter.set_db_gain(db_gain);
         }
     }
 

@@ -28,11 +28,11 @@ pub struct RankPlayer {
     voices: Vec<Voice>,
     note_to_sample_map: BTreeMap<u8, ResourceIndex>,
     air_detune: f32,
-    air_amplitude: f32,
-    shelf_gain: f32,
+    gain: f32,
+    shelf_db_gain: f32,
     last_air_detune: f32,
     last_air_amplitude: f32,
-    last_shelf_gain: f32,
+    last_shelf_db_gain: f32,
     sample_rate: u32,
 }
 
@@ -51,11 +51,11 @@ impl RankPlayer {
             voices: Vec::with_capacity(polyphony),
             note_to_sample_map,
             air_detune: 1.0,
-            air_amplitude: 1.0,
-            shelf_gain: 0.0,
+            gain: 1.0,
+            shelf_db_gain: 0.0,
             last_air_detune: 1.0,
             last_air_amplitude: 1.0,
-            last_shelf_gain: 0.0,
+            last_shelf_db_gain: 0.0,
             sample_rate,
         }
     }
@@ -107,34 +107,36 @@ impl RankPlayer {
                 let mut player = PipePlayer::new(pipe, sample, self.sample_rate);
 
                 player.set_air_detune(self.air_detune);
-                player.set_air_amplitude(self.air_amplitude);
-                player.set_shelf_gain(self.shelf_gain);
+                player.set_gain(self.gain);
+                player.set_shelf_db_gain(self.shelf_db_gain);
 
                 open_voice.player = player;
                 open_voice.note = note;
             } else if note == open_voice.note {
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
+                // note about above TODO, I'm going to refactor the attack/release envelopes to
+                // be calculated when first loading the sample
                 open_voice.player = PipePlayer::new(pipe, sample, self.sample_rate);
                 open_voice.player.set_air_detune(self.air_detune);
-                open_voice.player.set_air_amplitude(self.air_amplitude);
-                open_voice.player.set_shelf_gain(self.shelf_gain);
+                open_voice.player.set_gain(self.gain);
+                open_voice.player.set_shelf_db_gain(self.shelf_db_gain);
 
                 open_voice.note = note;
             }
         }
     }
 
-    pub fn set_air_detune(&mut self, rate: f32) {
+    pub fn set_detune(&mut self, rate: f32) {
         self.air_detune = rate;
     }
 
-    pub fn set_air_amplitude(&mut self, amplitude: f32) {
-        self.air_amplitude = amplitude;
+    pub fn set_gain(&mut self, gain: f32) {
+        self.gain = gain;
     }
 
-    pub fn set_shelf_gain(&mut self, gain: f32) {
-        self.shelf_gain = gain;
+    pub fn set_shelf_db_gain(&mut self, db_gain: f32) {
+        self.shelf_db_gain = db_gain;
     }
 
     pub fn next_buffered(
@@ -209,15 +211,15 @@ impl RankPlayer {
                         .player
                         .set_air_detune(lerp(self.last_air_detune, self.air_detune, i as f32 / out_len as f32));
 
-                    voice.player.set_air_amplitude(lerp(
-                        self.last_air_amplitude,
-                        self.air_amplitude,
-                        i as f32 / out_len as f32,
-                    ));
-
                     voice
                         .player
-                        .set_shelf_gain(lerp(self.last_shelf_gain, self.shelf_gain, i as f32 / out_len as f32));
+                        .set_gain(lerp(self.last_air_amplitude, self.gain, i as f32 / out_len as f32));
+
+                    voice.player.set_shelf_db_gain(lerp(
+                        self.last_shelf_db_gain,
+                        self.shelf_db_gain,
+                        i as f32 / out_len as f32,
+                    ));
 
                     *output += voice.player.next_sample(pipe, sample);
 
@@ -232,7 +234,7 @@ impl RankPlayer {
         }
 
         self.last_air_detune = self.air_detune;
-        self.last_air_amplitude = self.air_amplitude;
-        self.last_shelf_gain = self.shelf_gain;
+        self.last_air_amplitude = self.gain;
+        self.last_shelf_db_gain = self.shelf_db_gain;
     }
 }
