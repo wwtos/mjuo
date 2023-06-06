@@ -97,7 +97,7 @@ impl Ramp {
                 if (self.to - self.from).abs() < f32::EPSILON {
                     self.to_processed = 0.0;
                 } else {
-                    self.to_processed = f32::ln(self.to / self.from) / f32::ln(2.0);
+                    self.to_processed = f32::log2(self.to / self.from);
                 }
 
                 self.speed = (self.to_processed / self.duration) / self.sample_rate as f32;

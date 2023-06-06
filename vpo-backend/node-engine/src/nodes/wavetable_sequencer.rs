@@ -10,19 +10,22 @@ pub struct WavetableSequencerNode {
     phase: f32,
     frequency: f32,
     advance_by: f32,
-    index: Option<ResourceIndex>,
+    index: Option<(String, ResourceIndex)>,
 }
 
 impl NodeRuntime for WavetableSequencerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
-            let new_index = state
-                .resources
-                .samples
-                .get_index(&resource.resource)
-                .ok_or(NodeError::MissingResource { resource })?;
+            let new_index =
+                state
+                    .resources
+                    .samples
+                    .get_index(&resource.resource)
+                    .ok_or_else(|| NodeError::MissingResource {
+                        resource: resource.clone(),
+                    })?;
 
-            self.index = Some(new_index);
+            self.index = Some((resource.resource, new_index));
         }
 
         InitResult::nothing()
@@ -34,22 +37,34 @@ impl NodeRuntime for WavetableSequencerNode {
         _streams_in: &[&[f32]],
         _streams_out: &mut [&mut [f32]],
     ) -> NodeResult<()> {
-        if let Some(index) = &mut self.index {
-            let wavetable = &state.resources.samples.borrow_resource(*index).unwrap().audio_raw;
+        if let Some((resource_name, index)) = &mut self.index {
+            let resource = if let Some(resource) = state.resources.samples.borrow_resource(*index) {
+                Some(resource)
+            } else if let Some(new_index) = state.resources.samples.get_index(resource_name) {
+                *index = new_index;
 
-            let wavetable_pos = self.phase * wavetable.len() as f32;
+                state.resources.samples.borrow_resource(*index)
+            } else {
+                None
+            };
 
-            let wavetable_index = wavetable_pos as usize;
-            let wavetable_offset = wavetable_pos - wavetable_pos.trunc();
+            if let Some(resource) = resource {
+                let wavetable = &resource.audio_raw;
 
-            self.value_out = lerp(
-                wavetable[wavetable_index],
-                wavetable[(wavetable_index + 1) % wavetable.len()],
-                wavetable_offset,
-            );
+                let wavetable_pos = self.phase * wavetable.len() as f32;
 
-            self.phase += self.advance_by * self.frequency;
-            self.phase = self.phase % 1.0;
+                let wavetable_index = wavetable_pos as usize;
+                let wavetable_offset = wavetable_pos.fract();
+
+                self.value_out = lerp(
+                    wavetable[wavetable_index],
+                    wavetable[(wavetable_index + 1) % wavetable.len()],
+                    wavetable_offset,
+                );
+
+                self.phase += self.advance_by * self.frequency;
+                self.phase = self.phase % 1.0;
+            }
         }
 
         NodeOk::no_warnings(())

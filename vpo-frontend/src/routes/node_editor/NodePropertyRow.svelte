@@ -142,8 +142,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: text;
         width: calc(100% - 40px);
+        user-select: none;
     }
 
     label > div {
