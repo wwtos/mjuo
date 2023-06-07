@@ -53,7 +53,7 @@ impl NodeRuntime for NoteMergerNode {
                         MidiData::NoteOff { note, .. } => {
                             let before = self.combined;
 
-                            self.states[i] = !(!self.states[i] | 1_u128 << note);
+                            self.states[i] &= !(1_u128 << note);
                             self.combine();
 
                             // the state changed, so we should pass this message through

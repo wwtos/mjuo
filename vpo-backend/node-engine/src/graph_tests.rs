@@ -1,6 +1,5 @@
 use ddgg::GraphError;
 use lazy_static::lazy_static;
-use smallvec::SmallVec;
 
 use crate::connection::{Socket, SocketType};
 use crate::errors::NodeError;
@@ -11,9 +10,9 @@ use crate::socket_registry::SocketRegistry;
 lazy_static! {
     pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
         vec![
-            stream_input(0, 0.0),
-            stream_input(1, 0.0),
-            midi_input(2, SmallVec::new()),
+            stream_input(0),
+            stream_input(1),
+            midi_input(2),
             stream_output(0),
             value_output(3),
         ]

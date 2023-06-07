@@ -7,7 +7,6 @@ use snafu::ResultExt;
 use crate::{
     errors::{EngineError, JsonParserSnafu, NodeSnafu},
     routes::RouteReturn,
-    util::send_graph_updates,
     Sender,
 };
 
@@ -20,7 +19,7 @@ struct Payload {
 
 pub fn route(
     mut msg: Value,
-    to_server: &Sender<IpcMessage>,
+    _to_server: &Sender<IpcMessage>,
     state: &mut GraphState,
     _global_state: &mut GlobalState,
 ) -> Result<Option<RouteReturn>, EngineError> {
@@ -37,8 +36,6 @@ pub fn route(
             node.set_ui_data(ui_data.into_iter().collect());
         }
     }
-
-    send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(None)
 }

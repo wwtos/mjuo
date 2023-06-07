@@ -13,6 +13,7 @@ use crate::property::Property;
 use super::function_node::FunctionNode;
 use super::inputs::InputsNode;
 use super::midi_filter::MidiFilterNode;
+use super::midi_switch::MidiSwitchNode;
 use super::outputs::OutputsNode;
 use super::polyphonic::PolyphonicNode;
 use super::portamento::PortamentoNode;
@@ -22,8 +23,8 @@ use super::toggle::ToggleNode;
 use super::wavetable::WavetableNode;
 use super::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
-    gain::GainNode, memory::MemoryNode, midi_input::MidiInNode, midi_merger::NoteMergerNode,
-    midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode, oscillator::OscillatorNode,
+    gain::GainNode, memory::MemoryNode, midi_input::MidiInNode, midi_to_values::MidiToValuesNode,
+    midi_transpose::MidiTransposeNode, mixer::MixerNode, note_merger::NoteMergerNode, oscillator::OscillatorNode,
     output::OutputNode, wavetable_sequencer::WavetableSequencerNode,
 };
 
@@ -54,6 +55,7 @@ pub enum NodeVariant {
     MidiTransposeNode,
     WavetableSequencerNode,
     MemoryNode,
+    MidiSwitchNode,
 }
 
 impl Default for NodeVariant {
@@ -88,6 +90,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MidiTransposeNode" => Ok(NodeVariant::MidiTransposeNode(MidiTransposeNode::new(config))),
         "WavetableSequencerNode" => Ok(NodeVariant::WavetableSequencerNode(WavetableSequencerNode::new(config))),
         "MemoryNode" => Ok(MemoryNode::new(config).into()),
+        "MidiSwitchNode" => Ok(MidiSwitchNode::new(config).into()),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -122,6 +125,7 @@ pub fn variant_io(
         "MidiTransposeNode" => Ok(MidiTransposeNode::get_io(props, register)),
         "WavetableSequencerNode" => Ok(WavetableSequencerNode::get_io(props, register)),
         "MemoryNode" => Ok(MemoryNode::get_io(props, register)),
+        "MidiSwitchNode" => Ok(MidiSwitchNode::get_io(props, register)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

@@ -79,7 +79,7 @@ impl NodeRuntime for MidiTransposeNode {
 impl Node for MidiTransposeNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi"), SmallVec::new()),
+            midi_input(register("midi")),
             value_input(register("transpose"), Primitive::Int(0)),
             midi_output(register("midi")),
         ])

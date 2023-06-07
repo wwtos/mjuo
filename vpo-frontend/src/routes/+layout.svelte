@@ -42,6 +42,16 @@
                     data.socket.load();
                     event.preventDefault();
                     break;
+                case "z":
+                    if (event.shiftKey) {
+                        data.socket.redo();
+                    } else {
+                        data.socket.undo();
+                    }
+                    break;
+                case "y":
+                    data.socket.redo();
+                    break;
             }
         }
     }

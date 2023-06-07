@@ -79,5 +79,9 @@ export const variants: NodeVariant[] = [
     {
         internal: "MemoryNode",
         category: "base"
+    },
+    {
+        internal: "MidiSwitchNode",
+        category: "midi"
     }
 ];

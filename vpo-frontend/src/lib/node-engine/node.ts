@@ -63,7 +63,7 @@ export const NodeRow = {
 
 export interface UiElementInstance {
     resourceId: string,
-    properties: object,
+    properties: { [key: string]: string },
     x: number,
     y: number,
     selected: boolean

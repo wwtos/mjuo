@@ -127,15 +127,6 @@ export class NodeGraph {
         }
     }
 
-    writeChangedNodesToServerUi() {
-        // only write changes if any nodes were marked for updating
-        if (this.changedNodes.length > 0) {
-            this.ipcSocket.updateNodesUi(this, this.changedNodes);
-
-            this.changedNodes.length = 0;
-        }
-    }
-
     updateNode(vertexIndex: VertexIndex) {
         // TODO: naïve
         this.nodeStore.next(Graph.verticies(this.nodes));

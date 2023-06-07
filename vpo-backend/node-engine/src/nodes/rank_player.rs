@@ -157,7 +157,7 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input(register("midi"), SmallVec::new()),
+            midi_input(register("midi")),
             value_input(register("detune"), Primitive::Float(0.0)),
             value_input(register("db_gain"), Primitive::Float(0.0)),
             value_input(register("shelf_db_gain"), Primitive::Float(0.0)),

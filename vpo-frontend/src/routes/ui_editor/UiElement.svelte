@@ -14,8 +14,9 @@
     export let selected = false;
     export let nodeType: string;
     export let state: NodeWrapper["state"];
+    export let properties: { [key: string]: string };
     export let globalState: Writable<GlobalState>;
-    export let choosable = false;
+    export let locked = false;
 
     let resourceJson: any = {};
     $: if (resourceId.length > 0) {
@@ -36,7 +37,7 @@
         anchorX = e.clientX - x;
         anchorY = e.clientY - y;
 
-        if (!choosable) {
+        if (!locked) {
             dragging = true;
         } else {
             dispatchEvent("skinselected", resourceId);
@@ -64,6 +65,16 @@
     function updateState(state: any) {
         dispatchEvent("newstate", state);
     }
+
+    function updateStateCheckbox(e: MouseEvent) {
+        updateState((e.target as HTMLInputElement).checked || false);
+    }
+
+    function updateStateClick(e: MouseEvent) {
+        if (locked && state.value !== undefined) {
+            updateState(!state.value);
+        }
+    }
 </script>
 
 <svelte:window on:mousemove={onMousemove} on:mouseup={onMouseup} />
@@ -79,15 +90,20 @@
             style={`width: ${resourceJson.width}px; height: ${resourceJson.height}px; position: relative`}
         >
             {#if resourceJson.type === "off/on"}
-                {#if state.value === false}
-                    {#each resourceJson.off.layer as layer}
-                        <UiLayer {layer} />
-                    {/each}
-                {:else}
-                    {#each resourceJson.on.layer as layer}
-                        <UiLayer {layer} />
-                    {/each}
-                {/if}
+                <div
+                    on:click={updateStateClick}
+                    style={resourceJson.style || ""}
+                >
+                    {#if state.value === false}
+                        {#each resourceJson.off.layer as layer, layerIndex}
+                            <UiLayer {properties} {layer} {layerIndex} />
+                        {/each}
+                    {:else}
+                        {#each resourceJson.on.layer as layer, layerIndex}
+                            <UiLayer {properties} {layer} {layerIndex} />
+                        {/each}
+                    {/if}
+                </div>
             {/if}
         </div>
     {:else}
@@ -97,7 +113,7 @@
                 <input
                     type="checkbox"
                     checked={state.value}
-                    on:click={(e) => updateState(e.target?.checked || false)}
+                    on:click={updateStateCheckbox}
                     on:mousedown|stopPropagation
                     on:mouseup|stopPropagation
                 />

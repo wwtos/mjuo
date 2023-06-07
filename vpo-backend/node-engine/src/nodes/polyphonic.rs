@@ -1,4 +1,4 @@
-use smallvec::{smallvec, SmallVec};
+use smallvec::smallvec;
 
 use sound_engine::midi::messages::{MidiData, MidiMessage};
 
@@ -268,7 +268,7 @@ impl Node for PolyphonicNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                midi_input(register("default"), SmallVec::new()),
+                midi_input(register("default")),
                 NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
                 NodeRow::InnerGraph,
                 stream_output(register("audio")),

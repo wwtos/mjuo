@@ -20,6 +20,9 @@
     let draggableWidth = 0;
     let viewportHeight = 0;
 
+    let locked = false;
+    let textareaContent = "";
+
     let currentlySelected: {
         nodeIndex: VertexIndex;
         instance: string;
@@ -42,6 +45,77 @@
             node: node.data,
             uiName: node.data.properties.ui_name.data as string,
         }));
+
+    window["ipcSocket"] = socket;
+    $: window["activeGraph"] = graph;
+
+    function textareaUpdate(e: any) {
+        if (currentlySelected) {
+            let newValue = e.target.value as string;
+
+            // very simple parsing
+            const pairs = newValue
+                .split("\n")
+                .map((line) => {
+                    line = line.trim();
+
+                    if (line.length === 0) return undefined;
+
+                    const splitPoint = line.indexOf("=");
+
+                    const key = line.substring(0, splitPoint).trim();
+                    let value = line.substring(splitPoint + 1).trim();
+
+                    // if the value was in quotes, strip them
+                    if (value.indexOf('"') === 0) {
+                        value = value.substring(1, value.length - 1);
+                    }
+
+                    return [key, value];
+                })
+                .filter((x) => x !== undefined);
+
+            const node = uiNodes.find(
+                ({ index }) =>
+                    index.index === currentlySelected?.nodeIndex.index
+            );
+
+            if (node?.node.uiData.panelInstances) {
+                const element =
+                    node.node.uiData.panelInstances["0"][
+                        currentlySelected.elementIndex
+                    ];
+
+                element.properties = Object.fromEntries(
+                    pairs as Array<[string, string]>
+                );
+
+                graph.markNodeAsUpdated(currentlySelected?.nodeIndex);
+                graph.writeChangedNodesToServer();
+            }
+        }
+    }
+
+    function updateTextareaContent() {
+        if (!currentlySelected) return;
+
+        const node = uiNodes.find(
+            ({ index }) => index.index === currentlySelected?.nodeIndex.index
+        );
+
+        if (node?.node.uiData.panelInstances) {
+            const element =
+                node.node.uiData.panelInstances["0"][
+                    currentlySelected.elementIndex
+                ];
+
+            const joined = Object.entries(element.properties)
+                .map(([key, value]) => `${key} = "${value}"`)
+                .join("\n");
+
+            textareaContent = joined;
+        }
+    }
 
     function onDragStart(ev: DragEvent) {
         let nodeIndex = (ev.target as HTMLElement).dataset.nodeIndex as string;
@@ -86,15 +160,8 @@
         graph.writeChangedNodesToServer();
     }
 
-    function onNewPosition(
-        nodeIndex: VertexIndex,
-        elementIndex: number,
-        x: number,
-        y: number
-    ) {
-        const node = graph.getNode(nodeIndex);
-
-        if (!node?.uiData.panelInstances) return;
+    function deselectAll() {
+        let toUpdate = [];
 
         for (let [index, node] of graph.getNodes()) {
             for (let instance of Object.values(
@@ -104,20 +171,49 @@
                     element.selected = false;
                 }
             }
+
+            toUpdate.push(index);
         }
 
-        node.uiData.panelInstances["0"][elementIndex].x = x;
-        node.uiData.panelInstances["0"][elementIndex].y = y;
-        node.uiData.panelInstances["0"][elementIndex].selected = true;
+        socket.updateNodesUi(graph, toUpdate);
+        currentlySelected = null;
+        textareaContent = "";
+    }
+
+    function onNewPosition(
+        nodeIndex: VertexIndex,
+        elementIndex: number,
+        x: number,
+        y: number
+    ) {
+        const node = graph.getNode(nodeIndex);
+
+        if (!node?.uiData.panelInstances) return;
+        let element = node.uiData.panelInstances["0"][elementIndex];
+
+        deselectAll();
+
+        let didPositionChange = x !== element.x || y !== element.y;
+
+        element.x = x;
+        element.y = y;
+        element.selected = true;
 
         currentlySelected = {
             nodeIndex: nodeIndex,
             instance: "0",
             elementIndex: elementIndex,
         };
+        updateTextareaContent();
 
         graph.markNodeAsUpdated(nodeIndex);
-        graph.writeChangedNodesToServerUi();
+
+        if (!didPositionChange) {
+            graph.update();
+            socket.updateNodesUi(graph, [nodeIndex]);
+        } else {
+            graph.writeChangedNodesToServer();
+        }
     }
 
     function onSkinSelected(event: CustomEvent<string>) {
@@ -133,106 +229,122 @@
             ].resourceId = skinId;
 
             graph.markNodeAsUpdated(currentlySelected.nodeIndex);
-            graph.writeChangedNodesToServerUi();
+            graph.writeChangedNodesToServer();
 
             console.log(currentlySelected, skinId);
         }
     }
+
+    $: if (locked) {
+        deselectAll();
+    }
 </script>
 
-<SplitView
-    {width}
-    {height}
-    bind:firstHeight={viewportHeight}
-    direction={SplitDirection.HORIZONTAL}
-    initialSplitRatio={0.8}
->
-    <div slot="first">
-        <SplitView
-            {width}
-            height={viewportHeight}
-            direction={SplitDirection.VERTICAL}
-            bind:firstWidth={draggableWidth}
-            initialSplitRatio={0.2}
-        >
-            <div slot="first" class="container" on:dragstart={onDragStart}>
-                {#each uiNodes as { uiName, index }}
-                    <div
-                        class="ui-name"
-                        draggable="true"
-                        data-node-index={JSON.stringify(index)}
-                    >
-                        {uiName}
-                    </div>
-                {/each}
-            </div>
-            <div
-                class="panel container"
-                slot="second"
-                on:dragover={onDragOver}
-                on:drop={onDrop}
-                style="position: relative; height: {viewportHeight}px"
+<div>
+    <div class="top-ui">
+        Locked? <input type="checkbox" bind:checked={locked} />
+    </div>
+    <SplitView
+        {width}
+        height={height - 36}
+        bind:firstHeight={viewportHeight}
+        direction={SplitDirection.HORIZONTAL}
+        initialSplitRatio={0.8}
+    >
+        <div slot="first">
+            <SplitView
+                {width}
+                height={viewportHeight}
+                direction={SplitDirection.VERTICAL}
+                bind:firstWidth={draggableWidth}
+                initialSplitRatio={0.2}
             >
-                {#each uiNodes as { node, index, uiName } (index)}
-                    {#if node.uiData["panelInstances"] && node.uiData.panelInstances["0"]}
-                        {#each node.uiData.panelInstances["0"] as uiElement, elementIndex}
+                <div slot="first" class="container" on:dragstart={onDragStart}>
+                    {#each uiNodes as { uiName, index }}
+                        <div
+                            class="ui-name"
+                            draggable="true"
+                            data-node-index={JSON.stringify(index)}
+                        >
+                            {uiName}
+                        </div>
+                    {/each}
+                </div>
+                <div
+                    class="panel container"
+                    slot="second"
+                    on:dragover={onDragOver}
+                    on:drop={onDrop}
+                    style="position: relative; height: {viewportHeight}px"
+                >
+                    {#each uiNodes as { node, index, uiName } (index)}
+                        {#if node.uiData["panelInstances"] && node.uiData.panelInstances["0"]}
+                            {#each node.uiData.panelInstances["0"] as uiElement, elementIndex}
+                                <UiElement
+                                    resourceId={uiElement.resourceId}
+                                    x={uiElement.x}
+                                    y={uiElement.y}
+                                    selected={uiElement.selected}
+                                    properties={uiElement.properties}
+                                    nodeType={node.nodeType}
+                                    state={node.state}
+                                    {locked}
+                                    on:newposition={(e) =>
+                                        onNewPosition(
+                                            index,
+                                            elementIndex,
+                                            e.detail.x,
+                                            e.detail.y
+                                        )}
+                                    on:newstate={(e) =>
+                                        socket.updateNodeState([
+                                            [index, e.detail],
+                                        ])}
+                                    {uiName}
+                                    {globalState}
+                                />
+                            {/each}
+                        {/if}
+                    {/each}
+                </div>
+            </SplitView>
+        </div>
+        <div slot="second">
+            <SplitView
+                {width}
+                height={height - viewportHeight - 20}
+                direction={SplitDirection.VERTICAL}
+            >
+                <div slot="first" class="container">
+                    {#each Object.keys($globalState.resources.ui) as resource}
+                        <div style="position: relative; margin: 4px">
                             <UiElement
-                                resourceId={uiElement.resourceId}
-                                x={uiElement.x}
-                                y={uiElement.y}
-                                selected={uiElement.selected}
-                                nodeType={node.nodeType}
-                                state={node.state}
-                                choosable={false}
-                                on:newposition={(e) =>
-                                    onNewPosition(
-                                        index,
-                                        elementIndex,
-                                        e.detail.x,
-                                        e.detail.y
-                                    )}
-                                on:newstate={(e) =>
-                                    socket.updateNodeState([[index, e.detail]])}
-                                {uiName}
+                                resourceId={resource}
+                                nodeType="ToggleNode"
+                                state={{
+                                    countedDuringMapset: false,
+                                    value: false,
+                                    other: undefined,
+                                }}
+                                properties={{}}
+                                locked={true}
+                                uiName="example"
+                                on:skinselected={onSkinSelected}
                                 {globalState}
                             />
-                        {/each}
-                    {/if}
-                {/each}
-            </div>
-        </SplitView>
-    </div>
-    <div slot="second">
-        <SplitView
-            {width}
-            height={height - viewportHeight}
-            direction={SplitDirection.VERTICAL}
-        >
-            <div slot="first" class="container">
-                {#each Object.keys($globalState.resources.ui) as resource}
-                    <div style="position: relative; margin: 4px">
-                        <UiElement
-                            resourceId={resource}
-                            nodeType="ToggleNode"
-                            state={{
-                                countedDuringMapset: false,
-                                value: false,
-                                other: undefined,
-                            }}
-                            choosable={true}
-                            uiName="example"
-                            on:skinselected={onSkinSelected}
-                            {globalState}
-                        />
-                    </div>
-                {/each}
-            </div>
-            <div slot="second" class="container">
-                <textarea>here</textarea>
-            </div>
-        </SplitView>
-    </div>
-</SplitView>
+                        </div>
+                    {/each}
+                </div>
+                <div slot="second" class="container">
+                    <textarea
+                        on:input={textareaUpdate}
+                        bind:value={textareaContent}
+                    />
+                </div>
+            </SplitView>
+        </div>
+    </SplitView>
+</div>
 
 <style>
     textarea {
@@ -267,5 +379,11 @@
         height: 100%;
         border-left: 1px solid black;
         border-top: 1px solid black;
+    }
+
+    .top-ui {
+        padding: 8px;
+        background-color: #ddd;
+        height: 20px;
     }
 </style>

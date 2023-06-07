@@ -53,12 +53,12 @@ impl NodeRow {
     }
 }
 
-pub fn stream_input(uid: u32, default: f32) -> NodeRow {
-    NodeRow::Input(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::Stream(default))
+pub fn stream_input(uid: u32) -> NodeRow {
+    NodeRow::Input(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::None)
 }
 
-pub fn midi_input(uid: u32, default: MidiBundle) -> NodeRow {
-    NodeRow::Input(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::Midi(default))
+pub fn midi_input(uid: u32) -> NodeRow {
+    NodeRow::Input(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::None)
 }
 
 pub fn value_input(uid: u32, default: Primitive) -> NodeRow {
@@ -75,6 +75,18 @@ pub fn midi_output(uid: u32) -> NodeRow {
 
 pub fn value_output(uid: u32) -> NodeRow {
     NodeRow::Output(Socket::Simple(uid, SocketType::Value, 1))
+}
+
+pub fn property(prop_id: &str, prop_type: PropertyType, prop_default: Property) -> NodeRow {
+    NodeRow::Property(prop_id.to_string(), prop_type, prop_default)
+}
+
+pub fn multiple_choice(prop_id: &str, choices: &[&str], default_choice: &str) -> NodeRow {
+    NodeRow::Property(
+        prop_id.to_string(),
+        PropertyType::MultipleChoice(choices.iter().map(|&choice| choice.to_string()).collect()),
+        Property::MultipleChoice(default_choice.to_string()),
+    )
 }
 
 pub struct NodeIo {

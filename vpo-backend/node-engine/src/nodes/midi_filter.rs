@@ -118,7 +118,7 @@ impl Node for MidiFilterNode {
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi"), SmallVec::new()),
+            midi_input(register("midi")),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
