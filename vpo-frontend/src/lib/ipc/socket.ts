@@ -86,6 +86,15 @@ export abstract class IpcSocket {
         })));
     }
 
+    updateNodeState (updatedStates: Array<[VertexIndex, any]>) {
+        this.send(JSON.parse(JSON.stringify({
+            "action": "graph/updateNodeState",
+            "payload": {
+                updatedStates
+            }
+        })));
+    }
+
     undo () {
         this.send(JSON.parse(JSON.stringify({
             "action": "graph/undo",

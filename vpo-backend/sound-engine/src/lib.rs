@@ -1,3 +1,5 @@
+#![allow(confusable_idents)]
+
 use std::fmt::Debug;
 
 use midi::messages::MidiMessage;

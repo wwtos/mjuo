@@ -1,0 +1,1 @@
+export const FILE_PREFIX = "http://localhost:26643/";

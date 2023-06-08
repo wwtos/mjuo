@@ -80,7 +80,7 @@ impl Node for FunctionNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                stream_input(register("audio"), 0.0),
+                stream_input(register("audio")),
                 NodeRow::InnerGraph,
                 stream_output(register("audio")),
             ],

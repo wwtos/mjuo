@@ -1,7 +1,7 @@
 import { NodeRow, type NodeWrapper, NODE_WIDTH, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
 import { BehaviorSubject } from "rxjs";
 import { deepEqual } from "fast-equals";
-import { matchOrElse } from "../util/discriminated-union";
+import { match, matchOrElse } from "../util/discriminated-union";
 import type { Property } from "./property";
 import { Index } from "../ddgg/gen_vec";
 import { Graph, type Vertex, type VertexIndex } from "../ddgg/graph";
@@ -43,6 +43,23 @@ export class NodeGraph {
 
     getNode (index: VertexIndex): (NodeWrapper | undefined) {
         return Graph.getVertexData(this.nodes, index);
+    }
+
+    getNodes (): Array<[VertexIndex, NodeWrapper]> {
+        const out: Array<[VertexIndex, NodeWrapper]> = [];
+
+        for (let i = 0; i < this.nodes.verticies.length; i++) {
+            const element = this.nodes.verticies[i];
+
+            match(element, {
+                Open() {},
+                Occupied({data: [data, generation]}) {
+                    out.push([{ index: i, generation }, data.data]);
+                }
+            })
+        }
+
+        return out;
     }
 
     getNodeVertex (index: VertexIndex): (Vertex<NodeWrapper> | undefined) {
@@ -105,15 +122,6 @@ export class NodeGraph {
         // only write changes if any nodes were marked for updating
         if (this.changedNodes.length > 0) {
             this.ipcSocket.updateNodes(this, this.changedNodes);
-
-            this.changedNodes.length = 0;
-        }
-    }
-
-    writeChangedNodesToServerUi() {
-        // only write changes if any nodes were marked for updating
-        if (this.changedNodes.length > 0) {
-            this.ipcSocket.updateNodesUi(this, this.changedNodes);
 
             this.changedNodes.length = 0;
         }

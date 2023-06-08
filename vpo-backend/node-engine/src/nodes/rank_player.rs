@@ -1,6 +1,9 @@
 use resource_manager::{ResourceId, ResourceIndex};
 use smallvec::SmallVec;
-use sound_engine::sampling::rank_player::RankPlayer;
+use sound_engine::{
+    sampling::rank_player::RankPlayer,
+    util::{cents_to_detune, db_to_gain},
+};
 
 use crate::nodes::prelude::*;
 
@@ -111,16 +114,16 @@ impl NodeRuntime for RankPlayerNode {
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let Some(player) = &mut self.player {
-            if let Some(air_detune) = values_in[0].as_ref().and_then(|x| x.as_float()) {
-                player.set_air_detune(air_detune);
+            if let Some(cents) = values_in[0].as_ref().and_then(|x| x.as_float()) {
+                player.set_detune(cents_to_detune(cents));
             }
 
-            if let Some(air_amplitude) = values_in[1].as_ref().and_then(|x| x.as_float()) {
-                player.set_air_amplitude(air_amplitude);
+            if let Some(db_gain) = values_in[1].as_ref().and_then(|x| x.as_float()) {
+                player.set_gain(db_to_gain(db_gain));
             }
 
-            if let Some(shelf_gain) = values_in[2].as_ref().and_then(|x| x.as_float()) {
-                player.set_shelf_gain(shelf_gain);
+            if let Some(shelf_db_gain) = values_in[2].as_ref().and_then(|x| x.as_float()) {
+                player.set_shelf_db_gain(shelf_db_gain);
             }
         }
     }
@@ -154,10 +157,10 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input(register("midi"), SmallVec::new()),
-            value_input(register("air_detune"), Primitive::Float(1.0)),
-            value_input(register("air_amplitude"), Primitive::Float(1.0)),
-            value_input(register("shelf_gain"), Primitive::Float(1.0)),
+            midi_input(register("midi")),
+            value_input(register("detune"), Primitive::Float(0.0)),
+            value_input(register("db_gain"), Primitive::Float(0.0)),
+            value_input(register("shelf_db_gain"), Primitive::Float(0.0)),
             stream_output(register("audio")),
         ])
     }

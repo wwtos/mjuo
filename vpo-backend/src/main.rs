@@ -4,16 +4,18 @@ use futures::executor::block_on;
 use futures::join;
 use futures::lock::MutexGuard;
 use futures::StreamExt;
-use node_engine::global_state::GlobalState;
+use tokio::sync::broadcast;
 
+use node_engine::global_state::GlobalState;
 use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
 use sound_engine::SoundConfig;
-use tokio::sync::broadcast;
+
+use tower_http::services::ServeDir;
 use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::io::midir::connect_midir_backend;
-use vpo_backend::util::send_graph_updates;
+use vpo_backend::util::{send_global_state_updates, send_graph_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
 #[tokio::main]
@@ -22,7 +24,7 @@ async fn main() {
 }
 
 async fn main_async() {
-    let (to_server, mut from_server) = start_ipc().await;
+    let (to_server, mut from_server) = start_ipc(26642);
 
     let engine_buffer_size = 64;
     let io_requested_buffer_size = 512;
@@ -31,8 +33,9 @@ async fn main_async() {
 
     // start up midi and audio
     let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
-    let (state_update_sender, state_update_receiver) = mpsc::channel();
-    let (to_main, mut from_engine) = broadcast::channel(16);
+    let (to_engine, from_main) = mpsc::channel();
+    let (to_main, mut from_engine) = broadcast::channel(128);
+    let (project_dir_sender, mut project_dir_receiver) = broadcast::channel(16);
 
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
@@ -47,7 +50,7 @@ async fn main_async() {
             io_requested_buffer_size,
             48_000,
             midi_receiver,
-            state_update_receiver,
+            from_main,
             to_main,
         )
         .unwrap();
@@ -59,7 +62,7 @@ async fn main_async() {
     };
 
     let graph_state = GraphState::new(&global_state).unwrap();
-    state_update_sender
+    to_engine
         .send(vec![NodeEngineUpdate::NewNodeEngine(
             graph_state.get_engine(&global_state).unwrap(),
         )])
@@ -70,59 +73,45 @@ async fn main_async() {
     let global_state = futures::lock::Mutex::new(global_state);
     let graph_state = futures::lock::Mutex::new(graph_state);
 
-    // debugging
-    // let mut output_file = File::create("out.pcm").unwrap();
-    join!(
-        async {
-            loop {
-                let msg = from_server.recv().await;
+    let message_receiving_block = async {
+        let mut project_dir_sender = project_dir_sender.clone();
 
-                if let Ok(msg) = msg {
-                    let (graph_state_lock, global_state_lock) = join!(graph_state.lock(), global_state.lock());
+        loop {
+            let msg = from_server.recv().await;
 
-                    MutexGuard::map(graph_state_lock, |graph_state| {
-                        MutexGuard::map(global_state_lock, |global_state| {
-                            block_on(async {
-                                handle_msg(
-                                    msg,
-                                    &to_server,
-                                    graph_state,
-                                    global_state,
-                                    &state_update_sender,
-                                    &mut file_watcher,
-                                )
-                                .await;
-                            });
+            if let Ok(msg) = msg {
+                let (graph_state_lock, global_state_lock) = join!(graph_state.lock(), global_state.lock());
 
-                            global_state
+                MutexGuard::map(graph_state_lock, |graph_state| {
+                    MutexGuard::map(global_state_lock, |global_state| {
+                        block_on(async {
+                            handle_msg(
+                                msg,
+                                &to_server,
+                                graph_state,
+                                global_state,
+                                &to_engine,
+                                &mut file_watcher,
+                                &mut project_dir_sender,
+                            )
+                            .await;
                         });
 
-                        graph_state
+                        global_state
                     });
-                }
-            }
-        },
-        async {
-            while let Some(res) = file_receiver.next().await {
-                match res {
-                    Ok(event) => {
-                        for e in event {
-                            MutexGuard::map(global_state.lock().await, |global_state| {
-                                let _ = load_single(&e.path, global_state);
 
-                                global_state
-                            });
-                        }
-                    }
-                    Err(e) => println!("watch error: {:?}", e),
-                }
+                    graph_state
+                });
             }
-        },
-        async {
-            while let Ok(engine_update) = from_engine.recv().await {
-                match engine_update {
-                    FromNodeEngine::UiUpdates(updates) => {
-                        MutexGuard::map(graph_state.lock().await, |graph_state| {
+        }
+    };
+
+    let engine_message_receiving_block = async {
+        while let Ok(engine_updates) = from_engine.recv().await {
+            MutexGuard::map(graph_state.lock().await, |graph_state| {
+                for engine_update in engine_updates {
+                    match engine_update {
+                        FromNodeEngine::NodeStateUpdates(updates) => {
                             let root_index = graph_state.get_root_graph_index();
 
                             let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
@@ -134,28 +123,77 @@ async fn main_async() {
                             }
 
                             send_graph_updates(graph_state, root_index, &to_server).unwrap();
-
-                            graph_state
-                        });
-                    }
-                    FromNodeEngine::RequestedStateUpdates(updates) => {
-                        // TODO: don't unwrap here, instead recreate the engine if it fails
-                        state_update_sender
-                            .send(vec![NodeEngineUpdate::NewNodeState(updates)])
-                            .unwrap();
-                    }
-                    FromNodeEngine::GraphStateRequested => {
-                        MutexGuard::map(graph_state.lock().await, |graph_state| {
+                        }
+                        FromNodeEngine::RequestedStateUpdates(updates) => {
                             // TODO: don't unwrap here, instead recreate the engine if it fails
-                            state_update_sender
+                            to_engine.send(vec![NodeEngineUpdate::NewNodeState(updates)]).unwrap();
+                        }
+                        FromNodeEngine::GraphStateRequested => {
+                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            to_engine
                                 .send(vec![NodeEngineUpdate::CurrentNodeStates(graph_state.get_node_state())])
                                 .unwrap();
+                        }
+                    }
+                }
+                graph_state
+            });
+        }
+    };
 
-                            graph_state
+    let file_watcher_block = async {
+        let to_server = to_server.clone();
+
+        while let Some(res) = file_receiver.next().await {
+            match res {
+                Ok(event) => {
+                    for e in event {
+                        MutexGuard::map(global_state.lock().await, |global_state| {
+                            let _ = load_single(&e.path, global_state);
+
+                            send_global_state_updates(global_state, &to_server).unwrap();
+
+                            global_state
                         });
                     }
                 }
+                Err(e) => println!("watch error: {:?}", e),
             }
         }
+    };
+
+    let fs_block = async {
+        let mut updated_project_receiver = project_dir_sender.subscribe();
+
+        loop {
+            updated_project_receiver.recv().await.expect("not closed");
+            let project_dir = project_dir_receiver.recv().await.expect("not closed");
+
+            let service = ServeDir::new(project_dir);
+
+            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 26643));
+            let server = async {
+                hyper::Server::bind(&addr)
+                    .serve(tower::make::Shared::new(service))
+                    .await
+                    .expect("server error")
+            };
+
+            tokio::select! {
+                _ = updated_project_receiver.recv() => {
+                    // if a new project dir comes in, it'll drop the file server
+                }
+                _ = server => {}
+            }
+        }
+    };
+
+    // debugging
+    // let mut output_file = File::create("out.pcm").unwrap();
+    join!(
+        message_receiving_block,
+        file_watcher_block,
+        engine_message_receiving_block,
+        fs_block
     );
 }

@@ -5,7 +5,10 @@ use std::{
 };
 
 use ddgg::{GenVec, Index};
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{
+    ser::{SerializeMap, SerializeSeq},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceIndex(Index);
@@ -122,6 +125,27 @@ impl<A> Serialize for ResourceManager<A> {
 
         seq.end()
     }
+}
+
+pub fn serialize_resource_content<S, A: Serialize>(
+    resource_manager: &ResourceManager<A>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut map = serializer.serialize_map(Some(resource_manager.len()))?;
+
+    for (path, resource_index) in &resource_manager.resource_mapping {
+        let resource = resource_manager
+            .resources
+            .get(resource_index.0)
+            .expect("mapping destination to exist");
+
+        map.serialize_entry(path, resource)?;
+    }
+
+    map.end()
 }
 
 impl<A> ResourceManager<A> {

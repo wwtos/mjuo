@@ -46,7 +46,7 @@ export const variants: NodeVariant[] = [
     },
     {
         internal: "MidiFilterNode",
-        category: "midi"
+        category: "scripting"
     },
     {
         internal: "WavetableNode",
@@ -57,7 +57,7 @@ export const variants: NodeVariant[] = [
         category: "base"
     },
     {
-        internal: "ButtonNode",
+        internal: "ToggleNode",
         category: "ui"
     },
     {
@@ -65,7 +65,7 @@ export const variants: NodeVariant[] = [
         category: "audio"
     },
     {
-        internal: "MidiMergerNode",
+        internal: "NoteMergerNode",
         category: "midi"
     },
     {
@@ -79,5 +79,13 @@ export const variants: NodeVariant[] = [
     {
         internal: "MemoryNode",
         category: "base"
+    },
+    {
+        internal: "MidiSwitchNode",
+        category: "midi"
+    },
+    {
+        internal: "MidiToValueNode",
+        category: "scripting"
     }
 ];

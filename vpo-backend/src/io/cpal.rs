@@ -57,7 +57,7 @@ impl CpalBackend {
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
-        to_main: broadcast::Sender<FromNodeEngine>,
+        to_main: broadcast::Sender<Vec<FromNodeEngine>>,
     ) -> Result<(Stream, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
@@ -104,7 +104,7 @@ impl CpalBackend {
         sample_rate: u32,
         midi_in: mpsc::Receiver<MidiBundle>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
-        to_main: broadcast::Sender<FromNodeEngine>,
+        to_main: broadcast::Sender<Vec<FromNodeEngine>>,
     ) -> Result<Stream, EngineError> {
         let mut engine: NodeEngine = NodeEngine::uninitialized();
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);
@@ -165,8 +165,8 @@ impl CpalBackend {
                                         }
                                     };
 
-                                    for message in from_engine.into_iter() {
-                                        to_main.send(message).unwrap();
+                                    if !from_engine.is_empty() {
+                                        to_main.send(from_engine).unwrap();
                                     }
 
                                     for buffer_frame in &buffer {

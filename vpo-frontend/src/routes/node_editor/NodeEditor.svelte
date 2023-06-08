@@ -78,20 +78,7 @@
     let selectedNodes: VertexIndex[] = [];
 
     const onKeydown = (event: KeyboardEvent) => {
-        if (event.ctrlKey) {
-            switch (event.key) {
-                case "z":
-                    if (event.shiftKey) {
-                        ipcSocket.redo();
-                    } else {
-                        ipcSocket.undo();
-                    }
-                    break;
-                case "y":
-                    ipcSocket.redo();
-                    break;
-            }
-        } else {
+        if (!event.ctrlKey) {
             switch (event.key) {
                 case "Delete":
                     const selected = $activeGraph.nodeStore
@@ -225,10 +212,14 @@
 
             let touchedNodes = deselectAll($activeGraph);
 
+            node = $activeGraph.getNode(index) as NodeWrapper;
+
             node.uiData = {
                 ...node.uiData,
                 selected: true,
             };
+            $activeGraph.updateNode(index);
+            $activeGraph.update();
 
             ipcSocket.updateNodesUi($activeGraph, [...touchedNodes, index]);
         }
@@ -452,6 +443,10 @@
                     nodeIndex={index}
                     onMousedown={handleNodeMousedown}
                     registry={socketRegistry}
+                    x={node.uiData.x}
+                    y={node.uiData.y}
+                    title={node.uiData.title || ""}
+                    selected={node.uiData.selected || false}
                     on:socketMousedown={handleSocketMousedown}
                     on:socketMouseup={handleSocketMouseup}
                     on:changeGraph={changeGraph}

@@ -39,6 +39,7 @@ pub async fn route(
                 "graph/disconnectNode" => graph::disconnect_node::route(json, to_server, state, global_state),
                 "graph/undo" => graph::undo::route(json, to_server, state, global_state),
                 "graph/redo" => graph::redo::route(json, to_server, state, global_state),
+                "graph/updateNodeState" => graph::update_node_state::route(json),
                 #[cfg(any(unix, windows))]
                 "io/save" => io::save::route(json, to_server, state, global_state).await,
                 #[cfg(any(unix, windows))]

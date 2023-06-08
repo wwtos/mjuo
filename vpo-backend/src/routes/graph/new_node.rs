@@ -78,6 +78,8 @@ pub fn route(
 
     Ok(Some(RouteReturn {
         new_project: false,
-        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
+        engine_updates: state
+            .invalidations_to_engine_updates(updates, global_state)
+            .context(NodeSnafu)?,
     }))
 }

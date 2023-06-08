@@ -10,8 +10,8 @@ use crate::{
     global_state::GlobalState,
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow, NodeState},
-    node_graph::NodeConnection,
-    nodes::variants::variant_io,
+    node_graph::{NodeConnection, NodeGraph},
+    nodes::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
     traversal::buffered_traverser::BufferedTraverser,
@@ -87,7 +87,7 @@ pub enum NodeEngineUpdate {
 
 #[derive(Debug, Clone)]
 pub enum FromNodeEngine {
-    UiUpdates(Vec<(NodeIndex, NodeState)>),
+    NodeStateUpdates(Vec<(NodeIndex, NodeState)>),
     RequestedStateUpdates(Vec<(NodeIndex, serde_json::Value)>),
     GraphStateRequested,
 }
@@ -236,6 +236,12 @@ impl GraphState {
         self.root_graph_index
     }
 
+    pub fn get_root_graph(&self) -> &NodeGraph {
+        self.graph_manager
+            .get_graph(self.root_graph_index)
+            .expect("root graph to exist")
+    }
+
     pub fn get_registry(&self) -> &SocketRegistry {
         &self.socket_registry
     }
@@ -282,40 +288,45 @@ impl GraphState {
         &self,
         invalidations: Vec<ActionInvalidation>,
         global_state: &GlobalState,
-    ) -> Vec<NodeEngineUpdate> {
-        invalidations
-            .into_iter()
-            .filter_map(|inv| match inv {
+    ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
+        let mut root_graph_reindex_needed = false;
+        let mut new_defaults = vec![];
+
+        for invalidation in invalidations {
+            match invalidation {
                 ActionInvalidation::GraphReindexNeeded(index) => {
                     if index == self.root_graph_index {
-                        Some(NodeEngineUpdate::NewNodeEngine(self.get_engine(global_state).ok()?))
-                    } else {
-                        None
+                        root_graph_reindex_needed = true;
                     }
                 }
                 ActionInvalidation::NewDefaults(index, defaults) => {
                     if index.graph_index == self.root_graph_index {
-                        Some(NodeEngineUpdate::NewDefaults(
-                            defaults
-                                .into_iter()
-                                .filter_map(|(socket, value)| {
-                                    if let Some(value) = value.as_value() {
-                                        Some((index.node_index, socket, value))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect(),
-                        ))
-                    } else {
-                        None
+                        new_defaults.extend(defaults.into_iter().filter_map(|(socket, value)| {
+                            if let Some(value) = value.as_value() {
+                                Some((index.node_index, socket, value))
+                            } else {
+                                None
+                            }
+                        }))
                     }
                 }
-                ActionInvalidation::None => None,
-                ActionInvalidation::NewNode(_) => None,
-                ActionInvalidation::GraphModified(_) => None,
-            })
-            .collect()
+                ActionInvalidation::None => {}
+                ActionInvalidation::NewNode(_) => {}
+                ActionInvalidation::GraphModified(_) => {}
+            }
+        }
+
+        let mut updates = vec![];
+
+        if root_graph_reindex_needed {
+            updates.push(NodeEngineUpdate::NewNodeEngine(self.get_engine(global_state)?));
+        }
+
+        if !new_defaults.is_empty() {
+            updates.push(NodeEngineUpdate::NewDefaults(new_defaults));
+        }
+
+        Ok(updates)
     }
 
     pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<ActionInvalidation>, NodeError> {
@@ -390,7 +401,6 @@ impl GraphState {
             let (_, action_results) = to_redo
                 .actions
                 .into_iter()
-                .rev()
                 .map(|action| self.reapply_action(action))
                 .collect::<Result<Vec<(HistoryAction, Vec<ActionInvalidation>)>, NodeError>>()?
                 .into_iter()
@@ -446,11 +456,14 @@ impl GraphState {
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
-            Action::ChangeNodeProperties { index, props } => {
+            Action::ChangeNodeProperties {
+                index,
+                props: new_props,
+            } => {
                 let graph = self.graph_manager.get_graph_mut(index.graph_index)?;
                 let node = graph.get_node_mut(index.node_index)?;
 
-                let before_props = node.set_properties(props.clone());
+                let before_props = node.set_properties(new_props.clone());
                 let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
 
                 let graph_diff = GraphManagerDiff(
@@ -464,21 +477,37 @@ impl GraphState {
                     HistoryAction::ChangeNodeProperties {
                         index,
                         before: before_props,
-                        after: props,
+                        after: new_props,
                         graph_diff,
                     },
                     vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
                 )
             }
-            Action::ChangeNodeUiData { index, data } => self.reapply_action(HistoryAction::ChangeNodeUiData {
-                index,
-                before: HashMap::new(),
-                after: data,
-            })?,
+            Action::ChangeNodeUiData { index, data } => {
+                let before = self
+                    .graph_manager
+                    .get_graph(index.graph_index)?
+                    .get_node(index.node_index)?
+                    .get_ui_data()
+                    .clone();
+
+                self.reapply_action(HistoryAction::ChangeNodeUiData {
+                    index,
+                    before,
+                    after: data,
+                })?
+            }
             Action::ChangeNodeOverrides { index, overrides } => {
+                let before = self
+                    .graph_manager
+                    .get_graph(index.graph_index)?
+                    .get_node(index.node_index)?
+                    .get_default_overrides()
+                    .clone();
+
                 self.reapply_action(HistoryAction::ChangeNodeOverrides {
                     index,
-                    before: Vec::new(),
+                    before,
                     after: overrides,
                 })?
             }

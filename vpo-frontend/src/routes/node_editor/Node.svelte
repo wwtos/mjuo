@@ -3,7 +3,7 @@
     import { createEventDispatcher } from "svelte";
     import type { OverrideUpdateEvent, SocketEvent } from "./socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
-    import type { NodeWrapper, NodeRow } from "$lib/node-engine/node";
+    import type { NodeWrapper, NodeRow, UiData } from "$lib/node-engine/node";
     import {
         match,
         type DiscriminatedUnion,
@@ -30,6 +30,10 @@
     export let wrapper: NodeWrapper;
     export let nodeIndex: VertexIndex;
     export let registry: SocketRegistry;
+    export let title: string;
+    export let x: number;
+    export let y: number;
+    export let selected: boolean;
 
     const dispatch = createEventDispatcher();
 
@@ -99,8 +103,8 @@
             dispatch("changeGraph", {
                 graphIndex: wrapper.childGraphIndex,
                 nodeTitle:
-                    wrapper.uiData.title && wrapper.uiData.title.length > 0
-                        ? $localize("node." + wrapper.uiData.title)
+                    title && title.length > 0
+                        ? $localize("node." + title)
                         : " ",
             });
         }
@@ -174,17 +178,14 @@
 
 <div
     class="background"
-    style="transform: translate({wrapper.uiData.x}px, {wrapper.uiData
-        .y}px); width: {width}px"
+    style="transform: translate({x}px, {y}px); width: {width}px"
     on:mousedown={onMousedownRaw}
-    class:selected={wrapper.uiData.selected}
+    class:selected
     bind:this={node}
     on:dblclick|stopPropagation
 >
     <div class="node-title">
-        {wrapper.uiData.title && wrapper.uiData.title.length > 0
-            ? $localize("node." + wrapper.uiData.title)
-            : " "}
+        {title && title.length > 0 ? $localize("node." + title) : " "}
     </div>
 
     {#each sockets as row (rowToKey(row))}

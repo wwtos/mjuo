@@ -83,7 +83,9 @@ pub fn route(
     send_graph_updates(state, payload.graph_index, to_server)?;
 
     Ok(Some(RouteReturn {
-        engine_updates: state.invalidations_to_engine_updates(updates, global_state),
+        engine_updates: state
+            .invalidations_to_engine_updates(updates, global_state)
+            .context(NodeSnafu)?,
         new_project: false,
     }))
 }

@@ -7,21 +7,20 @@
     export let width: number;
     export let height: number;
 
-    export let firstPanel: any;
-    export let secondPanel: any;
-    export let firstState: object = {};
-    export let secondState: object = {};
-
     export let canResize = true;
     export let hasFixedWidth = false;
     export let fixedWidth = 0;
     export let initialSplitRatio = 0.5;
 
+    export let firstWidth: number = 0;
+    export let firstHeight: number = 0;
+    export let secondWidth = 0;
+    export let secondHeight = 0;
+
     $: if (hasFixedWidth) {
         canResize = false;
     }
 
-    let firstWidth: number, firstHeight: number;
     let container: HTMLElement;
 
     let currentlyResizingDivider = false;
@@ -70,6 +69,19 @@
             currentlyResizingDivider = false;
         });
     });
+
+    $: switch (direction) {
+        case SplitDirection.VERTICAL:
+            secondWidth = width - firstWidth;
+            secondHeight = height;
+
+            break;
+        case SplitDirection.HORIZONTAL:
+            secondWidth = width;
+            secondHeight = height - firstHeight;
+
+            break;
+    }
 </script>
 
 {#if direction === SplitDirection.VERTICAL}
@@ -88,18 +100,12 @@
                 />
             </div>
         {/if}
-        <svelte:component
-            this={firstPanel}
-            width={firstWidth}
-            {height}
-            {...firstState}
-        />
-        <svelte:component
-            this={secondPanel}
-            width={width - firstWidth}
-            {height}
-            {...secondState}
-        />
+        <div style="width: {firstWidth}px; height: {height}px">
+            <slot name="first" />
+        </div>
+        <div style="width: {width - firstWidth}px; height: {height}px">
+            <slot name="second" />
+        </div>
     </div>
 {:else if direction === SplitDirection.HORIZONTAL}
     <div
@@ -117,18 +123,12 @@
                 />
             </div>
         {/if}
-        <svelte:component
-            this={firstPanel}
-            {width}
-            height={firstHeight}
-            {...firstState}
-        />
-        <svelte:component
-            this={secondPanel}
-            {width}
-            height={height - firstHeight}
-            {...secondState}
-        />
+        <div style="width: {width}px; height: {firstHeight}px">
+            <slot name="first" />
+        </div>
+        <div style="width: {width}px; height: {height - firstHeight}px">
+            <slot name="second" />
+        </div>
     </div>
 {/if}
 
@@ -153,14 +153,25 @@
         transition: background-color 0.2s;
     }
 
+    .divider.divider-horizontal {
+        left: 0px;
+        height: 4px;
+    }
+
     .divider.divider-vertical {
         top: 0px;
         width: 4px;
     }
 
-    .divider:hover,
-    .divider.dragging {
+    .divider.divider-vertical:hover,
+    .divider.dragging.divider-vertical {
         background-color: lightskyblue;
         cursor: ew-resize;
+    }
+
+    .divider.divider-horizontal:hover,
+    .divider.dragging.divider.divider-horizontal {
+        background-color: lightskyblue;
+        cursor: ns-resize;
     }
 </style>

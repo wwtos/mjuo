@@ -9,6 +9,7 @@
     import type { IpcAction } from "$lib/ipc/action";
     import { constructEngine } from "./engine";
     import { onMount } from "svelte";
+    import { parse } from "toml";
 
     import { fetchSharedBuffer } from "$lib/util/fetch-shared-buffer";
 
@@ -41,6 +42,16 @@
                     data.socket.load();
                     event.preventDefault();
                     break;
+                case "z":
+                    if (event.shiftKey) {
+                        data.socket.redo();
+                    } else {
+                        data.socket.undo();
+                    }
+                    break;
+                case "y":
+                    data.socket.redo();
+                    break;
             }
         }
     }
@@ -61,7 +72,15 @@
             } else if (message.action === "registry/updateRegistry") {
                 data.socketRegistry.applyJson(message.payload);
             } else if (message.action === "state/updateGlobalState") {
-                data.globalEngineState.set(message.payload);
+                const newGlobalState = message.payload;
+
+                for (let i in newGlobalState.resources.ui) {
+                    newGlobalState.resources.ui[i] = parse(
+                        newGlobalState.resources.ui[i]
+                    );
+                }
+
+                data.globalEngineState.set(newGlobalState);
             } else if (message.action === "toast/error") {
                 toast.push({
                     msg: message.payload,
@@ -137,5 +156,13 @@
 
 <FluentProvider bundles={[bundle]}>
     <SvelteToast />
-    <slot />
+    <div class="main">
+        <slot />
+    </div>
 </FluentProvider>
+
+<style>
+    .main {
+        overflow: hidden;
+    }
+</style>

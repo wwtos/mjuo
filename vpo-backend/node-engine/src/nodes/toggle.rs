@@ -3,13 +3,13 @@ use serde_json::Value;
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
-pub struct ButtonNode {
+pub struct ToggleNode {
     state: bool,
     updated: bool,
     first_time: bool,
 }
 
-impl NodeRuntime for ButtonNode {
+impl NodeRuntime for ToggleNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         self.first_time = true;
 
@@ -23,13 +23,16 @@ impl NodeRuntime for ButtonNode {
 
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
         if let Some(new_state) = values_in[0].as_ref().and_then(|x| x.as_boolean()) {
-            self.state = new_state;
-            self.updated = true;
+            if !self.first_time {
+                self.state = new_state;
+                self.updated = true;
+            }
         }
     }
 
     fn set_state(&mut self, state: serde_json::Value) {
         self.state = state.as_bool().unwrap_or(false);
+
         self.updated = true;
     }
 
@@ -61,9 +64,9 @@ impl NodeRuntime for ButtonNode {
     }
 }
 
-impl Node for ButtonNode {
+impl Node for ToggleNode {
     fn new(_sound_config: &SoundConfig) -> Self {
-        ButtonNode {
+        ToggleNode {
             state: false,
             updated: false,
             first_time: true,

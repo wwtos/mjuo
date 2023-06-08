@@ -76,7 +76,7 @@ impl Node for BiquadFilterNode {
                     ]),
                     Property::MultipleChoice("lowpass".to_string()),
                 ),
-                stream_input(register("audio"), 0.0),
+                stream_input(register("audio")),
                 value_input(register("frequency"), Primitive::Float(20000.0)),
                 value_input(register("resonance"), Primitive::Float(0.707)),
                 stream_output(register("audio")),
