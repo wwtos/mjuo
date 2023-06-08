@@ -97,7 +97,7 @@ impl Node for PortamentoNode {
             engaged: true,
             active: true,
             speed: 0.2,
-            ramp: Ramp::new_with_start_value(sound_config, 440.0),
+            ramp: Ramp::new_with_start_value(sound_config.sample_rate as f32 / sound_config.buffer_size as f32, 440.0),
         }
     }
 

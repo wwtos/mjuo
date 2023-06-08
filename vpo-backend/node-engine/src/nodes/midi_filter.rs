@@ -1,11 +1,10 @@
 use std::mem;
 
 use rhai::{Scope, AST};
-use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
 
-use super::util::{value_to_dynamic, ProcessState};
+use super::util::{midi_to_scope, ProcessState};
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
@@ -51,11 +50,7 @@ impl NodeRuntime for MidiFilterNode {
                     self.output = Some(
                         midi.iter()
                             .filter_map(|message| {
-                                let midi_json = serde_json::to_value(&message.data).unwrap();
-
-                                for (key, value) in midi_json.as_object().unwrap() {
-                                    self.scope.push(key.as_str(), value_to_dynamic(value.clone()));
-                                }
+                                midi_to_scope(&mut self.scope, &message.data);
 
                                 let result = state.script_engine.eval_ast_with_scope::<bool>(&mut self.scope, filter);
 

@@ -14,7 +14,7 @@ impl NodeRuntime for WavetableNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let did_index_change;
 
-        if let Some(resource) = state.props.get("sample").and_then(|x| x.clone().as_resource()) {
+        if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
             let new_index = state
                 .resources
                 .samples

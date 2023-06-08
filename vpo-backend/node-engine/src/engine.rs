@@ -6,7 +6,7 @@ use crate::{
     connection::MidiBundle,
     global_state::Resources,
     node::{NodeIndex, NodeState},
-    nodes::variants::NodeVariant,
+    nodes::NodeVariant,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
     traversal::buffered_traverser::{BufferedTraverser, TraverserResult},
 };
@@ -106,6 +106,13 @@ impl NodeEngine {
             );
             self.current_time += out.len() as i64;
             self.current_graph_state = None;
+
+            if !errors_and_warnings.errors.is_empty() || !errors_and_warnings.warnings.is_empty() {
+                println!(
+                    "errors: {:?}\nwarnings: {:?}",
+                    errors_and_warnings.errors, errors_and_warnings.warnings
+                );
+            }
 
             let output_node = traverser.get_node_mut(io_nodes.output);
 

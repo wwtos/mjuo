@@ -37,6 +37,7 @@ node =
     .MidiFilterNode = Midi Filter
     .MidiInNode = Midi In
     .MidiSwitchNode = Midi Switch
+    .MidiToValueNode = Midi To Value
     .MidiToValuesNode = Midi To Values
     .MixerNode = Mixer
     .MemoryNode = Memory

@@ -50,6 +50,7 @@ impl NodeRuntime for ExpressionNode {
                             "string" => Some(Primitive::String(output.into_string().unwrap())),
                             "i32" => Some(Primitive::Int(output.as_int().unwrap())),
                             "f32" => Some(Primitive::Float(output.as_float().unwrap())),
+                            "()" => None,
                             _ => {
                                 // cleanup before erroring
                                 self.have_values_changed = false;

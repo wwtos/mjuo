@@ -15,7 +15,7 @@ use crate::{
     global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
     node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime, NodeState, StateInterface},
-    nodes::variants::{new_variant, NodeVariant},
+    nodes::{new_variant, NodeVariant},
 };
 
 use super::calculate_traversal_order::calculate_graph_traverse_order;

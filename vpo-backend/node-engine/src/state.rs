@@ -11,7 +11,7 @@ use crate::{
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnection, NodeGraph},
-    nodes::variants::variant_io,
+    nodes::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
     traversal::buffered_traverser::BufferedTraverser,
@@ -288,40 +288,45 @@ impl GraphState {
         &self,
         invalidations: Vec<ActionInvalidation>,
         global_state: &GlobalState,
-    ) -> Vec<NodeEngineUpdate> {
-        invalidations
-            .into_iter()
-            .filter_map(|inv| match inv {
+    ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
+        let mut root_graph_reindex_needed = false;
+        let mut new_defaults = vec![];
+
+        for invalidation in invalidations {
+            match invalidation {
                 ActionInvalidation::GraphReindexNeeded(index) => {
                     if index == self.root_graph_index {
-                        Some(NodeEngineUpdate::NewNodeEngine(self.get_engine(global_state).ok()?))
-                    } else {
-                        None
+                        root_graph_reindex_needed = true;
                     }
                 }
                 ActionInvalidation::NewDefaults(index, defaults) => {
                     if index.graph_index == self.root_graph_index {
-                        Some(NodeEngineUpdate::NewDefaults(
-                            defaults
-                                .into_iter()
-                                .filter_map(|(socket, value)| {
-                                    if let Some(value) = value.as_value() {
-                                        Some((index.node_index, socket, value))
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect(),
-                        ))
-                    } else {
-                        None
+                        new_defaults.extend(defaults.into_iter().filter_map(|(socket, value)| {
+                            if let Some(value) = value.as_value() {
+                                Some((index.node_index, socket, value))
+                            } else {
+                                None
+                            }
+                        }))
                     }
                 }
-                ActionInvalidation::None => None,
-                ActionInvalidation::NewNode(_) => None,
-                ActionInvalidation::GraphModified(_) => None,
-            })
-            .collect()
+                ActionInvalidation::None => {}
+                ActionInvalidation::NewNode(_) => {}
+                ActionInvalidation::GraphModified(_) => {}
+            }
+        }
+
+        let mut updates = vec![];
+
+        if root_graph_reindex_needed {
+            updates.push(NodeEngineUpdate::NewNodeEngine(self.get_engine(global_state)?));
+        }
+
+        if !new_defaults.is_empty() {
+            updates.push(NodeEngineUpdate::NewDefaults(new_defaults));
+        }
+
+        Ok(updates)
     }
 
     pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<ActionInvalidation>, NodeError> {

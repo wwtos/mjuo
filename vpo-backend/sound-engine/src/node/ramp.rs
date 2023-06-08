@@ -1,4 +1,4 @@
-use crate::{error::NodeError, SoundConfig};
+use crate::error::NodeError;
 
 #[derive(Debug, Clone)]
 pub enum RampType {
@@ -9,7 +9,7 @@ pub enum RampType {
 /// note: exponential ramp cannot use a negative value for from or to!
 #[derive(Debug, Clone)]
 pub struct Ramp {
-    sample_rate: u32,
+    sample_rate: f32,
     from: f32,
     to: f32,
     at: f32,
@@ -21,9 +21,9 @@ pub struct Ramp {
 }
 
 impl Ramp {
-    pub fn new(sound_config: &SoundConfig) -> Ramp {
+    pub fn new(sample_rate: f32) -> Ramp {
         Ramp {
-            sample_rate: sound_config.sample_rate,
+            sample_rate,
             from: 0.0,
             to: 0.0,
             at: 0.0,
@@ -35,9 +35,9 @@ impl Ramp {
         }
     }
 
-    pub fn new_with_start_value(sound_config: &SoundConfig, start: f32) -> Ramp {
+    pub fn new_with_start_value(sample_rate: f32, start: f32) -> Ramp {
         Ramp {
-            sample_rate: sound_config.sample_rate,
+            sample_rate,
             from: start,
             to: start,
             at: start,

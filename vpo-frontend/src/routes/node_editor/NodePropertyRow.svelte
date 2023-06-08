@@ -143,7 +143,7 @@
         align-items: center;
         justify-content: center;
         width: calc(100% - 40px);
-        user-select: none;
+        user-select: initial;
     }
 
     label > div {

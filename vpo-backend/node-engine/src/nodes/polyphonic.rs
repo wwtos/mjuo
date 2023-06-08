@@ -4,7 +4,7 @@ use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
 
-use super::variants::NodeVariant;
+use super::NodeVariant;
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 

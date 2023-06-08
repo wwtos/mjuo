@@ -9,7 +9,7 @@ use crate::{
     errors::{NodeError, NodeOk, NodeResult},
     node::NodeIndex,
     node_wrapper::NodeWrapper,
-    nodes::variants::variant_io,
+    nodes::variant_io,
     socket_registry::SocketRegistry,
 };
 
@@ -39,6 +39,7 @@ pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) 
         registry.register_socket(name)
     })?
     .node_rows;
+
     let new_node = NodeWrapper::new(node_type, node_rows)?;
 
     Ok(NodeOk::new(new_node.value, new_node.warnings))

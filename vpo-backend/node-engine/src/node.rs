@@ -187,12 +187,25 @@ impl Default for NodeState {
 ///
 /// This is the most fundamental building block of a graph node network.
 /// It is the part of the graph that does the actual thinking. Data is presented to it
-/// through its sockets. The graph will call `list_input_sockets` and `list_output_sockets`
-/// to determine what sockets the node has available. From then, the graph will take care
-/// of data flow, connecting nodes together, and such.
+/// through its sockets, which are returned by implementing the `Node` trait.
 ///
-///  It needs to implement methods listing
-/// what properties it has, what sockets it has available to
+/// ## Life cycle
+/// `init` is called on first creation, and any time a property changes.
+///
+/// `has_state` is called when it is first created. It returns whether the state has a
+/// state that needs to be tracked.
+///
+/// ### Runtime
+/// `set_state`, `accept_midi_inputs`, and `accept_value_inputs` are called before `process`
+/// in an arbitrary order. They are also _only_ called if there is new incoming state.
+///
+/// `process` is called after that, and this is where most of the work happens.
+///
+/// After that, `get_midi_outputs`, `get_value_outputs` are called every time, and
+/// that's how values are returned out. `get_state` is also called at this time
+/// if the node has state to track.
+///
+/// To wrap up, `finish` is called at the end of processing.
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait NodeRuntime: Debug + Clone {
@@ -210,7 +223,7 @@ pub trait NodeRuntime: Debug + Clone {
 
     fn set_state(&mut self, state: serde_json::Value) {}
 
-    /// Process received data.
+    /// Process received data, and set outgoing stream data.
     fn process(
         &mut self,
         state: NodeProcessState,
@@ -220,16 +233,16 @@ pub trait NodeRuntime: Debug + Clone {
         NodeOk::no_warnings(())
     }
 
-    /// Accept incoming midi data (ordered based on rows returned from `init`)
+    /// Accept incoming midi data (ordered based on rows returned from `get_io`)
     fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {}
 
-    /// Return outgoing midi data (ordered based on rows returned from `init`)
+    /// Set outgoing midi data (ordered based on rows returned from `get_io`)
     fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {}
 
-    /// Accept incoming value data (ordered based on rows returned from `init`)
+    /// Accept incoming value data (ordered based on rows returned from `get_io`)
     fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {}
 
-    /// Return outgoing value data (ordered based on rows returned from `init`)
+    /// Set outgoing value data (ordered based on rows returned from `get_io`)
     fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {}
 
     /// Runs at the end every frame

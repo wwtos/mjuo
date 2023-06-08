@@ -46,7 +46,7 @@ export const variants: NodeVariant[] = [
     },
     {
         internal: "MidiFilterNode",
-        category: "midi"
+        category: "scripting"
     },
     {
         internal: "WavetableNode",
@@ -83,5 +83,9 @@ export const variants: NodeVariant[] = [
     {
         internal: "MidiSwitchNode",
         category: "midi"
+    },
+    {
+        internal: "MidiToValueNode",
+        category: "scripting"
     }
 ];

@@ -14,9 +14,9 @@ pub type TimecodeRate = u8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Timecode {
-    hours: u8,
-    minutes: u8,
-    seconds: u8,
+    pub hours: u8,
+    pub minutes: u8,
+    pub seconds: u8,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
