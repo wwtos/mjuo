@@ -1,4 +1,5 @@
-use crate::constants::{PI, TWO_PI};
+use std::f32::consts::{PI, TAU};
+
 use lazy_static::lazy_static;
 
 pub const WAVETABLE_SIZE: usize = 256;
@@ -16,7 +17,7 @@ lazy_static! {
         #[allow(clippy::needless_range_loop)]
         for i in 0..FREQUENCY_STEPS {
             for j in 0..WAVETABLE_SIZE {
-                wavetables[i][j] = ((j as f32 / WAVETABLE_SIZE as f32) * TWO_PI).sin()
+                wavetables[i][j] = ((j as f32 / WAVETABLE_SIZE as f32) * TAU).sin()
             }
         }
 
@@ -33,7 +34,7 @@ lazy_static! {
             let num_harmonics = ((SAMPLE_RATE / 2) as f32 / freq) as i32; // rounded down
 
             for j in 0..WAVETABLE_SIZE {
-                let phase = j as f32 / WAVETABLE_SIZE as f32 * TWO_PI;
+                let phase = j as f32 / WAVETABLE_SIZE as f32 * TAU;
 
                 let mut sin_sum = 0.0;
 
@@ -59,7 +60,7 @@ lazy_static! {
             let num_harmonics = ((SAMPLE_RATE / 2) as f32 / freq) as i32; // rounded down
 
             for j in 0..WAVETABLE_SIZE {
-                let phase = j as f32 / WAVETABLE_SIZE as f32 * TWO_PI;
+                let phase = j as f32 / WAVETABLE_SIZE as f32 * TAU;
 
                 let mut sin_sum = 0.0;
 

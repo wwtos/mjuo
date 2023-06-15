@@ -94,15 +94,16 @@
                     on:click={updateStateClick}
                     style={resourceJson.style || ""}
                 >
-                    {#if state.value === false}
+                    <div class="group" class:visible={state.value === false}>
                         {#each resourceJson.off.layer as layer, layerIndex}
                             <UiLayer {properties} {layer} {layerIndex} />
                         {/each}
-                    {:else}
+                    </div>
+                    <div class="group" class:visible={state.value === true}>
                         {#each resourceJson.on.layer as layer, layerIndex}
                             <UiLayer {properties} {layer} {layerIndex} />
                         {/each}
-                    {/if}
+                    </div>
                 </div>
             {/if}
         </div>
@@ -132,5 +133,13 @@
 
     .selected {
         outline: blue solid 3px;
+    }
+
+    .group {
+        display: none;
+    }
+
+    .group.visible {
+        display: block;
     }
 </style>

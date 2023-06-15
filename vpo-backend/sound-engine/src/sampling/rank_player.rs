@@ -177,7 +177,7 @@ impl RankPlayer {
             if let Some((pipe, sample)) = pipe_and_sample {
                 for (i, output) in out.iter_mut().enumerate() {
                     while midi_position < midi.len() {
-                        if midi[midi_position].timestamp > time + i as i64 {
+                        if midi[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
                             break;
                         }
 

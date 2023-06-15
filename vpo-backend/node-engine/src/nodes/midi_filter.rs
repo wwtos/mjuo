@@ -8,10 +8,10 @@ use super::util::{midi_to_scope, ProcessState};
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
-    filter: Option<AST>,
+    filter: Option<Box<AST>>,
     filter_raw: String,
     midi_state: ProcessState<MidiBundle>,
-    scope: Scope<'static>,
+    scope: Box<Scope<'static>>,
     output: Option<MidiBundle>,
 }
 
@@ -25,7 +25,7 @@ impl NodeRuntime for MidiFilterNode {
 
             match possible_ast {
                 Ok(ast) => {
-                    self.filter = Some(ast);
+                    self.filter = Some(Box::new(ast));
                 }
                 Err(err) => {
                     warning = Some(NodeWarning::RhaiParserFailure { parser_error: err });
@@ -106,7 +106,7 @@ impl Node for MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
             midi_state: ProcessState::None,
-            scope: Scope::new(),
+            scope: Box::new(Scope::new()),
             output: None,
         }
     }

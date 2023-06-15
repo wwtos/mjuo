@@ -27,7 +27,7 @@ impl NoteMergerNode {
 impl NodeRuntime for NoteMergerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
         let input_count = state.props.get("input_count").unwrap().as_integer().unwrap();
-        self.states.resize(input_count as usize, 0);
+        self.states.resize(input_count.max(2) as usize, 0);
 
         InitResult::nothing()
     }
@@ -97,7 +97,8 @@ impl Node for NoteMergerNode {
         let input_count = props
             .get("input_count")
             .and_then(|x| x.clone().as_integer())
-            .unwrap_or(2);
+            .unwrap_or(2)
+            .max(2);
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(

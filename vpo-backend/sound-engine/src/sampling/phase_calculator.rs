@@ -29,7 +29,7 @@ impl PhaseCalculator {
     }
 
     pub fn calc_phase(&self, sample: &[f32]) -> f32 {
-        // calculate phase using methods from the continous wavelet transform
+        // single bin DFT
         let mut cos_sum = 0.0;
         let mut sin_sum = 0.0;
 

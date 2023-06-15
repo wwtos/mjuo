@@ -1,5 +1,5 @@
 use crate::{
-    node::shelf_filter::{max_shelf_q, ShelfFilter, ShelfFilterType},
+    node::filter::{FilterSpec, FilterType::None, NthRecursiveFilter},
     sampling::util::rms32,
     MonoSample,
 };
@@ -53,7 +53,9 @@ pub struct PipePlayer {
     // dynamic air values
     air_detune: f32,
     gain: f32,
-    shelf_filter: ShelfFilter,
+    shelf_filter: NthRecursiveFilter,
+    third_db_gain: f32,
+    third_spec: FilterSpec<f32>,
 
     crossfade_position: f32,
     crossfade_start: f32,
@@ -81,7 +83,9 @@ impl PipePlayer {
 
             air_detune: 1.0,
             gain: 1.0,
-            shelf_filter: ShelfFilter::empty(),
+            shelf_filter: NthRecursiveFilter::empty(),
+            third_db_gain: 0.0,
+            third_spec: FilterSpec::default(),
 
             crossfade_position: 0.0,
             crossfade_start: 0.0,
@@ -104,6 +108,7 @@ impl PipePlayer {
         // Find different amplitudes in attack section. This allows quickly jumping to a needed
         // amplitude in the attack section (used for reattacking, amplitude is matched with the current
         // audio amplitude in the release phase)
+        // TODO: move this to sample loading
         let (attack_envelope_indexes, attack_peak_amp) =
             calculate_envelope_points(pipe, sample, amplitude_calc_window, EnvelopeType::Attack);
         let (release_envelope_indexes, release_peak_amp) =
@@ -129,13 +134,16 @@ impl PipePlayer {
 
             air_detune: 1.0,
             gain: 1.0,
-            shelf_filter: ShelfFilter::new(
-                sample_rate as f32,
-                ShelfFilterType::HighShelf,
-                freq * 2.0,
-                max_shelf_q(0.0),
-                0.0,
+            shelf_filter: NthRecursiveFilter::new(
+                FilterSpec {
+                    f0: sample_rate as f32 / 2.0,
+                    fs: sample_rate as f32,
+                    filter_type: None,
+                },
+                4,
             ),
+            third_db_gain: 0.0,
+            third_spec: FilterSpec::default(),
 
             attack_envelope_indexes,
             release_envelope_indexes,
@@ -364,8 +372,9 @@ impl PipePlayer {
     }
 
     pub fn set_shelf_db_gain(&mut self, db_gain: f32) {
-        if (db_gain - self.shelf_filter.get_db_gain()).abs() > 0.5 {
-            self.shelf_filter.set_db_gain(db_gain);
+        if (db_gain - self.third_db_gain).abs() > 0.5 {
+            self.third_spec.set_db_gain(db_gain);
+            self.shelf_filter.set_spec(self.third_spec.clone());
         }
     }
 

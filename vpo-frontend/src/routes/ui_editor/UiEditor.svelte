@@ -38,16 +38,17 @@
     $: graph = graphManager.getRootGraph();
     $: nodeStore = graph.nodeStore;
 
-    $: uiNodes = $nodeStore
-        .filter(([node, _]) => node.data.state.value !== null)
-        .map(([node, index]) => ({
-            index,
-            node: node.data,
-            uiName: node.data.properties.ui_name.data as string,
-        }));
+    $: {
+        uiNodes = $nodeStore
+            .filter(([node, _]) => node.data.state.value !== null)
+            .map(([node, index]) => ({
+                index,
+                node: node.data,
+                uiName: node.data.properties.ui_name.data as string,
+            }));
 
-    window["ipcSocket"] = socket;
-    $: window["activeGraph"] = graph;
+        uiNodes.sort((a, b) => a.uiName.localeCompare(b.uiName));
+    }
 
     function textareaUpdate(e: any) {
         if (currentlySelected) {
@@ -317,21 +318,23 @@
             >
                 <div slot="first" class="container">
                     {#each Object.keys($globalState.resources.ui) as resource}
-                        <div style="position: relative; margin: 4px">
-                            <UiElement
-                                resourceId={resource}
-                                nodeType="ToggleNode"
-                                state={{
-                                    countedDuringMapset: false,
-                                    value: false,
-                                    other: undefined,
-                                }}
-                                properties={{}}
-                                locked={true}
-                                uiName="example"
-                                on:skinselected={onSkinSelected}
-                                {globalState}
-                            />
+                        <div style="display: inline-block; width: 80px">
+                            <div style="position: relative; margin: 4px">
+                                <UiElement
+                                    resourceId={resource}
+                                    nodeType="ToggleNode"
+                                    state={{
+                                        countedDuringMapset: false,
+                                        value: false,
+                                        other: undefined,
+                                    }}
+                                    properties={{}}
+                                    locked={true}
+                                    uiName="example"
+                                    on:skinselected={onSkinSelected}
+                                    {globalState}
+                                />
+                            </div>
                         </div>
                     {/each}
                 </div>

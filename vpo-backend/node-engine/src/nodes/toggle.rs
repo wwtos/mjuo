@@ -15,8 +15,9 @@ impl NodeRuntime for ToggleNode {
 
         if let Some(new_state) = state.state.value.as_bool() {
             self.state = new_state;
-            self.updated = true;
         }
+
+        self.updated = true;
 
         InitResult::nothing()
     }
