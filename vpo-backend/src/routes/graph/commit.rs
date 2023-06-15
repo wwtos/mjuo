@@ -11,6 +11,7 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Payload {
     actions: ActionBundle,
     force_append: bool,

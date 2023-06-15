@@ -3,6 +3,7 @@ import type { VertexIndex } from "$lib/ddgg/graph";
 import type { Connection } from "$lib/node-engine/connection";
 import type { UiData } from "$lib/node-engine/node";
 import type { NodeGraph } from "$lib/node-engine/node_graph";
+import type { Action } from "$lib/node-engine/state";
 import type { Engine } from "../../routes/engine";
 
 export abstract class IpcSocket {
@@ -10,38 +11,14 @@ export abstract class IpcSocket {
 
     abstract onMessage(f: Function): void;
 
-    createNode (graphIndex: Index, type: string, uiData?: UiData) {
+    commit (bundle: Array<Action>, forceAppend?: boolean) {
         this.send({
-            "action": "graph/newNode",
+            "action": "graph/commit",
             "payload": {
-                graphIndex,
-                "nodeType": type,
-                "uiData": uiData,
+                "actions": bundle,
+                "forceAppend": forceAppend || false,
             }
-        });
-    }
-
-    removeNode (graphIndex: Index, nodeIndex: VertexIndex) {
-        this.send({
-            "action": "graph/removeNode",
-            "payload": {
-                graphIndex,
-                nodeIndex
-            }
-        });
-    }
-
-    updateNodes (graph: NodeGraph, nodes: Array<VertexIndex>) {
-        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
-
-        this.send({
-            "action": "graph/updateNodes",
-            "payload": {
-                graphIndex: graph.graphIndex,
-                "updatedNodes": nodesToUpdateJson,
-            }
-        });
+        })
     }
 
     updateNodesUi (graph: NodeGraph, nodes: Array<VertexIndex>) {
@@ -55,26 +32,6 @@ export abstract class IpcSocket {
                 "updatedNodes": nodesToUpdateJson,
             }
         });
-    }
-
-    connectNode (graphIndex: Index, connection: Connection) {
-        this.send(JSON.parse(JSON.stringify({
-            "action": "graph/connectNode",
-            "payload": {
-                graphIndex,
-                connection
-            }
-        })));
-    }
-
-    disconnectNode (graphIndex: Index, connection: Connection) {
-        this.send(JSON.parse(JSON.stringify({
-            "action": "graph/disconnectNode",
-            "payload": {
-                graphIndex,
-                connection
-            }
-        })));
     }
 
     requestGraph (graphIndex: Index) {

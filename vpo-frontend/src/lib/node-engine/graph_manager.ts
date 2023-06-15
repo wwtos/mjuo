@@ -6,6 +6,11 @@ import { type NodeConnection, NodeGraph } from "./node_graph";
 
 export type ConnectedThrough = VertexIndex;
 
+export interface GlobalNodeIndex {
+    graphIndex: VertexIndex,
+    nodeIndex: VertexIndex,
+}
+
 export class GraphManager {
     nodeGraphs: Graph<NodeGraph, ConnectedThrough>;
     ipcSocket: IpcSocket;
