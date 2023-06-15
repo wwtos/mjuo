@@ -61,7 +61,7 @@ pub async fn handle_msg(
     let result = route(msg, to_server, state, global_state).await;
 
     match result {
-        Ok(Some(route_result)) => {
+        Ok(route_result) => {
             if !route_result.engine_updates.is_empty() {
                 engine_sender.send(route_result.engine_updates).unwrap();
             }
@@ -82,7 +82,6 @@ pub async fn handle_msg(
                     .unwrap();
             }
         }
-        Ok(None) => {}
         Err(err) => {
             let err_str = err.to_string();
 

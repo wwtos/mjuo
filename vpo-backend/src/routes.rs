@@ -1,4 +1,5 @@
 pub mod graph;
+mod prelude;
 
 #[cfg(any(windows, unix))]
 pub mod io;
@@ -17,41 +18,51 @@ pub struct RouteReturn {
     pub new_project: bool,
 }
 
+pub struct RouteState<'a> {
+    pub msg: Value,
+    pub to_server: &'a Sender<IpcMessage>,
+    pub state: &'a mut GraphState,
+    pub global_state: &'a mut GlobalState,
+}
+
 pub async fn route(
     msg: IpcMessage,
     to_server: &Sender<IpcMessage>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, EngineError> {
+) -> Result<RouteReturn, EngineError> {
     let IpcMessage::Json(json) = msg;
 
     if let Value::Object(ref message) = json {
         let action = &message["action"];
 
         if let Value::String(action_name) = action {
+            let route_state = RouteState {
+                msg: json.clone(),
+                to_server,
+                state,
+                global_state,
+            };
+
             return match action_name.as_str() {
-                "graph/get" => graph::get::route(json, to_server, state, global_state),
-                "graph/newNode" => graph::new_node::route(json, to_server, state, global_state),
-                "graph/removeNode" => graph::remove_node::route(json, to_server, state, global_state),
-                "graph/updateNodes" => graph::update_nodes::route(json, to_server, state, global_state),
-                "graph/updateNodesUi" => graph::update_node_ui::route(json, to_server, state, global_state),
-                "graph/connectNode" => graph::connect_node::route(json, to_server, state, global_state),
-                "graph/disconnectNode" => graph::disconnect_node::route(json, to_server, state, global_state),
-                "graph/undo" => graph::undo::route(json, to_server, state, global_state),
-                "graph/redo" => graph::redo::route(json, to_server, state, global_state),
-                "graph/updateNodeState" => graph::update_node_state::route(json),
+                "graph/get" => graph::get::route(route_state),
+                "graph/commit" => graph::commit::route(route_state),
+                "graph/undo" => graph::undo::route(route_state),
+                "graph/redo" => graph::redo::route(route_state),
+                "graph/updateNodeUi" => graph::update_node_ui::route(route_state),
+                "graph/updateNodeState" => graph::update_node_state::route(route_state),
                 #[cfg(any(unix, windows))]
-                "io/save" => io::save::route(json, to_server, state, global_state).await,
+                "io/save" => io::save::route(route_state).await,
                 #[cfg(any(unix, windows))]
-                "io/load" => io::load::route(json, to_server, state, global_state).await,
+                "io/load" => io::load::route(route_state).await,
                 #[cfg(any(unix, windows))]
-                "io/create" => io::create::route(json, to_server, state, global_state).await,
+                "io/create" => io::create::route(route_state).await,
                 #[cfg(any(unix, windows))]
-                "io/importRank" => io::import_rank::route(json, to_server, state, global_state).await,
-                _ => Ok(None),
+                "io/importRank" => io::import_rank::route(route_state).await,
+                _ => Ok(RouteReturn::default()),
             };
         }
     }
 
-    Ok(None)
+    Ok(RouteReturn::default())
 }

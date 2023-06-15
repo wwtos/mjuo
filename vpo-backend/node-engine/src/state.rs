@@ -24,10 +24,11 @@ pub struct IoNodes {
     pub output: NodeIndex,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Action {
     AddNode {
         graph: GraphIndex,
+        #[serde(rename = "nodeType")]
         node_type: String,
     },
     ConnectNodes {
@@ -57,7 +58,8 @@ pub enum Action {
     },
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct ActionBundle {
     actions: Vec<Action>,
 }
@@ -329,7 +331,7 @@ impl GraphState {
         Ok(updates)
     }
 
-    pub fn commit(&mut self, actions: ActionBundle) -> Result<Vec<ActionInvalidation>, NodeError> {
+    pub fn commit(&mut self, actions: ActionBundle, force_append: bool) -> Result<Vec<ActionInvalidation>, NodeError> {
         let (mut new_actions, action_results) = actions
             .actions
             .into_iter()
@@ -352,7 +354,9 @@ impl GraphState {
                 .iter()
                 .all(Self::is_action_property_related);
 
-            if is_current_bundle_property_related && is_new_bundle_property_related {
+            let should_append = force_append || (is_current_bundle_property_related && is_new_bundle_property_related);
+
+            if should_append {
                 self.history[self.place_in_history - 1].actions.append(&mut new_actions);
             } else {
                 self.history.push(HistoryActionBundle { actions: new_actions });

@@ -5,12 +5,9 @@ use std::{
 };
 
 use futures::future::join_all;
-use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, state::GraphState};
 use resource_manager::ResourceId;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use snafu::ResultExt;
 use sound_engine::sampling::{
     envelope::{calc_sample_metadata, SampleMetadata},
@@ -23,8 +20,7 @@ use crate::{
         rank::{expected_sample_location, RankConfig},
         sample::{check_for_note_number, load_sample},
     },
-    routes::RouteReturn,
-    Sender,
+    routes::{prelude::*, RouteReturn},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -34,23 +30,21 @@ struct Payload {
     rank_name: String,
 }
 
-pub async fn route(
-    mut msg: Value,
-    _to_server: &Sender<IpcMessage>,
-    _state: &mut GraphState,
-    global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, EngineError> {
-    let Payload { file_name, rank_name } = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
+pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+    let Payload { file_name, rank_name } =
+        serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
     let files = AsyncFileDialog::new().set_file_name("untitled.mjuo").pick_files().await;
 
-    let sample_directory = global_state
+    let sample_directory = state
+        .global_state
         .project_directory()
         .unwrap()
         .join("samples")
         .join(&file_name);
 
-    let rank_file = global_state
+    let rank_file = state
+        .global_state
         .project_directory()
         .unwrap()
         .join("ranks")
@@ -146,5 +140,5 @@ pub async fn route(
         fs::write(rank_file, rank).unwrap();
     }
 
-    Ok(None)
+    Ok(RouteReturn::default())
 }

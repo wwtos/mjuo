@@ -17,7 +17,7 @@ pub enum DiffElement {
 #[derive(Debug, Clone)]
 pub struct GraphManagerDiff(pub Vec<DiffElement>);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GraphIndex(pub VertexIndex);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphEdgeIndex(pub EdgeIndex);

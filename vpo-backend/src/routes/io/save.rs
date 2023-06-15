@@ -1,27 +1,23 @@
-use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, state::GraphState};
 use rfd::AsyncFileDialog;
-use serde_json::Value;
 
-use crate::{errors::EngineError, io::save, routes::RouteReturn, Sender};
+use crate::{
+    errors::EngineError,
+    io::save,
+    routes::{prelude::*, RouteReturn},
+};
 
-pub async fn route(
-    _msg: Value,
-    _to_server: &Sender<IpcMessage>,
-    state: &mut GraphState,
-    global_state: &mut GlobalState,
-) -> Result<Option<RouteReturn>, EngineError> {
-    if let Some(file_path) = &global_state.active_project {
-        save(state, file_path)?;
+pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+    if let Some(file_path) = &state.global_state.active_project {
+        save(state.state, file_path)?;
     } else {
         let file = AsyncFileDialog::new().set_file_name("untitled.mjuo").save_file().await;
 
         if let Some(file) = file {
-            save(state, file.path())?;
+            save(state.state, file.path())?;
 
-            global_state.active_project = Some(file.path().into());
+            state.global_state.active_project = Some(file.path().into());
         }
     }
 
-    Ok(None)
+    Ok(RouteReturn::default())
 }
