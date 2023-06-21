@@ -225,7 +225,7 @@ impl GraphState {
 
         let mut result = BTreeMap::new();
 
-        for (index, node) in root.nodes_iter() {
+        for (index, node) in root.nodes_data_iter() {
             if !matches!(node.get_state().value, Value::Null) {
                 result.insert(index, node.get_state().clone());
             }

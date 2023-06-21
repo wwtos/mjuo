@@ -81,7 +81,13 @@
     function onKeydown(event: KeyboardEvent) {
         controlHeld = event.ctrlKey;
 
-        if (!event.ctrlKey) {
+        if (event.ctrlKey) {
+            switch (event.key) {
+                case "c":
+                    ipcSocket.copy($activeGraph.graphIndex);
+                    break;
+            }
+        } else {
             switch (event.key) {
                 case "Delete":
                     const selected = $activeGraph.nodeStore
@@ -254,6 +260,8 @@
             $activeGraph.writeChangedNodesToServer();
         }
     }
+
+    (window as any)["ipcSocket"] = ipcSocket;
 
     function handleSocketMousedown(event: CustomEvent<SocketEvent>) {
         let e = event.detail;

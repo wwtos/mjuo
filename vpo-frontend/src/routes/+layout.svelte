@@ -85,6 +85,8 @@
                 toast.push({
                     msg: message.payload,
                 });
+            } else if (message.action === "clipboard/set") {
+                navigator.clipboard.writeText(message.payload);
             }
         });
     }

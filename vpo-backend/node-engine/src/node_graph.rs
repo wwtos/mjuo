@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError};
+use ddgg::{Edge, EdgeIndex, Graph, GraphDiff, GraphError};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -310,10 +310,16 @@ impl NodeGraph {
         self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
-    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
+    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
         self.nodes
-            .vertex_iter()
+            .vertex_data_iter()
             .map(|(index, vertex)| (NodeIndex(index), vertex))
+    }
+
+    pub fn edges_iter(&self) -> impl Iterator<Item = (ConnectionIndex, &Edge<NodeConnectionData>)> + '_ {
+        self.nodes
+            .edge_iter()
+            .map(|(index, edge)| (ConnectionIndex(index), edge))
     }
 
     pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnectionData> {

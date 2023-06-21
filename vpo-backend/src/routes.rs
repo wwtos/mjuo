@@ -49,6 +49,7 @@ pub async fn route(
                 "graph/commit" => graph::commit::route(route_state),
                 "graph/undo" => graph::undo::route(route_state),
                 "graph/redo" => graph::redo::route(route_state),
+                "graph/copy" => graph::copy::route(route_state),
                 "graph/updateNodeUi" => graph::update_node_ui::route(route_state),
                 "graph/updateNodeState" => graph::update_node_state::route(route_state),
                 #[cfg(any(unix, windows))]

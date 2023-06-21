@@ -15,6 +15,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct NodeWrapper {
     node_type: String,
+    #[serde(skip_deserializing)]
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,

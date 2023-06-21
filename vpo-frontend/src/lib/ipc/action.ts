@@ -20,5 +20,8 @@ export type IpcAction = DiscriminatedUnion<"action", {
     },
     "toast/error": {
         payload: string
+    },
+    "clipboard/set": {
+        payload: string
     }
 }>;
