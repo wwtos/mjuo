@@ -76,9 +76,11 @@
         },
     ];
 
-    let selectedNodes: VertexIndex[] = [];
+    let controlHeld = false;
 
-    const onKeydown = (event: KeyboardEvent) => {
+    function onKeydown(event: KeyboardEvent) {
+        controlHeld = event.ctrlKey;
+
         if (!event.ctrlKey) {
             switch (event.key) {
                 case "Delete":
@@ -102,9 +104,13 @@
                     break;
             }
         }
-    };
+    }
 
-    const onMousemove = ({ clientX, clientY }: MouseEvent) => {
+    function onKeyup(event: KeyboardEvent) {
+        controlHeld = event.ctrlKey;
+    }
+
+    function onMousemove({ clientX, clientY }: MouseEvent) {
         // convert window coordinates to editor coordinates
         let [mouseX, mouseY] = transformMouseRelativeToEditor(
             editor,
@@ -131,21 +137,21 @@
             connectionBeingCreated.x2 = mouseX;
             connectionBeingCreated.y2 = mouseY;
         }
-    };
+    }
 
-    const onContextMenu = (event: MouseEvent) => {
+    function onContextMenu(event: MouseEvent) {
         createNodeMenu.visible = true;
         createNodeMenu.x = event.clientX - 125;
         createNodeMenu.y = event.clientY;
 
         return false;
-    };
+    }
 
     const onWindowMousedown = (event: MouseEvent) => {
         createNodeMenu.visible = false;
     };
 
-    const onMouseup = () => {
+    function onMouseup() {
         if (draggedState && draggedNodeWasDragged) {
             $activeGraph.markNodeAsUpdated(draggedState.node, ["uiData"]);
             $activeGraph.update();
@@ -158,7 +164,7 @@
         zoomer.resume();
         draggedState = null;
         connectionBeingCreated = null;
-    };
+    }
 
     function createNode(
         ev: CustomEvent<{
@@ -229,7 +235,13 @@
                 offset: [mouseX - node.uiData.x, mouseY - node.uiData.y],
             };
 
-            let touchedNodes = deselectAll($activeGraph);
+            if (!controlHeld) {
+                let touchedNodes = deselectAll($activeGraph);
+
+                for (let touched of touchedNodes) {
+                    $activeGraph.markNodeAsUpdated(touched, ["uiData"]);
+                }
+            }
 
             node = $activeGraph.getNode(index) as NodeWrapper;
 
@@ -237,12 +249,6 @@
                 ...node.uiData,
                 selected: true,
             };
-            $activeGraph.updateNode(index);
-            $activeGraph.update();
-
-            for (let touched of touchedNodes) {
-                $activeGraph.markNodeAsUpdated(touched, ["uiData"]);
-            }
 
             $activeGraph.markNodeAsUpdated(index, ["uiData"]);
             $activeGraph.writeChangedNodesToServer();
@@ -456,6 +462,7 @@
     style="width: {width}px; height: {height}px"
     bind:this={editor}
     on:keydown={onKeydown}
+    on:keyup={onKeyup}
     on:contextmenu|preventDefault={onContextMenu}
 >
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>
