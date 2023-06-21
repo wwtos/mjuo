@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::Index,
+};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -10,7 +13,7 @@ use crate::{
     global_state::GlobalState,
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeIndex, NodeRow, NodeState},
-    node_graph::{NodeConnection, NodeGraph},
+    node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
     socket_registry::SocketRegistry,
@@ -25,21 +28,26 @@ pub struct IoNodes {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
 pub enum Action {
-    AddNode {
+    CreateNode {
         graph: GraphIndex,
         #[serde(rename = "nodeType")]
         node_type: String,
+        #[serde(rename = "uiData")]
+        ui_data: HashMap<String, Value>,
     },
     ConnectNodes {
-        from: GlobalNodeIndex,
-        to: GlobalNodeIndex,
-        data: NodeConnection,
+        graph: GraphIndex,
+        from: NodeIndex,
+        to: NodeIndex,
+        data: NodeConnectionData,
     },
     DisconnectNodes {
-        from: GlobalNodeIndex,
-        to: GlobalNodeIndex,
-        data: NodeConnection,
+        graph: GraphIndex,
+        from: NodeIndex,
+        to: NodeIndex,
+        data: NodeConnectionData,
     },
     RemoveNode {
         index: GlobalNodeIndex,
@@ -50,7 +58,8 @@ pub enum Action {
     },
     ChangeNodeUiData {
         index: GlobalNodeIndex,
-        data: HashMap<String, Value>,
+        #[serde(rename = "uiData")]
+        ui_data: HashMap<String, Value>,
     },
     ChangeNodeOverrides {
         index: GlobalNodeIndex,
@@ -61,7 +70,7 @@ pub enum Action {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ActionBundle {
-    actions: Vec<Action>,
+    pub actions: Vec<Action>,
 }
 
 impl ActionBundle {
@@ -424,28 +433,29 @@ impl GraphState {
         let mut warnings = vec![];
 
         let new_action = match action {
-            Action::AddNode {
+            Action::CreateNode {
                 graph: graph_index,
                 node_type,
+                ui_data,
             } => {
                 let (diff, invalidations) = self
                     .graph_manager
-                    .create_node(&node_type, graph_index, &mut self.socket_registry)
+                    .create_node(&node_type, graph_index, &mut self.socket_registry, ui_data.clone())
                     .append_warnings(&mut warnings)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
             }
-            Action::ConnectNodes { from, to, data } => {
+            Action::ConnectNodes { graph, from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .connect_nodes(from, data.from_socket, to, data.to_socket)?;
+                        .connect_nodes(graph, from, data.from_socket, to, data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
-            Action::DisconnectNodes { from, to, data } => {
+            Action::DisconnectNodes { graph, from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .disconnect_nodes(from, data.from_socket, to, data.to_socket)?;
+                        .disconnect_nodes(graph, from, data.from_socket, to, data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
@@ -487,7 +497,7 @@ impl GraphState {
                     vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
                 )
             }
-            Action::ChangeNodeUiData { index, data } => {
+            Action::ChangeNodeUiData { index, ui_data: data } => {
                 let before = self
                     .graph_manager
                     .get_graph(index.graph_index)?

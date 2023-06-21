@@ -125,6 +125,10 @@ impl NodeWrapper {
         mem::replace(&mut self.ui_data, ui_data)
     }
 
+    pub fn extend_ui_data(&mut self, ui_data: HashMap<String, Value>) {
+        self.ui_data.extend(ui_data.into_iter());
+    }
+
     pub fn get_default_overrides(&self) -> &Vec<NodeRow> {
         &self.default_overrides
     }

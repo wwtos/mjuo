@@ -7,8 +7,12 @@ import { Index } from "../ddgg/gen_vec";
 import { Graph, type Vertex, type VertexIndex } from "../ddgg/graph";
 import type { IpcSocket } from "$lib/ipc/socket";
 import type { Connection, InputSideConnection, OutputSideConnection, Socket, SocketDirection, SocketValue } from "./connection";
+import type { Action } from "./state";
+import type { GlobalNodeIndex } from "./graph_manager";
 
 // import {Node, VertexIndex, GenerationalNode} from "./node";
+
+type NodeProperty = "defaultOverrides" | "properties" | "uiData";
 
 export interface NodeConnection {
     fromSocket: Socket,
@@ -20,7 +24,7 @@ export class NodeGraph {
     nodeStore: BehaviorSubject<Array<[Vertex<NodeWrapper>, VertexIndex]>>;
     keyedNodeStore: BehaviorSubject<([string, NodeWrapper, VertexIndex])[]>;
     keyedConnectionStore: BehaviorSubject<([string, Connection])[]>;
-    changedNodes: VertexIndex[];
+    changedNodes: Array<{ changedProperties: Array<NodeProperty>, index: VertexIndex }>;
     ipcSocket: IpcSocket;
     graphIndex: Index;
     selectedNodes: [];
@@ -109,21 +113,82 @@ export class NodeGraph {
         return keyedNodes;
     }
 
-    markNodeAsUpdated(index: VertexIndex) {
+    markNodeAsUpdated(index: VertexIndex, updated: NodeProperty[]) {
         console.log(`node ${index} was updated`);
-        
-        // don't mark it for updating if it's already been marked
-        if (this.changedNodes.find(vertexIndex => vertexIndex.index === index.index && vertexIndex.generation === index.generation)) return;
 
-        this.changedNodes.push(index);
+        this.updateNode(index);
+
+        const existing = this.changedNodes.find(changed => deepEqual(changed.index, index));
+
+        if (existing) {
+            for (let prop of updated) {
+                if (!(prop in existing.changedProperties)) {
+                    existing.changedProperties.push(prop);
+                }
+           }
+        } else {
+            this.changedNodes.push({
+                index,
+                changedProperties: updated
+            });
+        }        
     }
 
-    writeChangedNodesToServer() {
+    writeChangedNodesToServer(additional?: Action[]) {
+        if (!additional) additional = [];
+
         // only write changes if any nodes were marked for updating
         if (this.changedNodes.length > 0) {
-            this.ipcSocket.updateNodes(this, this.changedNodes);
+            const commits: Action[] = [];
 
-            this.changedNodes.length = 0;
+            for (let changed of this.changedNodes) {
+                let changedGlobalIndex: GlobalNodeIndex = {
+                    graphIndex: this.graphIndex,
+                    nodeIndex: changed.index
+                };
+
+                for (let property of changed.changedProperties) {
+                    switch (property) {
+                        case "defaultOverrides":
+                            commits.push({
+                                variant: "ChangeNodeOverrides",
+                                data: {
+                                    index: changedGlobalIndex,
+                                    overrides: (this.getNode(changed.index) as NodeWrapper).defaultOverrides
+                                }
+                            });
+
+                            break;
+                        case "properties":
+                            commits.push({
+                                variant: "ChangeNodeProperties",
+                                data: {
+                                    index: changedGlobalIndex,
+                                    props: (this.getNode(changed.index) as NodeWrapper).properties
+                                }
+                            });
+
+                            break;
+                        case "uiData":
+                            commits.push({
+                                variant: "ChangeNodeUiData",
+                                data: {
+                                    index: changedGlobalIndex,
+                                    uiData: (this.getNode(changed.index) as NodeWrapper).uiData
+                                }
+                            });
+
+                            break;
+                    }
+                }
+            }
+
+            this.ipcSocket.commit([
+                ...commits,
+                ...additional
+            ], false);
+
+            this.changedNodes = [];
         }
     }
 

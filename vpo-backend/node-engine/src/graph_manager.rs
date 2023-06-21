@@ -1,9 +1,13 @@
+use std::collections::HashMap;
+
 use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::connection::Socket;
 use crate::errors::{NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
+use crate::node_wrapper::NodeWrapper;
 use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -12,6 +16,7 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 pub enum DiffElement {
     GraphManagerDiff(GraphDiff<NodeGraph, ConnectedThrough>),
     ChildGraphDiff(GraphIndex, NodeGraphDiff),
+    ExtendUiData(GlobalNodeIndex, HashMap<String, Value>),
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +129,14 @@ impl GraphManager {
         Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
     }
 
+    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeWrapper, NodeError> {
+        Ok(self.get_graph(index.graph_index)?.get_node(index.node_index)?)
+    }
+
+    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+        Ok(self.get_graph_mut(index.graph_index)?.get_node_mut(index.node_index)?)
+    }
+
     pub fn get_graph_parents(&self, graph_index: GraphIndex) -> Result<Vec<GlobalNodeIndex>, NodeError> {
         let parents = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
 
@@ -146,8 +159,10 @@ impl GraphManager {
         node_type: &str,
         graph_index: GraphIndex,
         registry: &mut SocketRegistry,
+        ui_data: HashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff = vec![];
+
         let graph = self.get_graph_mut(graph_index)?;
         let creation_result = graph.add_node(node_type.into(), registry)?;
 
@@ -184,6 +199,16 @@ impl GraphManager {
             new_node.set_child_graph_index(child_graph_index);
         }
 
+        diff.push(DiffElement::ExtendUiData(
+            GlobalNodeIndex {
+                graph_index,
+                node_index: new_node_index,
+            },
+            ui_data.clone(),
+        ));
+
+        new_node.extend_ui_data(ui_data);
+
         Ok(NodeOk::new(
             (
                 GraphManagerDiff(diff),
@@ -201,48 +226,36 @@ impl GraphManager {
 
     pub(crate) fn connect_nodes(
         &mut self,
-        from: GlobalNodeIndex,
+        graph: GraphIndex,
+        from: NodeIndex,
         from_socket_type: Socket,
-        to: GlobalNodeIndex,
+        to: NodeIndex,
         to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
-        if from.graph_index != to.graph_index {
-            return Err(NodeError::MismatchedNodeGraphs { from, to });
-        }
+        let (_, graph_diff) = self
+            .get_graph_mut(graph)?
+            .connect(from, from_socket_type, to, to_socket_type)?;
 
-        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.connect(
-            from.node_index,
-            from_socket_type,
-            to.node_index,
-            to_socket_type,
-        )?;
+        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(graph, graph_diff)]);
 
-        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
-
-        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(graph)))
     }
 
     pub(crate) fn disconnect_nodes(
         &mut self,
-        from: GlobalNodeIndex,
+        graph: GraphIndex,
+        from: NodeIndex,
         from_socket_type: Socket,
-        to: GlobalNodeIndex,
+        to: NodeIndex,
         to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
-        if from.graph_index != to.graph_index {
-            return Err(NodeError::MismatchedNodeGraphs { from, to });
-        }
+        let (_, graph_diff) = self
+            .get_graph_mut(graph)?
+            .disconnect(from, from_socket_type, to, to_socket_type)?;
 
-        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.disconnect(
-            from.node_index,
-            from_socket_type,
-            to.node_index,
-            to_socket_type,
-        )?;
+        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(graph, graph_diff)]);
 
-        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
-
-        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(graph)))
     }
 
     pub(crate) fn remove_node(
@@ -291,7 +304,10 @@ impl GraphManager {
 
                     self.get_graph_mut(graph_index)?.apply_diff(diff)?
                 }
-            }
+                DiffElement::ExtendUiData(index, ui_data) => {
+                    self.get_node_mut(index)?.extend_ui_data(ui_data.clone());
+                }
+            };
         }
 
         Ok(invalidations)
@@ -312,6 +328,7 @@ impl GraphManager {
 
                     self.get_graph_mut(graph_index)?.rollback_diff(diff)?
                 }
+                DiffElement::ExtendUiData(..) => {}
             }
         }
 

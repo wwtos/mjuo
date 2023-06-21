@@ -10,7 +10,7 @@
     import { deselectAll } from "./editor-utils";
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
-    import type { Vertex, VertexIndex } from "$lib/ddgg/graph";
+    import type { VertexIndex } from "$lib/ddgg/graph";
     import {
         transformMouse,
         transformMouseRelativeToEditor,
@@ -23,6 +23,7 @@
         SocketDirection,
         Connection,
     } from "$lib/node-engine/connection";
+    import type { Action } from "$lib/node-engine/state";
 
     export let width = 400;
     export let height = 400;
@@ -86,9 +87,18 @@
                         .filter(([{ data: node }, _]) => node?.uiData.selected)
                         .map(([_, index]) => index);
 
-                    for (let index of selected) {
-                        ipcSocket.removeNode($activeGraph.graphIndex, index);
-                    }
+                    const commits: Action[] = selected.map((index) => ({
+                        variant: "RemoveNode",
+                        data: {
+                            index: {
+                                graphIndex: $activeGraph.graphIndex,
+                                nodeIndex: index,
+                            },
+                        },
+                    }));
+
+                    ipcSocket.commit(commits);
+
                     break;
             }
         }
@@ -137,7 +147,7 @@
 
     const onMouseup = () => {
         if (draggedState && draggedNodeWasDragged) {
-            $activeGraph.markNodeAsUpdated(draggedState.node);
+            $activeGraph.markNodeAsUpdated(draggedState.node, ["uiData"]);
             $activeGraph.update();
 
             draggedNodeWasDragged = false;
@@ -151,7 +161,7 @@
     };
 
     function createNode(
-        nodeType: CustomEvent<{
+        ev: CustomEvent<{
             value: string;
             clientX: number;
             clientY: number;
@@ -159,15 +169,24 @@
     ) {
         let boundingRect = editor.getBoundingClientRect();
 
-        let relativeX = nodeType.detail.clientX - boundingRect.x;
-        let relativeY = nodeType.detail.clientY - boundingRect.y;
+        let relativeX = ev.detail.clientX - boundingRect.x;
+        let relativeY = ev.detail.clientY - boundingRect.y;
 
         let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
 
-        ipcSocket.createNode($activeGraph.graphIndex, nodeType.detail.value, {
-            x: mouseX - NODE_WIDTH / 2,
-            y: mouseY - 30,
-        });
+        ipcSocket.commit([
+            {
+                variant: "CreateNode",
+                data: {
+                    graph: $activeGraph.graphIndex,
+                    nodeType: ev.detail.value,
+                    uiData: {
+                        x: mouseX - NODE_WIDTH / 2,
+                        y: mouseY - 30,
+                    },
+                },
+            },
+        ]);
 
         createNodeMenu.visible = false;
     }
@@ -221,7 +240,12 @@
             $activeGraph.updateNode(index);
             $activeGraph.update();
 
-            ipcSocket.updateNodesUi($activeGraph, [...touchedNodes, index]);
+            for (let touched of touchedNodes) {
+                $activeGraph.markNodeAsUpdated(touched, ["uiData"]);
+            }
+
+            $activeGraph.markNodeAsUpdated(index, ["uiData"]);
+            $activeGraph.writeChangedNodesToServer();
         }
     }
 
@@ -244,18 +268,22 @@
 
             // check if we are already connected
             if (connection) {
-                let fullConnection: Connection = {
-                    fromNode: connection.fromNode,
-                    toNode: e.vertexIndex,
-                    data: {
-                        fromSocket: connection.fromSocket,
-                        toSocket: connection.toSocket,
-                    },
-                };
-
-                ipcSocket.disconnectNode(
-                    $activeGraph.graphIndex,
-                    fullConnection
+                ipcSocket.commit(
+                    [
+                        {
+                            variant: "DisconnectNodes",
+                            data: {
+                                from: connection.fromNode,
+                                to: e.vertexIndex,
+                                data: {
+                                    fromSocket: connection.fromSocket,
+                                    toSocket: connection.toSocket,
+                                },
+                                graph: $activeGraph.graphIndex,
+                            },
+                        },
+                    ],
+                    false
                 );
 
                 // add the connection line back for connecting to something else
@@ -331,7 +359,20 @@
             };
         }
 
-        ipcSocket.connectNode($activeGraph.graphIndex, newConnection);
+        ipcSocket.commit(
+            [
+                {
+                    variant: "ConnectNodes",
+                    data: {
+                        from: newConnection.fromNode,
+                        to: newConnection.toNode,
+                        data: newConnection.data,
+                        graph: $activeGraph.graphIndex,
+                    },
+                },
+            ],
+            false
+        );
     }
 
     function connectionToPoints(connection: Connection): {
@@ -438,7 +479,7 @@
         <div style="z-index: 10">
             {#each keyedNodes as [key, node, index] (key)}
                 <Node
-                    nodes={$activeGraph}
+                    graph={$activeGraph}
                     wrapper={node}
                     nodeIndex={index}
                     onMousedown={handleNodeMousedown}

@@ -6,43 +6,62 @@ import type { NodeRow } from "./node";
 import type { Property } from "./property";
 
 export type Action = DiscriminatedUnion<"variant", {
-    AddNode: {
-        graph: VertexIndex,
-        nodeType: string,
+    CreateNode: {
+        data: {
+            graph: VertexIndex,
+            nodeType: string,
+            uiData: {
+                [key: string]: any
+            },
+        }
     },
     ConnectNodes: {
-        from: GlobalNodeIndex,
-        to: GlobalNodeIndex,
         data: {
-            fromSocket: Socket,
-            toSocket: Socket,
+            graph: VertexIndex,
+            from: VertexIndex,
+            to: VertexIndex,
+            data: {
+                fromSocket: Socket,
+                toSocket: Socket,
+            }
         }
     },
     DisconnectNodes: {
-        from: GlobalNodeIndex,
-        to: GlobalNodeIndex,
         data: {
-            fromSocket: Socket,
-            toSocket: Socket,
+            graph: VertexIndex,
+            from: VertexIndex,
+            to: VertexIndex,
+            data: {
+                fromSocket: Socket,
+                toSocket: Socket,
+            }
         }
     },
     RemoveNode: {
-        index: GlobalNodeIndex
+        data: {
+            index: GlobalNodeIndex
+        }
     },
     ChangeNodeProperties: {
-        index: GlobalNodeIndex,
-        props: {
-            [key: string]: Property
+        data: {
+            index: GlobalNodeIndex,
+            props: {
+                [key: string]: Property
+            }
         }
     },
     ChangeNodeUiData: {
-        index: GlobalNodeIndex,
         data: {
-            [key: string]: any
-        },
+            index: GlobalNodeIndex,
+            uiData: {
+                [key: string]: any
+            },
+        }
     },
     ChangeNodeOverrides: {
-        index: GlobalNodeIndex,
-        overrides: Array<NodeRow>
+        data: {
+            index: GlobalNodeIndex,
+            overrides: Array<NodeRow>
+        }
     }
 }>;

@@ -13,11 +13,11 @@ use crate::{
     socket_registry::SocketRegistry,
 };
 
-pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
+pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnectionData>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeConnection {
+pub struct NodeConnectionData {
     pub from_socket: Socket,
     pub to_socket: Socket,
 }
@@ -31,7 +31,7 @@ pub struct ConnectionIndex(pub EdgeIndex);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
-    nodes: Graph<NodeWrapper, NodeConnection>,
+    nodes: Graph<NodeWrapper, NodeConnectionData>,
 }
 
 pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeWrapper> {
@@ -163,7 +163,7 @@ impl NodeGraph {
 
         let (edge_index, graph_diff) =
             self.nodes
-                .add_edge(from_index.0, to_index.0, NodeConnection { from_socket, to_socket })?;
+                .add_edge(from_index.0, to_index.0, NodeConnectionData { from_socket, to_socket })?;
 
         Ok((ConnectionIndex(edge_index), graph_diff))
     }
@@ -174,7 +174,7 @@ impl NodeGraph {
         from_socket: Socket,
         to_index: NodeIndex,
         to_socket: Socket,
-    ) -> Result<(NodeConnection, NodeGraphDiff), NodeError> {
+    ) -> Result<(NodeConnectionData, NodeGraphDiff), NodeError> {
         // check that the connection exists
         let edge_index = self.get_connection_index(from_index, from_socket, to_index, to_socket)?;
 
@@ -184,7 +184,7 @@ impl NodeGraph {
     pub fn disconnect_by_index(
         &mut self,
         edge_index: ConnectionIndex,
-    ) -> Result<(NodeConnection, NodeGraphDiff), NodeError> {
+    ) -> Result<(NodeConnectionData, NodeGraphDiff), NodeError> {
         Ok(self.nodes.remove_edge(edge_index.0)?)
     }
 
@@ -288,7 +288,7 @@ impl NodeGraph {
         from_socket_type: Socket,
         to_index: NodeIndex,
         to_socket_type: Socket,
-    ) -> Result<&NodeConnection, NodeError> {
+    ) -> Result<&NodeConnectionData, NodeError> {
         let index = self.get_connection_index(from_index, from_socket_type, to_index, to_socket_type)?;
 
         Ok(&self.nodes.get_edge(index.0)?.data)
@@ -316,7 +316,7 @@ impl NodeGraph {
             .map(|(index, vertex)| (NodeIndex(index), vertex))
     }
 
-    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {
+    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnectionData> {
         &self.nodes
     }
 

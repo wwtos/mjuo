@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::connection::Connection;
 use crate::node;
-use crate::node_graph::NodeConnection;
+use crate::node_graph::NodeConnectionData;
 
 use ddgg::VertexIndex;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
@@ -11,7 +11,7 @@ use petgraph::prelude::*;
 pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGraph) -> Vec<node::NodeIndex> {
     // traverse backward and build a traversal order
 
-    let mut graph = StableGraph::<node::NodeIndex, NodeConnection>::new();
+    let mut graph = StableGraph::<node::NodeIndex, NodeConnectionData>::new();
     let mut graph_lookup: HashMap<VertexIndex, NodeIndex> = HashMap::new();
 
     for original_node_index in original_graph.node_indexes() {
@@ -39,7 +39,7 @@ pub fn calculate_graph_traverse_order(original_graph: &crate::node_graph::NodeGr
         connections.push(Connection {
             from_node: graph[edge.source()],
             to_node: graph[edge.target()],
-            data: NodeConnection {
+            data: NodeConnectionData {
                 from_socket: weight.from_socket,
                 to_socket: weight.to_socket,
             },

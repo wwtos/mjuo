@@ -11,7 +11,11 @@ export abstract class IpcSocket {
 
     abstract onMessage(f: Function): void;
 
-    commit (bundle: Array<Action>, forceAppend?: boolean) {
+    commit (bundle: Array<Action> | Action, forceAppend?: boolean) {
+        if (!Array.isArray(bundle)) {
+            bundle = [bundle];
+        }
+
         this.send({
             "action": "graph/commit",
             "payload": {
@@ -19,19 +23,6 @@ export abstract class IpcSocket {
                 "forceAppend": forceAppend || false,
             }
         })
-    }
-
-    updateNodesUi (graph: NodeGraph, nodes: Array<VertexIndex>) {
-        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
-
-        this.send({
-            "action": "graph/updateNodesUi",
-            "payload": {
-                graphIndex: graph.graphIndex,
-                "updatedNodes": nodesToUpdateJson,
-            }
-        });
     }
 
     requestGraph (graphIndex: Index) {

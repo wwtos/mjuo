@@ -91,7 +91,9 @@
                     pairs as Array<[string, string]>
                 );
 
-                graph.markNodeAsUpdated(currentlySelected?.nodeIndex);
+                graph.markNodeAsUpdated(currentlySelected?.nodeIndex, [
+                    "uiData",
+                ]);
                 graph.writeChangedNodesToServer();
             }
         }
@@ -157,13 +159,11 @@
 
         node.uiData.panelInstances["0"].push(newElementInstance);
 
-        graph.markNodeAsUpdated(nodeIndex);
+        graph.markNodeAsUpdated(nodeIndex, ["uiData"]);
         graph.writeChangedNodesToServer();
     }
 
     function deselectAll() {
-        let toUpdate = [];
-
         for (let [index, node] of graph.getNodes()) {
             for (let instance of Object.values(
                 node.uiData.panelInstances || {}
@@ -173,10 +173,11 @@
                 }
             }
 
-            toUpdate.push(index);
+            graph.markNodeAsUpdated(index, ["uiData"]);
         }
 
-        socket.updateNodesUi(graph, toUpdate);
+        graph.writeChangedNodesToServer();
+
         currentlySelected = null;
         textareaContent = "";
     }
@@ -207,14 +208,7 @@
         };
         updateTextareaContent();
 
-        graph.markNodeAsUpdated(nodeIndex);
-
-        if (!didPositionChange) {
-            graph.update();
-            socket.updateNodesUi(graph, [nodeIndex]);
-        } else {
-            graph.writeChangedNodesToServer();
-        }
+        graph.markNodeAsUpdated(nodeIndex, ["uiData"]);
     }
 
     function onSkinSelected(event: CustomEvent<string>) {
@@ -229,7 +223,7 @@
                 currentlySelected.elementIndex
             ].resourceId = skinId;
 
-            graph.markNodeAsUpdated(currentlySelected.nodeIndex);
+            graph.markNodeAsUpdated(currentlySelected.nodeIndex, ["uiData"]);
             graph.writeChangedNodesToServer();
 
             console.log(currentlySelected, skinId);
