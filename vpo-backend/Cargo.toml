@@ -30,6 +30,7 @@ smallvec = { version = "1.10", features = ["serde"] }
 snafu = "0.7"
 sound-engine = { path = "./sound-engine" }
 toml_edit = { version = "0.19.8", features = ["serde"] }
+petgraph = { version = "0.6.0", features = ["serde-1"] }
 
 [lib]
 crate-type = ["cdylib", "lib"]

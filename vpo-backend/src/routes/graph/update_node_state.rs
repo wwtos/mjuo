@@ -5,6 +5,7 @@ use snafu::ResultExt;
 
 use crate::{
     errors::{EngineError, JsonParserSnafu},
+    routes::prelude::*,
     routes::RouteReturn,
 };
 
@@ -14,11 +15,11 @@ struct Payload {
     updated_states: Vec<(NodeIndex, Value)>,
 }
 
-pub fn route(mut msg: Value) -> Result<Option<RouteReturn>, EngineError> {
-    let payload: Payload = serde_json::from_value(msg["payload"].take()).context(JsonParserSnafu)?;
+pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
+    let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
-    Ok(Some(RouteReturn {
+    Ok(RouteReturn {
         engine_updates: vec![NodeEngineUpdate::NewNodeState(payload.updated_states)],
         new_project: false,
-    }))
+    })
 }

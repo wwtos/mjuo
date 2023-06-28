@@ -1,9 +1,14 @@
-use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
+use std::collections::HashMap;
+
+use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use snafu::OptionExt;
 
 use crate::connection::Socket;
-use crate::errors::{NodeError, NodeOk, NodeResult};
+use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
+use crate::node_wrapper::NodeWrapper;
 use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -12,12 +17,13 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 pub enum DiffElement {
     GraphManagerDiff(GraphDiff<NodeGraph, ConnectedThrough>),
     ChildGraphDiff(GraphIndex, NodeGraphDiff),
+    ExtendUiData(GlobalNodeIndex, HashMap<String, Value>),
 }
 
 #[derive(Debug, Clone)]
 pub struct GraphManagerDiff(pub Vec<DiffElement>);
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GraphIndex(pub VertexIndex);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GraphEdgeIndex(pub EdgeIndex);
@@ -79,7 +85,7 @@ impl GraphManager {
         let shared_edges = self.node_graphs.shared_edges(from.0, to.0)?;
 
         for edge_index in &shared_edges {
-            let edge = self.node_graphs.get_edge(*edge_index)?;
+            let edge = self.node_graphs.get_edge(*edge_index).expect("edge to exist");
 
             if edge.data == through {
                 let (old_data, remove_diff) = self.node_graphs.remove_edge(shared_edges[0])?;
@@ -90,12 +96,16 @@ impl GraphManager {
             }
         }
 
-        Err(NodeError::NotConnected)
+        Err(NodeError::GraphsNotConnected { from, through, to })
     }
 
     /// Will error out if there's more than one parent node connected
-    pub fn remove_graph(&mut self, graph_index: &GraphIndex) -> Result<(NodeGraph, GraphManagerDiff), NodeError> {
-        let parent_nodes = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
+    pub fn remove_graph(&mut self, graph_index: GraphIndex) -> Result<(NodeGraph, GraphManagerDiff), NodeError> {
+        let parent_nodes = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index })?
+            .get_connections_from();
 
         if !parent_nodes.is_empty() {
             Err(NodeError::GraphHasOtherParents)
@@ -117,26 +127,47 @@ impl GraphManager {
     }
 
     pub fn get_graph(&self, index: GraphIndex) -> Result<&NodeGraph, NodeError> {
-        Ok(self.node_graphs.get_vertex_data(index.0)?)
+        Ok(self
+            .node_graphs
+            .get_vertex_data(index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
     }
 
     pub fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraph, NodeError> {
-        Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
+        Ok(self
+            .node_graphs
+            .get_vertex_data_mut(index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
+    }
+
+    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeWrapper, NodeError> {
+        Ok(self.get_graph(index.graph_index)?.get_node(index.node_index)?)
+    }
+
+    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+        Ok(self.get_graph_mut(index.graph_index)?.get_node_mut(index.node_index)?)
     }
 
     pub fn get_graph_parents(&self, graph_index: GraphIndex) -> Result<Vec<GlobalNodeIndex>, NodeError> {
-        let parents = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
+        let parents = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index })?
+            .get_connections_from();
 
-        parents
+        let mapped = parents
             .iter()
             .map(|(vertex_index, edge_index)| {
-                self.node_graphs.get_edge_data(*edge_index).map(|edge| GlobalNodeIndex {
+                let edge = self.node_graphs.get_edge_data(*edge_index).expect("edge to exist");
+
+                GlobalNodeIndex {
                     graph_index: GraphIndex(*vertex_index),
                     node_index: edge.0,
-                })
+                }
             })
-            .collect::<Result<Vec<GlobalNodeIndex>, GraphError>>()
-            .map_err(|err| err.into())
+            .collect::<Vec<GlobalNodeIndex>>();
+
+        Ok(mapped)
     }
 }
 
@@ -146,8 +177,10 @@ impl GraphManager {
         node_type: &str,
         graph_index: GraphIndex,
         registry: &mut SocketRegistry,
+        ui_data: HashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff = vec![];
+
         let graph = self.get_graph_mut(graph_index)?;
         let creation_result = graph.add_node(node_type.into(), registry)?;
 
@@ -184,6 +217,16 @@ impl GraphManager {
             new_node.set_child_graph_index(child_graph_index);
         }
 
+        diff.push(DiffElement::ExtendUiData(
+            GlobalNodeIndex {
+                graph_index,
+                node_index: new_node_index,
+            },
+            ui_data.clone(),
+        ));
+
+        new_node.extend_ui_data(ui_data);
+
         Ok(NodeOk::new(
             (
                 GraphManagerDiff(diff),
@@ -201,48 +244,36 @@ impl GraphManager {
 
     pub(crate) fn connect_nodes(
         &mut self,
-        from: GlobalNodeIndex,
+        graph: GraphIndex,
+        from: NodeIndex,
         from_socket_type: Socket,
-        to: GlobalNodeIndex,
+        to: NodeIndex,
         to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
-        if from.graph_index != to.graph_index {
-            return Err(NodeError::MismatchedNodeGraphs { from, to });
-        }
+        let (_, graph_diff) = self
+            .get_graph_mut(graph)?
+            .connect(from, from_socket_type, to, to_socket_type)?;
 
-        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.connect(
-            from.node_index,
-            from_socket_type,
-            to.node_index,
-            to_socket_type,
-        )?;
+        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(graph, graph_diff)]);
 
-        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
-
-        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(graph)))
     }
 
     pub(crate) fn disconnect_nodes(
         &mut self,
-        from: GlobalNodeIndex,
+        graph: GraphIndex,
+        from: NodeIndex,
         from_socket_type: Socket,
-        to: GlobalNodeIndex,
+        to: NodeIndex,
         to_socket_type: Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
-        if from.graph_index != to.graph_index {
-            return Err(NodeError::MismatchedNodeGraphs { from, to });
-        }
+        let (_, graph_diff) = self
+            .get_graph_mut(graph)?
+            .disconnect(from, from_socket_type, to, to_socket_type)?;
 
-        let (_, graph_diff) = self.get_graph_mut(from.graph_index)?.disconnect(
-            from.node_index,
-            from_socket_type,
-            to.node_index,
-            to_socket_type,
-        )?;
+        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(graph, graph_diff)]);
 
-        let diff = GraphManagerDiff(vec![DiffElement::ChildGraphDiff(from.graph_index, graph_diff)]);
-
-        Ok((diff, ActionInvalidation::GraphReindexNeeded(from.graph_index)))
+        Ok((diff, ActionInvalidation::GraphReindexNeeded(graph)))
     }
 
     pub(crate) fn remove_node(
@@ -257,7 +288,13 @@ impl GraphManager {
         let mut diff = vec![];
 
         // first, see if the node has a child graph
-        let children = self.node_graphs.get_vertex(graph_index.0)?.get_connections_to();
+        let children = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu {
+                graph_index: graph_index,
+            })?
+            .get_connections_to();
 
         // if it does have children, remove the connections
         if !children.is_empty() {
@@ -291,7 +328,10 @@ impl GraphManager {
 
                     self.get_graph_mut(graph_index)?.apply_diff(diff)?
                 }
-            }
+                DiffElement::ExtendUiData(index, ui_data) => {
+                    self.get_node_mut(index)?.extend_ui_data(ui_data.clone());
+                }
+            };
         }
 
         Ok(invalidations)
@@ -312,6 +352,7 @@ impl GraphManager {
 
                     self.get_graph_mut(graph_index)?.rollback_diff(diff)?
                 }
+                DiffElement::ExtendUiData(..) => {}
             }
         }
 

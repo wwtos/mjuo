@@ -1,8 +1,8 @@
-import type { Index } from "$lib/ddgg/gen_vec";
 import type { VertexIndex } from "$lib/ddgg/graph";
 import type { Connection } from "$lib/node-engine/connection";
 import type { UiData } from "$lib/node-engine/node";
 import type { NodeGraph } from "$lib/node-engine/node_graph";
+import type { Action } from "$lib/node-engine/state";
 import type { Engine } from "../../routes/engine";
 
 export abstract class IpcSocket {
@@ -10,89 +10,36 @@ export abstract class IpcSocket {
 
     abstract onMessage(f: Function): void;
 
-    createNode (graphIndex: Index, type: string, uiData?: UiData) {
-        this.send({
-            "action": "graph/newNode",
-            "payload": {
-                graphIndex,
-                "nodeType": type,
-                "uiData": uiData,
-            }
-        });
-    }
-
-    removeNode (graphIndex: Index, nodeIndex: VertexIndex) {
-        this.send({
-            "action": "graph/removeNode",
-            "payload": {
-                graphIndex,
-                nodeIndex
-            }
-        });
-    }
-
-    updateNodes (graph: NodeGraph, nodes: Array<VertexIndex>) {
-        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
+    commit (bundle: Array<Action> | Action, forceAppend?: boolean) {
+        if (!Array.isArray(bundle)) {
+            bundle = [bundle];
+        }
 
         this.send({
-            "action": "graph/updateNodes",
+            "action": "graph/commit",
             "payload": {
-                graphIndex: graph.graphIndex,
-                "updatedNodes": nodesToUpdateJson,
+                "actions": bundle,
+                "forceAppend": forceAppend || false,
             }
-        });
+        })
     }
 
-    updateNodesUi (graph: NodeGraph, nodes: Array<VertexIndex>) {
-        const nodesToUpdate = nodes.map(index => [graph.getNode(index), index]);
-        const nodesToUpdateJson = JSON.parse(JSON.stringify(nodesToUpdate));
-
+    requestGraph (graphIndex: string) {
         this.send({
-            "action": "graph/updateNodesUi",
-            "payload": {
-                graphIndex: graph.graphIndex,
-                "updatedNodes": nodesToUpdateJson,
-            }
-        });
-    }
-
-    connectNode (graphIndex: Index, connection: Connection) {
-        this.send(JSON.parse(JSON.stringify({
-            "action": "graph/connectNode",
-            "payload": {
-                graphIndex,
-                connection
-            }
-        })));
-    }
-
-    disconnectNode (graphIndex: Index, connection: Connection) {
-        this.send(JSON.parse(JSON.stringify({
-            "action": "graph/disconnectNode",
-            "payload": {
-                graphIndex,
-                connection
-            }
-        })));
-    }
-
-    requestGraph (graphIndex: Index) {
-        this.send(JSON.parse(JSON.stringify({
             "action": "graph/get",
             "payload": {
-                graphIndex
+                graphIndex: graphIndex
             }
-        })));
+        });
     }
 
     updateNodeState (updatedStates: Array<[VertexIndex, any]>) {
-        this.send(JSON.parse(JSON.stringify({
+        this.send({
             "action": "graph/updateNodeState",
             "payload": {
                 updatedStates
             }
-        })));
+        });
     }
 
     undo () {
@@ -122,6 +69,25 @@ export abstract class IpcSocket {
     load () {
         this.send({
             "action": "io/load",
+        });
+    }
+
+    copy (graphIndex: VertexIndex) {
+        this.send({
+            action: "graph/copy",
+            payload: {
+                graphIndex
+            }
+        });
+    }
+
+    paste (graphIndex: VertexIndex, clipboard: string) {
+        this.send({
+            action: "graph/paste",
+            payload: {
+                graphIndex,
+                clipboard
+            }
         });
     }
 

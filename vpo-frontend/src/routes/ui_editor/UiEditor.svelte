@@ -20,7 +20,7 @@
     let draggableWidth = 0;
     let viewportHeight = 0;
 
-    let locked = false;
+    let locked = true;
     let textareaContent = "";
 
     let currentlySelected: {
@@ -77,8 +77,7 @@
                 .filter((x) => x !== undefined);
 
             const node = uiNodes.find(
-                ({ index }) =>
-                    index.index === currentlySelected?.nodeIndex.index
+                ({ index }) => index === currentlySelected?.nodeIndex
             );
 
             if (node?.node.uiData.panelInstances) {
@@ -91,7 +90,9 @@
                     pairs as Array<[string, string]>
                 );
 
-                graph.markNodeAsUpdated(currentlySelected?.nodeIndex);
+                graph.markNodeAsUpdated(currentlySelected?.nodeIndex, [
+                    "uiData",
+                ]);
                 graph.writeChangedNodesToServer();
             }
         }
@@ -101,7 +102,7 @@
         if (!currentlySelected) return;
 
         const node = uiNodes.find(
-            ({ index }) => index.index === currentlySelected?.nodeIndex.index
+            ({ index }) => index === currentlySelected?.nodeIndex
         );
 
         if (node?.node.uiData.panelInstances) {
@@ -157,13 +158,11 @@
 
         node.uiData.panelInstances["0"].push(newElementInstance);
 
-        graph.markNodeAsUpdated(nodeIndex);
+        graph.markNodeAsUpdated(nodeIndex, ["uiData"]);
         graph.writeChangedNodesToServer();
     }
 
     function deselectAll() {
-        let toUpdate = [];
-
         for (let [index, node] of graph.getNodes()) {
             for (let instance of Object.values(
                 node.uiData.panelInstances || {}
@@ -173,10 +172,11 @@
                 }
             }
 
-            toUpdate.push(index);
+            graph.markNodeAsUpdated(index, ["uiData"]);
         }
 
-        socket.updateNodesUi(graph, toUpdate);
+        graph.writeChangedNodesToServer();
+
         currentlySelected = null;
         textareaContent = "";
     }
@@ -207,14 +207,7 @@
         };
         updateTextareaContent();
 
-        graph.markNodeAsUpdated(nodeIndex);
-
-        if (!didPositionChange) {
-            graph.update();
-            socket.updateNodesUi(graph, [nodeIndex]);
-        } else {
-            graph.writeChangedNodesToServer();
-        }
+        graph.markNodeAsUpdated(nodeIndex, ["uiData"]);
     }
 
     function onSkinSelected(event: CustomEvent<string>) {
@@ -229,7 +222,7 @@
                 currentlySelected.elementIndex
             ].resourceId = skinId;
 
-            graph.markNodeAsUpdated(currentlySelected.nodeIndex);
+            graph.markNodeAsUpdated(currentlySelected.nodeIndex, ["uiData"]);
             graph.writeChangedNodesToServer();
 
             console.log(currentlySelected, skinId);

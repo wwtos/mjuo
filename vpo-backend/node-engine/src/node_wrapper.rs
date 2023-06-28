@@ -15,6 +15,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct NodeWrapper {
     node_type: String,
+    #[serde(skip_deserializing)]
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
     properties: HashMap<String, Property>,
@@ -123,6 +124,10 @@ impl NodeWrapper {
 
     pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
         mem::replace(&mut self.ui_data, ui_data)
+    }
+
+    pub fn extend_ui_data(&mut self, ui_data: HashMap<String, Value>) {
+        self.ui_data.extend(ui_data.into_iter());
     }
 
     pub fn get_default_overrides(&self) -> &Vec<NodeRow> {

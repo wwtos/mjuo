@@ -26,7 +26,7 @@
 
     export let width = 270;
 
-    export let nodes: NodeGraph;
+    export let graph: NodeGraph;
     export let wrapper: NodeWrapper;
     export let nodeIndex: VertexIndex;
     export let registry: SocketRegistry;
@@ -61,7 +61,7 @@
                 variant: "SocketRow",
                 socket,
                 socketDirection: { variant: "Input" },
-                value: nodes.getNodeSocketDefault(nodeIndex, socket),
+                value: graph.getNodeSocketDefault(nodeIndex, socket),
             }),
             Output: ({ data: socket }) => ({
                 variant: "SocketRow",
@@ -73,7 +73,7 @@
                 variant: "PropertyRow",
                 propName,
                 propType,
-                propValue: nodes.getNodePropertyValue(nodeIndex, propName) ?? {
+                propValue: graph.getNodePropertyValue(nodeIndex, propName) ?? {
                     variant: "String",
                     data: "",
                 },
@@ -113,14 +113,14 @@
     function onSocketMousedown(event: CustomEvent<SocketEvent>) {
         dispatch("socketMousedown", {
             ...event.detail,
-            vertexIndex: { ...nodeIndex },
+            vertexIndex: nodeIndex,
         });
     }
 
     function onSocketMouseup(event: CustomEvent<SocketEvent>) {
         dispatch("socketMouseup", {
             ...event.detail,
-            vertexIndex: { ...nodeIndex },
+            vertexIndex: nodeIndex,
         });
     }
 
@@ -158,31 +158,19 @@
             });
         }
 
-        nodes.ipcSocket.send({
-            action: "graph/updateNodes",
-            payload: {
-                graphIndex: nodes.graphIndex,
-                updatedNodes: [
-                    [
-                        {
-                            defaultOverrides:
-                                nodes.getNode(nodeIndex)?.defaultOverrides,
-                        },
-                        nodeIndex,
-                    ],
-                ],
-            },
-        });
+        graph.markNodeAsUpdated(nodeIndex, ["defaultOverrides"]);
+        graph.writeChangedNodesToServer();
     }
 </script>
 
 <div
-    class="background"
+    class="background node"
     style="transform: translate({x}px, {y}px); width: {width}px"
     on:mousedown={onMousedownRaw}
     class:selected
     bind:this={node}
     on:dblclick|stopPropagation
+    data-index={nodeIndex}
 >
     <div class="node-title">
         {title && title.length > 0 ? $localize("node." + title) : " "}
@@ -191,7 +179,7 @@
     {#each sockets as row (rowToKey(row))}
         {#if row.variant === "SocketRow"}
             <UiNodeRow
-                {nodes}
+                nodes={graph}
                 socket={row.socket}
                 direction={row.socketDirection}
                 label={$localize(
@@ -205,7 +193,7 @@
             />
         {:else if row.variant === "PropertyRow"}
             <NodePropertyRow
-                {nodes}
+                nodes={graph}
                 nodeWrapper={wrapper}
                 propName={row.propName}
                 propType={row.propType}

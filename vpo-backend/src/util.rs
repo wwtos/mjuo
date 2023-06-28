@@ -36,12 +36,10 @@ pub fn send_graph_updates(
 pub fn send_registry_updates(registry: &SocketRegistry, to_server: &Sender<IpcMessage>) -> Result<(), EngineError> {
     let json = serde_json::to_value(registry).context(JsonParserSnafu)?;
 
-    to_server
-        .send(IpcMessage::Json(json! {{
-            "action": "registry/updateRegistry",
-            "payload": json
-        }}))
-        .unwrap();
+    let _ = to_server.send(IpcMessage::Json(json! {{
+        "action": "registry/updateRegistry",
+        "payload": json
+    }}));
 
     Ok(())
 }
@@ -52,12 +50,10 @@ pub fn send_global_state_updates(
 ) -> Result<(), EngineError> {
     let json = global_state.to_json();
 
-    to_server
-        .send(IpcMessage::Json(json! {{
-            "action": "state/updateGlobalState",
-            "payload": json
-        }}))
-        .unwrap();
+    let _ = to_server.send(IpcMessage::Json(json! {{
+        "action": "state/updateGlobalState",
+        "payload": json
+    }}));
 
     Ok(())
 }

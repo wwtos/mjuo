@@ -5,7 +5,7 @@ use sound_engine::midi::messages::MidiMessage;
 
 use std::fmt::{Debug, Display};
 
-use crate::{node::NodeIndex, node_graph::NodeConnection};
+use crate::{node::NodeIndex, node_graph::NodeConnectionData};
 
 pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
 
@@ -14,7 +14,7 @@ pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
 pub struct Connection {
     pub from_node: NodeIndex,
     pub to_node: NodeIndex,
-    pub data: NodeConnection,
+    pub data: NodeConnectionData,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -1,23 +1,23 @@
 use std::collections::HashMap;
 
-use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError};
-use itertools::Itertools;
+use ddgg::{Edge, EdgeIndex, Graph, GraphDiff};
 use serde::{Deserialize, Serialize};
+use snafu::OptionExt;
 
 use crate::{
     connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
-    errors::{NodeError, NodeOk, NodeResult},
+    errors::{NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult, NodesNotConnectedSnafu},
     node::NodeIndex,
     node_wrapper::NodeWrapper,
     nodes::variant_io,
     socket_registry::SocketRegistry,
 };
 
-pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnection>;
+pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnectionData>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeConnection {
+pub struct NodeConnectionData {
     pub from_socket: Socket,
     pub to_socket: Socket,
 }
@@ -31,7 +31,7 @@ pub struct ConnectionIndex(pub EdgeIndex);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
-    nodes: Graph<NodeWrapper, NodeConnection>,
+    nodes: Graph<NodeWrapper, NodeConnectionData>,
 }
 
 pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeWrapper> {
@@ -138,8 +138,16 @@ impl NodeGraph {
             });
         }
 
-        let from = &self.nodes.get_vertex(from_index.0)?.data;
-        let to = &self.nodes.get_vertex(to_index.0)?.data;
+        let from = &self
+            .nodes
+            .get_vertex(from_index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: from_index })?
+            .data;
+        let to = &self
+            .nodes
+            .get_vertex(to_index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: to_index })?
+            .data;
 
         if !from.has_output_socket(from_socket) {
             return Err(NodeError::SocketDoesNotExist {
@@ -163,7 +171,7 @@ impl NodeGraph {
 
         let (edge_index, graph_diff) =
             self.nodes
-                .add_edge(from_index.0, to_index.0, NodeConnection { from_socket, to_socket })?;
+                .add_edge(from_index.0, to_index.0, NodeConnectionData { from_socket, to_socket })?;
 
         Ok((ConnectionIndex(edge_index), graph_diff))
     }
@@ -174,7 +182,7 @@ impl NodeGraph {
         from_socket: Socket,
         to_index: NodeIndex,
         to_socket: Socket,
-    ) -> Result<(NodeConnection, NodeGraphDiff), NodeError> {
+    ) -> Result<(NodeConnectionData, NodeGraphDiff), NodeError> {
         // check that the connection exists
         let edge_index = self.get_connection_index(from_index, from_socket, to_index, to_socket)?;
 
@@ -184,7 +192,7 @@ impl NodeGraph {
     pub fn disconnect_by_index(
         &mut self,
         edge_index: ConnectionIndex,
-    ) -> Result<(NodeConnection, NodeGraphDiff), NodeError> {
+    ) -> Result<(NodeConnectionData, NodeGraphDiff), NodeError> {
         Ok(self.nodes.remove_edge(edge_index.0)?)
     }
 
@@ -204,14 +212,19 @@ impl NodeGraph {
         let edges = self.nodes.shared_edges(from_index.0, to_index.0)?;
 
         for edge_index in edges {
-            let edge = &self.nodes.get_edge(edge_index)?.data;
+            let edge = &self.nodes.get_edge(edge_index).expect("edge to exist").data;
 
             if edge.from_socket == from_socket && edge.to_socket == to_socket {
                 return Ok(ConnectionIndex(edge_index));
             }
         }
 
-        Err(NodeError::NotConnected)
+        Err(NodeError::NodesNotConnected {
+            from_index,
+            from_socket,
+            to_index,
+            to_socket,
+        })
     }
 
     pub fn get_output_connection_indexes(
@@ -219,14 +232,23 @@ impl NodeGraph {
         from_index: NodeIndex,
         from_socket: Socket,
     ) -> Result<Vec<ConnectionIndex>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_to();
+        let outgoing_edge_indexes = self
+            .nodes
+            .get_vertex(from_index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: from_index })?
+            .get_connections_to();
 
-        let matching: Vec<ConnectionIndex> = edge_indexes
+        let matching: Vec<ConnectionIndex> = outgoing_edge_indexes
             .iter()
-            .map(|(_, edge_index)| self.nodes.get_edge(*edge_index).map(|edge| (&edge.data, edge_index)))
-            .filter_ok(|(edge, _)| edge.from_socket == from_socket)
-            .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
-            .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
+            .map(|(_, edge_index)| {
+                self.nodes
+                    .get_edge(*edge_index)
+                    .map(|edge| (&edge.data, edge_index))
+                    .expect("edge to exist")
+            })
+            .filter(|(edge, _)| edge.from_socket == from_socket)
+            .map(|(_, edge_index)| ConnectionIndex(*edge_index))
+            .collect::<Vec<ConnectionIndex>>();
 
         Ok(matching)
     }
@@ -236,48 +258,68 @@ impl NodeGraph {
         to_index: NodeIndex,
         to_socket: Socket,
     ) -> Result<Option<ConnectionIndex>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(to_index.0)?.get_connections_from();
+        let edge_indexes = self
+            .nodes
+            .get_vertex(to_index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: to_index })?
+            .get_connections_from();
 
         let matching: Vec<ConnectionIndex> = edge_indexes
             .iter()
-            .map(|(_, edge_index)| self.nodes.get_edge(*edge_index).map(|edge| (&edge.data, edge_index)))
-            .filter_ok(|(edge, _)| edge.to_socket == to_socket)
-            .map(|result| result.map(|(_, edge_index)| ConnectionIndex(*edge_index)))
-            .collect::<Result<Vec<ConnectionIndex>, GraphError>>()?;
+            .map(|(_, edge_index)| {
+                self.nodes
+                    .get_edge(*edge_index)
+                    .map(|edge| (&edge.data, edge_index))
+                    .expect("edge to exist")
+            })
+            .filter(|(edge, _)| edge.to_socket == to_socket)
+            .map(|(_, edge_index)| ConnectionIndex(*edge_index))
+            .collect::<Vec<ConnectionIndex>>();
 
         Ok(matching.last().copied())
     }
 
     pub fn get_input_side_connections(&self, index: NodeIndex) -> Result<Vec<InputSideConnection>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(index.0)?.get_connections_from();
+        let edge_indexes = self
+            .nodes
+            .get_vertex(index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: index })?
+            .get_connections_from();
 
         let matching: Vec<InputSideConnection> = edge_indexes
             .iter()
             .map(|(from_node, edge_index)| {
-                self.nodes.get_edge(*edge_index).map(|edge| InputSideConnection {
+                let edge = self.nodes.get_edge(*edge_index).expect("edge to exist");
+                InputSideConnection {
                     from_socket: edge.data.from_socket,
                     from_node: NodeIndex(*from_node),
                     to_socket: edge.data.to_socket,
-                })
+                }
             })
-            .collect::<Result<Vec<InputSideConnection>, GraphError>>()?;
+            .collect::<Vec<InputSideConnection>>();
 
         Ok(matching)
     }
 
     pub fn get_output_side_connections(&self, from_index: NodeIndex) -> Result<Vec<OutputSideConnection>, NodeError> {
-        let edge_indexes = self.nodes.get_vertex(from_index.0)?.get_connections_to();
+        let edge_indexes = self
+            .nodes
+            .get_vertex(from_index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: from_index })?
+            .get_connections_to();
 
         let matching: Vec<OutputSideConnection> = edge_indexes
             .iter()
             .map(|(to_node, edge_index)| {
-                self.nodes.get_edge(*edge_index).map(|edge| OutputSideConnection {
+                let edge = self.nodes.get_edge(*edge_index).expect("edge to exist");
+
+                OutputSideConnection {
                     from_socket: edge.data.from_socket,
                     to_node: NodeIndex(*to_node),
                     to_socket: edge.data.to_socket,
-                })
+                }
             })
-            .collect::<Result<Vec<OutputSideConnection>, GraphError>>()?;
+            .collect::<Vec<OutputSideConnection>>();
 
         Ok(matching)
     }
@@ -285,21 +327,36 @@ impl NodeGraph {
     pub fn get_connection(
         &self,
         from_index: NodeIndex,
-        from_socket_type: Socket,
+        from_socket: Socket,
         to_index: NodeIndex,
-        to_socket_type: Socket,
-    ) -> Result<&NodeConnection, NodeError> {
-        let index = self.get_connection_index(from_index, from_socket_type, to_index, to_socket_type)?;
+        to_socket: Socket,
+    ) -> Result<&NodeConnectionData, NodeError> {
+        let index = self.get_connection_index(from_index, from_socket, to_index, to_socket)?;
 
-        Ok(&self.nodes.get_edge(index.0)?.data)
+        Ok(&self
+            .nodes
+            .get_edge(index.0)
+            .with_context(|| NodesNotConnectedSnafu {
+                from_index,
+                from_socket,
+                to_index,
+                to_socket,
+            })?
+            .data)
     }
 
     pub fn get_node(&self, index: NodeIndex) -> Result<&NodeWrapper, NodeError> {
-        Ok(self.nodes.get_vertex_data(index.0)?)
+        Ok(self
+            .nodes
+            .get_vertex_data(index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: index })?)
     }
 
     pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeWrapper, NodeError> {
-        Ok(self.nodes.get_vertex_data_mut(index.0)?)
+        Ok(self
+            .nodes
+            .get_vertex_data_mut(index.0)
+            .with_context(|| NodeDoesNotExistSnafu { node_index: index })?)
     }
 
     pub fn node_indexes(&self) -> impl Iterator<Item = NodeIndex> + '_ {
@@ -310,13 +367,19 @@ impl NodeGraph {
         self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
-    pub fn nodes_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
+    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
         self.nodes
-            .vertex_iter()
+            .vertex_data_iter()
             .map(|(index, vertex)| (NodeIndex(index), vertex))
     }
 
-    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnection> {
+    pub fn edges_iter(&self) -> impl Iterator<Item = (ConnectionIndex, &Edge<NodeConnectionData>)> + '_ {
+        self.nodes
+            .edge_iter()
+            .map(|(index, edge)| (ConnectionIndex(index), edge))
+    }
+
+    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnectionData> {
         &self.nodes
     }
 

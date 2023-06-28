@@ -54,8 +54,7 @@
         if (!deepEqual(nodeWrapper.properties[propName], newValueParsed)) {
             nodeWrapper.properties[propName] = newValueParsed;
 
-            nodes.updateNode(nodeIndex);
-            nodes.markNodeAsUpdated(nodeIndex);
+            nodes.markNodeAsUpdated(nodeIndex, ["properties"]);
             nodes.writeChangedNodesToServer();
         }
     }

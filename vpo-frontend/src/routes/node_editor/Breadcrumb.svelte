@@ -4,7 +4,7 @@
     export let path = [
         {
             name: "root",
-            index: { index: 0, generation: 0 },
+            index: "0.0",
         },
     ];
 
