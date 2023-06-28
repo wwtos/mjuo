@@ -18,7 +18,7 @@
     export let socket: Socket;
     export let label: string;
     export let direction: SocketDirection;
-    export let nodeIndex: Index;
+    export let nodeIndex: string;
     export let nodes: NodeGraph;
     export let value: SocketValue;
 

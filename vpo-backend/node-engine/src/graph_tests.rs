@@ -37,7 +37,9 @@ fn graph_node_crud() {
     assert_eq!(
         std::mem::discriminant(&graph.remove_node(first_node_index).unwrap_err()),
         std::mem::discriminant(&NodeError::GraphError {
-            error: GraphError::VertexDoesNotExist(first_node_index.0)
+            error: GraphError::VertexDoesNotExist {
+                index: first_node_index.0
+            }
         })
     );
 
@@ -57,7 +59,9 @@ fn graph_node_crud() {
         format!(
             "{:?}",
             &NodeError::GraphError {
-                error: GraphError::VertexDoesNotExist(first_node_index.0)
+                error: GraphError::VertexDoesNotExist {
+                    index: first_node_index.0
+                }
             }
         )
     );

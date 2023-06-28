@@ -4,26 +4,39 @@ use rhai::{EvalAltResult, ParseError};
 use snafu::Snafu;
 
 use crate::connection::{Socket, SocketType};
-use crate::graph_manager::GlobalNodeIndex;
+use crate::graph_manager::{ConnectedThrough, GlobalNodeIndex, GraphIndex};
 use crate::node::NodeIndex;
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 pub enum NodeError {
-    #[snafu(display("Node `{from:?}` and {to:?} are on two different graphs"))]
+    #[snafu(display("Node `{from:?}` and `{to:?}` are on two different graphs"))]
     MismatchedNodeGraphs { from: GlobalNodeIndex, to: GlobalNodeIndex },
     #[snafu(display("The field `{missing_field}` was missing during an action rollback"))]
     ActionRollbackFieldMissing { missing_field: String },
-    #[snafu(display("Graph does not exist at index `{graph_index}`"))]
-    GraphDoesNotExist { graph_index: u64 },
+    #[snafu(display("Graph does not exist at index `{graph_index:?}`"))]
+    GraphDoesNotExist { graph_index: GraphIndex },
     #[snafu(display("Graph has more than one parent, cannot remove"))]
     GraphHasOtherParents,
+    #[snafu(display("Graphs `{from:?}` and `{to:?}` not connected through `{through:?}`"))]
+    GraphsNotConnected {
+        from: GraphIndex,
+        through: ConnectedThrough,
+        to: GraphIndex,
+    },
+    #[snafu(display(
+        "Connection does not exist between {from_index:?} {from_socket:?} and {to_index:?} {to_socket:?}"
+    ))]
+    NodesNotConnected {
+        from_index: NodeIndex,
+        from_socket: Socket,
+        to_index: NodeIndex,
+        to_socket: Socket,
+    },
     #[snafu(display("Connection between {from:?} and {to:?} already exists"))]
     AlreadyConnected { from: Socket, to: Socket },
     #[snafu(display("Input socket already occupied (Input {socket:?})"))]
     InputSocketOccupied { socket: Socket },
-    #[snafu(display("Socket is not connected to any node"))]
-    NotConnected,
     #[snafu(display("Node does not exist in graph (index `{node_index}`)"))]
     NodeDoesNotExist { node_index: NodeIndex },
     #[snafu(display("Node already exists at index `{node_index}`"))]

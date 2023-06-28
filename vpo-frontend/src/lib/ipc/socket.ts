@@ -1,4 +1,3 @@
-import type { Index } from "$lib/ddgg/gen_vec";
 import type { VertexIndex } from "$lib/ddgg/graph";
 import type { Connection } from "$lib/node-engine/connection";
 import type { UiData } from "$lib/node-engine/node";
@@ -25,22 +24,22 @@ export abstract class IpcSocket {
         })
     }
 
-    requestGraph (graphIndex: Index) {
-        this.send(JSON.parse(JSON.stringify({
+    requestGraph (graphIndex: string) {
+        this.send({
             "action": "graph/get",
             "payload": {
-                graphIndex
+                graphIndex: graphIndex
             }
-        })));
+        });
     }
 
     updateNodeState (updatedStates: Array<[VertexIndex, any]>) {
-        this.send(JSON.parse(JSON.stringify({
+        this.send({
             "action": "graph/updateNodeState",
             "payload": {
                 updatedStates
             }
-        })));
+        });
     }
 
     undo () {

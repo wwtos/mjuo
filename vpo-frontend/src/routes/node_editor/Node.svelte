@@ -113,14 +113,14 @@
     function onSocketMousedown(event: CustomEvent<SocketEvent>) {
         dispatch("socketMousedown", {
             ...event.detail,
-            vertexIndex: { ...nodeIndex },
+            vertexIndex: nodeIndex,
         });
     }
 
     function onSocketMouseup(event: CustomEvent<SocketEvent>) {
         dispatch("socketMouseup", {
             ...event.detail,
-            vertexIndex: { ...nodeIndex },
+            vertexIndex: nodeIndex,
         });
     }
 
@@ -170,7 +170,7 @@
     class:selected
     bind:this={node}
     on:dblclick|stopPropagation
-    data-index={JSON.stringify(nodeIndex)}
+    data-index={nodeIndex}
 >
     <div class="node-title">
         {title && title.length > 0 ? $localize("node." + title) : " "}

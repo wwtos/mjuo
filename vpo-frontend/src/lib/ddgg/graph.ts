@@ -1,8 +1,8 @@
 import { match } from "../util/discriminated-union";
 import { GenVec, Index } from "./gen_vec";
 
-export type VertexIndex = Index;
-export type EdgeIndex = Index;
+export type VertexIndex = string;
+export type EdgeIndex = string;
 
 export interface Vertex<T> {
     connectionsFrom: Array<[VertexIndex, EdgeIndex]>,
@@ -34,15 +34,15 @@ export const Graph = {
     getEdgeData<V, E>(graph: Graph<V, E>, index: EdgeIndex): E | undefined {
         return GenVec.get(graph.edges, index)?.data;
     },
-    verticies<V, E>(graph: Graph<V, E>): Array<[Vertex<V>, Index]> {
-        let out: Array<[Vertex<V>, Index]> = [];
+    verticies<V, E>(graph: Graph<V, E>): Array<[Vertex<V>, string]> {
+        let out: Array<[Vertex<V>, string]> = [];
 
         for (let i = 0; i < graph.verticies.length; i++) {
             let elem = graph.verticies[i];
 
             match(elem, {
                 Occupied({data: [vertex, generation]}) {
-                    out.push([vertex, {index: i, generation}]);
+                    out.push([vertex, Index.toString({ index: i, generation })]);
                 },
                 Open: (_) => {}
             });
@@ -51,14 +51,14 @@ export const Graph = {
         return out;
     },
     edges<V, E>(graph: Graph<V, E>): Array<[Edge<E>, EdgeIndex]> {
-        let out: Array<[Edge<E>, Index]> = [];
+        let out: Array<[Edge<E>, string]> = [];
 
         for (let i = 0; i < graph.edges.length; i++) {
             let elem = graph.edges[i];
 
             match(elem, {
                 Occupied({data: [edges, generation]}) {
-                    out.push([edges, {index: i, generation}]);
+                    out.push([edges, Index.toString({ index: i, generation })]);
                 },
                 Open: (_) => {}
             });

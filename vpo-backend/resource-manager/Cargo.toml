@@ -6,5 +6,9 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ddgg = {git = "https://github.com/smj-edison/ddgg", features = ["js_names", "serde"]}
-serde = {version = "1.0.133", features = ["derive"]}
+ddgg = { git = "https://github.com/smj-edison/ddgg", features = [
+    "js_names",
+    "serde",
+    "serde_string_indexes",
+] }
+serde = { version = "1.0.133", features = ["derive"] }

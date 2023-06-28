@@ -291,7 +291,7 @@ impl BufferedTraverser {
                 // is this socket connected to anything?
                 if let Some(connection_index) = graph.get_input_connection_index(*index, input)? {
                     // get what it's connected from
-                    let connection = graph.get_graph().get_edge(connection_index.0)?;
+                    let connection = graph.get_graph().get_edge(connection_index.0).expect("edge to exist");
                     let from = NodeIndex(connection.get_from());
 
                     // where is the other nodes' output location?

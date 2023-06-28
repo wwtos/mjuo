@@ -1,5 +1,5 @@
+import { Index } from "$lib/ddgg/gen_vec";
 import type { IpcSocket } from "$lib/ipc/socket";
-import type { Index } from "../ddgg/gen_vec";
 import { Graph, type VertexIndex } from "../ddgg/graph";
 import type { NodeWrapper } from "./node";
 import { type NodeConnection, NodeGraph } from "./node_graph";
@@ -15,7 +15,7 @@ export class GraphManager {
     nodeGraphs: Graph<NodeGraph, ConnectedThrough>;
     ipcSocket: IpcSocket;
     ipcListenerRegistered: boolean = false;
-    graphWaitingFor: Index | null = null;
+    graphWaitingFor: string | null = null;
     graphWaitingForEvent: Function | null = null;
 
     constructor(ipcSocket: IpcSocket) {
@@ -24,15 +24,22 @@ export class GraphManager {
     }
 
     applyJson(json: {
-            graphIndex: Index,
+            graphIndex: string,
             nodes: Graph<NodeWrapper, NodeConnection>
     }) {
         if (!Graph.getVertex(this.nodeGraphs, json.graphIndex)) {
-            this.nodeGraphs.verticies[json.graphIndex.index] = {variant: "Occupied", data: [{
-                connectionsFrom: [],
-                connectionsTo: [],
-                data: new NodeGraph(this.ipcSocket, json.graphIndex)
-            }, json.graphIndex.generation]};
+            this.nodeGraphs.verticies[Index.fromString(json.graphIndex).index] =
+                {
+                    variant: "Occupied",
+                    data: [
+                        {
+                            connectionsFrom: [],
+                            connectionsTo: [],
+                            data: new NodeGraph(this.ipcSocket, json.graphIndex)
+                        },
+                        Index.fromString(json.graphIndex).generation
+                    ]
+                };
         }
 
         Graph.getVertexData(this.nodeGraphs, json.graphIndex)?.applyJson(json);
@@ -47,7 +54,7 @@ export class GraphManager {
         }
     }
 
-    async getGraph(graphIndex: Index): Promise<NodeGraph> {
+    async getGraph(graphIndex: string): Promise<NodeGraph> {
         if (Graph.getVertex(this.nodeGraphs, graphIndex)) {
             return Graph.getVertexData(this.nodeGraphs, graphIndex) as NodeGraph;
         } else {
@@ -70,13 +77,13 @@ export class GraphManager {
                 }
             } = (await graphPromise) as any;
 
-            this.nodeGraphs.verticies[graphIndex.index] = {
+            this.nodeGraphs.verticies[Index.fromString(graphIndex).index] = {
                 "variant": "Occupied",
                 "data": [{
                     data: new NodeGraph(this.ipcSocket, graphIndex),
                     connectionsFrom: [],
                     connectionsTo: []
-                }, graphIndex.generation]
+                }, Index.fromString(graphIndex).generation]
             };
 
             Graph.getVertexData(this.nodeGraphs, graphIndex)?.applyJson(graph.payload);
@@ -86,17 +93,17 @@ export class GraphManager {
     }
 
     getRootGraph() {
-        if (!Graph.getVertexData(this.nodeGraphs, {index: 0, generation: 0})) {
+        if (!Graph.getVertexData(this.nodeGraphs, "0.0")) {
             this.nodeGraphs.verticies[0] = {
                 "variant": "Occupied",
                 "data": [{
-                    data:  new NodeGraph(this.ipcSocket, {index: 0, generation: 0}),
+                    data:  new NodeGraph(this.ipcSocket, "0.0"),
                     connectionsFrom: [],
                     connectionsTo: []
                 }, 0]
             };
         }
 
-        return Graph.getVertexData(this.nodeGraphs, {index: 0, generation: 0}) as NodeGraph;
+        return Graph.getVertexData(this.nodeGraphs, "0.0") as NodeGraph;
     }
 }

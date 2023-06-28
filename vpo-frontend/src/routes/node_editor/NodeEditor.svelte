@@ -37,7 +37,7 @@
 
     let zoomer: PanZoom;
 
-    ipcSocket.requestGraph({ index: 0, generation: 0 });
+    ipcSocket.requestGraph("0.0");
 
     let editor: HTMLDivElement;
     let nodeContainer: HTMLDivElement;
@@ -81,7 +81,7 @@
     let path = [
         {
             name: "root",
-            index: { index: 0, generation: 0 },
+            index: "0.0",
         },
     ];
 
@@ -304,9 +304,9 @@
                     );
                 })
                 .map((node) => {
-                    let index = node.getAttribute("data-index");
+                    let index = node.getAttribute("data-index") || "";
 
-                    return index && JSON.parse(index);
+                    return index;
                 });
 
             deselectAll($activeGraph);
@@ -465,8 +465,7 @@
         let e = event.detail;
 
         // can't connect one node to the same node
-        if (e.vertexIndex.index === connectionBeingCreatedFrom.index.index)
-            return;
+        if (e.vertexIndex === connectionBeingCreatedFrom.index) return;
 
         // can't connect input to output
         if (e.direction === connectionBeingCreatedFrom.direction) return;
@@ -541,7 +540,7 @@
     ) {
         while (
             path.length > 1 &&
-            path[path.length - 1].index.index !== event.detail.index.index
+            path[path.length - 1].index !== event.detail.index
         ) {
             path.pop();
         }

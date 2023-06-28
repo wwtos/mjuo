@@ -77,8 +77,7 @@
                 .filter((x) => x !== undefined);
 
             const node = uiNodes.find(
-                ({ index }) =>
-                    index.index === currentlySelected?.nodeIndex.index
+                ({ index }) => index === currentlySelected?.nodeIndex
             );
 
             if (node?.node.uiData.panelInstances) {
@@ -103,7 +102,7 @@
         if (!currentlySelected) return;
 
         const node = uiNodes.find(
-            ({ index }) => index.index === currentlySelected?.nodeIndex.index
+            ({ index }) => index === currentlySelected?.nodeIndex
         );
 
         if (node?.node.uiData.panelInstances) {
@@ -272,7 +271,7 @@
                     on:drop={onDrop}
                     style="position: relative; height: {viewportHeight}px"
                 >
-                    {#each uiNodes as { node, index, uiName } (JSON.stringify(index))}
+                    {#each uiNodes as { node, index, uiName } (index)}
                         {#if node.uiData["panelInstances"] && node.uiData.panelInstances["0"]}
                             {#each node.uiData.panelInstances["0"] as uiElement, elementIndex}
                                 <UiElement

@@ -26,10 +26,10 @@ export class NodeGraph {
     keyedConnectionStore: BehaviorSubject<([string, Connection])[]>;
     changedNodes: Array<{ changedProperties: Array<NodeProperty>, index: VertexIndex }>;
     ipcSocket: IpcSocket;
-    graphIndex: Index;
+    graphIndex: string;
     selectedNodes: [];
 
-    constructor (ipcSocket: IpcSocket, graphIndex: Index) {
+    constructor (ipcSocket: IpcSocket, graphIndex: string) {
         this.ipcSocket = ipcSocket;
 
         this.nodes = {verticies: [], edges: []};
@@ -58,7 +58,7 @@ export class NodeGraph {
             match(element, {
                 Open() {},
                 Occupied({data: [data, generation]}) {
-                    out.push([{ index: i, generation }, data.data]);
+                    out.push([Index.toString({ index: i, generation }), data.data]);
                 }
             })
         }
@@ -95,7 +95,7 @@ export class NodeGraph {
             };
 
             keyedConnections.push([
-                "(" + Index.toKey(this.graphIndex) + ") " + JSON.stringify(newConnection),
+                "(" + this.graphIndex + ") " + JSON.stringify(newConnection),
                 newConnection
             ]);
         }
@@ -107,7 +107,7 @@ export class NodeGraph {
         let keyedNodes: ([string, NodeWrapper, VertexIndex])[] = [];
 
         for (let [node, index] of Graph.verticies(this.nodes)) {
-            keyedNodes.push(["(" + Index.toKey(this.graphIndex) + ") " + Index.toKey(index), node.data, index]);
+            keyedNodes.push(["(" + this.graphIndex + ") " + index, node.data, index]);
         }
 
         return keyedNodes;

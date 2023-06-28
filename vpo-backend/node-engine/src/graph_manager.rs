@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use ddgg::{EdgeIndex, Graph, GraphDiff, GraphError, VertexIndex};
+use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use snafu::OptionExt;
 
 use crate::connection::Socket;
-use crate::errors::{NodeError, NodeOk, NodeResult};
+use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
 use crate::node_wrapper::NodeWrapper;
 use crate::socket_registry::SocketRegistry;
@@ -84,7 +85,7 @@ impl GraphManager {
         let shared_edges = self.node_graphs.shared_edges(from.0, to.0)?;
 
         for edge_index in &shared_edges {
-            let edge = self.node_graphs.get_edge(*edge_index)?;
+            let edge = self.node_graphs.get_edge(*edge_index).expect("edge to exist");
 
             if edge.data == through {
                 let (old_data, remove_diff) = self.node_graphs.remove_edge(shared_edges[0])?;
@@ -95,12 +96,16 @@ impl GraphManager {
             }
         }
 
-        Err(NodeError::NotConnected)
+        Err(NodeError::GraphsNotConnected { from, through, to })
     }
 
     /// Will error out if there's more than one parent node connected
-    pub fn remove_graph(&mut self, graph_index: &GraphIndex) -> Result<(NodeGraph, GraphManagerDiff), NodeError> {
-        let parent_nodes = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
+    pub fn remove_graph(&mut self, graph_index: GraphIndex) -> Result<(NodeGraph, GraphManagerDiff), NodeError> {
+        let parent_nodes = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index })?
+            .get_connections_from();
 
         if !parent_nodes.is_empty() {
             Err(NodeError::GraphHasOtherParents)
@@ -122,11 +127,17 @@ impl GraphManager {
     }
 
     pub fn get_graph(&self, index: GraphIndex) -> Result<&NodeGraph, NodeError> {
-        Ok(self.node_graphs.get_vertex_data(index.0)?)
+        Ok(self
+            .node_graphs
+            .get_vertex_data(index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
     }
 
     pub fn get_graph_mut(&mut self, index: GraphIndex) -> Result<&mut NodeGraph, NodeError> {
-        Ok(self.node_graphs.get_vertex_data_mut(index.0)?)
+        Ok(self
+            .node_graphs
+            .get_vertex_data_mut(index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
     }
 
     pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeWrapper, NodeError> {
@@ -138,18 +149,25 @@ impl GraphManager {
     }
 
     pub fn get_graph_parents(&self, graph_index: GraphIndex) -> Result<Vec<GlobalNodeIndex>, NodeError> {
-        let parents = self.node_graphs.get_vertex(graph_index.0)?.get_connections_from();
+        let parents = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu { graph_index })?
+            .get_connections_from();
 
-        parents
+        let mapped = parents
             .iter()
             .map(|(vertex_index, edge_index)| {
-                self.node_graphs.get_edge_data(*edge_index).map(|edge| GlobalNodeIndex {
+                let edge = self.node_graphs.get_edge_data(*edge_index).expect("edge to exist");
+
+                GlobalNodeIndex {
                     graph_index: GraphIndex(*vertex_index),
                     node_index: edge.0,
-                })
+                }
             })
-            .collect::<Result<Vec<GlobalNodeIndex>, GraphError>>()
-            .map_err(|err| err.into())
+            .collect::<Vec<GlobalNodeIndex>>();
+
+        Ok(mapped)
     }
 }
 
@@ -270,7 +288,13 @@ impl GraphManager {
         let mut diff = vec![];
 
         // first, see if the node has a child graph
-        let children = self.node_graphs.get_vertex(graph_index.0)?.get_connections_to();
+        let children = self
+            .node_graphs
+            .get_vertex(graph_index.0)
+            .with_context(|| GraphDoesNotExistSnafu {
+                graph_index: graph_index,
+            })?
+            .get_connections_to();
 
         // if it does have children, remove the connections
         if !children.is_empty() {
