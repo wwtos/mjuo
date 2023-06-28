@@ -164,12 +164,13 @@
 </script>
 
 <div
-    class="background"
+    class="background node"
     style="transform: translate({x}px, {y}px); width: {width}px"
     on:mousedown={onMousedownRaw}
     class:selected
     bind:this={node}
     on:dblclick|stopPropagation
+    data-index={JSON.stringify(nodeIndex)}
 >
     <div class="node-title">
         {title && title.length > 0 ? $localize("node." + title) : " "}

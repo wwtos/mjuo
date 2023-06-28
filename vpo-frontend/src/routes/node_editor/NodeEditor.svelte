@@ -11,10 +11,7 @@
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { VertexIndex } from "$lib/ddgg/graph";
-    import {
-        transformMouse,
-        transformMouseRelativeToEditor,
-    } from "$lib/util/mouse-transforms";
+    import { transformMouseRelativeToEditor } from "$lib/util/mouse-transforms";
     import { NODE_WIDTH, type NodeWrapper } from "$lib/node-engine/node";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
     import type { SocketRegistry } from "$lib/node-engine/socket_registry";
@@ -65,11 +62,22 @@
         x2: number;
         y2: number;
     } = null;
+
     let connectionBeingCreatedFrom: {
         index: VertexIndex;
         direction: SocketDirection;
         socket: Socket;
     };
+
+    let selection: {
+        fromClientX: number;
+        fromClientY: number;
+        fromX: number;
+        fromY: number;
+        toX: number;
+        toY: number;
+    } | null = null;
+
     let path = [
         {
             name: "root",
@@ -78,6 +86,7 @@
     ];
 
     let controlHeld = false;
+    let shiftHeld = false;
 
     function onPaste(event: ClipboardEvent) {
         const paste = event.clipboardData?.getData("text") || "";
@@ -86,7 +95,8 @@
     }
 
     function onKeydown(event: KeyboardEvent) {
-        controlHeld = event.ctrlKey || event.shiftKey;
+        controlHeld = event.ctrlKey;
+        shiftHeld = event.shiftKey;
 
         if (event.ctrlKey) {
             switch (event.key) {
@@ -120,22 +130,41 @@
     }
 
     function onKeyup(event: KeyboardEvent) {
-        controlHeld = event.ctrlKey || event.shiftKey;
+        controlHeld = event.ctrlKey;
+        shiftHeld = event.shiftKey;
     }
 
-    function onMousedown(index: VertexIndex, event: MouseEvent) {
+    function onNodeMousedown(index: VertexIndex, event: MouseEvent) {
         if (event.button === 0) {
             // translate mouse coordinates
-            let boundingRect = editor.getBoundingClientRect();
-
-            let relativeX = event.clientX - boundingRect.x;
-            let relativeY = event.clientY - boundingRect.y;
-
-            let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
 
             zoomer.pause();
 
             keepSelected = index;
+        }
+    }
+
+    function onEditorMousedown(event: MouseEvent) {
+        let [mouseX, mouseY] = transformMouseRelativeToEditor(
+            editor,
+            zoomer,
+            event.clientX,
+            event.clientY
+        );
+
+        if (shiftHeld) {
+            zoomer.pause();
+
+            event.preventDefault();
+
+            selection = {
+                fromClientX: event.clientX,
+                fromClientY: event.clientY,
+                fromX: mouseX,
+                fromY: mouseY,
+                toX: mouseX,
+                toY: mouseY,
+            };
         }
     }
 
@@ -147,6 +176,11 @@
             clientX,
             clientY
         );
+
+        if (selection) {
+            selection.toX = mouseX;
+            selection.toY = mouseY;
+        }
 
         // have we not started dragging?
         if (draggedState.length === 0 && keepSelected) {
@@ -214,7 +248,14 @@
         createNodeMenu.visible = false;
     };
 
-    function onMouseup() {
+    function onMouseup(event: MouseEvent) {
+        let [mouseX, mouseY] = transformMouseRelativeToEditor(
+            editor,
+            zoomer,
+            event.clientX,
+            event.clientY
+        );
+
         if (draggedState.length === 0 && !controlHeld) {
             let selectedNodes = getSelected($activeGraph);
 
@@ -241,7 +282,49 @@
             $activeGraph.markNodeAsUpdated(keepSelected, ["uiData"]);
         }
 
+        if (selection) {
+            const AABB = {
+                left: selection.fromClientX,
+                top: selection.fromClientY,
+                right: event.clientX,
+                bottom: event.clientY,
+            };
+
+            const nodes = Array.from(document.querySelectorAll(".node"));
+
+            const insideAABB = nodes
+                .filter((node) => {
+                    const nodeAABB = node.getBoundingClientRect();
+
+                    return (
+                        AABB.right >= nodeAABB.left &&
+                        nodeAABB.right >= AABB.left &&
+                        AABB.bottom >= nodeAABB.top &&
+                        nodeAABB.bottom >= AABB.top
+                    );
+                })
+                .map((node) => {
+                    let index = node.getAttribute("data-index");
+
+                    return index && JSON.parse(index);
+                });
+
+            deselectAll($activeGraph);
+
+            for (let index of insideAABB) {
+                const node = $activeGraph.getNode(index) as NodeWrapper;
+
+                node.uiData.selected = true;
+
+                $activeGraph.markNodeAsUpdated(index, ["uiData"]);
+            }
+
+            $activeGraph.writeChangedNodesToServer();
+        }
+
         zoomer.resume();
+
+        selection = null;
         draggedState = [];
         connectionBeingCreated = null;
         keepSelected = null;
@@ -256,12 +339,12 @@
             clientY: number;
         }>
     ) {
-        let boundingRect = editor.getBoundingClientRect();
-
-        let relativeX = ev.detail.clientX - boundingRect.x;
-        let relativeY = ev.detail.clientY - boundingRect.y;
-
-        let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+        let [mouseX, mouseY] = transformMouseRelativeToEditor(
+            editor,
+            zoomer,
+            ev.detail.clientX,
+            ev.detail.clientY
+        );
 
         ipcSocket.commit([
             {
@@ -305,12 +388,12 @@
     function handleSocketMousedown(event: CustomEvent<SocketEvent>) {
         let e = event.detail;
 
-        let boundingRect = editor.getBoundingClientRect();
-
-        let relativeX = e.event.clientX - boundingRect.x;
-        let relativeY = e.event.clientY - boundingRect.y;
-
-        let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+        let [mouseX, mouseY] = transformMouseRelativeToEditor(
+            editor,
+            zoomer,
+            e.event.clientX,
+            e.event.clientY
+        );
 
         if (e.direction.variant === "Input") {
             // see if it's already connected, in which case we're disconnecting it
@@ -508,7 +591,9 @@
 <div
     class="editor"
     style="width: {width}px; height: {height}px"
+    class:selecting={shiftHeld}
     bind:this={editor}
+    on:mousedown={onEditorMousedown}
     on:keydown={onKeydown}
     on:keyup={onKeyup}
     on:contextmenu|preventDefault={onContextMenu}
@@ -531,13 +616,13 @@
                 {/if}
             {/if}
         </div>
-        <div style="z-index: 10">
+        <div style="z-index: 10;">
             {#each keyedNodes as [key, node, index] (key)}
                 <Node
                     graph={$activeGraph}
                     wrapper={node}
                     nodeIndex={index}
-                    {onMousedown}
+                    onMousedown={onNodeMousedown}
                     registry={socketRegistry}
                     x={node.uiData.x}
                     y={node.uiData.y}
@@ -549,6 +634,15 @@
                 />
             {/each}
         </div>
+        {#if selection}
+            <div
+                style="z-index: 20; position: absolute; left: {selection.fromX}px; top: {selection.fromY}px;
+                    width: {selection.toX -
+                    selection.fromX}px; height: {selection.toY -
+                    selection.fromY}px"
+                class="selection-box"
+            />
+        {/if}
     </div>
     <div class="breadcrumb-container" style="width: {width - 16}px">
         <Breadcrumb on:click={breadcrumbChangeGraph} {path} />
@@ -574,5 +668,14 @@
         margin: 0;
         background-color: #ddd;
         z-index: 20;
+    }
+
+    .selecting {
+        cursor: crosshair;
+    }
+
+    .selection-box {
+        border: 2px solid blue;
+        background: rgba(0, 0, 255, 0.2);
     }
 </style>
