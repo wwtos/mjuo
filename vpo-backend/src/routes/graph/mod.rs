@@ -1,6 +1,7 @@
 pub mod commit;
 pub mod copy;
 pub mod get;
+pub mod paste;
 pub mod redo;
 pub mod undo;
 pub mod update_node_state;

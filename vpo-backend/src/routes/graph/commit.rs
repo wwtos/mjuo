@@ -23,15 +23,15 @@ struct Payload {
 pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
-    let updates = state
+    let invalidations = state
         .state
         .commit(payload.actions, payload.force_append)
         .context(NodeSnafu)?;
 
     let mut touched_graphs = HashSet::new();
 
-    for update in &updates {
-        match update {
+    for invalidation in &invalidations {
+        match invalidation {
             ActionInvalidation::GraphReindexNeeded(index)
             | ActionInvalidation::GraphModified(index)
             | ActionInvalidation::NewDefaults(GlobalNodeIndex { graph_index: index, .. }, _)
@@ -49,7 +49,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     Ok(RouteReturn {
         engine_updates: state
             .state
-            .invalidations_to_engine_updates(updates, state.global_state)
+            .invalidations_to_engine_updates(invalidations, state.global_state)
             .context(NodeSnafu)?,
         new_project: false,
     })
