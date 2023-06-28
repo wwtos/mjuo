@@ -20,7 +20,7 @@
     let draggableWidth = 0;
     let viewportHeight = 0;
 
-    let locked = false;
+    let locked = true;
     let textareaContent = "";
 
     let currentlySelected: {
@@ -272,7 +272,7 @@
                     on:drop={onDrop}
                     style="position: relative; height: {viewportHeight}px"
                 >
-                    {#each uiNodes as { node, index, uiName } (index)}
+                    {#each uiNodes as { node, index, uiName } (JSON.stringify(index))}
                         {#if node.uiData["panelInstances"] && node.uiData.panelInstances["0"]}
                             {#each node.uiData.panelInstances["0"] as uiElement, elementIndex}
                                 <UiElement
