@@ -1,6 +1,18 @@
 import type { VertexIndex } from "$lib/ddgg/graph";
 import type { NodeGraph } from "$lib/node-engine/node_graph";
 
+export function getSelected(graph: NodeGraph): VertexIndex[] {
+    const currentNodes = graph.nodeStore.getValue();
+
+    let touchedNodes = currentNodes
+        .filter(([node, index]) => {
+            return node.data.uiData.selected;
+        })
+        .map(x => x[1]);
+
+    return touchedNodes;
+}
+
 export function deselectAll(graph: NodeGraph): VertexIndex[] {
     const currentNodes = graph.nodeStore.getValue();
 
@@ -14,7 +26,7 @@ export function deselectAll(graph: NodeGraph): VertexIndex[] {
             selected: false,
         };
 
-        graph.updateNode(index);
+        graph.markNodeAsUpdated(index, ["uiData"]);
     }
 
     return touchedNodes.map(([_, index]) => index);

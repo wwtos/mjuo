@@ -7,7 +7,7 @@
     import type { SocketEvent } from "./socket";
     import NodeCreationMenu from "./NodeCreationMenu.svelte";
     import Breadcrumb from "./Breadcrumb.svelte";
-    import { deselectAll } from "./editor-utils";
+    import { deselectAll, getSelected } from "./editor-utils";
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { VertexIndex } from "$lib/ddgg/graph";
@@ -24,6 +24,7 @@
         Connection,
     } from "$lib/node-engine/connection";
     import type { Action } from "$lib/node-engine/state";
+    import { deepEqual } from "fast-equals";
 
     export let width = 400;
     export let height = 400;
@@ -44,13 +45,13 @@
     let editor: HTMLDivElement;
     let nodeContainer: HTMLDivElement;
 
-    // node being actively dragged as well as the mouse offset
-    let draggedState: {
+    // nodes being actively dragged as well as their mouse offset
+    let draggedState: Array<{
         node: VertexIndex;
         offset: [number, number];
-    } | null = null;
+    }> = [];
+    let keepSelected: VertexIndex | null = null;
 
-    let draggedNodeWasDragged = false;
     let createNodeMenu = {
         visible: false,
         x: 0,
@@ -78,8 +79,14 @@
 
     let controlHeld = false;
 
+    function onPaste(event: ClipboardEvent) {
+        const paste = event.clipboardData?.getData("text") || "";
+
+        ipcSocket.paste($activeGraph.graphIndex, paste);
+    }
+
     function onKeydown(event: KeyboardEvent) {
-        controlHeld = event.ctrlKey;
+        controlHeld = event.ctrlKey || event.shiftKey;
 
         if (event.ctrlKey) {
             switch (event.key) {
@@ -113,7 +120,23 @@
     }
 
     function onKeyup(event: KeyboardEvent) {
-        controlHeld = event.ctrlKey;
+        controlHeld = event.ctrlKey || event.shiftKey;
+    }
+
+    function onMousedown(index: VertexIndex, event: MouseEvent) {
+        if (event.button === 0) {
+            // translate mouse coordinates
+            let boundingRect = editor.getBoundingClientRect();
+
+            let relativeX = event.clientX - boundingRect.x;
+            let relativeY = event.clientY - boundingRect.y;
+
+            let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
+
+            zoomer.pause();
+
+            keepSelected = index;
+        }
     }
 
     function onMousemove({ clientX, clientY }: MouseEvent) {
@@ -125,20 +148,54 @@
             clientY
         );
 
-        // if the mouse was moved and we are dragging a node, update that node's position
-        if (draggedState) {
-            let node = $activeGraph.getNode(draggedState.node) as NodeWrapper;
+        // have we not started dragging?
+        if (draggedState.length === 0 && keepSelected) {
+            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
 
-            draggedNodeWasDragged = true;
+            // if control isn't pressed, and the one clicked isn't selected, deselect all of them
+            if (!controlHeld && !node.uiData.selected) {
+                deselectAll($activeGraph);
+            }
 
+            // mark this one as dragging
             node.uiData = {
                 ...node.uiData,
-                x: mouseX - draggedState.offset[0],
-                y: mouseY - draggedState.offset[1],
+                selected: true,
             };
 
-            $activeGraph.updateNode(draggedState.node);
-            $activeGraph.update();
+            $activeGraph.markNodeAsUpdated(keepSelected, ["uiData"]);
+
+            // figure out what nodes should be dragged
+            const selected = getSelected($activeGraph);
+
+            draggedState = selected.map((nodeIndex) => {
+                const node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+                const offset: [number, number] = [
+                    mouseX - node.uiData.x,
+                    mouseY - node.uiData.y,
+                ];
+
+                return {
+                    node: nodeIndex,
+                    offset,
+                };
+            });
+        }
+
+        // if the mouse was moved and we are dragging nodes, update those node's position
+        if (draggedState.length > 0) {
+            for (let { node: nodeIndex, offset } of draggedState) {
+                let node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+
+                node.uiData = {
+                    ...node.uiData,
+                    x: mouseX - offset[0],
+                    y: mouseY - offset[1],
+                };
+
+                $activeGraph.markNodeAsUpdated(nodeIndex, ["uiData"]);
+                $activeGraph.update();
+            }
         } else if (connectionBeingCreated) {
             connectionBeingCreated.x2 = mouseX;
             connectionBeingCreated.y2 = mouseY;
@@ -158,18 +215,38 @@
     };
 
     function onMouseup() {
-        if (draggedState && draggedNodeWasDragged) {
-            $activeGraph.markNodeAsUpdated(draggedState.node, ["uiData"]);
-            $activeGraph.update();
+        if (draggedState.length === 0 && !controlHeld) {
+            let selectedNodes = getSelected($activeGraph);
 
-            draggedNodeWasDragged = false;
+            for (let selected of selectedNodes) {
+                if (!deepEqual(selected, keepSelected)) {
+                    const node = $activeGraph.getNode(selected) as NodeWrapper;
+
+                    node.uiData.selected = false;
+                }
+
+                $activeGraph.markNodeAsUpdated(selected, ["uiData"]);
+            }
         }
 
-        $activeGraph.writeChangedNodesToServer();
+        if (keepSelected) {
+            // mark this one as dragging
+            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
+
+            node.uiData = {
+                ...node.uiData,
+                selected: true,
+            };
+
+            $activeGraph.markNodeAsUpdated(keepSelected, ["uiData"]);
+        }
 
         zoomer.resume();
-        draggedState = null;
+        draggedState = [];
         connectionBeingCreated = null;
+        keepSelected = null;
+
+        $activeGraph.writeChangedNodesToServer();
     }
 
     function createNode(
@@ -221,44 +298,6 @@
                 }
             ),
         ];
-    }
-
-    function handleNodeMousedown(index: VertexIndex, event: MouseEvent) {
-        if (event.button === 0) {
-            let boundingRect = editor.getBoundingClientRect();
-
-            let relativeX = event.clientX - boundingRect.x;
-            let relativeY = event.clientY - boundingRect.y;
-
-            let [mouseX, mouseY] = transformMouse(zoomer, relativeX, relativeY);
-
-            zoomer.pause();
-
-            let node = $activeGraph.getNode(index) as NodeWrapper;
-
-            draggedState = {
-                node: index,
-                offset: [mouseX - node.uiData.x, mouseY - node.uiData.y],
-            };
-
-            if (!controlHeld) {
-                let touchedNodes = deselectAll($activeGraph);
-
-                for (let touched of touchedNodes) {
-                    $activeGraph.markNodeAsUpdated(touched, ["uiData"]);
-                }
-            }
-
-            node = $activeGraph.getNode(index) as NodeWrapper;
-
-            node.uiData = {
-                ...node.uiData,
-                selected: true,
-            };
-
-            $activeGraph.markNodeAsUpdated(index, ["uiData"]);
-            $activeGraph.writeChangedNodesToServer();
-        }
     }
 
     (window as any)["ipcSocket"] = ipcSocket;
@@ -463,6 +502,7 @@
     on:mousedown={onWindowMousedown}
     on:mousemove={onMousemove}
     on:mouseup={onMouseup}
+    on:paste={onPaste}
 />
 
 <div
@@ -497,7 +537,7 @@
                     graph={$activeGraph}
                     wrapper={node}
                     nodeIndex={index}
-                    onMousedown={handleNodeMousedown}
+                    {onMousedown}
                     registry={socketRegistry}
                     x={node.uiData.x}
                     y={node.uiData.y}

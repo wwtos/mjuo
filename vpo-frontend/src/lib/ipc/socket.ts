@@ -82,6 +82,16 @@ export abstract class IpcSocket {
         });
     }
 
+    paste (graphIndex: VertexIndex, clipboard: string) {
+        this.send({
+            action: "graph/paste",
+            payload: {
+                graphIndex,
+                clipboard
+            }
+        });
+    }
+
     importRank (fileName: string, rankName: string) {
         this.send({
             "action": "io/importRank",
