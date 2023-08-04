@@ -50,6 +50,10 @@ pub struct FilterSpec<F: Float> {
 }
 
 impl<F: Float> FilterSpec<F> {
+    pub fn new(f0: F, fs: F, filter_type: FilterType<F>) -> FilterSpec<F> {
+        FilterSpec { f0, fs, filter_type }
+    }
+
     pub fn set_db_gain(&mut self, new_db_gain: F) -> bool {
         match &mut self.filter_type {
             FilterType::Peaking { db_gain, .. }
@@ -295,13 +299,13 @@ pub type BiquadFilter = RecursiveFilter<3, f32>;
 
 // TODO: optimize, this is very sloppy
 #[derive(Debug, Clone)]
-pub struct NthRecursiveFilter {
+pub struct NthBiquadFilter {
     filters: SmallVec<[BiquadFilter; 4]>,
     order_multiplier: usize,
     spec: FilterSpec<f32>,
 }
 
-impl NthRecursiveFilter {
+impl NthBiquadFilter {
     pub fn new(mut spec: FilterSpec<f32>, order_multiplier: usize) -> Self {
         let mut filters = SmallVec::new();
 
@@ -327,15 +331,15 @@ impl NthRecursiveFilter {
             filters.push(BiquadFilter::from(coeffs.clone()));
         }
 
-        NthRecursiveFilter {
+        NthBiquadFilter {
             filters,
             order_multiplier,
             spec,
         }
     }
 
-    pub fn empty() -> NthRecursiveFilter {
-        NthRecursiveFilter {
+    pub fn empty() -> NthBiquadFilter {
+        NthBiquadFilter {
             filters: SmallVec::new(),
             order_multiplier: 0,
             spec: FilterSpec {
@@ -344,6 +348,10 @@ impl NthRecursiveFilter {
                 filter_type: FilterType::LowPass { q: 0.7 },
             },
         }
+    }
+
+    pub fn get_order_multiplier(&self) -> usize {
+        self.order_multiplier
     }
 
     pub fn get_spec(&self) -> &FilterSpec<f32> {

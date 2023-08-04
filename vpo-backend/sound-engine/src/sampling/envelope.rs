@@ -17,8 +17,8 @@ pub struct SampleMetadata {
     pub release_index: usize,
     pub loop_start: usize,
     pub loop_end: usize,
-    pub note: u8,
-    pub cents: i16,
+    pub freq: f64,
+    pub closest_note: u8,
 }
 
 pub fn calc_amp(signal: &[f64], window_width: usize) -> Vec<f64> {
@@ -288,10 +288,7 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
         release_index,
     );
 
-    let note = (12.0 * f64::log2(freq / 440.0) + 69.0).round() as u8;
-    let note_freq = 440.0 * 2_f64.powf((note as i16 - 69) as f64 / 12.0);
-
-    let cents = (1200.0 * f64::log2(freq / note_freq)).round() as i16;
+    let closest_note = (12.0 * f64::log2(freq / 440.0) + 69.0).round() as u8;
 
     SampleMetadata {
         decay_index,
@@ -299,7 +296,7 @@ pub fn calc_sample_metadata(sample_raw: &[f32], sample_rate: u32, freq: Option<f
         release_index,
         loop_start: loop_point.0,
         loop_end: loop_point.1,
-        note,
-        cents,
+        freq,
+        closest_note,
     }
 }

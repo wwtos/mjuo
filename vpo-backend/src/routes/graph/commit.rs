@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{JsonParserSnafu, NodeSnafu},
     routes::prelude::*,
-    util::send_graph_updates,
+    util::{send_graph_updates, send_registry_updates},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -29,6 +29,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         .context(NodeSnafu)?;
 
     let mut touched_graphs = HashSet::new();
+    let mut update_registry = false;
 
     for invalidation in &invalidations {
         match invalidation {
@@ -37,6 +38,8 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
             | ActionInvalidation::NewDefaults(GlobalNodeIndex { graph_index: index, .. }, _)
             | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
                 touched_graphs.insert(index);
+
+                update_registry = true;
             }
             ActionInvalidation::None => {}
         }
@@ -44,6 +47,10 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
 
     for graph_index in touched_graphs {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
+    }
+
+    if update_registry {
+        send_registry_updates(state.state.get_registry(), state.to_server)?;
     }
 
     Ok(RouteReturn {

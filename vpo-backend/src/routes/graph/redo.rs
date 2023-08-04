@@ -1,4 +1,6 @@
-use node_engine::state::ActionInvalidation;
+use std::collections::HashSet;
+
+use node_engine::{graph_manager::GlobalNodeIndex, state::ActionInvalidation};
 use snafu::ResultExt;
 
 use crate::{
@@ -8,19 +10,31 @@ use crate::{
     util::send_graph_updates,
 };
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
-    let updates = state.state.redo().context(NodeSnafu)?;
+pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
+    let invalidations = state.state.redo().context(NodeSnafu)?;
 
-    for update in &updates {
-        if let ActionInvalidation::GraphReindexNeeded(index) | ActionInvalidation::GraphModified(index) = update {
-            send_graph_updates(state.state, *index, state.to_server)?;
+    let mut touched_graphs = HashSet::new();
+
+    for invalidation in &invalidations {
+        match invalidation {
+            ActionInvalidation::GraphReindexNeeded(index)
+            | ActionInvalidation::GraphModified(index)
+            | ActionInvalidation::NewDefaults(GlobalNodeIndex { graph_index: index, .. }, _)
+            | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
+                touched_graphs.insert(index);
+            }
+            ActionInvalidation::None => {}
         }
+    }
+
+    for graph_index in touched_graphs {
+        send_graph_updates(state.state, *graph_index, state.to_server)?;
     }
 
     Ok(RouteReturn {
         engine_updates: state
             .state
-            .invalidations_to_engine_updates(updates, state.global_state)
+            .invalidations_to_engine_updates(invalidations, state.global_state)
             .context(NodeSnafu)?,
         new_project: false,
     })

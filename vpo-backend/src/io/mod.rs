@@ -1,15 +1,13 @@
 pub mod cpal;
 pub mod file_watcher;
 pub mod midir;
-
-use std::collections::HashMap;
+mod scoped_pool;
 
 use std::fmt::Debug;
 use std::fs;
-use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::available_parallelism;
+use std::sync::mpsc;
+use std::time::Instant;
 
 use lazy_static::lazy_static;
 
@@ -19,7 +17,6 @@ use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
-use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
 use crate::errors::{IoSnafu, JsonParserSnafu};
@@ -29,6 +26,8 @@ use crate::migrations::migrate;
 use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
 use crate::resource::ui::load_ui_from_file;
+
+use self::scoped_pool::scoped_pool;
 
 const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
@@ -54,14 +53,15 @@ pub fn save(state: &GraphState, path: &Path) -> Result<(), EngineError> {
 
 fn load_resources<T, F>(
     path: &Path,
-    resources: &mut ResourceManager<T>,
     valid_extensions: &[&str],
-    load_resource: &'static F,
-) -> Result<(), EngineError>
+    load_resource: &F,
+) -> Result<ResourceManager<T>, EngineError>
 where
-    T: Send + Sync + Debug + 'static,
+    T: Send + Sync + Debug,
     F: Fn(&Path) -> Result<T, EngineError> + Send + Sync,
 {
+    let mut resources = ResourceManager::new();
+
     // build iterator to traverse directories
     let asset_list = WalkDir::new(path)
         .follow_links(true)
@@ -86,33 +86,21 @@ where
         });
 
     // spawn threads to load everything
-    let new_resources: Arc<Mutex<HashMap<String, T>>> = Arc::new(Mutex::new(HashMap::new()));
-    let pool = ThreadPool::new(available_parallelism().unwrap_or(NonZeroUsize::new(4).unwrap()).into());
+    let new_resources = scoped_pool(asset_list, &|(key, location)| {
+        let new_resource = load_resource(&location).unwrap();
 
-    for asset in asset_list {
-        let resources_ref = Arc::clone(&new_resources);
-        let (key, location) = asset.clone();
-
-        pool.execute(move || {
-            // load and register it
-            let new_resource = load_resource(&location).unwrap();
-            println!("Loaded: {}", location.to_string_lossy());
-
-            resources_ref.lock().unwrap().insert(key, new_resource);
-        });
-    }
-
-    pool.join();
-
-    let new_resources = Arc::try_unwrap(new_resources).unwrap().into_inner().unwrap();
+        (key, new_resource)
+    })
+    .unwrap();
 
     for (key, resource) in new_resources.into_iter() {
         resources.add_resource(key, resource);
     }
 
-    Ok(())
+    Ok(resources)
 }
 
+/// Make sure samples are loaded before ranks!
 pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), EngineError> {
     let root = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
 
@@ -127,14 +115,14 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
-            let ranks = &mut global_state.resources.write().expect("not poisoned").ranks;
+            let mut resources = global_state.resources.write().expect("not poisoned");
 
-            if ranks.get_index(resource.as_ref()).is_some() {
-                ranks.remove_resource(resource.as_ref());
+            if resources.ranks.get_index(resource.as_ref()).is_some() {
+                resources.ranks.remove_resource(resource.as_ref());
             }
 
-            let rank = load_rank_from_file(file)?;
-            ranks.add_resource(resource.into_owned(), rank);
+            let rank = load_rank_from_file(file, &resources.samples)?;
+            resources.ranks.add_resource(resource.into_owned(), rank);
         }
         "samples" => {
             let samples = &mut global_state.resources.write().expect("not poisoned").samples;
@@ -186,21 +174,21 @@ pub fn load(
     *state = GraphState::new(global_state).unwrap();
     global_state.reset();
 
-    let mut resources = global_state.resources.write().unwrap();
+    println!("Loading resources...");
+    let time = Instant::now();
 
-    load_resources(
-        &parent.join("samples"),
-        &mut resources.samples,
-        AUDIO_EXTENSIONS,
-        &load_sample,
-    )?;
-    load_resources(
-        &parent.join("ranks"),
-        &mut resources.ranks,
-        &["toml"],
-        &load_rank_from_file,
-    )?;
-    load_resources(&parent.join("ui"), &mut resources.ui, &["toml"], &load_ui_from_file)?;
+    let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &load_sample)?;
+    let ranks = load_resources(&parent.join("ranks"), &["toml"], &|path| {
+        load_rank_from_file(path, &samples)
+    })?;
+    let ui = load_resources(&parent.join("ui"), &["toml"], &load_ui_from_file)?;
+
+    let mut resources = global_state.resources.write().unwrap();
+    resources.samples.extend(samples);
+    resources.ranks.extend(ranks);
+    resources.ui.extend(ui);
+
+    println!("Loaded! Took {:?} seconds", time.elapsed());
 
     let json_state = &mut json["state"];
 

@@ -91,6 +91,9 @@
     function onPaste(event: ClipboardEvent) {
         const paste = event.clipboardData?.getData("text") || "";
 
+        deselectAll($activeGraph);
+        $activeGraph.writeChangedNodesToServer();
+
         ipcSocket.paste($activeGraph.graphIndex, paste);
     }
 

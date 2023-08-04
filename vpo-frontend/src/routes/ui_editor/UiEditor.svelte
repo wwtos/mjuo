@@ -168,14 +168,14 @@
                 node.uiData.panelInstances || {}
             )) {
                 for (let element of instance) {
+                    if (element.selected) {
+                        graph.markNodeAsUpdated(index, ["uiData"]);
+                    }
+
                     element.selected = false;
                 }
             }
-
-            graph.markNodeAsUpdated(index, ["uiData"]);
         }
-
-        graph.writeChangedNodesToServer();
 
         currentlySelected = null;
         textareaContent = "";
@@ -208,6 +208,7 @@
         updateTextareaContent();
 
         graph.markNodeAsUpdated(nodeIndex, ["uiData"]);
+        graph.writeChangedNodesToServer();
     }
 
     function onSkinSelected(event: CustomEvent<string>) {
@@ -253,7 +254,12 @@
                 bind:firstWidth={draggableWidth}
                 initialSplitRatio={0.2}
             >
-                <div slot="first" class="container" on:dragstart={onDragStart}>
+                <div
+                    slot="first"
+                    class="container"
+                    style="overflow: auto"
+                    on:dragstart={onDragStart}
+                >
                     {#each uiNodes as { uiName, index }}
                         <div
                             class="ui-name"

@@ -99,7 +99,7 @@ impl NodeRuntime for RankPlayerNode {
             let samples = &state.resources.samples;
 
             if reset_needed {
-                player.reset();
+                player.handle_rank_updates(rank, samples);
             }
 
             for frame in streams_out[0].iter_mut() {

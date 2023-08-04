@@ -1,11 +1,16 @@
 use std::{collections::BTreeMap, fs::read_to_string, path::Path};
 
-use resource_manager::ResourceId;
+use resource_manager::{ResourceId, ResourceManager};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use sound_engine::{
-    sampling::rank::{Pipe, Rank},
-    util::{db_to_gain, gain_to_db},
+    sampling::{
+        phase_calculator::PhaseCalculator,
+        pipe_player::{envelope_points, EnvelopeType},
+        rank::{Pipe, Rank},
+    },
+    util::db_to_gain,
+    MonoSample,
 };
 
 use crate::errors::{EngineError, TomlParserDeSnafu};
@@ -25,6 +30,8 @@ struct RankConfigEntry {
     file: Option<String>,
     #[serde(default)]
     attenuation: f32,
+    #[serde(default)]
+    even_harm_atten: f32,
 }
 
 fn crossfade_default() -> usize {
@@ -55,14 +62,15 @@ impl RankConfig {
                 (
                     note.to_string(),
                     RankConfigEntry {
-                        cents: pipe.cents,
+                        cents: 0,
                         decay_index: pipe.decay_index,
                         loop_start: pipe.loop_start,
                         loop_end: pipe.loop_end,
                         release_index: pipe.release_index,
                         crossfade: Some(pipe.crossfade),
                         file: None,
-                        attenuation: gain_to_db(pipe.amplitude),
+                        attenuation: 0.0,
+                        even_harm_atten: 0.0,
                     },
                 )
             })
@@ -86,7 +94,7 @@ pub fn expected_sample_location(note: u8, sample_format: &str) -> String {
 }
 
 /// Parses a `[rank].toml` file and converts it into a `Rank`
-pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
+pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result<Rank, EngineError> {
     let parsed: RankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
 
     let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
@@ -106,20 +114,50 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
                 .concat(&expected_sample_location(note, &sample_format))
         };
 
-        pipes.insert(
-            note,
-            Pipe {
-                resource,
+        if let Some(sample) = samples
+            .get_index(&resource.resource)
+            .and_then(|x| samples.borrow_resource(x))
+        {
+            let buffer_rate = sample.sample_rate;
+            let freq = (440.0 / 32.0) * 2_f32.powf((note - 9) as f32 / 12.0 + (entry.cents as f32 / 1200.0));
+            let amp_window_size = (buffer_rate as f32 / freq) as usize * 2;
+
+            let phase_calculator = PhaseCalculator::new(freq, buffer_rate);
+
+            let attack_envelope = envelope_points(
+                entry.decay_index,
+                entry.release_index,
+                sample,
+                amp_window_size,
+                EnvelopeType::Attack,
+            );
+            let release_envelope = envelope_points(
+                entry.decay_index,
+                entry.release_index,
+                sample,
+                amp_window_size,
+                EnvelopeType::Release,
+            );
+
+            pipes.insert(
                 note,
-                cents: entry.cents,
-                amplitude: db_to_gain(-(entry.attenuation + parsed.attenuation)),
-                loop_start: entry.loop_start,
-                loop_end: entry.loop_end,
-                decay_index: entry.decay_index,
-                release_index: entry.release_index,
-                crossfade: entry.crossfade.unwrap_or(parsed.crossfade),
-            },
-        );
+                Pipe {
+                    resource,
+                    freq,
+                    amplitude: db_to_gain(-(entry.attenuation + parsed.attenuation)),
+                    loop_start: entry.loop_start,
+                    loop_end: entry.loop_end,
+                    decay_index: entry.decay_index,
+                    release_index: entry.release_index,
+                    crossfade: entry.crossfade.unwrap_or(parsed.crossfade),
+                    comb_coeff: db_to_gain(entry.even_harm_atten),
+                    amp_window_size,
+                    phase_calculator,
+                    attack_envelope: attack_envelope,
+                    release_envelope: release_envelope,
+                },
+            );
+        }
     }
 
     Ok(Rank {
@@ -129,10 +167,10 @@ pub fn parse_rank(config: &str) -> Result<Rank, EngineError> {
 }
 
 #[cfg(any(unix, windows))]
-pub fn load_rank_from_file(path: &Path) -> Result<Rank, EngineError> {
+pub fn load_rank_from_file(path: &Path, samples: &ResourceManager<MonoSample>) -> Result<Rank, EngineError> {
     use crate::errors::IoSnafu;
 
     let file = read_to_string(path).context(IoSnafu)?;
 
-    parse_rank(&file)
+    parse_rank(&file, samples)
 }

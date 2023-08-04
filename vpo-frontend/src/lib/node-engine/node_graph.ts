@@ -114,15 +114,15 @@ export class NodeGraph {
     }
 
     markNodeAsUpdated(index: VertexIndex, updated: NodeProperty[]) {
-        console.log(`node ${index} was updated`);
+        // console.log(`node ${index} was updated`);
 
         this.updateNode(index);
 
-        const existing = this.changedNodes.find(changed => deepEqual(changed.index, index));
+        const existing = this.changedNodes.find(changed => changed.index === index);
 
         if (existing) {
             for (let prop of updated) {
-                if (!(prop in existing.changedProperties)) {
+                if (existing.changedProperties.indexOf(prop) === -1) {
                     existing.changedProperties.push(prop);
                 }
            }

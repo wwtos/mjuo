@@ -67,6 +67,38 @@ impl RankPlayer {
         }
     }
 
+    pub fn handle_rank_updates(&mut self, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+        let reset_necessary = self.voices.iter().any(|voice| {
+            // only check active voices to see if they have broken invariants
+            if voice.active {
+                if let Some(pipe) = rank.pipes.get(&voice.note) {
+                    if let Some(sample) = samples.borrow_resource_by_id(&pipe.resource.resource) {
+                        // reset is needed if a voice is at a position past the available buffer
+                        let greatest_current_position = voice
+                            .player
+                            .get_position()
+                            .max(voice.player.get_crossfade_position().unwrap_or(0.0))
+                            .ceil() as usize;
+
+                        greatest_current_position + 3 > sample.audio_raw.len()
+                    } else {
+                        // reset is needed if a sample was removed
+                        true
+                    }
+                } else {
+                    // reset is needed if a voice was removed from the rank config
+                    true
+                }
+            } else {
+                false
+            }
+        });
+
+        if reset_necessary {
+            self.reset();
+        }
+    }
+
     fn find_open_voice(&mut self, note: u8) -> usize {
         // first, look if the voice is already active
         if let Some(existing_voice) = self.voices.iter().position(|voice| voice.note == note) {
@@ -106,7 +138,7 @@ impl RankPlayer {
             if open_voice.player.is_uninitialized() {
                 let mut player = PipePlayer::new(pipe, sample, self.sample_rate);
 
-                player.set_air_detune(self.air_detune);
+                player.set_detune(self.air_detune);
                 player.set_gain(self.gain);
                 player.set_shelf_db_gain(self.shelf_db_gain);
 
@@ -116,9 +148,9 @@ impl RankPlayer {
             } else {
                 // TODO: don't keep reconstructing PipePlayer, it's very expensive
                 // note about above TODO, I'm going to refactor the attack/release envelopes to
-                // be calculated when first loading the sample
+                // be calculated when first loading the sample, so this behavior is fine
                 open_voice.player = PipePlayer::new(pipe, sample, self.sample_rate);
-                open_voice.player.set_air_detune(self.air_detune);
+                open_voice.player.set_detune(self.air_detune);
                 open_voice.player.set_gain(self.gain);
                 open_voice.player.set_shelf_db_gain(self.shelf_db_gain);
 
@@ -209,7 +241,7 @@ impl RankPlayer {
 
                     voice
                         .player
-                        .set_air_detune(lerp(self.last_air_detune, self.air_detune, i as f32 / out_len as f32));
+                        .set_detune(lerp(self.last_air_detune, self.air_detune, i as f32 / out_len as f32));
 
                     voice
                         .player

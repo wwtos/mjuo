@@ -1,10 +1,14 @@
 use crate::{
-    node::filter::{FilterSpec, FilterType::None, NthRecursiveFilter},
+    node::filter::{
+        FilterSpec,
+        FilterType::{self},
+        NthBiquadFilter,
+    },
     sampling::util::rms32,
     MonoSample,
 };
 
-use super::{interpolate::hermite_interpolate, phase_calculator::PhaseCalculator, rank::Pipe};
+use super::{interpolate::hermite_interpolate, rank::Pipe};
 
 const PHASE_DEBUGGING: bool = false;
 
@@ -14,7 +18,7 @@ pub enum EnvelopeType {
     Release,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum State {
     Uninitialized,
     Crossfading,
@@ -32,14 +36,17 @@ enum QueuedAction {
 
 const ENVELOPE_POINTS: usize = 16;
 
+#[derive(Debug)]
+pub struct EnvelopeIndexes {
+    pub indexes: [usize; ENVELOPE_POINTS],
+    pub peak_amp: f32,
+}
+
 #[derive(Debug, Clone)]
 pub struct PipePlayer {
     // calculated at the beginning
+    freq: f32,
     sample_length: usize,
-    attack_peak_amp: f32,
-    release_peak_amp: f32,
-    amplitude_calc_window: usize,
-    phase_calculator: PhaseCalculator,
 
     state: State,
     next_state: State,
@@ -50,29 +57,28 @@ pub struct PipePlayer {
     audio_position: f32,
     audio_amplitude: f32,
 
+    // voicing
+    voicing_amp: f32,
+    voicing_comb_coeff: f32, // for even harmonics
+    voicing_comb_delay: f32,
+
     // dynamic air values
-    air_detune: f32,
+    detune: f32,
     gain: f32,
-    shelf_filter: NthRecursiveFilter,
+    third_harm_filter: NthBiquadFilter,
     third_db_gain: f32,
     third_spec: FilterSpec<f32>,
 
     crossfade_position: f32,
     crossfade_start: f32,
     crossfade_length: f32,
-
-    attack_envelope_indexes: [usize; ENVELOPE_POINTS],
-    release_envelope_indexes: [usize; ENVELOPE_POINTS],
 }
 
 impl PipePlayer {
     pub fn uninitialized() -> PipePlayer {
         PipePlayer {
+            freq: 1.0,
             sample_length: 0,
-            attack_peak_amp: 0.0,
-            release_peak_amp: 0.0,
-            amplitude_calc_window: 0,
-            phase_calculator: PhaseCalculator::empty(),
 
             state: State::Uninitialized,
             next_state: State::Uninitialized,
@@ -81,18 +87,19 @@ impl PipePlayer {
             audio_position: 0.0,
             audio_amplitude: 0.0,
 
-            air_detune: 1.0,
+            voicing_amp: 1.0,
+            voicing_comb_coeff: 0.0,
+            voicing_comb_delay: 1.0,
+
+            detune: 1.0,
             gain: 1.0,
-            shelf_filter: NthRecursiveFilter::empty(),
+            third_harm_filter: NthBiquadFilter::empty(),
             third_db_gain: 0.0,
             third_spec: FilterSpec::default(),
 
             crossfade_position: 0.0,
             crossfade_start: 0.0,
             crossfade_length: 0.0,
-
-            attack_envelope_indexes: [0; ENVELOPE_POINTS],
-            release_envelope_indexes: [0; ENVELOPE_POINTS],
         }
     }
 
@@ -100,26 +107,14 @@ impl PipePlayer {
         let buffer_rate = sample.sample_rate;
         let sample_length = sample.audio_raw.len();
 
-        let freq = (440.0 / 32.0) * 2_f32.powf((pipe.note - 9) as f32 / 12.0 + (pipe.cents as f32 / 1200.0));
-        let amplitude_calc_window = (buffer_rate as f32 / freq) as usize * 2;
-
-        let phase_calculator = PhaseCalculator::new(freq, buffer_rate);
-
         // Find different amplitudes in attack section. This allows quickly jumping to a needed
         // amplitude in the attack section (used for reattacking, amplitude is matched with the current
         // audio amplitude in the release phase)
         // TODO: move this to sample loading
-        let (attack_envelope_indexes, attack_peak_amp) =
-            calculate_envelope_points(pipe, sample, amplitude_calc_window, EnvelopeType::Attack);
-        let (release_envelope_indexes, release_peak_amp) =
-            calculate_envelope_points(pipe, sample, amplitude_calc_window, EnvelopeType::Release);
 
-        PipePlayer {
+        let mut new_player = PipePlayer {
+            freq: pipe.freq,
             sample_length,
-            attack_peak_amp,
-            release_peak_amp,
-            amplitude_calc_window,
-            phase_calculator,
 
             state: State::Looping,
             next_state: State::Stopped,
@@ -128,26 +123,38 @@ impl PipePlayer {
             audio_position: 1.0,
             audio_amplitude: 1.0,
 
+            voicing_amp: 1.0,
+            voicing_comb_coeff: 0.0,
+            voicing_comb_delay: 1.0,
+
             crossfade_position: 1.0,
             crossfade_start: 1.0,
-            crossfade_length: 256.0,
+            crossfade_length: pipe.crossfade as f32,
 
-            air_detune: 1.0,
+            detune: 1.0,
             gain: 1.0,
-            shelf_filter: NthRecursiveFilter::new(
+            third_harm_filter: NthBiquadFilter::new(
                 FilterSpec {
                     f0: sample_rate as f32 / 2.0,
                     fs: sample_rate as f32,
-                    filter_type: None,
+                    filter_type: FilterType::None,
                 },
                 4,
             ),
             third_db_gain: 0.0,
-            third_spec: FilterSpec::default(),
+            third_spec: FilterSpec::new(
+                pipe.freq,
+                sample_rate as f32,
+                FilterType::HighShelf {
+                    slope: 1.0,
+                    db_gain: 0.0,
+                },
+            ),
+        };
 
-            attack_envelope_indexes,
-            release_envelope_indexes,
-        }
+        new_player.calculate_voicing(pipe, sample);
+
+        new_player
     }
 
     pub fn play(&mut self, pipe: &Pipe, sample: &MonoSample) {
@@ -163,22 +170,21 @@ impl PipePlayer {
                 let audio = &sample.audio_raw;
 
                 // what's our current amplitude?
-                let location_bounded = current_location.max(self.amplitude_calc_window);
-                let current_amp = rms32(&audio[(location_bounded - self.amplitude_calc_window)..location_bounded]);
+                let location_bounded = current_location.max(pipe.amp_window_size);
+                let current_amp = rms32(&audio[(location_bounded - pipe.amp_window_size)..location_bounded]);
 
-                if current_amp < 0.01 || current_location + self.phase_calculator.window() >= audio.len() {
+                if current_amp < 0.01 || current_location + pipe.phase_calculator.window() >= audio.len() {
                     self.reset();
                     return;
                 }
 
                 // Find place in attack section of equal strength
-                let new_location =
-                    envelope_table_lookup(&self.attack_envelope_indexes, current_amp, self.attack_peak_amp);
+                let new_location = envelope_lookup(&pipe.attack_envelope, current_amp);
 
                 // next, get out target in phase
-                let attack_shift = self.phase_calculator.calc_phase_shift(
-                    &audio[current_location..(current_location + self.phase_calculator.window())],
-                    &audio[new_location..(new_location + self.phase_calculator.window())],
+                let attack_shift = pipe.phase_calculator.calc_phase_shift(
+                    &audio[current_location..(current_location + pipe.phase_calculator.window())],
+                    &audio[new_location..(new_location + pipe.phase_calculator.window())],
                 );
 
                 self.crossfade_to(
@@ -211,17 +217,16 @@ impl PipePlayer {
                 let audio = &sample.audio_raw;
 
                 // what's our current amplitude?
-                let location_bounded = current_location.max(self.amplitude_calc_window);
-                let current_amp = rms32(&audio[(location_bounded - self.amplitude_calc_window)..current_location]);
+                let location_bounded = current_location.max(pipe.amp_window_size);
+                let current_amp = rms32(&audio[(location_bounded - pipe.amp_window_size)..current_location]);
 
                 // Find place in release section of equal strength
-                let new_location =
-                    envelope_table_lookup(&self.release_envelope_indexes, current_amp, self.release_peak_amp);
+                let new_location = envelope_lookup(&pipe.release_envelope, current_amp);
 
                 // next, get out target in phase
-                let release_shift = self.phase_calculator.calc_phase_shift(
-                    &audio[current_location..(current_location + self.phase_calculator.window())],
-                    &audio[new_location..(new_location + self.phase_calculator.window())],
+                let release_shift = pipe.phase_calculator.calc_phase_shift(
+                    &audio[current_location..(current_location + pipe.phase_calculator.window())],
+                    &audio[new_location..(new_location + pipe.phase_calculator.window())],
                 );
 
                 self.crossfade_to(
@@ -235,7 +240,7 @@ impl PipePlayer {
     }
 
     pub fn next_sample(&mut self, pipe: &Pipe, sample: &MonoSample) -> f32 {
-        match self.state {
+        let out = match self.state {
             State::Uninitialized => 0.0,
             State::Crossfading => {
                 if self.audio_position < (self.sample_length - 3) as f32 {
@@ -285,7 +290,9 @@ impl PipePlayer {
                 }
             }
             State::Stopped => 0.0,
-        }
+        };
+
+        out
     }
 
     fn next_sample_normal(&mut self, sample: &MonoSample) -> f32 {
@@ -299,9 +306,9 @@ impl PipePlayer {
         let x2 = audio[audio_pos + 1];
         let x3 = audio[audio_pos + 2];
 
-        self.audio_position += self.air_detune;
+        self.audio_position += self.detune;
 
-        self.shelf_filter
+        self.third_harm_filter
             .filter_sample(hermite_interpolate(x0, x1, x2, x3, audio_fract))
             * self.gain
             * self.audio_amplitude
@@ -324,11 +331,11 @@ impl PipePlayer {
         let x2 = audio[crossfade_pos + 1] * cf_amp + audio[audio_pos + 1] * aud_amp;
         let x3 = audio[crossfade_pos + 2] * cf_amp + audio[audio_pos + 2] * aud_amp;
 
-        self.audio_position += self.air_detune;
-        self.crossfade_position += self.air_detune;
+        self.audio_position += self.detune;
+        self.crossfade_position += self.detune;
 
         let out = self
-            .shelf_filter
+            .third_harm_filter
             .filter_sample(hermite_interpolate(x0, x1, x2, x3, audio_fract))
             * self.gain
             * self.audio_amplitude;
@@ -355,12 +362,12 @@ impl PipePlayer {
         matches!(self.state, State::Stopped | State::Uninitialized)
     }
 
-    pub fn get_air_detune(&self) -> f32 {
-        self.air_detune
+    pub fn get_detune(&self) -> f32 {
+        self.detune
     }
 
-    pub fn set_air_detune(&mut self, detune: f32) {
-        self.air_detune = detune;
+    pub fn set_detune(&mut self, detune: f32) {
+        self.detune = detune;
     }
 
     pub fn get_gain(&self) -> f32 {
@@ -373,8 +380,21 @@ impl PipePlayer {
 
     pub fn set_shelf_db_gain(&mut self, db_gain: f32) {
         if (db_gain - self.third_db_gain).abs() > 0.5 {
-            self.third_spec.set_db_gain(db_gain);
-            self.shelf_filter.set_spec(self.third_spec.clone());
+            self.third_spec
+                .set_db_gain(db_gain / self.third_harm_filter.get_order_multiplier() as f32);
+            self.third_harm_filter.set_spec(self.third_spec.clone());
+        }
+    }
+
+    pub fn get_position(&self) -> f32 {
+        self.audio_position
+    }
+
+    pub fn get_crossfade_position(&self) -> Option<f32> {
+        if self.state == State::Crossfading {
+            Some(self.crossfade_position)
+        } else {
+            None
         }
     }
 
@@ -389,33 +409,42 @@ impl PipePlayer {
         self.audio_position = 1.0;
         self.crossfade_position = 1.0;
     }
+
+    fn calculate_voicing(&mut self, pipe: &Pipe, sample: &MonoSample) {
+        self.voicing_amp = pipe.amplitude;
+        // self.voicing_comb_coeff = pipe.comb
+    }
 }
 
-fn envelope_table_lookup(table: &[usize; ENVELOPE_POINTS], target_amp: f32, peak_amp: f32) -> usize {
-    let closest_env_index = ((target_amp / peak_amp) * ENVELOPE_POINTS as f32).min((ENVELOPE_POINTS - 1) as f32);
-    let closest_index = table[closest_env_index.round() as usize];
+fn envelope_lookup(indexes: &EnvelopeIndexes, target_amp: f32) -> usize {
+    let closest_env_index =
+        ((target_amp / indexes.peak_amp) * ENVELOPE_POINTS as f32).min((ENVELOPE_POINTS - 1) as f32);
+    let closest_index = indexes.indexes[closest_env_index.round() as usize];
 
     closest_index
 }
 
-fn calculate_envelope_points(
-    pipe: &Pipe,
+pub fn envelope_points(
+    decay_index: usize,
+    release_index: usize,
     sample: &MonoSample,
     window_size: usize,
     envelope_type: EnvelopeType,
-) -> ([usize; ENVELOPE_POINTS], f32) {
+) -> EnvelopeIndexes {
     let mut envelope_points = [0; ENVELOPE_POINTS];
 
     let audio = &sample.audio_raw;
 
+    let release_index_capped = release_index.min(audio.len() - window_size);
+
     let peak_amp = match envelope_type {
-        EnvelopeType::Attack => rms32(&audio[pipe.decay_index..(pipe.decay_index + window_size)]),
-        EnvelopeType::Release => rms32(&audio[pipe.release_index..(pipe.release_index + window_size)]),
+        EnvelopeType::Attack => rms32(&audio[decay_index..(decay_index + window_size)]),
+        EnvelopeType::Release => rms32(&audio[release_index_capped..(release_index_capped + window_size)]),
     };
 
     let (amps, offset) = match envelope_type {
         EnvelopeType::Attack => {
-            let amps: Vec<f32> = (0..pipe.decay_index)
+            let amps: Vec<f32> = (0..decay_index)
                 .step_by(window_size)
                 .map(|i| rms32(&audio[i..(i + window_size)]))
                 .collect();
@@ -423,12 +452,12 @@ fn calculate_envelope_points(
             (amps, 0_usize)
         }
         EnvelopeType::Release => {
-            let amps: Vec<f32> = (pipe.release_index..(audio.len() - window_size))
+            let amps: Vec<f32> = (release_index..(audio.len() - window_size))
                 .step_by(window_size)
                 .map(|i| rms32(&audio[i..(i + window_size)]))
                 .collect();
 
-            (amps, pipe.release_index)
+            (amps, release_index)
         }
     };
 
@@ -450,5 +479,8 @@ fn calculate_envelope_points(
         envelope_points[target_amp_index] = (closest_index * window_size) + offset;
     }
 
-    (envelope_points, peak_amp)
+    EnvelopeIndexes {
+        indexes: envelope_points,
+        peak_amp,
+    }
 }

@@ -168,7 +168,20 @@ impl<A> ResourceManager<A> {
         self.resource_mapping.keys().cloned().collect()
     }
 
+    pub fn extend(&mut self, mut other: ResourceManager<A>) {
+        for (key, other_index) in other.resource_mapping {
+            if let Some(other) = other.resources.remove(other_index.0) {
+                self.add_resource(key, other);
+            }
+        }
+    }
+
     pub fn add_resource(&mut self, key: String, resource: A) -> ResourceIndex {
+        // if it already exists, be sure to remove the old one
+        if let Some(_) = self.resource_mapping.get(&key) {
+            self.remove_resource(&key);
+        }
+
         let index = ResourceIndex(self.resources.add(resource));
 
         self.resource_mapping.insert(key, index);
@@ -188,6 +201,10 @@ impl<A> ResourceManager<A> {
 
     pub fn borrow_resource(&self, index: ResourceIndex) -> Option<&A> {
         self.resources.get(index.0)
+    }
+
+    pub fn borrow_resource_by_id(&self, id: &str) -> Option<&A> {
+        self.get_index(id).and_then(|x| self.borrow_resource(x))
     }
 
     pub fn clear(&mut self) {

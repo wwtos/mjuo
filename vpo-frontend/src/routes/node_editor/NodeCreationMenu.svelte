@@ -53,6 +53,7 @@
             class="category item"
             on:mouseenter={() => selectCategory(category)}
             on:mousedown|stopPropagation
+            on:mouseup|stopPropagation
         >
             {#if openCategory === category}
                 <div
