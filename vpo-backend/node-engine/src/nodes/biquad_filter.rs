@@ -29,26 +29,23 @@ impl NodeRuntime for BiquadFilterNode {
         InitResult::nothing()
     }
 
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let [frequency, resonance] = &values_in {
-            if let Some(frequency) = frequency.clone().and_then(|f| f.as_float()) {
-                self.filter.set_frequency(frequency.max(1.0));
-            }
-
-            if let Some(resonance) = resonance.clone().and_then(|r| r.as_float()) {
-                self.filter.set_q(resonance);
-            }
-        }
-    }
-
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
-    ) -> Result<NodeOk<()>, NodeError> {
-        for i in 0..streams_in[0].len() {
-            streams_out[0][i] = self.filter.filter_audio(streams_in[0][i]);
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        if let Some(frequency) = ins.values[0].and_then(|f| f.as_float()) {
+            self.filter.set_frequency(frequency.max(1.0));
+        }
+
+        if let Some(resonance) = ins.values[1].and_then(|r| r.as_float()) {
+            self.filter.set_q(resonance);
+        }
+
+        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
+            *frame_out = self.filter.filter_audio(*frame_in);
         }
 
         NodeOk::no_warnings(())

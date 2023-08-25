@@ -1,10 +1,12 @@
 //! Node module
 
+use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
+use resource_manager::{ResourceId, ResourceIndex};
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
@@ -105,12 +107,14 @@ impl NodeIo {
 
 pub struct InitResult {
     pub changed_properties: Option<HashMap<String, Property>>,
+    pub needed_resources: Vec<ResourceId>,
 }
 
 impl InitResult {
     pub fn nothing() -> NodeResult<InitResult> {
         NodeOk::no_warnings(InitResult {
             changed_properties: None,
+            needed_resources: vec![],
         })
     }
 
@@ -118,6 +122,7 @@ impl InitResult {
         Ok(NodeOk::new(
             InitResult {
                 changed_properties: None,
+                needed_resources: vec![],
             },
             warning.map(|x| vec![x]).unwrap_or(vec![]),
         ))
@@ -136,7 +141,7 @@ impl ProcessResult {
     }
 }
 
-pub struct NodeInitState<'a> {
+pub struct NodeInitParams<'a> {
     pub props: &'a HashMap<String, Property>,
     pub script_engine: &'a Engine,
     pub resources: &'a Resources,
@@ -144,6 +149,7 @@ pub struct NodeInitState<'a> {
     pub current_time: i64,
     pub sound_config: &'a SoundConfig,
     pub state: &'a NodeState,
+    pub child_graph: Option<NodeGraphAndIo>,
 }
 
 pub struct StateInterface<'a> {
@@ -152,7 +158,7 @@ pub struct StateInterface<'a> {
     pub states: Option<&'a BTreeMap<NodeIndex, NodeState>>,
 }
 
-pub struct NodeProcessState<'a> {
+pub struct NodeProcessGlobals<'a> {
     pub current_time: i64,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
@@ -183,6 +189,18 @@ impl Default for NodeState {
     }
 }
 
+pub struct Ins<'a> {
+    pub midis: &'a [&'a Option<MidiBundle>],
+    pub values: &'a [&'a Option<Primitive>],
+    pub streams: &'a [&'a [f32]],
+}
+
+pub struct Outs<'a> {
+    pub midis: &'a mut [Option<MidiBundle>],
+    pub values: &'a mut [Option<Primitive>],
+    pub streams: &'a mut [&'a mut [f32]],
+}
+
 /// NodeRuntime trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -209,10 +227,11 @@ impl Default for NodeState {
 #[allow(unused_variables)]
 #[enum_dispatch(NodeVariant)]
 pub trait NodeRuntime: Debug + Clone {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 
+    /// Called once to check if it's stateful
     fn has_state(&self) -> bool {
         false
     }
@@ -223,30 +242,16 @@ pub trait NodeRuntime: Debug + Clone {
 
     fn set_state(&mut self, state: serde_json::Value) {}
 
-    /// Process received data, and set outgoing stream data.
+    /// Process all data in and out
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        NodeOk::no_warnings(())
+        ProcessResult::nothing()
     }
-
-    /// Accept incoming midi data (ordered based on rows returned from `get_io`)
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {}
-
-    /// Set outgoing midi data (ordered based on rows returned from `get_io`)
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {}
-
-    /// Accept incoming value data (ordered based on rows returned from `get_io`)
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {}
-
-    /// Set outgoing value data (ordered based on rows returned from `get_io`)
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {}
-
-    /// Runs at the end every frame
-    fn finish(&mut self) {}
 }
 
 /// A static method returning a node's IO list. Note this is dynamic, but it cannot be dependent on

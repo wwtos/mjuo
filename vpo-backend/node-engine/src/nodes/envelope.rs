@@ -7,7 +7,6 @@ use crate::nodes::prelude::*;
 pub struct EnvelopeNode {
     envelope: Envelope,
     gate: bool,
-    out: Option<f32>,
 }
 
 impl NodeRuntime for EnvelopeNode {
@@ -15,45 +14,38 @@ impl NodeRuntime for EnvelopeNode {
         InitResult::nothing()
     }
 
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let [gate, attack, decay, sustain, release] = values_in {
-            if let Some(gate) = gate.clone().and_then(|gate| gate.as_boolean()) {
-                self.gate = gate;
-            }
-
-            if let Some(attack) = attack.clone().and_then(|attack| attack.as_float()) {
-                self.envelope.attack = attack;
-            }
-
-            if let Some(decay) = decay.clone().and_then(|decay| decay.as_float()) {
-                self.envelope.decay = decay;
-            }
-
-            if let Some(sustain) = sustain.clone().and_then(|sustain| sustain.as_float()) {
-                self.envelope.sustain = sustain;
-            }
-
-            if let Some(release) = release.clone().and_then(|release| release.as_float()) {
-                self.envelope.release = release;
-            }
-        }
-    }
-
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
+        if let Some(gate) = ins.values[0].and_then(|gate| gate.as_boolean()) {
+            self.gate = gate;
+        }
+
+        if let Some(attack) = ins.values[0].and_then(|attack| attack.as_float()) {
+            self.envelope.attack = attack;
+        }
+
+        if let Some(decay) = ins.values[0].and_then(|decay| decay.as_float()) {
+            self.envelope.decay = decay;
+        }
+
+        if let Some(sustain) = ins.values[0].and_then(|sustain| sustain.as_float()) {
+            self.envelope.sustain = sustain;
+        }
+
+        if let Some(release) = ins.values[0].and_then(|release| release.as_float()) {
+            self.envelope.release = release;
+        }
+
         if !self.envelope.is_done() || self.gate {
-            self.out = Some(self.envelope.process(self.gate));
+            outs.values[0] = Some(Primitive::Float(self.envelope.process(self.gate)));
         }
 
         NodeOk::no_warnings(())
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        values_out[0] = self.out.take().map(Primitive::Float);
     }
 }
 
@@ -64,7 +56,6 @@ impl Node for EnvelopeNode {
         EnvelopeNode {
             envelope: Envelope::new(samples_per_second, 0.02, 0.2, 0.8, 0.5),
             gate: false,
-            out: None,
         }
     }
 

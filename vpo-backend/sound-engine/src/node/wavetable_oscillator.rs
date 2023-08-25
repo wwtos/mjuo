@@ -1,31 +1,18 @@
-use crate::{wave::interpolate::interpolate, MonoSample, SoundConfig};
-
-use super::biquad_filter::{BiquadFilter, BiquadFilterType};
+use crate::{util::interpolate::lerp, MonoSample, SoundConfig};
 
 #[derive(Debug, Clone)]
 pub struct WavetableOscillator {
     phase: f32,
     frequency: f32,
-    filter: BiquadFilter,
     sample_rate: u32,
-    sample_freq: f32,
 }
 
 impl WavetableOscillator {
-    pub fn new(sound_config: SoundConfig, wavetable: &MonoSample) -> WavetableOscillator {
-        let sample_freq = sound_config.sample_rate as f32 / wavetable.audio_raw.len() as f32;
-
+    pub fn new(sound_config: SoundConfig) -> WavetableOscillator {
         WavetableOscillator {
             phase: 0_f32,
             frequency: 440_f32,
             sample_rate: sound_config.sample_rate,
-            sample_freq,
-            filter: BiquadFilter::new(
-                &sound_config,
-                BiquadFilterType::Lowpass,
-                sound_config.sample_rate as f32 / 2.0,
-                0.7,
-            ),
         }
     }
 
@@ -34,7 +21,7 @@ impl WavetableOscillator {
         wavetable: &MonoSample,
         frequency: f32,
     ) -> WavetableOscillator {
-        let mut oscillator = WavetableOscillator::new(sound_config, wavetable);
+        let mut oscillator = WavetableOscillator::new(sound_config);
         oscillator.set_frequency(frequency);
 
         oscillator
@@ -53,9 +40,15 @@ impl WavetableOscillator {
         let phase_advance = self.frequency / (self.sample_rate as f32);
 
         self.phase += phase_advance;
-        self.phase -= self.phase.floor(); // keep it bounded
+        self.phase = self.phase.fract(); // keep it bounded
 
-        interpolate(&wavetable.audio_raw, &mut self.filter, self.phase)
+        let pos = self.phase * wavetable.audio_raw.len() as f32;
+
+        lerp(
+            wavetable.audio_raw[pos as usize],
+            wavetable.audio_raw[(pos as usize + 1) % wavetable.audio_raw.len()],
+            pos.fract(),
+        )
     }
 
     pub fn get_frequency(&self) -> f32 {
@@ -64,10 +57,5 @@ impl WavetableOscillator {
 
     pub fn set_frequency(&mut self, frequency: f32) {
         self.frequency = frequency;
-
-        let wavetable_filter_freq =
-            ((self.sample_freq / self.frequency) * (self.sample_rate as f32 / 2.0)).min(self.sample_rate as f32 / 2.1);
-
-        self.filter.set_frequency(wavetable_filter_freq);
     }
 }

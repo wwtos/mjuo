@@ -1,7 +1,9 @@
-use resource_manager::{ResourceId, ResourceIndex};
+use std::any::TypeId;
+
+use resource_manager::ResourceId;
 use smallvec::SmallVec;
 use sound_engine::{
-    sampling::rank_player::RankPlayer,
+    sampling::{rank::Rank, rank_player::RankPlayer},
     util::{cents_to_detune, db_to_gain},
 };
 
@@ -9,11 +11,8 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct RankPlayerNode {
-    player: Option<RankPlayer>,
-    index: Option<ResourceIndex>,
-    rank_resource: Option<ResourceId>,
+    player: RankPlayer,
     polyphony: usize,
-    midi_in: MidiBundle,
 }
 
 impl NodeRuntime for RankPlayerNode {
@@ -34,115 +33,77 @@ impl NodeRuntime for RankPlayerNode {
             self.polyphony = polyphony as usize;
         }
 
-        if let Some(resource) = state.props.get("rank").and_then(|rank| rank.clone().as_resource()) {
-            let new_index =
+        let rank_resource = state
+            .props
+            .get("rank")
+            .and_then(|x| x.as_resource())
+            .and_then(|resource_id| {
                 state
                     .resources
                     .ranks
-                    .get_index(&resource.resource)
-                    .ok_or_else(|| NodeError::MissingResource {
-                        resource: resource.clone(),
-                    })?;
+                    .borrow_resource_by_id(&resource_id.resource)
+                    .map(|resource| (resource_id.clone(), resource))
+            });
 
-            did_settings_change |= Some(new_index) != self.index;
-            self.index = Some(new_index);
-            self.rank_resource = Some(resource);
+        let needed_resources = if let Some((id, rank)) = rank_resource {
+            let (player, needed_resources) = RankPlayer::new(id, rank, self.polyphony, state.sound_config.sample_rate);
+
+            self.player = player;
+
+            needed_resources
         } else {
-            did_settings_change = false;
-        }
+            vec![]
+        };
 
-        if self.player.is_none() || did_settings_change {
-            let rank = state.resources.ranks.borrow_resource(self.index.unwrap());
-
-            if let Some(rank) = rank {
-                let player = RankPlayer::new(
-                    &state.resources.samples,
-                    rank,
-                    self.polyphony,
-                    state.sound_config.sample_rate,
-                );
-                self.player = Some(player);
-            }
-        }
-
-        InitResult::nothing()
+        NodeOk::no_warnings(InitResult {
+            changed_properties: None,
+            needed_resources,
+        })
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         let mut reset_needed = false;
 
-        let rank = if let Some(index) = self.index {
-            if let Some(rank) = state.resources.ranks.borrow_resource(index) {
-                Some(rank)
-            } else {
-                // index must have changed
-                let new_index = state
-                    .resources
-                    .ranks
-                    .get_index(&self.rank_resource.as_ref().unwrap().resource);
-                self.index = new_index;
-
-                reset_needed = true;
-
-                new_index.and_then(|new_index| state.resources.ranks.borrow_resource(new_index))
-            }
-        } else {
-            None
-        };
-
-        if let (Some(player), Some(rank)) = (&mut self.player, rank) {
-            let samples = &state.resources.samples;
-
-            if reset_needed {
-                player.handle_rank_updates(rank, samples);
+        if resources[0].1.type_id() == TypeId::of::<Rank>() {
+            if let Some(cents) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+                self.player.set_detune(cents_to_detune(cents));
             }
 
-            for frame in streams_out[0].iter_mut() {
+            if let Some(db_gain) = ins.values[1].as_ref().and_then(|x| x.as_float()) {
+                self.player.set_gain(db_to_gain(db_gain));
+            }
+
+            if let Some(shelf_db_gain) = ins.values[2].as_ref().and_then(|x| x.as_float()) {
+                self.player.set_shelf_db_gain(shelf_db_gain);
+            }
+
+            for frame in outs.streams[0].iter_mut() {
                 *frame = 0.0;
             }
 
-            player.next_buffered(rank, state.current_time, &self.midi_in, samples, streams_out[0]);
+            self.player.next_buffered(
+                globals.current_time,
+                &ins.midis[0].unwrap_or_else(|| SmallVec::new()),
+                resources,
+                outs.streams[0],
+            );
         }
 
         NodeOk::no_warnings(())
-    }
-
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(player) = &mut self.player {
-            if let Some(cents) = values_in[0].as_ref().and_then(|x| x.as_float()) {
-                player.set_detune(cents_to_detune(cents));
-            }
-
-            if let Some(db_gain) = values_in[1].as_ref().and_then(|x| x.as_float()) {
-                player.set_gain(db_to_gain(db_gain));
-            }
-
-            if let Some(shelf_db_gain) = values_in[2].as_ref().and_then(|x| x.as_float()) {
-                player.set_shelf_db_gain(shelf_db_gain);
-            }
-        }
-    }
-
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        let value = midi_in[0].clone().unwrap();
-
-        self.midi_in = value;
     }
 }
 
 impl Node for RankPlayerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         RankPlayerNode {
-            player: None,
-            index: None,
-            rank_resource: None,
+            player: RankPlayer::default(),
             polyphony: 16,
-            midi_in: SmallVec::new(),
         }
     }
 

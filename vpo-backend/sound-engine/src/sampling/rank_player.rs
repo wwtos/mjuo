@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
+use std::{any::Any, collections::BTreeMap};
 
 use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
-use resource_manager::{ResourceIndex, ResourceManager};
+use resource_manager::{ResourceId, ResourceIndex, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
@@ -26,7 +26,7 @@ impl Default for Voice {
 pub struct RankPlayer {
     polyphony: usize,
     voices: Vec<Voice>,
-    note_to_sample_map: BTreeMap<u8, ResourceIndex>,
+    note_to_sample_map: BTreeMap<u8, usize>,
     air_detune: f32,
     gain: f32,
     shelf_db_gain: f32,
@@ -37,27 +37,39 @@ pub struct RankPlayer {
 }
 
 impl RankPlayer {
-    pub fn new(samples: &ResourceManager<MonoSample>, rank: &Rank, polyphony: usize, sample_rate: u32) -> RankPlayer {
-        let mut note_to_sample_map: BTreeMap<u8, ResourceIndex> = BTreeMap::new();
+    pub fn new(rank_id: ResourceId, rank: &Rank, polyphony: usize, sample_rate: u32) -> (RankPlayer, Vec<ResourceId>) {
+        let mut needed_samples: Vec<(u8, ResourceId)> = rank
+            .pipes
+            .iter()
+            .map(|(note, sample)| (*note, sample.resource.clone()))
+            .collect();
 
-        for (note, sample) in &rank.pipes {
-            if let Some(resource_index) = samples.get_index(&sample.resource.resource) {
-                note_to_sample_map.insert(*note, resource_index);
-            }
-        }
+        needed_samples.sort_by_key(|x| x.0);
 
-        RankPlayer {
-            polyphony,
-            voices: Vec::with_capacity(polyphony),
-            note_to_sample_map,
-            air_detune: 1.0,
-            gain: 1.0,
-            shelf_db_gain: 0.0,
-            last_air_detune: 1.0,
-            last_air_amplitude: 1.0,
-            last_shelf_db_gain: 0.0,
-            sample_rate,
-        }
+        let note_to_sample_map: BTreeMap<u8, usize> = needed_samples
+            .iter()
+            .enumerate()
+            .map(|(i, (note, _))| (*note, i + 1))
+            .collect();
+
+        let mut resource_list: Vec<ResourceId> = vec![rank_id];
+        resource_list.extend(needed_samples.into_iter().map(|(_, resource)| resource));
+
+        (
+            RankPlayer {
+                polyphony,
+                voices: Vec::with_capacity(polyphony),
+                note_to_sample_map,
+                air_detune: 1.0,
+                gain: 1.0,
+                shelf_db_gain: 0.0,
+                last_air_detune: 1.0,
+                last_air_amplitude: 1.0,
+                last_shelf_db_gain: 0.0,
+                sample_rate,
+            },
+            resource_list,
+        )
     }
 
     pub fn reset(&mut self) {
@@ -122,11 +134,11 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note(&mut self, note: u8, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[(ResourceIndex, &dyn Any)]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
-            .and_then(|sample_index| samples.borrow_resource(*sample_index))
+            .and_then(|sample_index| resources[*sample_index].1.downcast_ref::<MonoSample>())
             .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
 
         if let Some((pipe, sample)) = pipe_and_sample {
@@ -173,12 +185,12 @@ impl RankPlayer {
 
     pub fn next_buffered(
         &mut self,
-        rank: &Rank,
         time: i64,
         midi: &MidiBundle,
-        samples: &ResourceManager<MonoSample>,
+        resources: &[(ResourceIndex, &dyn Any)],
         out: &mut [f32],
     ) {
+        let rank = resources[0].1.downcast_ref::<Rank>().expect("a rank");
         let out_len = out.len();
 
         for output in out.iter_mut() {
@@ -189,7 +201,7 @@ impl RankPlayer {
         for message in midi {
             match message.data {
                 MidiData::NoteOn { note, .. } => {
-                    self.allocate_note(note, rank, samples);
+                    self.allocate_note(rank, note, resources);
                 }
                 _ => {}
             }
@@ -201,7 +213,7 @@ impl RankPlayer {
             let pipe_and_sample = self
                 .note_to_sample_map
                 .get(&voice.note)
-                .and_then(|sample_index| samples.borrow_resource(*sample_index))
+                .and_then(|sample_index| resources[*sample_index].1.downcast_ref::<MonoSample>())
                 .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
             let mut midi_position = 0;
@@ -268,5 +280,22 @@ impl RankPlayer {
         self.last_air_detune = self.air_detune;
         self.last_air_amplitude = self.gain;
         self.last_shelf_db_gain = self.shelf_db_gain;
+    }
+}
+
+impl Default for RankPlayer {
+    fn default() -> Self {
+        RankPlayer {
+            polyphony: 0,
+            voices: vec![],
+            note_to_sample_map: BTreeMap::new(),
+            air_detune: 0.0,
+            gain: 0.0,
+            shelf_db_gain: 0.0,
+            last_air_detune: 0.0,
+            last_air_amplitude: 0.0,
+            last_shelf_db_gain: 0.0,
+            sample_rate: 0,
+        }
     }
 }

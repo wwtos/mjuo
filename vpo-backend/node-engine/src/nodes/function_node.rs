@@ -39,9 +39,10 @@ impl NodeRuntime for FunctionNode {
 
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 

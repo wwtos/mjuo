@@ -1,6 +1,3 @@
-use std::mem;
-
-use smallvec::SmallVec;
 use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 use super::prelude::*;
@@ -8,71 +5,72 @@ use super::prelude::*;
 #[derive(Debug, Clone)]
 pub struct MidiTransposeNode {
     transpose_by: i16,
-    midi_out: Option<MidiBundle>,
 }
 
 impl NodeRuntime for MidiTransposeNode {
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(value_in) = values_in[0].as_ref().and_then(|value_in| value_in.as_int()) {
-            self.transpose_by = value_in.clamp(-127, 127) as i16;
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        if let Some(transpose) = ins.values[0].as_ref().and_then(|value_in| value_in.as_int()) {
+            self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
-    }
 
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        let midi_in = midi_in[0].as_ref().unwrap();
+        if let Some(midi_in) = ins.midis[0] {
+            outs.midis[0] = Some(
+                midi_in
+                    .iter()
+                    .filter_map(|message| match message.data {
+                        MidiData::NoteOn {
+                            channel,
+                            note,
+                            velocity,
+                        } => {
+                            let new_note = (note as i16) + self.transpose_by;
 
-        self.midi_out = Some(
-            midi_in
-                .iter()
-                .filter_map(|message| match message.data {
-                    MidiData::NoteOn {
-                        channel,
-                        note,
-                        velocity,
-                    } => {
-                        let new_note = (note as i16) + self.transpose_by;
-
-                        if new_note >= 0 && new_note <= 127 {
-                            Some(MidiMessage {
-                                data: MidiData::NoteOn {
-                                    channel,
-                                    note: new_note as u8,
-                                    velocity,
-                                },
-                                timestamp: message.timestamp,
-                            })
-                        } else {
-                            None
+                            if new_note >= 0 && new_note <= 127 {
+                                Some(MidiMessage {
+                                    data: MidiData::NoteOn {
+                                        channel,
+                                        note: new_note as u8,
+                                        velocity,
+                                    },
+                                    timestamp: message.timestamp,
+                                })
+                            } else {
+                                None
+                            }
                         }
-                    }
-                    MidiData::NoteOff {
-                        channel,
-                        note,
-                        velocity,
-                    } => {
-                        let new_note = (note as i16) + self.transpose_by;
+                        MidiData::NoteOff {
+                            channel,
+                            note,
+                            velocity,
+                        } => {
+                            let new_note = (note as i16) + self.transpose_by;
 
-                        if new_note >= 0 && new_note <= 127 {
-                            Some(MidiMessage {
-                                data: MidiData::NoteOff {
-                                    channel,
-                                    note: new_note as u8,
-                                    velocity,
-                                },
-                                timestamp: message.timestamp,
-                            })
-                        } else {
-                            None
+                            if new_note >= 0 && new_note <= 127 {
+                                Some(MidiMessage {
+                                    data: MidiData::NoteOff {
+                                        channel,
+                                        note: new_note as u8,
+                                        velocity,
+                                    },
+                                    timestamp: message.timestamp,
+                                })
+                            } else {
+                                None
+                            }
                         }
-                    }
-                    _ => Some(message.clone()),
-                })
-                .collect(),
-        );
-    }
+                        _ => Some(message.clone()),
+                    })
+                    .collect(),
+            );
+        }
 
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out[0] = mem::replace(&mut self.midi_out, None);
+        ProcessResult::nothing()
     }
 }
 
@@ -86,9 +84,6 @@ impl Node for MidiTransposeNode {
     }
 
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiTransposeNode {
-            transpose_by: 0,
-            midi_out: None,
-        }
+        MidiTransposeNode { transpose_by: 0 }
     }
 }

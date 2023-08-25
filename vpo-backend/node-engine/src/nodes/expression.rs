@@ -8,39 +8,37 @@ pub struct ExpressionNode {
     scope: Box<Scope<'static>>,
     values_in: Vec<Primitive>,
     value_out: Option<Primitive>,
-    have_values_changed: bool,
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.have_values_changed = false;
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        let mut warning: Option<NodeWarning> = None;
+        let mut have_values_changed = false;
 
-        for (i, value_in) in values_in.iter().enumerate() {
+        for (i, value_in) in ins.values.iter().enumerate() {
             if let Some(value) = value_in {
-                self.have_values_changed = true;
+                have_values_changed = true;
                 self.values_in[i] = value.clone();
             }
         }
-    }
 
-    fn process(
-        &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
-    ) -> NodeResult<()> {
-        let mut warning: Option<NodeWarning> = None;
-
-        self.value_out = None;
-        if let Some(ast) = &self.ast {
-            if self.have_values_changed {
+        if have_values_changed {
+            if let Some(ast) = &self.ast {
                 // add inputs to scope
                 for (i, val) in self.values_in.iter().enumerate() {
                     self.scope.push(format!("x{}", i + 1), val.clone().as_dynamic());
                 }
 
                 // now we run the expression!
-                let result = state.script_engine.eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
+                let result = globals
+                    .script_engine
+                    .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
 
                 // convert the output to a usuable form
                 match result {
@@ -53,7 +51,6 @@ impl NodeRuntime for ExpressionNode {
                             "()" => None,
                             _ => {
                                 // cleanup before erroring
-                                self.have_values_changed = false;
                                 self.scope.rewind(0);
 
                                 warning = Some(NodeWarning::RhaiInvalidReturnType {
@@ -66,7 +63,6 @@ impl NodeRuntime for ExpressionNode {
                     }
                     Err(err) => {
                         // cleanup before erroring
-                        self.have_values_changed = false;
                         self.scope.rewind(0);
 
                         return Err(NodeError::RhaiEvalError { result: *err });
@@ -106,17 +102,7 @@ impl NodeRuntime for ExpressionNode {
             }
         }
 
-        self.have_values_changed = true;
-
         InitResult::nothing()
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        if self.have_values_changed {
-            values_out[0] = self.value_out.clone();
-        }
-
-        self.have_values_changed = false;
     }
 }
 
@@ -127,7 +113,6 @@ impl Node for ExpressionNode {
             ast: None,
             values_in: vec![],
             value_out: None,
-            have_values_changed: true,
         }
     }
 

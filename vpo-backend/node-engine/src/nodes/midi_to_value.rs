@@ -1,5 +1,3 @@
-use std::mem;
-
 use rhai::{Dynamic, Scope, AST};
 
 use super::{
@@ -12,8 +10,6 @@ pub struct MidiToValueNode {
     ast: Option<Box<AST>>,
     expression_raw: String,
     scope: Box<Scope<'static>>,
-    midi_in: Option<MidiBundle>,
-    value_out: Option<Primitive>,
 }
 
 impl NodeRuntime for MidiToValueNode {
@@ -34,35 +30,35 @@ impl NodeRuntime for MidiToValueNode {
             Err(parser_error) => Ok(NodeOk {
                 value: InitResult {
                     changed_properties: None,
+                    needed_resources: vec![],
                 },
                 warnings: vec![NodeWarning::RhaiParserFailure { parser_error }],
             }),
         }
     }
 
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midi_in = midi_in[0].clone();
-    }
-
     fn process(
         &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
-        if let (Some(midi_in), Some(ast)) = (&self.midi_in, self.ast.as_ref()) {
+        if let (Some(midi_in), Some(ast)) = (ins.midis[0], self.ast.as_ref()) {
             for message in midi_in {
                 self.scope.push("timestamp", message.timestamp);
 
                 midi_to_scope(&mut self.scope, &message.data);
 
-                let result = state.script_engine.eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
+                let result = globals
+                    .script_engine
+                    .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
 
                 match result {
                     Ok(dynamic) => {
-                        self.value_out = dynamic_to_primitive(dynamic);
+                        outs.values[0] = dynamic_to_primitive(dynamic);
                     }
                     Err(err) => {
                         warnings.push(NodeWarning::RhaiExecutionFailure {
@@ -77,14 +73,6 @@ impl NodeRuntime for MidiToValueNode {
         }
 
         Ok(NodeOk { value: (), warnings })
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        values_out[0] = mem::replace(&mut self.value_out, None);
-    }
-
-    fn finish(&mut self) {
-        self.midi_in = None;
     }
 }
 
@@ -102,8 +90,6 @@ impl Node for MidiToValueNode {
             ast: None,
             expression_raw: "".into(),
             scope: Box::new(Scope::new()),
-            midi_in: None,
-            value_out: None,
         }
     }
 }

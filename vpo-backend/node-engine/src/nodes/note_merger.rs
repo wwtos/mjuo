@@ -1,5 +1,3 @@
-use std::mem;
-
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
@@ -9,7 +7,6 @@ use super::prelude::*;
 pub struct NoteMergerNode {
     states: Vec<u128>,
     combined: u128,
-    to_send: Option<MidiBundle>,
 }
 
 impl NoteMergerNode {
@@ -32,10 +29,16 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = SmallVec::new();
 
-        for (i, messages) in midi_in.iter().enumerate() {
+        for (i, messages) in ins.midis.iter().enumerate() {
             if let Some(messages) = messages {
                 for message in messages {
                     match message.data {
@@ -70,12 +73,10 @@ impl NodeRuntime for NoteMergerNode {
         }
 
         if !new_messages.is_empty() {
-            self.to_send = Some(new_messages);
+            outs.midis[0] = Some(new_messages);
         }
-    }
 
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out[0] = mem::replace(&mut self.to_send, None);
+        ProcessResult::nothing()
     }
 }
 
@@ -83,7 +84,6 @@ impl Node for NoteMergerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         NoteMergerNode {
             states: vec![],
-            to_send: None,
             combined: 0,
         }
     }

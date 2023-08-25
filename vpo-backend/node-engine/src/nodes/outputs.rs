@@ -8,44 +8,49 @@ pub struct OutputsNode {
 }
 
 impl OutputsNode {
-    pub fn get_streams(&mut self) -> &Vec<Vec<f32>> {
+    pub fn get_streams(&self) -> &Vec<Vec<f32>> {
         &self.streams
+    }
+
+    pub fn get_midis(&self) -> &Vec<Option<MidiBundle>> {
+        &self.midis
+    }
+
+    pub fn get_values(&self) -> &Vec<Option<Primitive>> {
+        &self.values
     }
 }
 
 impl NodeRuntime for OutputsNode {
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        let buffer_size = streams_in[0].len();
+        for (i, midi) in ins.midis.iter().enumerate() {
+            if let Some(midi) = midi {
+                self.midis[i] = Some(midi.clone());
+            }
+        }
 
-        self.streams.resize_with(streams_in.len(), || vec![0.0; buffer_size]);
+        for (i, value) in ins.values.iter().enumerate() {
+            if let Some(value) = value {
+                self.values[i] = Some(value.clone());
+            }
+        }
 
-        for (local_stream, stream_in) in self.streams.iter_mut().zip(streams_in) {
+        let buffer_size = ins.streams[0].len();
+
+        self.streams.resize_with(ins.streams.len(), || vec![0.0; buffer_size]);
+
+        for (local_stream, stream_in) in self.streams.iter_mut().zip(ins.streams) {
             local_stream.resize(buffer_size, 0.0);
             local_stream.copy_from_slice(stream_in);
         }
 
         NodeOk::no_warnings(())
-    }
-
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midis.clone_from_slice(midi_in);
-    }
-
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out.clone_from_slice(&self.midis[..]);
-    }
-
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.values.clone_from_slice(values_in);
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        values_out.clone_from_slice(&self.values[..]);
     }
 
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {

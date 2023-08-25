@@ -5,46 +5,28 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct WavetableNode {
-    oscillator: Option<WavetableOscillator>,
+    oscillator: WavetableOscillator,
     index: Option<ResourceIndex>,
-    config: SoundConfig,
 }
 
 impl NodeRuntime for WavetableNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let did_index_change;
+        let needed_resource = state.props.get("wavetable").and_then(|x| x.clone().as_resource());
 
-        if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
-            let new_index = state
-                .resources
-                .samples
-                .get_index(&resource.resource)
-                .ok_or(NodeError::MissingResource { resource })?;
+        self.oscillator = WavetableOscillator::new(state.sound_config.clone());
 
-            did_index_change = Some(new_index) != self.index;
-            self.index = Some(new_index);
-        } else {
-            did_index_change = false;
-        }
-
-        if self.oscillator.is_none() || did_index_change {
-            if let Some(index) = self.index {
-                let wavetable = state.resources.samples.borrow_resource(index);
-
-                if let Some(wavetable) = wavetable {
-                    self.oscillator = Some(WavetableOscillator::new(self.config.clone(), wavetable));
-                }
-            }
-        }
-
-        InitResult::nothing()
+        NodeOk::no_warnings(InitResult {
+            changed_properties: None,
+            needed_resources: needed_resource.map(|x| vec![x]).unwrap_or(vec![]),
+        })
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         if let Some(player) = &mut self.oscillator {
             let wavetable = state.resources.samples.borrow_resource(self.index.unwrap()).unwrap();
@@ -67,11 +49,10 @@ impl NodeRuntime for WavetableNode {
 }
 
 impl Node for WavetableNode {
-    fn new(config: &SoundConfig) -> Self {
+    fn new(_config: &SoundConfig) -> Self {
         WavetableNode {
             oscillator: None,
             index: None,
-            config: config.clone(),
         }
     }
 

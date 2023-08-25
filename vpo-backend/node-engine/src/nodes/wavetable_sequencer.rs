@@ -1,5 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{util::interpolate::lerp, SoundConfig};
+use sound_engine::{util::interpolate::lerp, MonoSample, SoundConfig};
 
 use crate::nodes::prelude::*;
 
@@ -15,69 +15,46 @@ pub struct WavetableSequencerNode {
 
 impl NodeRuntime for WavetableSequencerNode {
     fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(resource) = state.props.get("wavetable").and_then(|x| x.clone().as_resource()) {
-            let new_index =
-                state
-                    .resources
-                    .samples
-                    .get_index(&resource.resource)
-                    .ok_or_else(|| NodeError::MissingResource {
-                        resource: resource.clone(),
-                    })?;
+        let needed_resource = state.props.get("wavetable").and_then(|x| x.clone().as_resource());
 
-            self.index = Some((resource.resource, new_index));
-        }
-
-        InitResult::nothing()
+        NodeOk::no_warnings(InitResult {
+            changed_properties: None,
+            needed_resources: needed_resource.map(|x| vec![x]).unwrap_or(vec![]),
+        })
     }
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        if let Some((resource_name, index)) = &mut self.index {
-            let resource = if let Some(resource) = state.resources.samples.borrow_resource(*index) {
-                Some(resource)
-            } else if let Some(new_index) = state.resources.samples.get_index(resource_name) {
-                *index = new_index;
-
-                state.resources.samples.borrow_resource(*index)
-            } else {
-                None
-            };
-
-            if let Some(resource) = resource {
-                let wavetable = &resource.audio_raw;
-
-                let wavetable_pos = self.phase * wavetable.len() as f32;
-
-                let wavetable_index = wavetable_pos as usize;
-                let wavetable_offset = wavetable_pos.fract();
-
-                self.value_out = lerp(
-                    wavetable[wavetable_index],
-                    wavetable[(wavetable_index + 1) % wavetable.len()],
-                    wavetable_offset,
-                );
-
-                self.phase += self.advance_by * self.frequency;
-                self.phase = self.phase % 1.0;
-            }
-        }
-
-        NodeOk::no_warnings(())
-    }
-
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(frequency) = values_in[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
             self.frequency = frequency;
         }
-    }
 
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        values_out[0] = Some(Primitive::Float(self.value_out));
+        if let Some(sample) = resources[0].1.downcast_ref::<MonoSample>() {
+            let wavetable = &sample.audio_raw;
+
+            let wavetable_pos = self.phase * wavetable.len() as f32;
+
+            let wavetable_index = wavetable_pos as usize;
+            let wavetable_offset = wavetable_pos.fract();
+
+            self.value_out = lerp(
+                wavetable[wavetable_index],
+                wavetable[(wavetable_index + 1) % wavetable.len()],
+                wavetable_offset,
+            );
+
+            self.phase += self.advance_by * self.frequency;
+            self.phase = self.phase.fract();
+        }
+
+        outs.values[0] = float(self.value_out);
+
+        NodeOk::no_warnings(())
     }
 }
 

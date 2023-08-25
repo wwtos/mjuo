@@ -44,39 +44,38 @@ impl NodeRuntime for MemoryNode {
         self.state_changed = true;
     }
 
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(true) = values_in[0].as_ref().and_then(|x| x.as_boolean()) {
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        if let Some(true) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             self.activated = true;
         }
 
-        if let Some(true) = values_in[1].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(true) = ins.values[1].as_ref().and_then(|x| x.as_boolean()) {
             self.mode = MemoryMode::Loading;
-        } else if let Some(true) = values_in[2].as_ref().and_then(|x| x.as_boolean()) {
+        } else if let Some(true) = ins.values[2].as_ref().and_then(|x| x.as_boolean()) {
             self.mode = MemoryMode::Setting;
-        } else if let Some(true) = values_in[3].as_ref().and_then(|x| x.as_boolean()) {
+        } else if let Some(true) = ins.values[3].as_ref().and_then(|x| x.as_boolean()) {
             self.mode = MemoryMode::MapSetting;
         }
-    }
 
-    fn process(
-        &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
-    ) -> NodeResult<()> {
         if self.activated {
             match self.mode {
                 MemoryMode::Loading => {
                     println!("loading");
-                    (state.state.enqueue_state_updates)(self.memory.clone());
+                    (globals.state.enqueue_state_updates)(self.memory.clone());
                 }
                 MemoryMode::Setting => {
-                    (state.state.request_node_states)();
+                    (globals.state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: false };
                 }
                 MemoryMode::MapSetting => {
-                    (state.state.request_node_states)();
+                    (globals.state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: true };
                 }
@@ -86,7 +85,7 @@ impl NodeRuntime for MemoryNode {
             self.state_changed = true;
         }
 
-        if let Some(node_states) = state.state.states {
+        if let Some(node_states) = globals.state.states {
             if let MemoryMode::WaitingForNodeStates { map_setting } = self.mode {
                 if map_setting {
                     self.tracking.clear();
@@ -116,11 +115,15 @@ impl NodeRuntime for MemoryNode {
             }
         }
 
+        self.activated = false;
+
         ProcessResult::nothing()
     }
 
     fn get_state(&self) -> Option<NodeState> {
         if self.state_changed {
+            self.state_changed = false;
+
             Some(NodeState {
                 counted_during_mapset: false,
                 value: Value::Null,
@@ -132,11 +135,6 @@ impl NodeRuntime for MemoryNode {
         } else {
             None
         }
-    }
-
-    fn finish(&mut self) {
-        self.state_changed = false;
-        self.activated = false;
     }
 }
 

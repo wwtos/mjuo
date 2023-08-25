@@ -14,12 +14,13 @@ impl OutputNode {
 impl NodeRuntime for OutputNode {
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        self.values_received.resize(streams_in[0].len(), 0.0);
-        self.values_received.clone_from_slice(streams_in[0]);
+        self.values_received.resize(ins.streams[0].len(), 0.0);
+        self.values_received.clone_from_slice(ins.streams[0]);
 
         NodeOk::no_warnings(())
     }

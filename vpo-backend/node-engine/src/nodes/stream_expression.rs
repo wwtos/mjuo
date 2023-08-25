@@ -11,22 +11,23 @@ pub struct StreamExpressionNode {
 impl NodeRuntime for StreamExpressionNode {
     fn process(
         &mut self,
-        state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
-            for (i, frame) in streams_out[0].iter_mut().enumerate() {
+            for (i, frame) in outs.streams[0].iter_mut().enumerate() {
                 // start by rewinding the scope
                 self.scope.rewind(0);
 
                 // add inputs to scope
-                for (j, val) in streams_in.iter().enumerate() {
+                for (j, val) in ins.streams.iter().enumerate() {
                     self.scope.push(format!("x{}", j + 1), val[i]);
                 }
 
                 // now we run the expression!
-                let result = state.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
+                let result = globals.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
 
                 // convert the output to a usuable form
                 match result {

@@ -1,78 +1,45 @@
-use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
 use crate::nodes::prelude::*;
 
-use super::util::ProcessState;
-
 #[derive(Debug, Clone)]
-pub struct MidiToValuesNode {
-    frequency: f32,
-    gate: bool,
-    velocity: f32,
-    process_state: ProcessState<()>,
-}
+pub struct MidiToValuesNode {}
 
 impl NodeRuntime for MidiToValuesNode {
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        let midi = midi_in[0].as_ref().unwrap();
-
-        for data in midi {
-            match &data.data {
-                MidiData::NoteOn {
-                    channel: _,
-                    note,
-                    velocity,
-                } => {
-                    self.frequency = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
-                    self.velocity = (*velocity as f32) / 127.0;
-                    self.gate = true;
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        if let Some(midi) = ins.midis[0] {
+            for data in midi {
+                match &data.data {
+                    MidiData::NoteOn {
+                        channel: _,
+                        note,
+                        velocity,
+                    } => {
+                        outs.values[0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
+                        outs.values[1] = bool(true);
+                        outs.values[2] = float((*velocity as f32) / 127.0);
+                    }
+                    MidiData::NoteOff { .. } => {
+                        outs.values[1] = bool(false);
+                    }
+                    _ => {}
                 }
-                MidiData::NoteOff {
-                    channel: _,
-                    note: _,
-                    velocity: _,
-                } => {
-                    self.gate = false;
-                }
-                _ => {}
             }
         }
 
-        self.process_state = ProcessState::Unprocessed(());
-    }
-
-    fn process(
-        &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
-    ) -> NodeResult<()> {
-        match self.process_state {
-            ProcessState::Unprocessed(_) => self.process_state = ProcessState::Processed,
-            ProcessState::Processed => self.process_state = ProcessState::None,
-            ProcessState::None => {}
-        }
-
         NodeOk::no_warnings(())
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        if matches!(self.process_state, ProcessState::Processed) {
-            values_out[0] = Some(Primitive::Float(self.frequency));
-            values_out[1] = Some(Primitive::Boolean(self.gate));
-        }
     }
 }
 
 impl Node for MidiToValuesNode {
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiToValuesNode {
-            frequency: 440.0,
-            gate: false,
-            velocity: 0.0,
-            process_state: ProcessState::Unprocessed(()),
-        }
+        MidiToValuesNode {}
     }
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
@@ -80,6 +47,7 @@ impl Node for MidiToValuesNode {
             midi_input(register("midi")),
             value_output(register("frequency")),
             value_output(register("gate")),
+            value_output(register("velocity")),
         ])
     }
 }

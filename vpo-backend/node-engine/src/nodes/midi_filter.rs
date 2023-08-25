@@ -1,18 +1,14 @@
-use std::mem;
-
 use rhai::{Scope, AST};
 
 use crate::nodes::prelude::*;
 
-use super::util::{midi_to_scope, ProcessState};
+use super::util::midi_to_scope;
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
     filter: Option<Box<AST>>,
     filter_raw: String,
-    midi_state: ProcessState<MidiBundle>,
     scope: Box<Scope<'static>>,
-    output: Option<MidiBundle>,
 }
 
 impl NodeRuntime for MidiFilterNode {
@@ -38,65 +34,52 @@ impl NodeRuntime for MidiFilterNode {
 
     fn process(
         &mut self,
-        state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
-            self.midi_state = match &self.midi_state {
-                ProcessState::Unprocessed(midi) => {
-                    self.output = Some(
-                        midi.iter()
-                            .filter_map(|message| {
-                                midi_to_scope(&mut self.scope, &message.data);
+            if let Some(midi) = ins.midis[0] {
+                let output = Some(
+                    midi.iter()
+                        .filter_map(|message| {
+                            midi_to_scope(&mut self.scope, &message.data);
 
-                                let result = state.script_engine.eval_ast_with_scope::<bool>(&mut self.scope, filter);
+                            let result = globals
+                                .script_engine
+                                .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
-                                self.scope.rewind(0);
+                            self.scope.rewind(0);
 
-                                match result {
-                                    Ok(output) => {
-                                        if output {
-                                            Some(message.clone())
-                                        } else {
-                                            None
-                                        }
-                                    }
-                                    Err(err) => {
-                                        warning = Some(NodeWarning::RhaiExecutionFailure {
-                                            err: *err,
-                                            script: self.filter_raw.clone(),
-                                        });
-
+                            match result {
+                                Ok(output) => {
+                                    if output {
+                                        Some(message.clone())
+                                    } else {
                                         None
                                     }
                                 }
-                            })
-                            .collect::<MidiBundle>(),
-                    );
+                                Err(err) => {
+                                    warning = Some(NodeWarning::RhaiExecutionFailure {
+                                        err: *err,
+                                        script: self.filter_raw.clone(),
+                                    });
 
-                    ProcessState::Processed
-                }
-                ProcessState::Processed => {
-                    self.output = None;
+                                    None
+                                }
+                            }
+                        })
+                        .collect::<MidiBundle>(),
+                );
 
-                    ProcessState::None
-                }
-                ProcessState::None => ProcessState::None,
-            };
+                outs.midis[0] = output;
+            }
         }
 
         ProcessResult::warning(warning)
-    }
-
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midi_state = ProcessState::Unprocessed(midi_in[0].clone().unwrap());
-    }
-
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out[0] = mem::replace(&mut self.output, None);
     }
 }
 
@@ -105,9 +88,7 @@ impl Node for MidiFilterNode {
         MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
-            midi_state: ProcessState::None,
             scope: Box::new(Scope::new()),
-            output: None,
         }
     }
 

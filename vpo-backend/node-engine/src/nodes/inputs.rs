@@ -4,32 +4,37 @@ use crate::nodes::prelude::*;
 pub struct InputsNode {
     values: Vec<Option<Primitive>>,
     midis: Vec<Option<MidiBundle>>,
+    sent: bool,
+}
+
+impl InputsNode {
+    pub fn set_values(&mut self, values: Vec<Option<Primitive>>) {
+        self.values = values;
+        self.sent = false;
+    }
+
+    pub fn set_midis(&mut self, midis: Vec<Option<MidiBundle>>) {
+        self.midis = midis;
+        self.sent = false;
+    }
 }
 
 impl NodeRuntime for InputsNode {
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        _streams_in: &[&[f32]],
-        _streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
+        if !self.sent {
+            outs.midis.clone_from_slice(&self.midis[..]);
+            outs.values.clone_from_slice(&self.values[..]);
+
+            self.sent = true;
+        }
+
         NodeOk::no_warnings(())
-    }
-
-    fn accept_midi_inputs(&mut self, midi_in: &[Option<MidiBundle>]) {
-        self.midis.clone_from_slice(midi_in);
-    }
-
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
-        midi_out.clone_from_slice(&self.midis[..]);
-    }
-
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        self.values.clone_from_slice(values_in);
-    }
-
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        values_out.clone_from_slice(&self.values[..]);
     }
 }
 
@@ -38,6 +43,7 @@ impl Node for InputsNode {
         InputsNode {
             values: vec![],
             midis: vec![],
+            sent: false,
         }
     }
 

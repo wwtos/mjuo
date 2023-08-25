@@ -14,7 +14,7 @@ use crate::{
     errors::{ErrorsAndWarnings, NodeError, NodeOk, NodeWarning},
     global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
-    node::{NodeIndex, NodeInitState, NodeProcessState, NodeRow, NodeRuntime, NodeState, StateInterface},
+    node::{NodeIndex, NodeInitState, NodeProcessGlobals, NodeRow, NodeRuntime, NodeState, StateInterface},
     nodes::{new_variant, NodeVariant},
 };
 
@@ -512,7 +512,7 @@ impl BufferedTraverser {
             }
 
             let res = node.node.process(
-                NodeProcessState {
+                NodeProcessGlobals {
                     current_time,
                     script_engine,
                     resources,

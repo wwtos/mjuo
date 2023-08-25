@@ -22,13 +22,28 @@ impl NodeRuntime for ToggleNode {
         InitResult::nothing()
     }
 
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(new_state) = values_in[0].as_ref().and_then(|x| x.as_boolean()) {
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        if let Some(new_state) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             if !self.first_time {
                 self.state = new_state;
                 self.updated = true;
             }
         }
+
+        if self.updated || self.first_time {
+            outs.values[0] = bool(self.state);
+        }
+
+        self.updated = false;
+        self.first_time = false;
+
+        ProcessResult::nothing()
     }
 
     fn set_state(&mut self, state: serde_json::Value) {
@@ -49,19 +64,8 @@ impl NodeRuntime for ToggleNode {
         }
     }
 
-    fn get_value_outputs(&mut self, values_out: &mut [Option<Primitive>]) {
-        if self.updated || self.first_time {
-            values_out[0] = Some(Primitive::Boolean(self.state));
-        }
-    }
-
     fn has_state(&self) -> bool {
         true
-    }
-
-    fn finish(&mut self) {
-        self.updated = false;
-        self.first_time = false;
     }
 }
 

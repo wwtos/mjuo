@@ -1,3 +1,5 @@
+use std::mem;
+
 use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
@@ -14,14 +16,18 @@ impl MidiInNode {
 }
 
 impl NodeRuntime for MidiInNode {
-    fn get_midi_outputs(&mut self, midi_out: &mut [Option<MidiBundle>]) {
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
         if !self.midi_in.is_empty() {
-            midi_out[0] = Some(self.midi_in.clone());
+            outs.midis[0] = Some(mem::replace(&mut self.midi_in, SmallVec::new()));
         }
-    }
 
-    fn finish(&mut self) {
-        self.midi_in.clear();
+        ProcessResult::nothing()
     }
 }
 

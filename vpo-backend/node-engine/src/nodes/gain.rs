@@ -6,20 +6,19 @@ pub struct GainNode {
 }
 
 impl NodeRuntime for GainNode {
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let Some(gain) = values_in[0].as_ref() {
-            self.gain = gain.as_float().unwrap();
-        }
-    }
-
     fn process(
         &mut self,
-        _state: NodeProcessState,
-        streams_in: &[&[f32]],
-        streams_out: &mut [&mut [f32]],
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        for i in 0..streams_in[0].len() {
-            streams_out[0][i] = streams_in[0][i] * self.gain;
+        if let Some(gain) = ins.values[0] {
+            self.gain = gain.as_float().unwrap_or(0.0);
+        }
+
+        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
+            *frame_out = *frame_in * self.gain;
         }
 
         NodeOk::no_warnings(())
