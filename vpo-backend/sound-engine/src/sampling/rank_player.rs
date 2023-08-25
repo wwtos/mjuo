@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{midi::messages::MidiData, util::lerp, MidiBundle, MonoSample};
+use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
 use resource_manager::{ResourceIndex, ResourceManager};
@@ -257,7 +257,7 @@ impl RankPlayer {
 
                     if voice.player.is_done() {
                         voice.active = false;
-                        voice.player.reset();
+                        voice.player.restart();
 
                         break;
                     }

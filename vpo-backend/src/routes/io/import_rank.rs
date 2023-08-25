@@ -13,7 +13,7 @@ use sound_engine::{
     sampling::{
         envelope::{calc_sample_metadata, SampleMetadata},
         phase_calculator::PhaseCalculator,
-        pipe_player::{envelope_points, EnvelopeType},
+        pipe_player::{envelope_indexes, EnvelopeType},
         rank::{Pipe, Rank},
     },
     MonoSample,
@@ -120,14 +120,14 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
 
             let phase_calculator = PhaseCalculator::new(metadata.freq as f32, buffer_rate);
 
-            let attack_envelope = envelope_points(
+            let attack_envelope = envelope_indexes(
                 metadata.decay_index,
                 metadata.release_index,
                 &sample,
                 amp_window_size,
                 EnvelopeType::Attack,
             );
-            let release_envelope = envelope_points(
+            let release_envelope = envelope_indexes(
                 metadata.decay_index,
                 metadata.release_index,
                 &sample,

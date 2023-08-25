@@ -1,5 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{sampling::interpolate::lerp, SoundConfig};
+use sound_engine::{util::interpolate::lerp, SoundConfig};
 
 use crate::nodes::prelude::*;
 

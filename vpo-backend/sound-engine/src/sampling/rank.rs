@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use resource_manager::ResourceId;
 use serde::Serialize;
-use serde_with::{serde_as, DisplayFromStr};
 
 use super::{phase_calculator::PhaseCalculator, pipe_player::EnvelopeIndexes};
 
@@ -11,7 +10,7 @@ pub struct Pipe {
     pub resource: ResourceId,
 
     /// freq can be quite different from the note in the case of non 8' pipes
-    /// (i.e. 4' or 2 2/3')
+    /// (e.g. 4' or 2 2/3')
     pub freq: f32,
 
     pub amplitude: f32,
@@ -34,10 +33,8 @@ pub struct Pipe {
     pub release_envelope: EnvelopeIndexes,
 }
 
-#[serde_as]
 #[derive(Debug, Serialize)]
 pub struct Rank {
-    #[serde_as(as = "BTreeMap<DisplayFromStr, _>")]
     pub pipes: BTreeMap<u8, Pipe>,
     pub name: String,
 }

@@ -1,8 +1,5 @@
+pub mod interpolate;
 pub mod wav_reader;
-
-pub fn lerp(start: f32, end: f32, amount: f32) -> f32 {
-    (end - start) * amount + start
-}
 
 pub fn db_to_gain(db: f32) -> f32 {
     10_f32.powf(db / 20.0)

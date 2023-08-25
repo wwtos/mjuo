@@ -2363,7 +2363,6 @@ dependencies = [
  "resource-manager",
  "serde",
  "serde_json",
- "serde_with",
  "simple-error",
  "smallvec",
  "snafu",

@@ -6,7 +6,7 @@ use snafu::ResultExt;
 use sound_engine::{
     sampling::{
         phase_calculator::PhaseCalculator,
-        pipe_player::{envelope_points, EnvelopeType},
+        pipe_player::{envelope_indexes, EnvelopeType},
         rank::{Pipe, Rank},
     },
     util::db_to_gain,
@@ -124,14 +124,14 @@ pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result
 
             let phase_calculator = PhaseCalculator::new(freq, buffer_rate);
 
-            let attack_envelope = envelope_points(
+            let attack_envelope = envelope_indexes(
                 entry.decay_index,
                 entry.release_index,
                 sample,
                 amp_window_size,
                 EnvelopeType::Attack,
             );
-            let release_envelope = envelope_points(
+            let release_envelope = envelope_indexes(
                 entry.decay_index,
                 entry.release_index,
                 sample,

@@ -10,15 +10,14 @@ interp = "0.1.1"
 lazy_static = "1.4.0"
 nalgebra = "0.31"
 num = "0.4.0"
-pitch-detection = {git = "https://github.com/smj-edison/pitch-detection"}
+pitch-detection = { git = "https://github.com/smj-edison/pitch-detection" }
 regex = "1.7"
-resource-manager = {path = "../resource-manager"}
-serde = {version = "1.0.133", features = ["derive"]}
+resource-manager = { path = "../resource-manager" }
+serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.74"
-serde_with = "3.0.0"
 simple-error = "0.2.3"
 smallvec = "1.10.0"
 snafu = "0.7.0"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
-web-sys = {version = "0.3.61", features = []}
+web-sys = { version = "0.3.61", features = [] }

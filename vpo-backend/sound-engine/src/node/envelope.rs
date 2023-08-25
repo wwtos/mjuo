@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::util::interpolate::lerp;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum EnvelopeState {
     Attacking,
@@ -164,8 +166,4 @@ fn decay(start: f32, end: f32, amount: f32) -> f32 {
 
 fn release(start: f32, end: f32, amount: f32) -> f32 {
     lerp(start, end, amount)
-}
-
-fn lerp(start: f32, end: f32, amount: f32) -> f32 {
-    (end - start) * amount + start
 }

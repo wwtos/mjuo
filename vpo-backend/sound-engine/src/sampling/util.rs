@@ -3,9 +3,7 @@ use std::f64::consts::PI;
 use nalgebra::DVector;
 use num::Float;
 
-pub fn lerp(start: f64, end: f64, amount: f64) -> f64 {
-    (end - start) * amount + start
-}
+use crate::util::interpolate::lerp;
 
 pub fn s_add(x: &[f64], y: f64) -> Vec<f64> {
     x.iter().map(|x| x + y).collect()
@@ -180,7 +178,7 @@ pub fn gradient(func: &[f64]) -> Vec<f64> {
 
 // (elephant paper) http://yehar.com/blog/wp-content/uploads/2009/08/deip.pdf
 // https://stackoverflow.com/questions/1125666/how-do-you-do-bicubic-or-other-non-linear-interpolation-of-re-sampled-audio-da
-pub fn hermite_interpolate(x0: f64, x1: f64, x2: f64, x3: f64, t: f64) -> f64 {
+pub fn hermite_interpolate_f64(x0: f64, x1: f64, x2: f64, x3: f64, t: f64) -> f64 {
     let c0 = x1;
     let c1 = 0.5 * (x2 - x0);
     let c2 = x0 - (2.5 * x1) + (2.0 * x2) - (0.5 * x3);
@@ -206,12 +204,12 @@ pub fn resample_to(sig: &[f64], new_length: usize) -> Vec<f64> {
 
         let pos_in_sig_slice = (pos_in_sig_slice - 1) as usize;
 
-        new_sig.push(hermite_interpolate(
+        new_sig.push(hermite_interpolate_f64(
             sig[pos_in_sig_slice],
             sig[pos_in_sig_slice + 1],
             sig[pos_in_sig_slice + 2],
             sig[pos_in_sig_slice + 3],
-            pos_in_sig % 1.0,
+            pos_in_sig.fract(),
         ));
     }
 

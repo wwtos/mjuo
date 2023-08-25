@@ -1,7 +1,9 @@
-use std::{f64::consts::TAU, iter::Sum};
+use std::{f32::consts::PI, f64::consts::TAU, iter::Sum};
 
 use num::Float;
 use smallvec::SmallVec;
+
+use crate::util::interpolate::lerp;
 
 #[derive(Debug, Clone)]
 pub struct FilterCoeffs<const N: usize, F: Float> {
@@ -84,7 +86,7 @@ pub fn bandwidth_to_q<F: Float>(bandwidth: F, ω0: F) -> F {
 #[allow(non_snake_case)]
 pub fn slope_to_q<F: Float>(db_gain: F, slope: F) -> F {
     let n1 = F::one();
-    let n2 = F::from(2).unwrap();
+    let n2 = n1 + n1;
     let n10 = F::from(10).unwrap();
     let n40 = F::from(40).unwrap();
 
@@ -390,5 +392,39 @@ impl NthBiquadFilter {
         }
 
         intermediate
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Debug, Clone, Default)]
+pub struct SimpleComb {
+    pub M: f32,
+    pub α: f32,
+}
+
+impl SimpleComb {
+    pub fn new(f0: f32, fs: f32, α: f32) -> SimpleComb {
+        SimpleComb { M: fs / f0, α }
+    }
+
+    #[inline]
+    pub fn filter(&self, x: f32, sample: &[f32], position: f32) -> f32 {
+        if position < self.M {
+            0.0
+        } else {
+            let tap_pos = position - self.M;
+
+            x + lerp(sample[tap_pos as usize], sample[tap_pos as usize + 1], tap_pos.fract()) * self.α
+        }
+    }
+
+    // TODO: very sloppy, I don't feel like working out the math though, lol
+    pub fn response(&self, freq: f32, fs: f32) -> f32 {
+        let ω = 2.0 * PI * (freq / fs);
+
+        let real = 1.0 + self.α * (ω * self.M).cos();
+        let imag = self.α * (ω * self.M).sin();
+
+        f32::sqrt(real * real + imag * imag)
     }
 }

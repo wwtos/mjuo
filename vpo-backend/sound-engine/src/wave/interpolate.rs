@@ -1,4 +1,4 @@
-use crate::{node::biquad_filter::BiquadFilter, util::lerp};
+use crate::{node::biquad_filter::BiquadFilter, util::interpolate::lerp};
 
 use super::tables::{BASE_FREQUENCY, WAVETABLE_MASK, WAVETABLE_SIZE};
 

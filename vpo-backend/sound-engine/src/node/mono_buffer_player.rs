@@ -1,4 +1,4 @@
-use crate::{sampling::interpolate::hermite_interpolate, MonoSample, SoundConfig};
+use crate::{util::interpolate::hermite_lookup, MonoSample, SoundConfig};
 
 #[derive(Debug, Clone)]
 pub struct MonoBufferPlayer {
@@ -54,13 +54,7 @@ impl MonoBufferPlayer {
 
         self.audio_position += self.adjusted_playback_rate;
 
-        hermite_interpolate(
-            sample[buffer_position],
-            sample[buffer_position + 1],
-            sample[buffer_position + 2],
-            sample[buffer_position + 3],
-            self.audio_position % 1.0,
-        )
+        hermite_lookup(self.audio_position, sample)
     }
 
     pub fn seek(&mut self, location: f32) {

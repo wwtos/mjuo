@@ -42,13 +42,20 @@ impl PhaseCalculator {
     }
 
     /// calculates the needed index offset for `sample_to` in order for continous in phase playback
-    pub fn calc_phase_shift(&self, sample_from: &[f32], sample_to: &[f32]) -> f32 {
-        let phase_from = self.calc_phase(sample_from);
-        let phase_to = self.calc_phase(sample_to);
+    pub fn calc_phase_shift(&self, from: usize, to: usize, sample: &[f32]) -> f32 {
+        let window = self.window();
+
+        // not enough space to tell
+        if from.max(to) + window >= sample.len() {
+            return 0.0;
+        }
+
+        let phase_from = self.calc_phase(&sample[from..(from + window)]);
+        let phase_to = self.calc_phase(&sample[to..(to + window)]);
 
         let phase_diff = (phase_from - phase_to).rem_euclid(PI * 2.0);
 
-        (phase_diff / (PI * 2.0)) * self.window() as f32
+        (phase_diff / (PI * 2.0)) * (window as f32)
     }
 
     pub fn window(&self) -> usize {
