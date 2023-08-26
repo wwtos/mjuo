@@ -27,7 +27,7 @@ impl NodeRuntime for ToggleNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(new_state) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             if !self.first_time {

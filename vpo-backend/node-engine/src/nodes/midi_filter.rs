@@ -37,7 +37,7 @@ impl NodeRuntime for MidiFilterNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 

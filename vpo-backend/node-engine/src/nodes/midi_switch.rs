@@ -48,7 +48,7 @@ impl NodeRuntime for MidiSwitchNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = smallvec![];
 

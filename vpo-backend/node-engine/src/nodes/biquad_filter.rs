@@ -46,7 +46,7 @@ impl NodeRuntime for BiquadFilterNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0].as_ref().and_then(|f| f.as_float()) {
             self.filter_spec.f0 = frequency.max(1.0);

@@ -71,11 +71,11 @@ impl NodeRuntime for RankPlayerNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut reset_needed = false;
 
-        if resources[0].1.type_id() == TypeId::of::<Rank>() {
+        if resources[0].is_some() {
             if let Some(cents) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
                 self.player.set_detune(cents_to_detune(cents));
             }

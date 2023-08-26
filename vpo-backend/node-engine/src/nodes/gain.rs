@@ -11,7 +11,7 @@ impl NodeRuntime for GainNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gain) = ins.values[0] {
             self.gain = gain.as_float().unwrap_or(0.0);

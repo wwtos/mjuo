@@ -19,7 +19,7 @@ impl NodeRuntime for EnvelopeNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.values[0].as_ref().and_then(|gate| gate.as_boolean()) {
             self.gate = gate;

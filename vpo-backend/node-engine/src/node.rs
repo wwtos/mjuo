@@ -248,7 +248,7 @@ pub trait NodeRuntime: Debug + Clone {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         ProcessResult::nothing()
     }

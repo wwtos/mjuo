@@ -1,10 +1,12 @@
 use core::slice;
 use std::{
+    any::Any,
     collections::BTreeMap,
     iter::repeat,
     mem::{self, MaybeUninit},
 };
 
+use resource_manager::{ResourceId, ResourceIndex};
 use rhai::Engine;
 use smallvec::SmallVec;
 use sound_engine::SoundConfig;
@@ -12,7 +14,7 @@ use sound_engine::SoundConfig;
 use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeOk, NodeWarning},
-    global_state::Resources,
+    global_state::{ResourceType, Resources},
     graph_manager::{GraphIndex, GraphManager},
     node::{Ins, NodeIndex, NodeInitParams, NodeProcessGlobals, NodeRow, NodeRuntime, NodeState, Outs, StateInterface},
     nodes::{new_variant, NodeVariant},
@@ -36,7 +38,7 @@ pub struct TraverserResult {
 }
 
 #[derive(Debug, Clone)]
-struct Locations {
+struct NodeAssociatedLocations {
     pub value_socket_to_index: Vec<(Socket, usize)>,
     pub stream_outputs_index: usize,
     pub stream_output_sockets: Vec<Socket>,
@@ -62,11 +64,11 @@ pub struct BufferedTraverser {
     node_indexes: Vec<NodeIndex>,
     nodes_linked_to_ui: Vec<(usize, NodeIndex)>,
 
-    node_to_location_mapping: BTreeMap<NodeIndex, Locations>,
+    node_to_location_mapping: BTreeMap<NodeIndex, NodeAssociatedLocations>,
 
-    stream_outputs: Vec<f32>,
     midi_outputs: Vec<Option<MidiBundle>>,
     value_outputs: Vec<Option<Primitive>>,
+    stream_outputs: Vec<f32>,
 
     /// If None, it's not connected to anything (to keep alignment when inputting into node)
     stream_input_mappings: Vec<Option<usize>>,
@@ -77,6 +79,9 @@ pub struct BufferedTraverser {
     /// If None, it's not connected to anything (to keep alignment when inputting into node)
     value_input_mappings: Vec<Option<usize>>,
     value_advance_by: Vec<AdvanceBy>,
+
+    resource_tracking: Vec<(ResourceId, Option<(ResourceType, ResourceIndex)>)>,
+    resource_advance_by: Vec<usize>,
 }
 
 impl BufferedTraverser {
@@ -138,11 +143,16 @@ impl BufferedTraverser {
         self.value_input_mappings.clear();
         self.value_advance_by.clear();
         self.nodes_linked_to_ui.clear();
+        self.resource_tracking.clear();
+        self.resource_advance_by.clear();
 
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
-        // now for the fun part
+        // now for the fun part ;)
+        // # Step 1, denormalize all of the nodes
+        // Each of the different types of input is split up across a different array, lined up
+        // back to back
         for (vec_index, node_index) in traversal_order.iter().enumerate() {
             // create and init the node
             let node_wrapper = graph.get_node(*node_index)?;
@@ -168,16 +178,26 @@ impl BufferedTraverser {
             });
 
             // handle any errors from initializing the node
-            match init_result_res {
+            let needed_resources = match init_result_res {
                 Ok(init_result) => {
                     for warning in init_result.warnings.into_iter() {
                         warnings.push((*node_index, warning))
                     }
+
+                    init_result.value.needed_resources
                 }
                 Err(err) => {
                     errors.push((*node_index, err));
+
+                    vec![]
                 }
             };
+
+            for needed_resource in &needed_resources {
+                let resource_index = resources.get_resource_index(needed_resource);
+
+                self.resource_tracking.push((needed_resource.clone(), resource_index));
+            }
 
             if variant.has_state() {
                 self.nodes_linked_to_ui.push((vec_index, *node_index));
@@ -241,7 +261,7 @@ impl BufferedTraverser {
 
             self.node_to_location_mapping.insert(
                 *node_index,
-                Locations {
+                NodeAssociatedLocations {
                     stream_outputs_index: self.stream_outputs.len(),
                     stream_output_sockets: stream_output_sockets.clone(),
                     midi_outputs_index: self.midi_outputs.len(),
@@ -269,22 +289,26 @@ impl BufferedTraverser {
                 outputs: value_output_sockets.len(),
             });
 
+            self.resource_advance_by.push(needed_resources.len());
+
+            // fill the outputs with defaults
             self.stream_outputs
                 .extend(repeat(0.0).take(stream_output_sockets.len() * self.buffer_size));
             self.midi_outputs.extend(repeat(None).take(midi_output_sockets.len()));
             self.value_outputs.extend(repeat(None).take(value_output_sockets.len()));
         }
 
-        // the next step is to populate the input mappings, since we know where all the nodes are now
-        // The input mappings is a mapping to get the node's next input
+        // # Step 2, populate mappings between nodes
+        // Now we know where all the nodes are, so we can tell the each node where it can
+        // find its input from
         for index in traversal_order.iter() {
             let wrapper = graph.get_node(*index)?;
 
             // let's look through this node's inputs
             for input in wrapper.list_input_sockets() {
-                // is this socket connected to anything?
+                // is this node's input socket connected to anything?
                 if let Some(connection_index) = graph.get_input_connection_index(*index, input)? {
-                    // get what it's connected from
+                    // get the node that it's connected from
                     let connection = graph.get_graph().get_edge(connection_index.0).expect("edge to exist");
                     let from = NodeIndex(connection.get_from());
 
@@ -328,6 +352,7 @@ impl BufferedTraverser {
                     }
                 } else {
                     // it's not connected to anything, so push None in the mapping
+                    // (to preserve alignment when things are inputted into the node)
                     match input.socket_type() {
                         SocketType::Stream => {
                             self.stream_input_mappings.push(None);
@@ -373,10 +398,14 @@ impl BufferedTraverser {
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
 
+        let mut resource_input_i = 0;
+
         let mut midi_inputs: [&Option<MidiBundle>; BUFFER_SIZE] = [&nothing_midi; BUFFER_SIZE];
         let mut value_inputs: [&Option<Primitive>; BUFFER_SIZE] = [&nothing_value; BUFFER_SIZE];
         let mut value_staging: [Option<Primitive>; BUFFER_SIZE] = staging_values();
         let mut stream_inputs: [&[f32]; BUFFER_SIZE] = [&nothing_stream; BUFFER_SIZE];
+        let mut resource_inputs: [MaybeUninit<Option<(ResourceIndex, &dyn Any)>>; BUFFER_SIZE] =
+            unsafe { MaybeUninit::uninit().assume_init() };
 
         let mut midi_outputs_i = 0;
         let mut value_outputs_i = 0;
@@ -394,6 +423,38 @@ impl BufferedTraverser {
         }
 
         for (i, node) in self.nodes.iter_mut().enumerate() {
+            // input resources
+            for j in 0..self.resource_advance_by[i] {
+                let (resource_id, possible_index) = &self.resource_tracking[resource_input_i];
+
+                let possible_resource = possible_index.as_ref().and_then(|(resource_type, resource_index)| {
+                    resources
+                        .get_any(resource_type, *resource_index)
+                        .map(|resource| (resource_index, resource))
+                });
+
+                // does it exist at the index?
+                let to_input = if let Some((index, resource)) = possible_resource {
+                    Some((*index, resource))
+                } else {
+                    // else check to see if it has a new index
+                    if let Some(new_resource_index) = resources.get_resource_index(resource_id) {
+                        self.resource_tracking[resource_input_i].1 = Some(new_resource_index.clone());
+
+                        resources
+                            .get_any(&new_resource_index.0, new_resource_index.1)
+                            .map(|resource| (new_resource_index.1, resource))
+                    } else {
+                        // still doesn't exist
+                        None
+                    }
+                };
+
+                resource_inputs[j].write(to_input);
+
+                resource_input_i += 1;
+            }
+
             let midi_input_count = self.midi_advance_by[i].inputs;
             let value_input_count = self.value_advance_by[i].inputs;
             let stream_input_count = self.stream_advance_by[i].inputs;
@@ -470,6 +531,7 @@ impl BufferedTraverser {
                     .write(unsafe { slice::from_raw_parts_mut(streams_ptr.add(output_index), self.buffer_size) });
             }
 
+            // FINALLY
             let res = node.node.process(
                 NodeProcessGlobals {
                     current_time,
@@ -504,7 +566,12 @@ impl BufferedTraverser {
                         mem::transmute::<_, &mut [&mut [f32]]>(&mut stream_outputs[0..stream_output_count])
                     },
                 },
-                &Vec::new(),
+                unsafe {
+                    mem::transmute::<
+                        &[MaybeUninit<Option<(ResourceIndex, &dyn Any)>>],
+                        &[Option<(ResourceIndex, &dyn Any)>],
+                    >(&resource_inputs[0..self.resource_advance_by[i]])
+                },
             );
 
             match res {

@@ -9,7 +9,7 @@ impl NodeRuntime for MixerNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         for (i, frame) in outs.streams[0].iter_mut().enumerate() {
             *frame = 0.0;

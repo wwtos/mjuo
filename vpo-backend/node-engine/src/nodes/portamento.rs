@@ -33,7 +33,7 @@ impl NodeRuntime for PortamentoNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             if self.engaged && !gate {

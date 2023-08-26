@@ -1,7 +1,8 @@
+use std::any::Any;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
-use resource_manager::{serialize_resource_content, ResourceManager};
+use resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
@@ -13,6 +14,55 @@ pub struct Resources {
     pub ranks: ResourceManager<Rank>,
     #[serde(serialize_with = "serialize_resource_content")]
     pub ui: ResourceManager<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ResourceType {
+    Sample,
+    Rank,
+    Ui,
+}
+
+impl Resources {
+    pub fn get_resource_index(&self, resource_id: &ResourceId) -> Option<(ResourceType, ResourceIndex)> {
+        match resource_id.namespace.as_str() {
+            "ranks" => self
+                .ranks
+                .get_index(&resource_id.resource)
+                .and_then(|x| Some((ResourceType::Rank, x))),
+            "samples" => self
+                .samples
+                .get_index(&resource_id.resource)
+                .and_then(|x| Some((ResourceType::Sample, x))),
+            "ui" => self
+                .ui
+                .get_index(&resource_id.resource)
+                .and_then(|x| Some((ResourceType::Ui, x))),
+            _ => None,
+        }
+    }
+
+    pub fn get_any(&self, resource_type: &ResourceType, resource_index: ResourceIndex) -> Option<&dyn Any> {
+        match resource_type {
+            ResourceType::Sample => {
+                if let Some(sample) = self.samples.borrow_resource(resource_index) {
+                    return Some(sample as &dyn Any);
+                }
+            }
+            ResourceType::Rank => {
+                if let Some(rank) = self.ranks.borrow_resource(resource_index) {
+                    return Some(rank as &dyn Any);
+                }
+            }
+            ResourceType::Ui => {
+                if let Some(ui) = self.ui.borrow_resource(resource_index) {
+                    return Some(ui as &dyn Any);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug)]

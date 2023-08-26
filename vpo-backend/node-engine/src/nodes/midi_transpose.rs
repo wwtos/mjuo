@@ -13,7 +13,7 @@ impl NodeRuntime for MidiTransposeNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.values[0].as_ref().and_then(|value_in| value_in.as_int()) {
             self.transpose_by = transpose.clamp(-127, 127) as i16;

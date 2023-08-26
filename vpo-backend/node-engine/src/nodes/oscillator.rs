@@ -28,7 +28,7 @@ impl NodeRuntime for OscillatorNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));

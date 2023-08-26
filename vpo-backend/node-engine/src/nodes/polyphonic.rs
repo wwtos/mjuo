@@ -92,7 +92,7 @@ impl NodeRuntime for PolyphonicNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(midi_in) = ins.midis[0] {
             let (child_input_node, _) = self.child_io_nodes.unwrap();

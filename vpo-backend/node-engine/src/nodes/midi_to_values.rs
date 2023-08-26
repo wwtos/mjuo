@@ -11,7 +11,7 @@ impl NodeRuntime for MidiToValuesNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(midi) = ins.midis[0] {
             for data in midi {

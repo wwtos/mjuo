@@ -28,13 +28,13 @@ impl NodeRuntime for WavetableSequencerNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
             self.frequency = frequency;
         }
 
-        if let Some(sample) = resources[0].1.downcast_ref::<MonoSample>() {
+        if let Some(sample) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
             let wavetable = &sample.audio_raw;
 
             let wavetable_pos = self.phase * wavetable.len() as f32;

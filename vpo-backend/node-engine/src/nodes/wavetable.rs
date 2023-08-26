@@ -26,13 +26,13 @@ impl NodeRuntime for WavetableNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
             self.oscillator.set_frequency(frequency);
         }
 
-        if let Some(wavetable) = resources[0].1.downcast_ref::<MonoSample>() {
+        if let Some(wavetable) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
             for frame in outs.streams[0].iter_mut() {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }

@@ -27,7 +27,7 @@ impl NodeRuntime for OutputsNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         for (i, midi) in ins.midis.iter().enumerate() {
             if let Some(midi) = midi {

@@ -134,11 +134,13 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[(ResourceIndex, &dyn Any)]) {
+    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[Option<(ResourceIndex, &dyn Any)>]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
-            .and_then(|sample_index| resources[*sample_index].1.downcast_ref::<MonoSample>())
+            .and_then(|sample_index| {
+                resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
+            })
             .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
 
         if let Some((pipe, sample)) = pipe_and_sample {
@@ -187,10 +189,10 @@ impl RankPlayer {
         &mut self,
         time: i64,
         midi: &MidiBundle,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
         out: &mut [f32],
     ) {
-        let rank = resources[0].1.downcast_ref::<Rank>().expect("a rank");
+        let rank = resources[0].expect("a rank").1.downcast_ref::<Rank>().expect("a rank");
         let out_len = out.len();
 
         for output in out.iter_mut() {
@@ -213,7 +215,9 @@ impl RankPlayer {
             let pipe_and_sample = self
                 .note_to_sample_map
                 .get(&voice.note)
-                .and_then(|sample_index| resources[*sample_index].1.downcast_ref::<MonoSample>())
+                .and_then(|sample_index| {
+                    resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
+                })
                 .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
             let mut midi_position = 0;

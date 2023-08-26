@@ -25,7 +25,7 @@ impl NodeRuntime for InputsNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[(ResourceIndex, &dyn Any)],
+        resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if !self.sent {
             outs.midis.clone_from_slice(&self.midis[..]);
