@@ -1,5 +1,5 @@
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
+use sound_engine::{node::wavetable_oscillator::WavetableOscillator, MonoSample, SoundConfig};
 
 use crate::nodes::prelude::*;
 
@@ -10,10 +10,10 @@ pub struct WavetableNode {
 }
 
 impl NodeRuntime for WavetableNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let needed_resource = state.props.get("wavetable").and_then(|x| x.clone().as_resource());
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let needed_resource = params.props.get("wavetable").and_then(|x| x.clone().as_resource());
 
-        self.oscillator = WavetableOscillator::new(state.sound_config.clone());
+        self.oscillator = WavetableOscillator::new(params.sound_config.clone());
 
         NodeOk::no_warnings(InitResult {
             changed_properties: None,
@@ -28,30 +28,24 @@ impl NodeRuntime for WavetableNode {
         outs: Outs,
         resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        if let Some(player) = &mut self.oscillator {
-            let wavetable = state.resources.samples.borrow_resource(self.index.unwrap()).unwrap();
+        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+            self.oscillator.set_frequency(frequency);
+        }
 
-            for frame in streams_out[0].iter_mut() {
-                *frame = player.get_next_sample(wavetable);
+        if let Some(wavetable) = resources[0].1.downcast_ref::<MonoSample>() {
+            for frame in outs.streams[0].iter_mut() {
+                *frame = self.oscillator.get_next_sample(wavetable);
             }
         }
 
         NodeOk::no_warnings(())
     }
-
-    fn accept_value_inputs(&mut self, values_in: &[Option<Primitive>]) {
-        if let [frequency] = values_in {
-            if let Some(oscillator) = &mut self.oscillator {
-                oscillator.set_frequency(frequency.clone().and_then(|x| x.as_float()).unwrap());
-            }
-        }
-    }
 }
 
 impl Node for WavetableNode {
-    fn new(_config: &SoundConfig) -> Self {
+    fn new(config: &SoundConfig) -> Self {
         WavetableNode {
-            oscillator: None,
+            oscillator: WavetableOscillator::new(config.clone()),
             index: None,
         }
     }

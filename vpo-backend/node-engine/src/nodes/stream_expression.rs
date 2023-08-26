@@ -44,10 +44,10 @@ impl NodeRuntime for StreamExpressionNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning: Option<NodeWarning> = None;
 
-        let expression = state
+        let expression = params
             .props
             .get("expression")
             .and_then(|x| x.clone().as_string())
@@ -58,7 +58,7 @@ impl NodeRuntime for StreamExpressionNode {
             self.ast = None;
         } else {
             // compile the expression and collect any errors
-            let possible_ast = state.script_engine.compile(expression);
+            let possible_ast = params.script_engine.compile(expression);
 
             match possible_ast {
                 Ok(ast) => {

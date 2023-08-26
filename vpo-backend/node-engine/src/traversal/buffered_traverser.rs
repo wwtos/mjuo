@@ -14,7 +14,7 @@ use crate::{
     errors::{ErrorsAndWarnings, NodeError, NodeOk, NodeWarning},
     global_state::Resources,
     graph_manager::{GraphIndex, GraphManager},
-    node::{NodeIndex, NodeInitState, NodeProcessGlobals, NodeRow, NodeRuntime, NodeState, StateInterface},
+    node::{Ins, NodeIndex, NodeInitParams, NodeProcessGlobals, NodeRow, NodeRuntime, NodeState, Outs, StateInterface},
     nodes::{new_variant, NodeVariant},
 };
 
@@ -68,11 +68,13 @@ pub struct BufferedTraverser {
     midi_outputs: Vec<Option<MidiBundle>>,
     value_outputs: Vec<Option<Primitive>>,
 
-    /// If none, it's not connected to anything
+    /// If None, it's not connected to anything (to keep alignment when inputting into node)
     stream_input_mappings: Vec<Option<usize>>,
     stream_advance_by: Vec<AdvanceBy>,
+    /// If None, it's not connected to anything (to keep alignment when inputting into node)
     midi_input_mappings: Vec<Option<usize>>,
     midi_advance_by: Vec<AdvanceBy>,
+    /// If None, it's not connected to anything (to keep alignment when inputting into node)
     value_input_mappings: Vec<Option<usize>>,
     value_advance_by: Vec<AdvanceBy>,
 }
@@ -120,14 +122,8 @@ impl BufferedTraverser {
         let traversal_order = calculate_graph_traverse_order(&graph);
 
         // pull out the old nodes (don't recreate them every time)
-        let mut old_nodes = self.nodes.drain(0..).zip(self.node_indexes.drain(0..)).fold(
-            BTreeMap::new(),
-            |mut map, (node, node_index)| {
-                map.insert(node_index, node);
-
-                map
-            },
-        );
+        let mut old_nodes: BTreeMap<NodeIndex, NodeTraversalWrapper> =
+            self.node_indexes.drain(0..).zip(self.nodes.drain(0..)).collect();
 
         self.nodes.clear();
         self.node_indexes.clear();
@@ -160,18 +156,16 @@ impl BufferedTraverser {
             // get the child graph info, if any
             let child_graph_info = node_wrapper.get_child_graph_info();
 
-            let init_result_res = variant.init(
-                NodeInitState {
-                    props: node_wrapper.get_properties(),
-                    script_engine,
-                    resources,
-                    current_time,
-                    graph_manager,
-                    sound_config: &sound_config,
-                    state: node_wrapper.get_state(),
-                },
-                child_graph_info,
-            );
+            let init_result_res = variant.init(NodeInitParams {
+                props: node_wrapper.get_properties(),
+                script_engine,
+                resources,
+                current_time,
+                graph_manager,
+                sound_config: &sound_config,
+                state: node_wrapper.get_state(),
+                child_graph: child_graph_info,
+            });
 
             // handle any errors from initializing the node
             match init_result_res {
@@ -225,7 +219,7 @@ impl BufferedTraverser {
                 }
             }
 
-            // create a list of its default inputs and count the outputs
+            // create a list of all of the outputs
             let mut stream_output_sockets = vec![];
             let mut midi_output_sockets = vec![];
             let mut value_output_sockets = vec![];
@@ -371,17 +365,18 @@ impl BufferedTraverser {
         let mut state_changes: Vec<(NodeIndex, NodeState)> = vec![];
 
         // used as a default pointer if a node doesn't have an input connected
-        let nothing_in = vec![0.0_f32; self.buffer_size];
+        let nothing_stream = vec![0.0_f32; self.buffer_size];
+        let nothing_midi = None;
+        let nothing_value = None;
 
         let mut midi_mapping_i = 0;
         let mut value_mapping_i = 0;
         let mut stream_mapping_i = 0;
 
-        let mut midi_inputs: [MaybeUninit<Option<MidiBundle>>; BUFFER_SIZE] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        let mut value_inputs: [MaybeUninit<Option<Primitive>>; BUFFER_SIZE] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        let mut stream_inputs: [MaybeUninit<&[f32]>; BUFFER_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
+        let mut midi_inputs: [&Option<MidiBundle>; BUFFER_SIZE] = [&nothing_midi; BUFFER_SIZE];
+        let mut value_inputs: [&Option<Primitive>; BUFFER_SIZE] = [&nothing_value; BUFFER_SIZE];
+        let mut value_staging: [Option<Primitive>; BUFFER_SIZE] = staging_values();
+        let mut stream_inputs: [&[f32]; BUFFER_SIZE] = [&nothing_stream; BUFFER_SIZE];
 
         let mut midi_outputs_i = 0;
         let mut value_outputs_i = 0;
@@ -399,116 +394,80 @@ impl BufferedTraverser {
         }
 
         for (i, node) in self.nodes.iter_mut().enumerate() {
-            // input midi inputs
             let midi_input_count = self.midi_advance_by[i].inputs;
+            let value_input_count = self.value_advance_by[i].inputs;
+            let stream_input_count = self.stream_advance_by[i].inputs;
 
-            let mut should_input_midi = false;
+            let stream_output_count = self.stream_advance_by[i].outputs;
+            let value_output_count = self.value_advance_by[i].outputs;
+            let midi_output_count = self.midi_advance_by[i].outputs;
 
+            let midi_output_index = midi_outputs_i;
+            let value_output_index = value_outputs_i;
+
+            // clear last outputs
+            self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)].fill(None);
+            self.value_outputs[value_output_index..(value_output_index + value_output_count)].fill(None);
+
+            let midi_ptr = self.midi_outputs.as_mut_ptr();
+            let value_ptr = self.value_outputs.as_mut_ptr();
+            let value_staging_ptr = value_staging.as_mut_ptr();
+            let streams_ptr = self.stream_outputs.as_mut_ptr();
+
+            // set up midi and value inputs
             for j in 0..midi_input_count {
                 if let Some(input_index) = self.midi_input_mappings[midi_mapping_i] {
-                    let incoming = self.midi_outputs[input_index].clone();
-                    should_input_midi |= incoming.is_some();
+                    // SAFETY: make sure we don't exceed the midi output's length
+                    assert!(input_index < self.midi_outputs.len());
 
-                    midi_inputs[j].write(incoming);
+                    midi_inputs[j] = unsafe { &*midi_ptr.add(input_index) };
                 } else {
-                    midi_inputs[j].write(None);
+                    midi_inputs[j] = &nothing_midi;
                 }
 
                 midi_mapping_i += 1;
             }
 
-            if should_input_midi {
-                // SAFETY: 0..inputs is initialized above
-                node.node.accept_midi_inputs(unsafe {
-                    mem::transmute::<_, &[Option<MidiBundle>]>(&midi_inputs[0..midi_input_count])
-                });
-            }
-
-            // next, handle value input
-            let value_input_count = self.value_advance_by[i].inputs;
-
-            let mut should_input_value = false;
-
             for j in 0..value_input_count {
                 if let Some(input_index) = self.value_input_mappings[value_mapping_i] {
-                    let incoming = self.value_outputs[input_index].clone();
-                    should_input_value |= incoming.is_some();
-
-                    value_inputs[j].write(incoming);
+                    value_inputs[j] = unsafe { &*value_ptr.add(input_index) };
                 } else {
-                    value_inputs[j].write(None);
+                    value_inputs[j] = &nothing_value;
                 }
 
                 value_mapping_i += 1;
             }
 
             // override any values coming in with values from the user, if any
-            for override_input in node.values_to_input.drain(..) {
-                value_inputs[override_input.0].write(Some(override_input.1));
-                should_input_value = true;
+            for (j, (input_at, override_input)) in node.values_to_input.drain(..).enumerate() {
+                let staging_ref = unsafe { &mut *value_staging_ptr.add(j) };
+                *staging_ref = Some(override_input);
+                value_inputs[input_at] = staging_ref;
             }
-
-            if should_input_value {
-                // SAFETY: 0..inputs is initialized above
-                node.node.accept_value_inputs(unsafe {
-                    mem::transmute::<_, &[Option<Primitive>]>(&value_inputs[0..value_input_count])
-                });
-            }
-
-            // input and output streams
-            let inputs = self.stream_advance_by[i].inputs;
-            let outputs = self.stream_advance_by[i].outputs;
-
-            let outputs_ptr = self.stream_outputs.as_mut_ptr();
-
-            // pointer alias debugging
-            // let mut alias_test = vec![false; self.stream_outputs.len()];
 
             // build the list of input references from other nodes' outputs
-            for j in 0..inputs {
+            for j in 0..stream_input_count {
                 if let Some(input_index) = self.stream_input_mappings[stream_mapping_i] {
-                    // pointer alias debugging
-                    //
-                    // for i in output_index..(output_index + self.buffer_size) {
-                    //     if alias_test[i] == true {
-                    //         panic!("Aliasing at: {:?}", i);
-                    //     }
-
-                    //     alias_test[i] = true;
-                    // }
-
                     // SAFETY: Make sure we don't have a slice exceed the length of the array
                     assert!(input_index + self.buffer_size <= self.stream_outputs.len());
 
-                    stream_inputs[j]
-                        .write(unsafe { slice::from_raw_parts(outputs_ptr.add(input_index), self.buffer_size) });
+                    stream_inputs[j] = unsafe { slice::from_raw_parts(streams_ptr.add(input_index), self.buffer_size) };
                 } else {
-                    stream_inputs[j].write(&nothing_in);
+                    stream_inputs[j] = &nothing_stream;
                 }
 
                 stream_mapping_i += 1;
             }
 
             // ...and the list of output references
-            for j in 0..outputs {
+            for j in 0..stream_output_count {
                 let output_index = stream_outputs_i + j * self.buffer_size;
-
-                // pointer alias debugging
-                //
-                // for i in output_index..(output_index + self.buffer_size) {
-
-                //     if alias_test[i] == true {
-                //         panic!("Aliasing at: {}", i);
-                //     }
-
-                //     alias_test[i] = true;
-                // }
 
                 // SAFETY: Make sure we don't have a slice exceed the length of the array
                 assert!(output_index + self.buffer_size <= self.stream_outputs.len());
 
                 stream_outputs[j]
-                    .write(unsafe { slice::from_raw_parts_mut(outputs_ptr.add(output_index), self.buffer_size) });
+                    .write(unsafe { slice::from_raw_parts_mut(streams_ptr.add(output_index), self.buffer_size) });
             }
 
             let res = node.node.process(
@@ -523,8 +482,29 @@ impl BufferedTraverser {
                     },
                 },
                 // SAFETY: we've already initialized 0..inputs and 0..outputs above
-                unsafe { mem::transmute::<_, &[&[f32]]>(&stream_inputs[0..inputs]) },
-                unsafe { mem::transmute::<_, &mut [&mut [f32]]>(&mut stream_outputs[0..outputs]) },
+                Ins {
+                    midis: &midi_inputs[0..midi_input_count],
+                    values: &value_inputs[0..value_input_count],
+                    streams: &stream_inputs[0..stream_input_count],
+                },
+                Outs {
+                    midis: unsafe {
+                        slice::from_raw_parts_mut(
+                            midi_ptr.add(midi_output_index),
+                            midi_output_index + midi_output_count,
+                        )
+                    },
+                    values: unsafe {
+                        slice::from_raw_parts_mut(
+                            value_ptr.add(value_output_index),
+                            value_output_index + value_output_count,
+                        )
+                    },
+                    streams: unsafe {
+                        mem::transmute::<_, &mut [&mut [f32]]>(&mut stream_outputs[0..stream_output_count])
+                    },
+                },
+                &Vec::new(),
             );
 
             match res {
@@ -541,40 +521,15 @@ impl BufferedTraverser {
                 }
             }
 
-            stream_outputs_i += self.stream_advance_by[i].outputs * self.buffer_size;
-
-            // get midi outputs
-            let midi_output_count = self.midi_advance_by[i].outputs;
-            let midi_output_index = midi_outputs_i;
-
-            // reset values back to None, they may be set after running `get_midi_outputs`
-            self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)].fill(None);
-            node.node
-                .get_midi_outputs(&mut self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)]);
-
             midi_outputs_i += self.midi_advance_by[i].outputs;
-
-            // get value outputs
-            let value_output_count = self.value_advance_by[i].outputs;
-            let value_output_index = value_outputs_i;
-
-            // reset values back to None, they may be set after running `get_value_outputs`
-            self.value_outputs[value_output_index..(value_output_index + value_output_count)].fill(None);
-            node.node.get_value_outputs(
-                &mut self.value_outputs[value_output_index..(value_output_index + value_output_count)],
-            );
-
             value_outputs_i += self.value_advance_by[i].outputs;
+            stream_outputs_i += self.stream_advance_by[i].outputs * self.buffer_size;
         }
 
         for (vec_index, node_index) in &self.nodes_linked_to_ui {
             if let Some(new_node_state) = self.nodes[*vec_index].node.get_state() {
                 state_changes.push((*node_index, new_node_state));
             }
-        }
-
-        for node in &mut self.nodes {
-            node.node.finish();
         }
 
         TraverserResult {
@@ -619,5 +574,17 @@ impl BufferedTraverser {
         } else {
             Err(NodeError::NodeDoesNotExist { node_index })
         }
+    }
+}
+
+fn staging_values() -> [Option<Primitive>; BUFFER_SIZE] {
+    let mut uninited: [MaybeUninit<Option<Primitive>>; BUFFER_SIZE] = unsafe { MaybeUninit::uninit().assume_init() };
+
+    for value in uninited.iter_mut() {
+        value.write(None);
+    }
+
+    unsafe {
+        mem::transmute::<[MaybeUninit<Option<Primitive>>; BUFFER_SIZE], [Option<Primitive>; BUFFER_SIZE]>(uninited)
     }
 }

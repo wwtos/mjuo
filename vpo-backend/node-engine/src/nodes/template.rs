@@ -35,7 +35,7 @@ impl Node for TemplateNode {
     }
 
     fn init(&mut self, properties: &HashMap<String, Property>) -> (bool, Option<HashMap<String, Property>>) {
-        if let Some(some_prop) = state.props.get("some_prop") {
+        if let Some(some_prop) = params.props.get("some_prop") {
             if let Property::Float(some_extracted_prop) = some_prop {
                 self.some_prop = *some_extracted_prop;
             }

@@ -13,13 +13,13 @@ pub struct MidiToValueNode {
 }
 
 impl NodeRuntime for MidiToValueNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(Property::String(expression)) = state.props.get("expression") {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(Property::String(expression)) = params.props.get("expression") {
             self.expression_raw = expression.clone();
         }
 
         // compile the expression and collect any errors
-        let possible_ast = state.script_engine.compile(&self.expression_raw);
+        let possible_ast = params.script_engine.compile(&self.expression_raw);
 
         match possible_ast {
             Ok(ast) => {

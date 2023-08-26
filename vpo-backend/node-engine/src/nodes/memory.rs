@@ -20,8 +20,8 @@ pub struct MemoryNode {
 }
 
 impl NodeRuntime for MemoryNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let NodeInitState { state: node_state, .. } = state;
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let NodeInitParams { state: node_state, .. } = params;
 
         self.memory = serde_json::from_value(node_state.other.get("memory").unwrap_or(&Value::Null).clone())
             .unwrap_or_else(|_| vec![]);
@@ -51,6 +51,8 @@ impl NodeRuntime for MemoryNode {
         outs: Outs,
         resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
+        self.state_changed = false;
+
         if let Some(true) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             self.activated = true;
         }
@@ -122,8 +124,6 @@ impl NodeRuntime for MemoryNode {
 
     fn get_state(&self) -> Option<NodeState> {
         if self.state_changed {
-            self.state_changed = false;
-
             Some(NodeState {
                 counted_during_mapset: false,
                 value: Value::Null,

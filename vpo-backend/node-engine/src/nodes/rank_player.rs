@@ -1,5 +1,6 @@
 use std::any::TypeId;
 
+use lazy_static::lazy_static;
 use resource_manager::ResourceId;
 use smallvec::SmallVec;
 use sound_engine::{
@@ -15,11 +16,15 @@ pub struct RankPlayerNode {
     polyphony: usize,
 }
 
+lazy_static! {
+    pub static ref EMPTY_MIDI: MidiBundle = SmallVec::new();
+}
+
 impl NodeRuntime for RankPlayerNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut did_settings_change = false;
 
-        if let Some(polyphony) = state
+        if let Some(polyphony) = params
             .props
             .get("polyphony")
             .and_then(|polyphony| polyphony.clone().as_integer())
@@ -33,12 +38,12 @@ impl NodeRuntime for RankPlayerNode {
             self.polyphony = polyphony as usize;
         }
 
-        let rank_resource = state
+        let rank_resource = params
             .props
             .get("rank")
-            .and_then(|x| x.as_resource())
+            .and_then(|x| x.clone().as_resource())
             .and_then(|resource_id| {
-                state
+                params
                     .resources
                     .ranks
                     .borrow_resource_by_id(&resource_id.resource)
@@ -46,7 +51,7 @@ impl NodeRuntime for RankPlayerNode {
             });
 
         let needed_resources = if let Some((id, rank)) = rank_resource {
-            let (player, needed_resources) = RankPlayer::new(id, rank, self.polyphony, state.sound_config.sample_rate);
+            let (player, needed_resources) = RankPlayer::new(id, rank, self.polyphony, params.sound_config.sample_rate);
 
             self.player = player;
 
@@ -89,7 +94,7 @@ impl NodeRuntime for RankPlayerNode {
 
             self.player.next_buffered(
                 globals.current_time,
-                &ins.midis[0].unwrap_or_else(|| SmallVec::new()),
+                ins.midis[0].as_ref().unwrap_or(&EMPTY_MIDI),
                 resources,
                 outs.streams[0],
             );

@@ -3,7 +3,21 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Default, Clone)]
 pub struct DummyNode;
 
-impl NodeRuntime for DummyNode {}
+impl NodeRuntime for DummyNode {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        InitResult::nothing()
+    }
+
+    fn process(
+        &mut self,
+        globals: NodeProcessGlobals,
+        ins: Ins,
+        outs: Outs,
+        resources: &[(ResourceIndex, &dyn Any)],
+    ) -> NodeResult<()> {
+        ProcessResult::nothing()
+    }
+}
 
 impl Node for DummyNode {
     fn new(_sound_config: &SoundConfig) -> Self {

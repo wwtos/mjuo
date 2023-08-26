@@ -10,10 +10,10 @@ pub struct ToggleNode {
 }
 
 impl NodeRuntime for ToggleNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         self.first_time = true;
 
-        if let Some(new_state) = state.state.value.as_bool() {
+        if let Some(new_state) = params.state.value.as_bool() {
             self.state = new_state;
         }
 

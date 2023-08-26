@@ -53,8 +53,8 @@ impl NodeRuntime for OutputsNode {
         NodeOk::no_warnings(())
     }
 
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(Property::SocketList(sockets)) = state.props.get("socket_list") {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(Property::SocketList(sockets)) = params.props.get("socket_list") {
             let midi_outputs = sockets
                 .iter()
                 .filter(|output| output.socket_type() == SocketType::Midi)

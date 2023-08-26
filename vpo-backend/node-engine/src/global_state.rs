@@ -15,13 +15,6 @@ pub struct Resources {
     pub ui: ResourceManager<String>,
 }
 
-pub enum Resource<'a> {
-    Sample(&'a MonoSample),
-    Rank(&'a Rank),
-    Ui(&'a String),
-    Missing,
-}
-
 #[derive(Debug)]
 pub struct GlobalState {
     pub active_project: Option<PathBuf>,

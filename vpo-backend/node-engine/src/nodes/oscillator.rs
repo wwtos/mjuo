@@ -9,13 +9,13 @@ pub struct OscillatorNode {
 }
 
 impl NodeRuntime for OscillatorNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(waveform) = state.props.get("waveform") {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(waveform) = params.props.get("waveform") {
             let last_phase = self.oscillator.get_phase();
 
             self.oscillator = Oscillator::new(
                 Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap(),
-                state.sound_config.sample_rate,
+                params.sound_config.sample_rate,
             );
             self.oscillator.set_phase(last_phase);
         }

@@ -1,30 +1,42 @@
 use std::collections::HashMap;
 
-use sound_engine::node::biquad_filter::{BiquadFilter, BiquadFilterType};
+use sound_engine::node::filter::{filter_coeffs, BiquadFilter, FilterSpec, FilterType};
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct BiquadFilterNode {
     filter: BiquadFilter,
+    filter_spec: FilterSpec<f32>,
+    q: f32,
+}
+
+impl BiquadFilterNode {
+    fn recompute(&mut self) {
+        self.filter.set_coeffs(filter_coeffs(self.filter_spec.clone()));
+    }
 }
 
 impl NodeRuntime for BiquadFilterNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        self.filter.reset();
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        self.filter.reset_history();
 
-        if let Some(Property::MultipleChoice(filter_type)) = state.props.get("filter_type") {
-            self.filter.set_filter_type(match filter_type.as_str() {
-                "lowpass" => BiquadFilterType::Lowpass,
-                "highpass" => BiquadFilterType::Highpass,
-                "bandpass" => BiquadFilterType::Bandpass,
-                "notch" => BiquadFilterType::Notch,
-                "allpass" => BiquadFilterType::Allpass,
-                _ => unimplemented!("Type passed in was not a multiple choice option!"),
-            });
-        } else {
-            self.filter.set_filter_type(BiquadFilterType::Lowpass);
+        if let Some(Property::MultipleChoice(filter_type)) = params.props.get("filter_type") {
+            self.filter_spec = FilterSpec {
+                f0: self.filter_spec.f0,
+                fs: params.sound_config.sample_rate as f32,
+                filter_type: match filter_type.as_str() {
+                    "lowpass" => FilterType::LowPass { q: self.q },
+                    "highpass" => FilterType::HighPass { q: self.q },
+                    "bandpass" => FilterType::BandPass { bandwidth: self.q },
+                    "notch" => FilterType::Notch { bandwidth: self.q },
+                    "allpass" => FilterType::AllPass { q: self.q },
+                    _ => unimplemented!("Type passed in was not a multiple choice option!"),
+                },
+            };
         }
+
+        self.filter.set_coeffs(filter_coeffs(self.filter_spec.clone()));
 
         InitResult::nothing()
     }
@@ -36,16 +48,30 @@ impl NodeRuntime for BiquadFilterNode {
         outs: Outs,
         resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].and_then(|f| f.as_float()) {
-            self.filter.set_frequency(frequency.max(1.0));
+        if let Some(frequency) = ins.values[0].as_ref().and_then(|f| f.as_float()) {
+            self.filter_spec.f0 = frequency.max(1.0);
+            self.recompute();
         }
 
-        if let Some(resonance) = ins.values[1].and_then(|r| r.as_float()) {
-            self.filter.set_q(resonance);
+        if let Some(resonance) = ins.values[1].as_ref().and_then(|r| r.as_float()) {
+            match &mut self.filter_spec.filter_type {
+                FilterType::LowPass { q } | FilterType::HighPass { q } | FilterType::AllPass { q } => {
+                    *q = resonance;
+                }
+                FilterType::Notch { bandwidth }
+                | FilterType::BandPass { bandwidth }
+                | FilterType::Peaking { bandwidth, .. } => {
+                    *bandwidth = resonance;
+                }
+                FilterType::LowShelf { slope, .. } | FilterType::HighShelf { slope, .. } => {
+                    *slope = resonance;
+                }
+                FilterType::None => {}
+            }
         }
 
         for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
-            *frame_out = self.filter.filter_audio(*frame_in);
+            *frame_out = self.filter.filter_sample(*frame_in);
         }
 
         NodeOk::no_warnings(())
@@ -55,7 +81,9 @@ impl NodeRuntime for BiquadFilterNode {
 impl Node for BiquadFilterNode {
     fn new(config: &SoundConfig) -> BiquadFilterNode {
         BiquadFilterNode {
-            filter: BiquadFilter::new(config, BiquadFilterType::Lowpass, 20_000.0, 0.707),
+            filter: BiquadFilter::new(FilterSpec::none()),
+            filter_spec: FilterSpec::none(),
+            q: 0.7,
         }
     }
 

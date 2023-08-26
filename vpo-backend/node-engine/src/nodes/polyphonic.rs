@@ -42,26 +42,26 @@ pub struct PolyphonicNode {
 }
 
 impl NodeRuntime for PolyphonicNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warnings = vec![];
 
-        if let Some(Property::Integer(polyphony)) = state.props.get("polyphony") {
+        if let Some(Property::Integer(polyphony)) = params.props.get("polyphony") {
             self.polyphony = (*polyphony).clamp(1, 255) as u8;
         }
 
-        self.current_time = state.current_time;
+        self.current_time = params.current_time;
 
-        if let Some(graph_and_io) = child_graph {
+        if let Some(graph_and_io) = params.child_graph {
             self.voices.truncate(self.polyphony as usize);
 
             while self.polyphony as usize > self.voices.len() {
                 let (traverser, errors_and_warnings) = BufferedTraverser::new(
                     graph_and_io.graph,
-                    state.graph_manager,
-                    state.script_engine,
-                    state.resources,
-                    state.current_time,
-                    state.sound_config.clone(),
+                    params.graph_manager,
+                    params.script_engine,
+                    params.resources,
+                    params.current_time,
+                    params.sound_config.clone(),
                 )?;
 
                 if errors_and_warnings.any() {
@@ -70,7 +70,7 @@ impl NodeRuntime for PolyphonicNode {
 
                 self.voices.push(Voice {
                     traverser,
-                    info: PolyphonicInfo::new(state.current_time),
+                    info: PolyphonicInfo::new(params.current_time),
                     is_first_time: true,
                 });
             }
@@ -107,7 +107,7 @@ impl NodeRuntime for PolyphonicNode {
                             // message if so
                             for voice in self.voices.iter_mut() {
                                 if voice.info.active && voice.info.note == note {
-                                    if let Some(NodeVariant::InputsNode(mut inputs_node)) =
+                                    if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
                                         voice.traverser.get_node_mut(child_input_node)
                                     {
                                         inputs_node.set_midis(vec![Some(smallvec![message.clone()])])
@@ -131,7 +131,7 @@ impl NodeRuntime for PolyphonicNode {
                                 .find(|voice| voice.info.active && voice.info.note == note);
                             if let Some(already_on) = already_on {
                                 // be sure to send a note off message first
-                                if let Some(NodeVariant::InputsNode(mut inputs_node)) =
+                                if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
                                     already_on.traverser.get_node_mut(child_input_node)
                                 {
                                     inputs_node.set_midis(vec![Some(smallvec![
@@ -157,7 +157,7 @@ impl NodeRuntime for PolyphonicNode {
                                 if let Some(available) = available {
                                     // TODO: test code here VV
 
-                                    if let Some(NodeVariant::InputsNode(mut inputs_node)) =
+                                    if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
                                         available.traverser.get_node_mut(child_input_node)
                                     {
                                         inputs_node.set_midis(vec![Some(smallvec![
@@ -185,7 +185,7 @@ impl NodeRuntime for PolyphonicNode {
                                         .unwrap();
 
                                     // be sure to send a note off message first
-                                    if let Some(NodeVariant::InputsNode(mut inputs_node)) =
+                                    if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
                                         oldest.traverser.get_node_mut(child_input_node)
                                     {
                                         inputs_node.set_midis(vec![Some(smallvec![
@@ -216,7 +216,7 @@ impl NodeRuntime for PolyphonicNode {
                     if let Some(message_to_pass_to_all) = message_to_pass_to_all {
                         for voice in self.voices.iter_mut() {
                             if voice.info.active {
-                                if let Some(NodeVariant::InputsNode(mut inputs_node)) =
+                                if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
                                     voice.traverser.get_node_mut(child_input_node)
                                 {
                                     inputs_node.set_midis(vec![Some(smallvec![message_to_pass_to_all.clone()])]);

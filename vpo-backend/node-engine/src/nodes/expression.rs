@@ -76,22 +76,22 @@ impl NodeRuntime for ExpressionNode {
         ProcessResult::warning(warning)
     }
 
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warnings = Vec::new();
 
         let mut expression = "";
-        if let Some(Property::String(new_expression)) = state.props.get("expression") {
+        if let Some(Property::String(new_expression)) = params.props.get("expression") {
             expression = new_expression;
         }
 
-        if let Some(Property::Integer(values_in_count)) = state.props.get("values_in_count") {
+        if let Some(Property::Integer(values_in_count)) = params.props.get("values_in_count") {
             self.values_in.resize(*values_in_count as usize, Primitive::Float(0.0));
         } else {
             self.values_in.clear();
         }
 
         // compile the expression and collect any errors
-        let possible_ast = state.script_engine.compile(expression);
+        let possible_ast = params.script_engine.compile(expression);
 
         match possible_ast {
             Ok(ast) => {

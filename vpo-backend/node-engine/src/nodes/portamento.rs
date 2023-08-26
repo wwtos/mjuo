@@ -14,8 +14,8 @@ pub struct PortamentoNode {
 }
 
 impl NodeRuntime for PortamentoNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(ramp_type) = state.props.get("ramp_type") {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(ramp_type) = params.props.get("ramp_type") {
             let ramp_type = ramp_type.clone().as_multiple_choice().unwrap();
 
             match ramp_type.as_str() {

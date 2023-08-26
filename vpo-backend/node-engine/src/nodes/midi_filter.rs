@@ -12,11 +12,11 @@ pub struct MidiFilterNode {
 }
 
 impl NodeRuntime for MidiFilterNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning: Option<NodeWarning> = None;
 
-        if let Some(Property::String(expression)) = state.props.get("expression") {
-            let possible_ast = state.script_engine.compile(expression);
+        if let Some(Property::String(expression)) = params.props.get("expression") {
+            let possible_ast = params.script_engine.compile(expression);
             self.filter_raw = expression.clone();
 
             match possible_ast {

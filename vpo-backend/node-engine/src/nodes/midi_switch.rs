@@ -20,8 +20,8 @@ pub struct MidiSwitchNode {
 }
 
 impl NodeRuntime for MidiSwitchNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        if let Some(Property::String(mode)) = state.props.get("mode") {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(Property::String(mode)) = params.props.get("mode") {
             self.ignoring = 0;
 
             match mode.as_str() {

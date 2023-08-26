@@ -7,10 +7,10 @@ pub struct FunctionNode {
 }
 
 impl NodeRuntime for FunctionNode {
-    fn init(&mut self, state: NodeInitState, child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning = None;
 
-        if let Some(graph_and_io) = child_graph {
+        if let Some(graph_and_io) = params.child_graph {
             let NodeGraphAndIo {
                 graph: _,
                 input_index,
@@ -19,11 +19,11 @@ impl NodeRuntime for FunctionNode {
 
             let (traverser, errors_and_warnings) = BufferedTraverser::new(
                 graph_and_io.graph,
-                state.graph_manager,
-                state.script_engine,
-                state.resources,
-                state.current_time,
-                state.sound_config.clone(),
+                params.graph_manager,
+                params.script_engine,
+                params.resources,
+                params.current_time,
+                params.sound_config.clone(),
             )?;
             self.traverser = traverser;
 
@@ -54,7 +54,7 @@ impl NodeRuntime for FunctionNode {
         //         &mut self.local_graph,
         //         self.is_first_time,
         //         state.current_time,
-        //         state.script_engine,
+        //         params.script_engine,
         //         state.global_state,
         //     )
         //     .map_err(|err| NodeError::InnerGraphErrors {

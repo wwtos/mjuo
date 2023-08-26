@@ -56,6 +56,14 @@ impl<F: Float> FilterSpec<F> {
         FilterSpec { f0, fs, filter_type }
     }
 
+    pub fn none() -> FilterSpec<F> {
+        FilterSpec {
+            f0: F::zero(),
+            fs: F::zero(),
+            filter_type: FilterType::None,
+        }
+    }
+
     pub fn set_db_gain(&mut self, new_db_gain: F) -> bool {
         match &mut self.filter_type {
             FilterType::Peaking { db_gain, .. }
@@ -247,6 +255,11 @@ impl<const N: usize, F: Float> RecursiveFilter<N, F> {
     pub fn set_coeffs(&mut self, coeffs: FilterCoeffs<N, F>) {
         self.coeffs = coeffs;
     }
+
+    pub fn reset_history(&mut self) {
+        self.x = [F::zero(); N];
+        self.y = [F::zero(); N];
+    }
 }
 
 impl<const N: usize, F: Float> From<FilterCoeffs<N, F>> for RecursiveFilter<N, F> {
@@ -256,20 +269,6 @@ impl<const N: usize, F: Float> From<FilterCoeffs<N, F>> for RecursiveFilter<N, F
             x: [F::zero(); N],
             y: [F::zero(); N],
         }
-    }
-}
-
-impl<F: Float> RecursiveFilter<3, F> {
-    pub fn new(filter_spec: FilterSpec<F>) -> RecursiveFilter<3, F> {
-        RecursiveFilter {
-            coeffs: filter_coeffs(filter_spec),
-            x: [F::zero(); 3],
-            y: [F::zero(); 3],
-        }
-    }
-
-    pub fn set(&mut self, filter_spec: FilterSpec<F>) {
-        self.coeffs = filter_coeffs(filter_spec);
     }
 }
 
@@ -294,6 +293,20 @@ impl<const N: usize, F: Float + Sum> RecursiveFilter<N, F> {
         }
 
         y_n
+    }
+}
+
+impl<F: Float> RecursiveFilter<3, F> {
+    pub fn new(filter_spec: FilterSpec<F>) -> RecursiveFilter<3, F> {
+        RecursiveFilter {
+            coeffs: filter_coeffs(filter_spec),
+            x: [F::zero(); 3],
+            y: [F::zero(); 3],
+        }
+    }
+
+    pub fn set(&mut self, filter_spec: FilterSpec<F>) {
+        self.coeffs = filter_coeffs(filter_spec);
     }
 }
 

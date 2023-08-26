@@ -10,7 +10,7 @@ pub struct EnvelopeNode {
 }
 
 impl NodeRuntime for EnvelopeNode {
-    fn init(&mut self, _state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 
@@ -21,23 +21,23 @@ impl NodeRuntime for EnvelopeNode {
         outs: Outs,
         resources: &[(ResourceIndex, &dyn Any)],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0].and_then(|gate| gate.as_boolean()) {
+        if let Some(gate) = ins.values[0].as_ref().and_then(|gate| gate.as_boolean()) {
             self.gate = gate;
         }
 
-        if let Some(attack) = ins.values[0].and_then(|attack| attack.as_float()) {
+        if let Some(attack) = ins.values[0].as_ref().and_then(|attack| attack.as_float()) {
             self.envelope.attack = attack;
         }
 
-        if let Some(decay) = ins.values[0].and_then(|decay| decay.as_float()) {
+        if let Some(decay) = ins.values[0].as_ref().and_then(|decay| decay.as_float()) {
             self.envelope.decay = decay;
         }
 
-        if let Some(sustain) = ins.values[0].and_then(|sustain| sustain.as_float()) {
+        if let Some(sustain) = ins.values[0].as_ref().and_then(|sustain| sustain.as_float()) {
             self.envelope.sustain = sustain;
         }
 
-        if let Some(release) = ins.values[0].and_then(|release| release.as_float()) {
+        if let Some(release) = ins.values[0].as_ref().and_then(|release| release.as_float()) {
             self.envelope.release = release;
         }
 

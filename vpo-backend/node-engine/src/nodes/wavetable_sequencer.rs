@@ -14,8 +14,8 @@ pub struct WavetableSequencerNode {
 }
 
 impl NodeRuntime for WavetableSequencerNode {
-    fn init(&mut self, state: NodeInitState, _child_graph: Option<NodeGraphAndIo>) -> NodeResult<InitResult> {
-        let needed_resource = state.props.get("wavetable").and_then(|x| x.clone().as_resource());
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let needed_resource = params.props.get("wavetable").and_then(|x| x.clone().as_resource());
 
         NodeOk::no_warnings(InitResult {
             changed_properties: None,
