@@ -24,10 +24,10 @@ impl OutputsNode {
 impl NodeRuntime for OutputsNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _outs: Outs,
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         for (i, midi) in ins.midis.iter().enumerate() {
             if let Some(midi) = midi {

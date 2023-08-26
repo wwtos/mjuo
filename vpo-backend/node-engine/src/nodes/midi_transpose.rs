@@ -10,10 +10,10 @@ pub struct MidiTransposeNode {
 impl NodeRuntime for MidiTransposeNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.values[0].as_ref().and_then(|value_in| value_in.as_int()) {
             self.transpose_by = transpose.clamp(-127, 127) as i16;

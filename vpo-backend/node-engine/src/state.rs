@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    ops::Index,
-};
+use std::collections::{BTreeMap, HashMap};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -189,7 +186,7 @@ impl GraphState {
         let script_engine = rhai::Engine::new_raw();
         let resources = global_state.resources.read().unwrap();
 
-        let (traverser, errors_and_warnings) = BufferedTraverser::new(
+        let (traverser, _errors_and_warnings) = BufferedTraverser::new(
             self.root_graph_index,
             &self.graph_manager,
             &script_engine,
@@ -205,7 +202,7 @@ impl GraphState {
         let script_engine = rhai::Engine::new_raw();
         let resources = global_state.resources.read().unwrap();
 
-        let (traverser, errors_and_warnings) = BufferedTraverser::new(
+        let (traverser, _errors_and_warnings) = BufferedTraverser::new(
             self.root_graph_index,
             &self.graph_manager,
             &script_engine,

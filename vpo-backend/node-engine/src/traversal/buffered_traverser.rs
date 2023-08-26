@@ -2,6 +2,7 @@ use core::slice;
 use std::{
     any::Any,
     collections::BTreeMap,
+    fmt::Debug,
     iter::repeat,
     mem::{self, MaybeUninit},
 };
@@ -56,7 +57,7 @@ struct NodeTraversalWrapper {
     pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct BufferedTraverser {
     buffer_size: usize,
 
@@ -82,6 +83,12 @@ pub struct BufferedTraverser {
 
     resource_tracking: Vec<(ResourceId, Option<(ResourceType, ResourceIndex)>)>,
     resource_advance_by: Vec<usize>,
+}
+
+impl Debug for BufferedTraverser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BufferedTraverser {{ ... }}")
+    }
 }
 
 impl BufferedTraverser {
@@ -466,7 +473,7 @@ impl BufferedTraverser {
             let midi_output_index = midi_outputs_i;
             let value_output_index = value_outputs_i;
 
-            // clear last outputs
+            // clear last outputs (up to what we'll be using)
             self.midi_outputs[midi_output_index..(midi_output_index + midi_output_count)].fill(None);
             self.value_outputs[value_output_index..(value_output_index + value_output_count)].fill(None);
 

@@ -43,10 +43,10 @@ impl NodeRuntime for BiquadFilterNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0].as_ref().and_then(|f| f.as_float()) {
             self.filter_spec.f0 = frequency.max(1.0);
@@ -79,7 +79,7 @@ impl NodeRuntime for BiquadFilterNode {
 }
 
 impl Node for BiquadFilterNode {
-    fn new(config: &SoundConfig) -> BiquadFilterNode {
+    fn new(_config: &SoundConfig) -> BiquadFilterNode {
         BiquadFilterNode {
             filter: BiquadFilter::new(FilterSpec::none()),
             filter_spec: FilterSpec::none(),

@@ -7,7 +7,6 @@ pub struct ExpressionNode {
     ast: Option<Box<AST>>,
     scope: Box<Scope<'static>>,
     values_in: Vec<Primitive>,
-    value_out: Option<Primitive>,
 }
 
 impl NodeRuntime for ExpressionNode {
@@ -16,7 +15,7 @@ impl NodeRuntime for ExpressionNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
@@ -43,7 +42,7 @@ impl NodeRuntime for ExpressionNode {
                 // convert the output to a usuable form
                 match result {
                     Ok(output) => {
-                        self.value_out = match output.type_name() {
+                        outs.values[0] = match output.type_name() {
                             "bool" => Some(Primitive::Boolean(output.as_bool().unwrap())),
                             "string" => Some(Primitive::String(output.into_string().unwrap())),
                             "i32" => Some(Primitive::Int(output.as_int().unwrap())),
@@ -112,7 +111,6 @@ impl Node for ExpressionNode {
             scope: Box::new(Scope::new()),
             ast: None,
             values_in: vec![],
-            value_out: None,
         }
     }
 

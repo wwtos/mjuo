@@ -48,8 +48,8 @@ impl NodeRuntime for MemoryNode {
         &mut self,
         globals: NodeProcessGlobals,
         ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _outs: Outs,
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         self.state_changed = false;
 

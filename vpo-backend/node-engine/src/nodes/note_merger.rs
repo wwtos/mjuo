@@ -31,10 +31,10 @@ impl NodeRuntime for NoteMergerNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = SmallVec::new();
 

@@ -2,11 +2,13 @@ use serde_json::Value;
 
 use crate::nodes::prelude::*;
 
+use super::util::ProcessState;
+
 #[derive(Debug, Clone)]
 pub struct ToggleNode {
     state: bool,
-    updated: bool,
     first_time: bool,
+    updated_state: ProcessState<()>,
 }
 
 impl NodeRuntime for ToggleNode {
@@ -17,30 +19,35 @@ impl NodeRuntime for ToggleNode {
             self.state = new_state;
         }
 
-        self.updated = true;
+        self.updated_state = ProcessState::Unprocessed(());
 
         InitResult::nothing()
     }
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(new_state) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             if !self.first_time {
                 self.state = new_state;
-                self.updated = true;
+                self.updated_state = ProcessState::Unprocessed(());
             }
         }
 
-        if self.updated || self.first_time {
+        if matches!(self.updated_state, ProcessState::Unprocessed(())) || self.first_time {
             outs.values[0] = bool(self.state);
         }
 
-        self.updated = false;
+        self.updated_state = match self.updated_state {
+            ProcessState::Unprocessed(_) => ProcessState::Processed,
+            ProcessState::Processed => ProcessState::None,
+            ProcessState::None => ProcessState::None,
+        };
+
         self.first_time = false;
 
         ProcessResult::nothing()
@@ -49,11 +56,14 @@ impl NodeRuntime for ToggleNode {
     fn set_state(&mut self, state: serde_json::Value) {
         self.state = state.as_bool().unwrap_or(false);
 
-        self.updated = true;
+        self.updated_state = ProcessState::Unprocessed(());
     }
 
     fn get_state(&self) -> Option<NodeState> {
-        if self.updated {
+        if matches!(
+            self.updated_state,
+            ProcessState::Unprocessed(()) | ProcessState::Processed
+        ) {
             Some(NodeState {
                 counted_during_mapset: self.state,
                 value: Value::Bool(self.state),
@@ -73,7 +83,7 @@ impl Node for ToggleNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         ToggleNode {
             state: false,
-            updated: false,
+            updated_state: ProcessState::None,
             first_time: true,
         }
     }

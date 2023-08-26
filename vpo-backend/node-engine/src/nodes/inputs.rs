@@ -22,10 +22,10 @@ impl InputsNode {
 impl NodeRuntime for InputsNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
+        _globals: NodeProcessGlobals,
+        _ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if !self.sent {
             outs.midis.clone_from_slice(&self.midis[..]);

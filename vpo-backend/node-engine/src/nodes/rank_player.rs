@@ -1,10 +1,10 @@
-use std::any::TypeId;
+
 
 use lazy_static::lazy_static;
 use resource_manager::ResourceId;
 use smallvec::SmallVec;
 use sound_engine::{
-    sampling::{rank::Rank, rank_player::RankPlayer},
+    sampling::{rank_player::RankPlayer},
     util::{cents_to_detune, db_to_gain},
 };
 
@@ -73,7 +73,7 @@ impl NodeRuntime for RankPlayerNode {
         outs: Outs,
         resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
-        let mut reset_needed = false;
+        let _reset_needed = false;
 
         if resources[0].is_some() {
             if let Some(cents) = ins.values[0].as_ref().and_then(|x| x.as_float()) {

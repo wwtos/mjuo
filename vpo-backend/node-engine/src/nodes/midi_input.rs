@@ -18,10 +18,10 @@ impl MidiInNode {
 impl NodeRuntime for MidiInNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
+        _globals: NodeProcessGlobals,
+        _ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if !self.midi_in.is_empty() {
             outs.midis[0] = Some(mem::replace(&mut self.midi_in, SmallVec::new()));

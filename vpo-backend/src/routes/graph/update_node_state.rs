@@ -9,7 +9,7 @@ use crate::{
     routes::RouteReturn,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct Payload {
     updated_states: Vec<(NodeIndex, Value)>,

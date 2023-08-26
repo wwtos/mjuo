@@ -8,10 +8,10 @@ pub struct GainNode {
 impl NodeRuntime for GainNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gain) = ins.values[0] {
             self.gain = gain.as_float().unwrap_or(0.0);

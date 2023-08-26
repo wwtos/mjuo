@@ -14,7 +14,7 @@ impl NodeRuntime for StreamExpressionNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             for (i, frame) in outs.streams[0].iter_mut().enumerate() {

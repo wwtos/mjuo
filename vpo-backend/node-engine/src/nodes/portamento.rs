@@ -30,10 +30,10 @@ impl NodeRuntime for PortamentoNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
             if self.engaged && !gate {

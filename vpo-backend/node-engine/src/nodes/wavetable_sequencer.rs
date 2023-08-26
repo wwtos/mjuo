@@ -25,7 +25,7 @@ impl NodeRuntime for WavetableSequencerNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
         resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -42,17 +42,15 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            self.value_out = lerp(
+            outs.values[0] = float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,
-            );
+            ));
 
             self.phase += self.advance_by * self.frequency;
             self.phase = self.phase.fract();
         }
-
-        outs.values[0] = float(self.value_out);
 
         NodeOk::no_warnings(())
     }
@@ -73,8 +71,8 @@ impl Node for WavetableSequencerNode {
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            NodeRow::Property(
-                "wavetable".into(),
+            property(
+                "wavetable",
                 PropertyType::Resource("samples".into()),
                 Property::Resource(ResourceId {
                     namespace: "samples".into(),

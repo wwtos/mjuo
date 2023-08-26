@@ -42,7 +42,7 @@ impl NodeRuntime for MidiToValueNode {
         globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 

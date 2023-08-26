@@ -23,7 +23,7 @@ impl NodeRuntime for WavetableNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
         resources: &[Option<(ResourceIndex, &dyn Any)>],

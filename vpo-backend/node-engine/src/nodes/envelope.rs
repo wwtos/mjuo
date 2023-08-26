@@ -10,16 +10,16 @@ pub struct EnvelopeNode {
 }
 
 impl NodeRuntime for EnvelopeNode {
-    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+    fn init(&mut self, _params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.values[0].as_ref().and_then(|gate| gate.as_boolean()) {
             self.gate = gate;

@@ -6,10 +6,10 @@ pub struct MixerNode {}
 impl NodeRuntime for MixerNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         for (i, frame) in outs.streams[0].iter_mut().enumerate() {
             *frame = 0.0;

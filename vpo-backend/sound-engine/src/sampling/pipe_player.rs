@@ -201,7 +201,7 @@ impl PipePlayer {
 
                 // what's our current amplitude?
                 let location_bounded = current_location.max(pipe.amp_window_size);
-                let current_amp = rms32(&audio[(location_bounded - pipe.amp_window_size)..current_location]);
+                let current_amp = rms32(&audio[(location_bounded - pipe.amp_window_size)..location_bounded]);
 
                 // Find place in release section of equal strength
                 let new_location = envelope_lookup(&pipe.release_envelope, current_amp);

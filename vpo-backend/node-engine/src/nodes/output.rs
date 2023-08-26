@@ -14,10 +14,10 @@ impl OutputNode {
 impl NodeRuntime for OutputNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _outs: Outs,
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         self.values_received.resize(ins.streams[0].len(), 0.0);
         self.values_received.clone_from_slice(ins.streams[0]);

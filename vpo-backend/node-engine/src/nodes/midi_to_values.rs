@@ -8,10 +8,10 @@ pub struct MidiToValuesNode {}
 impl NodeRuntime for MidiToValuesNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        _globals: NodeProcessGlobals,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[Option<(ResourceIndex, &dyn Any)>],
     ) -> NodeResult<()> {
         if let Some(midi) = ins.midis[0] {
             for data in midi {
