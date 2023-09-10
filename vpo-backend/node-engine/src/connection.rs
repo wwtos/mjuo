@@ -75,6 +75,7 @@ pub enum Primitive {
     Int(i32),
     Boolean(bool),
     String(String),
+    None,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
@@ -147,6 +148,7 @@ impl Primitive {
             Primitive::Float(float) => Some(float.to_string()),
             Primitive::Int(int) => Some(int.to_string()),
             Primitive::Boolean(boolean) => Some(boolean.to_string()),
+            Primitive::None => None,
         }
     }
 
@@ -157,6 +159,7 @@ impl Primitive {
             Primitive::Float(float) => Dynamic::from(float),
             Primitive::Int(int) => Dynamic::from(int),
             Primitive::Boolean(boolean) => Dynamic::from(boolean),
+            Primitive::None => Dynamic::from(()),
         }
     }
 }
