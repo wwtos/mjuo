@@ -8,7 +8,6 @@ pub mod node_graph;
 pub mod node_instance;
 pub mod nodes;
 pub mod property;
-pub mod socket_registry;
 pub mod state;
 pub mod traversal;
 pub mod ui;

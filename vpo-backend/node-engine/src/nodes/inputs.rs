@@ -47,7 +47,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

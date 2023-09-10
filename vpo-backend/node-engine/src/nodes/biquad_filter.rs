@@ -87,7 +87,7 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 NodeRow::Property(

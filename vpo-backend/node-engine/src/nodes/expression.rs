@@ -114,7 +114,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(

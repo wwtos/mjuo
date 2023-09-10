@@ -195,9 +195,8 @@ pub fn load(
     let graph_manager = serde_json::from_value(json_state["graphManager"].take()).context(JsonParserSnafu)?;
     let root_graph_index = serde_json::from_value(json_state["rootGraphIndex"].take()).context(JsonParserSnafu)?;
     let io_nodes = serde_json::from_value(json_state["ioNodes"].take()).context(JsonParserSnafu)?;
-    let socket_registry = serde_json::from_value(json_state["socketRegistry"].take()).context(JsonParserSnafu)?;
 
-    state.load_state(graph_manager, root_graph_index, io_nodes, socket_registry);
+    state.load_state(graph_manager, root_graph_index, io_nodes);
 
     let (tx, rx) = mpsc::channel();
     let mut watcher =

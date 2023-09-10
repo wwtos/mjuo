@@ -13,7 +13,6 @@ use crate::{
     node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
-    socket_registry::SocketRegistry,
     traversal::buffered_traverser::BufferedTraverser,
 };
 use rhai::Engine;
@@ -135,7 +134,6 @@ pub struct GraphState {
     graph_manager: GraphManager,
     root_graph_index: GraphIndex,
     io_nodes: IoNodes,
-    socket_registry: SocketRegistry,
 }
 
 impl GraphState {
@@ -144,15 +142,14 @@ impl GraphState {
         let place_in_history = 0;
 
         let mut graph_manager: GraphManager = GraphManager::new();
-        let mut socket_registry = SocketRegistry::default();
 
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, input_node) = {
             let graph = graph_manager.get_graph_mut(root_graph_index)?;
 
-            let output_node = graph.add_node("OutputNode".into(), &mut socket_registry).unwrap().value;
-            let input_node = graph.add_node("MidiInNode".into(), &mut socket_registry).unwrap().value;
+            let output_node = graph.add_node("OutputNode".into()).unwrap().value;
+            let input_node = graph.add_node("MidiInNode".into()).unwrap().value;
 
             (output_node.0, input_node.0)
         };
@@ -178,7 +175,6 @@ impl GraphState {
                 input: input_node,
                 output: output_node,
             },
-            socket_registry,
         })
     }
 
@@ -248,10 +244,6 @@ impl GraphState {
         self.graph_manager
             .get_graph(self.root_graph_index)
             .expect("root graph to exist")
-    }
-
-    pub fn get_registry(&self) -> &SocketRegistry {
-        &self.socket_registry
     }
 
     pub fn get_io_nodes(&self) -> IoNodes {
@@ -437,7 +429,7 @@ impl GraphState {
             } => {
                 let (diff, invalidations) = self
                     .graph_manager
-                    .create_node(&node_type, graph_index, &mut self.socket_registry, ui_data.clone())
+                    .create_node(&node_type, graph_index, ui_data.clone())
                     .append_warnings(&mut warnings)?;
 
                 (HistoryAction::GraphAction { diff }, invalidations)
@@ -475,7 +467,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 let before_props = node.set_properties(new_props.clone());
-                let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+                let graph_diffs = graph.update_node_rows(index.node_index)?;
 
                 let graph_diff = GraphManagerDiff(
                     graph_diffs
@@ -541,7 +533,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(after.clone());
-                let graph_diffs = graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+                let graph_diffs = graph.update_node_rows(index.node_index)?;
 
                 let graph_diff = GraphManagerDiff(
                     graph_diffs
@@ -618,7 +610,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(before.clone());
-                graph.update_node_rows(index.node_index, &mut self.socket_registry)?;
+                graph.update_node_rows(index.node_index)?;
 
                 let cloned = graph_diff.clone();
                 action_result = self.graph_manager.rollback_action(graph_diff)?;
@@ -676,23 +668,15 @@ impl GraphState {
             "graphManager": self.graph_manager,
             "rootGraphIndex": self.root_graph_index,
             "ioNodes": self.io_nodes,
-            "socketRegistry": self.socket_registry
         })
     }
 
-    pub fn load_state(
-        &mut self,
-        graph_manager: GraphManager,
-        root_graph_index: GraphIndex,
-        io_nodes: IoNodes,
-        socket_registry: SocketRegistry,
-    ) {
+    pub fn load_state(&mut self, graph_manager: GraphManager, root_graph_index: GraphIndex, io_nodes: IoNodes) {
         self.history.clear();
         self.place_in_history = 0;
         self.graph_manager = graph_manager;
         self.root_graph_index = root_graph_index;
         self.io_nodes = io_nodes;
-        self.socket_registry = socket_registry;
 
         let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
         for graph_index in graphs {
@@ -707,13 +691,9 @@ impl GraphState {
                 let node = graph.get_node_mut(node_index).expect("node_index to exist");
 
                 node.set_node_rows(
-                    variant_io(
-                        &node.get_node_type(),
-                        node.get_properties().clone(),
-                        &mut |name: &str| self.socket_registry.register_socket(name),
-                    )
-                    .unwrap()
-                    .node_rows,
+                    variant_io(&node.get_node_type(), node.get_properties().clone())
+                        .unwrap()
+                        .node_rows,
                 );
             }
         }

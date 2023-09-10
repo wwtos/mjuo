@@ -269,7 +269,7 @@ pub trait NodeRuntime: Debug + Clone {
 /// internal state
 pub trait Node: NodeRuntime {
     /// Called at least every time a property is changed
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo;
+    fn get_io(props: HashMap<String, Property>) -> NodeIo;
 
     /// Called when created
     fn new(sound_config: &SoundConfig) -> Self;

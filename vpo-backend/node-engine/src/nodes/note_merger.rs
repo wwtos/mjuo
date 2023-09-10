@@ -90,7 +90,7 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
             midi_output("midi"),

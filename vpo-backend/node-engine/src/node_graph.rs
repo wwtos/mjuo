@@ -10,7 +10,6 @@ use crate::{
     node::NodeIndex,
     node_instance::NodeInstance,
     nodes::variant_io,
-    socket_registry::SocketRegistry,
 };
 
 pub type NodeGraphDiff = GraphDiff<NodeInstance, NodeConnectionData>;
@@ -34,11 +33,8 @@ pub struct NodeGraph {
     nodes: Graph<NodeInstance, NodeConnectionData>,
 }
 
-pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeInstance> {
-    let node_rows = variant_io(&node_type, HashMap::new(), &mut |name: &str| {
-        registry.register_socket(name)
-    })?
-    .node_rows;
+pub(crate) fn create_new_node(node_type: String) -> NodeResult<NodeInstance> {
+    let node_rows = variant_io(&node_type, HashMap::new())?.node_rows;
 
     let new_node = NodeInstance::new(node_type, node_rows)?;
 
@@ -50,31 +46,18 @@ impl NodeGraph {
         NodeGraph { nodes: Graph::new() }
     }
 
-    pub fn add_node(
-        &mut self,
-        node_type: String,
-        registry: &mut SocketRegistry,
-    ) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type, registry)?;
+    pub fn add_node(&mut self, node_type: String) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
+        let new_node = create_new_node(node_type)?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value)?;
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
 
-    pub fn update_node_rows(
-        &mut self,
-        node_index: NodeIndex,
-        registry: &mut SocketRegistry,
-    ) -> Result<Vec<NodeGraphDiff>, NodeError> {
+    pub fn update_node_rows(&mut self, node_index: NodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
         let node = self.get_node(node_index)?;
 
-        let new_rows = variant_io(
-            &node.get_node_type(),
-            node.get_properties().clone(),
-            &mut |name: &str| registry.register_socket(name),
-        )?
-        .node_rows;
+        let new_rows = variant_io(&node.get_node_type(), node.get_properties().clone())?.node_rows;
 
         let mut diffs = vec![];
 

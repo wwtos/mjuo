@@ -88,7 +88,7 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 value_input("set_state", Primitive::Boolean(false)),

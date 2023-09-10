@@ -10,7 +10,6 @@ use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
 use crate::node::NodeGraphAndIo;
 use crate::node_graph::NodeGraphDiff;
 use crate::node_instance::NodeInstance;
-use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
@@ -177,13 +176,12 @@ impl GraphManager {
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
-        registry: &mut SocketRegistry,
         ui_data: HashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff: Vec<DiffElement> = vec![];
 
         let graph = self.get_graph_mut(graph_index)?;
-        let creation_result = graph.add_node(node_type.into(), registry)?;
+        let creation_result = graph.add_node(node_type.into())?;
 
         let new_node_index = creation_result.value.0;
 
@@ -202,8 +200,8 @@ impl GraphManager {
                 // add `Inputs` node and `Outputs` node
                 let new_graph = self.get_graph_mut(new_graph_index).expect("graph to have been created");
 
-                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into(), registry).unwrap().value;
-                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into(), registry).unwrap().value;
+                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into()).unwrap().value;
+                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into()).unwrap().value;
 
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));
