@@ -7,7 +7,7 @@ use std::fmt::{Debug, Display};
 
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
-use resource_manager::{ResourceId, ResourceIndex};
+use resource_manager::ResourceId;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
@@ -201,15 +201,15 @@ impl Default for NodeState {
 }
 
 pub struct Ins<'a> {
-    pub midis: &'a [&'a Option<MidiBundle>],
-    pub values: &'a [&'a Option<Primitive>],
-    pub streams: &'a [&'a [f32]],
+    pub midis: &'a [&'a [MidiBundle]],
+    pub values: &'a [&'a [Primitive]],
+    pub streams: &'a [&'a [&'a [f32]]],
 }
 
 pub struct Outs<'a> {
-    pub midis: &'a mut [Option<MidiBundle>],
-    pub values: &'a mut [Option<Primitive>],
-    pub streams: &'a mut [&'a mut [f32]],
+    pub midis: &'a mut [&'a mut [MidiBundle]],
+    pub values: &'a mut [&'a mut [Primitive]],
+    pub streams: &'a mut [&'a mut [&'a mut [f32]]],
 }
 
 /// NodeRuntime trait
@@ -254,13 +254,7 @@ pub trait NodeRuntime: Debug + Clone {
     fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process all data in and out
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         ProcessResult::nothing()
     }
 }
