@@ -1,7 +1,6 @@
 //! Node module
 
 use std::any::Any;
-use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
@@ -12,7 +11,7 @@ use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
-use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue};
+use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
 use crate::global_state::Resources;
@@ -54,51 +53,6 @@ impl NodeRow {
             SocketDirection::Output => NodeRow::Output(socket),
         }
     }
-}
-
-pub fn stream_input(name: &'static str) -> NodeRow {
-    NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1),
-        SocketValue::None,
-    )
-}
-
-pub fn midi_input(name: &'static str) -> NodeRow {
-    NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1),
-        SocketValue::None,
-    )
-}
-
-pub fn value_input(name: &'static str, default: Primitive) -> NodeRow {
-    NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1),
-        SocketValue::Value(default),
-    )
-}
-
-pub fn stream_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1))
-}
-
-pub fn midi_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1))
-}
-
-pub fn value_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1))
-}
-
-pub fn property(prop_id: &str, prop_type: PropertyType, prop_default: Property) -> NodeRow {
-    NodeRow::Property(prop_id.to_string(), prop_type, prop_default)
-}
-
-pub fn multiple_choice(prop_id: &str, choices: &[&str], default_choice: &str) -> NodeRow {
-    NodeRow::Property(
-        prop_id.to_string(),
-        PropertyType::MultipleChoice(choices.iter().map(|&choice| choice.to_string()).collect()),
-        Property::MultipleChoice(default_choice.to_string()),
-    )
 }
 
 pub struct NodeIo {
@@ -158,7 +112,7 @@ pub struct NodeInitParams<'a> {
     pub graph_manager: &'a GraphManager,
     pub current_time: i64,
     pub sound_config: &'a SoundConfig,
-    pub state: &'a NodeState,
+    pub node_state: &'a NodeState,
     pub child_graph: Option<NodeGraphAndIo>,
 }
 
@@ -172,12 +126,12 @@ pub struct NodeProcessContext<'a> {
     pub current_time: i64,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
-    pub state: StateInterface<'a>,
+    pub external_state: StateInterface<'a>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeGraphAndIo {
-    pub graph: GraphIndex,
+    pub graph_index: GraphIndex,
     pub input_index: NodeIndex,
     pub output_index: NodeIndex,
 }
