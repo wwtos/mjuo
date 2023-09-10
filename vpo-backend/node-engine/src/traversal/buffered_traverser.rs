@@ -162,25 +162,25 @@ impl BufferedTraverser {
         // back to back
         for (vec_index, node_index) in traversal_order.iter().enumerate() {
             // create and init the node
-            let node_wrapper = graph.get_node(*node_index)?;
+            let node_instance = graph.get_node(*node_index)?;
 
             let mut variant = if let Some(previous_node) = old_nodes.remove(node_index) {
                 previous_node.node
             } else {
-                new_variant(&node_wrapper.get_node_type(), &sound_config)?
+                new_variant(&node_instance.get_node_type(), &sound_config)?
             };
 
             // get the child graph info, if any
-            let child_graph_info = node_wrapper.get_child_graph_info();
+            let child_graph_info = node_instance.get_child_graph_info();
 
             let init_result_res = variant.init(NodeInitParams {
-                props: node_wrapper.get_properties(),
+                props: node_instance.get_properties(),
                 script_engine,
                 resources,
                 current_time,
                 graph_manager,
                 sound_config: &sound_config,
-                state: node_wrapper.get_state(),
+                state: node_instance.get_state(),
                 child_graph: child_graph_info,
             });
 
@@ -219,8 +219,8 @@ impl BufferedTraverser {
             let mut to_input: SmallVec<[(usize, Primitive); 4]> = SmallVec::new();
 
             // go through the node by all its inputs
-            for socket in node_wrapper.list_input_sockets() {
-                let default_row = node_wrapper.get_default(socket).unwrap();
+            for socket in node_instance.list_input_sockets() {
+                let default_row = node_instance.get_default(socket).unwrap();
 
                 if let NodeRow::Input(socket, default) = default_row {
                     let is_connected = graph.get_input_connection_index(*node_index, socket)?.is_some();
@@ -251,7 +251,7 @@ impl BufferedTraverser {
             let mut midi_output_sockets = vec![];
             let mut value_output_sockets = vec![];
 
-            for socket in node_wrapper.list_output_sockets() {
+            for socket in node_instance.list_output_sockets() {
                 match socket.socket_type() {
                     SocketType::Stream => stream_output_sockets.push(socket),
                     SocketType::Midi => midi_output_sockets.push(socket),

@@ -118,16 +118,16 @@ impl RealtimeTraverser {
 
         for index in &traversal_order {
             // create and init the node
-            let node_wrapper = graph.get_node(*index)?;
+            let node_instance = graph.get_node(*index)?;
 
             let mut variant = if let Some(previous_node) = old_nodes.remove(&index) {
                 previous_node
             } else {
-                new_variant(&node_wrapper.get_node_type(), &global_state.sound_config)?
+                new_variant(&node_instance.get_node_type(), &global_state.sound_config)?
             };
 
             // extract the graph and child io indexes, if any
-            let child_graph_info = node_wrapper
+            let child_graph_info = node_instance
                 .get_child_graph_info()
                 .map(|(graph_index, child_io_indexes)| NodeGraphAndIo {
                     graph: graph_index,
@@ -137,7 +137,7 @@ impl RealtimeTraverser {
 
             let init_result_res = variant.init(
                 NodeInitState {
-                    props: node_wrapper.get_properties(),
+                    props: node_instance.get_properties(),
                     script_engine,
                     global_state,
                     current_time,
@@ -162,8 +162,8 @@ impl RealtimeTraverser {
             let mut midi_outputs = 0;
             let mut value_outputs = 0;
 
-            for socket_type in node_wrapper.list_input_sockets() {
-                let default_row = node_wrapper.get_default(socket_type).unwrap();
+            for socket_type in node_instance.list_input_sockets() {
+                let default_row = node_instance.get_default(socket_type).unwrap();
 
                 if let NodeRow::Input(socket, default) = default_row {
                     match socket.socket_type() {
@@ -175,7 +175,7 @@ impl RealtimeTraverser {
                 }
             }
 
-            for socket in node_wrapper.list_output_sockets() {
+            for socket in node_instance.list_output_sockets() {
                 match socket.socket_type() {
                     SocketType::Stream => stream_outputs += 1,
                     SocketType::Midi => midi_outputs += 1,
@@ -209,7 +209,7 @@ impl RealtimeTraverser {
 
             // note the indexes of the defaults that need to be reset (so they aren't inputted
             // every time)
-            let inputs = node_wrapper.list_input_sockets();
+            let inputs = node_instance.list_input_sockets();
             let connected = graph.get_input_side_connections(*index)?;
 
             let mut midi_index = 0;
@@ -245,7 +245,7 @@ impl RealtimeTraverser {
 
         // now that we know the indexes of all the nodes, we can populate the output mappings
         for index in traversal_order.iter() {
-            let node_wrapper = graph.get_node(*index)?;
+            let node_instance = graph.get_node(*index)?;
 
             let mut stream_index = 0;
             let mut midi_index = 0;
@@ -256,7 +256,7 @@ impl RealtimeTraverser {
             let value_mapping_len = self.value_output_mappings.len();
 
             // where does this node connect to?
-            for socket in node_wrapper.list_output_sockets() {
+            for socket in node_instance.list_output_sockets() {
                 let connection_indexes = graph.get_output_connection_indexes(*index, socket);
 
                 if let Ok(indexes) = connection_indexes {

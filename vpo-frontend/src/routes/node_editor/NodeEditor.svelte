@@ -12,7 +12,7 @@
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { VertexIndex } from "$lib/ddgg/graph";
     import { transformMouseRelativeToEditor } from "$lib/util/mouse-transforms";
-    import { NODE_WIDTH, type NodeWrapper } from "$lib/node-engine/node";
+    import { NODE_WIDTH, type NodeInstance } from "$lib/node-engine/node";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
     import type { SocketRegistry } from "$lib/node-engine/socket_registry";
     import type {
@@ -187,7 +187,7 @@
 
         // have we not started dragging?
         if (draggedState.length === 0 && keepSelected) {
-            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
+            const node = $activeGraph.getNode(keepSelected) as NodeInstance;
 
             // if control isn't pressed, and the one clicked isn't selected, deselect all of them
             if (!controlHeld && !node.uiData.selected) {
@@ -206,7 +206,7 @@
             const selected = getSelected($activeGraph);
 
             draggedState = selected.map((nodeIndex) => {
-                const node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+                const node = $activeGraph.getNode(nodeIndex) as NodeInstance;
                 const offset: [number, number] = [
                     mouseX - node.uiData.x,
                     mouseY - node.uiData.y,
@@ -222,7 +222,7 @@
         // if the mouse was moved and we are dragging nodes, update those node's position
         if (draggedState.length > 0) {
             for (let { node: nodeIndex, offset } of draggedState) {
-                let node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+                let node = $activeGraph.getNode(nodeIndex) as NodeInstance;
 
                 node.uiData = {
                     ...node.uiData,
@@ -264,7 +264,7 @@
 
             for (let selected of selectedNodes) {
                 if (!deepEqual(selected, keepSelected)) {
-                    const node = $activeGraph.getNode(selected) as NodeWrapper;
+                    const node = $activeGraph.getNode(selected) as NodeInstance;
 
                     node.uiData.selected = false;
                 }
@@ -275,7 +275,7 @@
 
         if (keepSelected) {
             // mark this one as dragging
-            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
+            const node = $activeGraph.getNode(keepSelected) as NodeInstance;
 
             node.uiData = {
                 ...node.uiData,
@@ -315,7 +315,7 @@
             deselectAll($activeGraph);
 
             for (let index of insideAABB) {
-                const node = $activeGraph.getNode(index) as NodeWrapper;
+                const node = $activeGraph.getNode(index) as NodeInstance;
 
                 node.uiData.selected = true;
 
@@ -366,7 +366,7 @@
         createNodeMenu.visible = false;
     }
 
-    let keyedNodes: [string, NodeWrapper, VertexIndex][];
+    let keyedNodes: [string, NodeInstance, VertexIndex][];
     let keyedConnections: [string, Connection][];
 
     $: {

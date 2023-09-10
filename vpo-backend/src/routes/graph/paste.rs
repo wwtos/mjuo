@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, HashSet};
 use node_engine::{
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node_graph::NodeConnectionData,
-    node_wrapper::NodeWrapper,
+    node_instance::NodeInstance,
     state::{Action, ActionInvalidation},
 };
 use petgraph::Graph;
@@ -25,7 +25,7 @@ struct Payload {
 
 pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
-    let mini_graph: Graph<NodeWrapper, NodeConnectionData> =
+    let mini_graph: Graph<NodeInstance, NodeConnectionData> =
         serde_json::from_str(&payload.clipboard).context(JsonParserSnafu)?;
 
     let mut mapping = BTreeMap::new();

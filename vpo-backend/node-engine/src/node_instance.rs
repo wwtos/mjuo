@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct NodeWrapper {
+pub struct NodeInstance {
     node_type: String,
     #[serde(skip_deserializing)]
     node_rows: Vec<NodeRow>,
@@ -25,8 +25,8 @@ pub struct NodeWrapper {
     child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
 }
 
-impl NodeWrapper {
-    pub fn new(node_type: String, node_rows: Vec<NodeRow>) -> Result<NodeOk<NodeWrapper>, NodeError> {
+impl NodeInstance {
+    pub fn new(node_type: String, node_rows: Vec<NodeRow>) -> Result<NodeOk<NodeInstance>, NodeError> {
         // extract properties from result from `init`
         // this fills the properties with the default values
         let properties = node_rows
@@ -40,7 +40,7 @@ impl NodeWrapper {
                 accum
             });
 
-        let mut wrapper = NodeWrapper {
+        let mut wrapper = NodeInstance {
             node_type: node_type.clone(),
             default_overrides: Vec::new(),
             node_rows,

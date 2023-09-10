@@ -3,7 +3,7 @@
     import { createEventDispatcher } from "svelte";
     import type { OverrideUpdateEvent, SocketEvent } from "./socket";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
-    import type { NodeWrapper, NodeRow, UiData } from "$lib/node-engine/node";
+    import type { NodeInstance, NodeRow, UiData } from "$lib/node-engine/node";
     import {
         match,
         type DiscriminatedUnion,
@@ -27,7 +27,7 @@
     export let width = 270;
 
     export let graph: NodeGraph;
-    export let wrapper: NodeWrapper;
+    export let wrapper: NodeInstance;
     export let nodeIndex: VertexIndex;
     export let registry: SocketRegistry;
     export let title: string;
@@ -194,7 +194,7 @@
         {:else if row.variant === "PropertyRow"}
             <NodePropertyRow
                 nodes={graph}
-                nodeWrapper={wrapper}
+                nodeInstance={wrapper}
                 propName={row.propName}
                 propType={row.propType}
                 value={row.propValue}

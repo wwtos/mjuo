@@ -1,4 +1,11 @@
-import { NodeRow, type NodeWrapper, NODE_WIDTH, SOCKET_HEIGHT, SOCKET_OFFSET, TITLE_HEIGHT } from "./node";
+import {
+    NodeRow,
+    type NodeInstance,
+    NODE_WIDTH,
+    SOCKET_HEIGHT,
+    SOCKET_OFFSET,
+    TITLE_HEIGHT,
+} from "./node";
 import { BehaviorSubject } from "rxjs";
 import { deepEqual } from "fast-equals";
 import { match, matchOrElse } from "../util/discriminated-union";
@@ -6,7 +13,14 @@ import type { Property } from "./property";
 import { Index } from "../ddgg/gen_vec";
 import { Graph, type Vertex, type VertexIndex } from "../ddgg/graph";
 import type { IpcSocket } from "$lib/ipc/socket";
-import type { Connection, InputSideConnection, OutputSideConnection, Socket, SocketDirection, SocketValue } from "./connection";
+import type {
+    Connection,
+    InputSideConnection,
+    OutputSideConnection,
+    Socket,
+    SocketDirection,
+    SocketValue,
+} from "./connection";
 import type { Action } from "./state";
 import type { GlobalNodeIndex } from "./graph_manager";
 
@@ -15,28 +29,33 @@ import type { GlobalNodeIndex } from "./graph_manager";
 type NodeProperty = "defaultOverrides" | "properties" | "uiData";
 
 export interface NodeConnection {
-    fromSocket: Socket,
-    toSocket: Socket,
+    fromSocket: Socket;
+    toSocket: Socket;
 }
 
 export class NodeGraph {
-    private nodes: Graph<NodeWrapper, NodeConnection>;
-    nodeStore: BehaviorSubject<Array<[Vertex<NodeWrapper>, VertexIndex]>>;
-    keyedNodeStore: BehaviorSubject<([string, NodeWrapper, VertexIndex])[]>;
-    keyedConnectionStore: BehaviorSubject<([string, Connection])[]>;
-    changedNodes: Array<{ changedProperties: Array<NodeProperty>, index: VertexIndex }>;
+    private nodes: Graph<NodeInstance, NodeConnection>;
+    nodeStore: BehaviorSubject<Array<[Vertex<NodeInstance>, VertexIndex]>>;
+    keyedNodeStore: BehaviorSubject<[string, NodeInstance, VertexIndex][]>;
+    keyedConnectionStore: BehaviorSubject<[string, Connection][]>;
+    changedNodes: Array<{
+        changedProperties: Array<NodeProperty>;
+        index: VertexIndex;
+    }>;
     ipcSocket: IpcSocket;
     graphIndex: string;
     selectedNodes: [];
 
-    constructor (ipcSocket: IpcSocket, graphIndex: string) {
+    constructor(ipcSocket: IpcSocket, graphIndex: string) {
         this.ipcSocket = ipcSocket;
 
-        this.nodes = {verticies: [], edges: []};
+        this.nodes = { verticies: [], edges: [] };
 
         this.nodeStore = new BehaviorSubject(Graph.verticies(this.nodes));
         this.keyedNodeStore = new BehaviorSubject(this.getKeyedNodes());
-        this.keyedConnectionStore = new BehaviorSubject(this.getKeyedConnections());
+        this.keyedConnectionStore = new BehaviorSubject(
+            this.getKeyedConnections()
+        );
 
         this.changedNodes = [];
 
@@ -45,28 +64,31 @@ export class NodeGraph {
         this.selectedNodes = [];
     }
 
-    getNode (index: VertexIndex): (NodeWrapper | undefined) {
+    getNode(index: VertexIndex): NodeInstance | undefined {
         return Graph.getVertexData(this.nodes, index);
     }
 
-    getNodes (): Array<[VertexIndex, NodeWrapper]> {
-        const out: Array<[VertexIndex, NodeWrapper]> = [];
+    getNodes(): Array<[VertexIndex, NodeInstance]> {
+        const out: Array<[VertexIndex, NodeInstance]> = [];
 
         for (let i = 0; i < this.nodes.verticies.length; i++) {
             const element = this.nodes.verticies[i];
 
             match(element, {
                 Open() {},
-                Occupied({data: [data, generation]}) {
-                    out.push([Index.toString({ index: i, generation }), data.data]);
-                }
-            })
+                Occupied({ data: [data, generation] }) {
+                    out.push([
+                        Index.toString({ index: i, generation }),
+                        data.data,
+                    ]);
+                },
+            });
         }
 
         return out;
     }
 
-    getNodeVertex (index: VertexIndex): (Vertex<NodeWrapper> | undefined) {
+    getNodeVertex(index: VertexIndex): Vertex<NodeInstance> | undefined {
         return Graph.getVertex(this.nodes, index);
     }
 
@@ -76,38 +98,40 @@ export class NodeGraph {
         this.nodeStore.next(Graph.verticies(this.nodes));
     }
 
-    applyJson(json: {
-        nodes: Graph<NodeWrapper, NodeConnection>
-    }) {
+    applyJson(json: { nodes: Graph<NodeInstance, NodeConnection> }) {
         this.nodes = json.nodes;
 
         this.update();
     }
 
-    private getKeyedConnections (): ([string, Connection])[] {
-        let keyedConnections: ([string, Connection])[] = [];
+    private getKeyedConnections(): [string, Connection][] {
+        let keyedConnections: [string, Connection][] = [];
 
         for (let [edge, index] of Graph.edges(this.nodes)) {
             let newConnection: Connection = {
-                "fromNode": edge.from,
-                "toNode": edge.to,
-                "data": edge.data
+                fromNode: edge.from,
+                toNode: edge.to,
+                data: edge.data,
             };
 
             keyedConnections.push([
                 "(" + this.graphIndex + ") " + JSON.stringify(newConnection),
-                newConnection
+                newConnection,
             ]);
         }
 
         return keyedConnections;
     }
 
-    private getKeyedNodes (): ([string, NodeWrapper, VertexIndex])[] {
-        let keyedNodes: ([string, NodeWrapper, VertexIndex])[] = [];
+    private getKeyedNodes(): [string, NodeInstance, VertexIndex][] {
+        let keyedNodes: [string, NodeInstance, VertexIndex][] = [];
 
         for (let [node, index] of Graph.verticies(this.nodes)) {
-            keyedNodes.push(["(" + this.graphIndex + ") " + index, node.data, index]);
+            keyedNodes.push([
+                "(" + this.graphIndex + ") " + index,
+                node.data,
+                index,
+            ]);
         }
 
         return keyedNodes;
@@ -118,20 +142,22 @@ export class NodeGraph {
 
         this.updateNode(index);
 
-        const existing = this.changedNodes.find(changed => changed.index === index);
+        const existing = this.changedNodes.find(
+            (changed) => changed.index === index
+        );
 
         if (existing) {
             for (let prop of updated) {
                 if (existing.changedProperties.indexOf(prop) === -1) {
                     existing.changedProperties.push(prop);
                 }
-           }
+            }
         } else {
             this.changedNodes.push({
                 index,
-                changedProperties: updated
+                changedProperties: updated,
             });
-        }        
+        }
     }
 
     writeChangedNodesToServer(additional?: Action[]) {
@@ -144,7 +170,7 @@ export class NodeGraph {
             for (let changed of this.changedNodes) {
                 let changedGlobalIndex: GlobalNodeIndex = {
                     graphIndex: this.graphIndex,
-                    nodeIndex: changed.index
+                    nodeIndex: changed.index,
                 };
 
                 for (let property of changed.changedProperties) {
@@ -154,8 +180,12 @@ export class NodeGraph {
                                 variant: "ChangeNodeOverrides",
                                 data: {
                                     index: changedGlobalIndex,
-                                    overrides: (this.getNode(changed.index) as NodeWrapper).defaultOverrides
-                                }
+                                    overrides: (
+                                        this.getNode(
+                                            changed.index
+                                        ) as NodeInstance
+                                    ).defaultOverrides,
+                                },
                             });
 
                             break;
@@ -164,8 +194,12 @@ export class NodeGraph {
                                 variant: "ChangeNodeProperties",
                                 data: {
                                     index: changedGlobalIndex,
-                                    props: (this.getNode(changed.index) as NodeWrapper).properties
-                                }
+                                    props: (
+                                        this.getNode(
+                                            changed.index
+                                        ) as NodeInstance
+                                    ).properties,
+                                },
                             });
 
                             break;
@@ -174,8 +208,12 @@ export class NodeGraph {
                                 variant: "ChangeNodeUiData",
                                 data: {
                                     index: changedGlobalIndex,
-                                    uiData: (this.getNode(changed.index) as NodeWrapper).uiData
-                                }
+                                    uiData: (
+                                        this.getNode(
+                                            changed.index
+                                        ) as NodeInstance
+                                    ).uiData,
+                                },
                             });
 
                             break;
@@ -183,10 +221,7 @@ export class NodeGraph {
                 }
             }
 
-            this.ipcSocket.commit([
-                ...commits,
-                ...additional
-            ], false);
+            this.ipcSocket.commit([...commits, ...additional], false);
 
             this.changedNodes = [];
         }
@@ -197,131 +232,167 @@ export class NodeGraph {
         this.nodeStore.next(Graph.verticies(this.nodes));
     }
 
-    getNodeInputConnection(vertexIndex: VertexIndex, socket: Socket): InputSideConnection | undefined {
+    getNodeInputConnection(
+        vertexIndex: VertexIndex,
+        socket: Socket
+    ): InputSideConnection | undefined {
         const node = this.getNodeVertex(vertexIndex);
-        
+
         if (node && node.connectionsFrom) {
             let connection = node.connectionsFrom
-                .map(([_, input_index]) => Graph.getEdge(this.nodes, input_index))
-                .filter(edge => edge && deepEqual(edge.data.toSocket, socket))
-                .map(edge => (edge && 
-                    {
-                        fromSocket: edge.data.fromSocket,
-                        fromNode: edge.from,
-                        toSocket: edge.data.toSocket
-                    }
-                ));
+                .map(([_, input_index]) =>
+                    Graph.getEdge(this.nodes, input_index)
+                )
+                .filter((edge) => edge && deepEqual(edge.data.toSocket, socket))
+                .map(
+                    (edge) =>
+                        edge && {
+                            fromSocket: edge.data.fromSocket,
+                            fromNode: edge.from,
+                            toSocket: edge.data.toSocket,
+                        }
+                );
 
             return connection[0];
         }
     }
 
-    getNodeOutputConnections(vertexIndex: VertexIndex, socket: Socket): OutputSideConnection[] {
+    getNodeOutputConnections(
+        vertexIndex: VertexIndex,
+        socket: Socket
+    ): OutputSideConnection[] {
         let node = this.getNodeVertex(vertexIndex);
 
         if (!node) return [];
 
         let connections = node.connectionsFrom
             .map(([_, input_index]) => Graph.getEdge(this.nodes, input_index))
-            .filter(edge => edge && deepEqual(edge.data.toSocket, socket))
-            .map(edge => (edge && 
-                {
-                    fromSocket: edge.data.fromSocket,
-                    toNode: edge.to,
-                    toSocket: edge.data.toSocket
-                }
-            ));
+            .filter((edge) => edge && deepEqual(edge.data.toSocket, socket))
+            .map(
+                (edge) =>
+                    edge && {
+                        fromSocket: edge.data.fromSocket,
+                        toNode: edge.to,
+                        toSocket: edge.data.toSocket,
+                    }
+            );
 
         return connections as OutputSideConnection[];
     }
 
-    getNodeSocketDefault(vertexIndex: VertexIndex, socket: Socket): SocketValue {
+    getNodeSocketDefault(
+        vertexIndex: VertexIndex,
+        socket: Socket
+    ): SocketValue {
         const node = this.getNode(vertexIndex);
 
         if (node) {
-            const defaultOverride = node.defaultOverrides.find(defaultOverride => {
-                const typeAndDirection = NodeRow.toSocketAndDirection(defaultOverride);
+            const defaultOverride = node.defaultOverrides.find(
+                (defaultOverride) => {
+                    const typeAndDirection =
+                        NodeRow.toSocketAndDirection(defaultOverride);
 
-                if (typeAndDirection) {
-                    const {
-                        socket: overrideSocketType,
-                        direction: overrideDirection
-                    } = typeAndDirection;
+                    if (typeAndDirection) {
+                        const {
+                            socket: overrideSocketType,
+                            direction: overrideDirection,
+                        } = typeAndDirection;
 
-                    return deepEqual(socket, overrideSocketType) &&
-                        overrideDirection.variant === "Input";
+                        return (
+                            deepEqual(socket, overrideSocketType) &&
+                            overrideDirection.variant === "Input"
+                        );
+                    }
                 }
-            });
+            );
 
-            if (defaultOverride && defaultOverride.data) return NodeRow.getDefault(defaultOverride);
+            if (defaultOverride && defaultOverride.data)
+                return NodeRow.getDefault(defaultOverride);
 
-            const defaultNodeRow = node.nodeRows.find(nodeRow => {
+            const defaultNodeRow = node.nodeRows.find((nodeRow) => {
                 const typeAndDirection = NodeRow.toSocketAndDirection(nodeRow);
 
                 if (typeAndDirection) {
                     const {
                         socket: nodeRowSocketType,
-                        direction: nodeRowDirection
+                        direction: nodeRowDirection,
                     } = typeAndDirection;
 
-                    return deepEqual(socket, nodeRowSocketType) &&
-                        nodeRowDirection.variant === "Input";
+                    return (
+                        deepEqual(socket, nodeRowSocketType) &&
+                        nodeRowDirection.variant === "Input"
+                    );
                 }
             });
 
-            if (defaultNodeRow && defaultNodeRow.data) return NodeRow.getDefault(defaultNodeRow);
+            if (defaultNodeRow && defaultNodeRow.data)
+                return NodeRow.getDefault(defaultNodeRow);
         }
 
         return { variant: "None" };
     }
 
-    getNodePropertyValue(vertexIndex: VertexIndex, propName: string): Property | undefined {
+    getNodePropertyValue(
+        vertexIndex: VertexIndex,
+        propName: string
+    ): Property | undefined {
         const node = this.getNode(vertexIndex);
 
         if (node) {
             if (node.properties[propName]) return node.properties[propName];
 
-                    const row = node.nodeRows.find(nodeRow => {
-                        return matchOrElse(nodeRow, 
-                            {
-                                Property({ data: [rowName] }) {
-                                    return rowName === propName;
-                                }
-                            },
-                            () => false
-                        );
-                    });
+            const row = node.nodeRows.find((nodeRow) => {
+                return matchOrElse(
+                    nodeRow,
+                    {
+                        Property({ data: [rowName] }) {
+                            return rowName === propName;
+                        },
+                    },
+                    () => false
+                );
+            });
 
             if (!row) return undefined;
 
-            return matchOrElse(row, {
-                    Property: ({ data: [_name, _type, defaultVal ]}) => defaultVal
+            return matchOrElse(
+                row,
+                {
+                    Property: ({ data: [_name, _type, defaultVal] }) =>
+                        defaultVal,
                 },
-                () => { throw new Error("unreachable"); }
+                () => {
+                    throw new Error("unreachable");
+                }
             );
         }
     }
 
-    getNodeSocketXy(index: VertexIndex, socket: Socket, direction: SocketDirection): { x: number, y: number } {
+    getNodeSocketXy(
+        index: VertexIndex,
+        socket: Socket,
+        direction: SocketDirection
+    ): { x: number; y: number } {
         const node = this.getNode(index);
 
         if (!node) return { x: 0, y: 0 };
 
         let y = TITLE_HEIGHT;
 
-        const rowIndex = node.nodeRows.findIndex(nodeRow => {
+        const rowIndex = node.nodeRows.findIndex((nodeRow) => {
             const typeAndDirection = NodeRow.toSocketAndDirection(nodeRow);
             const height = NodeRow.getHeight(nodeRow);
 
             y += height;
 
             if (typeAndDirection) {
-                const {
-                    socket: rowSocketType,
-                    direction: rowDirection
-                 } = typeAndDirection;
+                const { socket: rowSocketType, direction: rowDirection } =
+                    typeAndDirection;
 
-                return deepEqual(socket, rowSocketType) && rowDirection.variant === direction.variant;
+                return (
+                    deepEqual(socket, rowSocketType) &&
+                    rowDirection.variant === direction.variant
+                );
             }
 
             return false;
@@ -330,7 +401,7 @@ export class NodeGraph {
         if (rowIndex === -1) return { x: 0, y: 0 };
 
         const relativeX = direction.variant === "Output" ? NODE_WIDTH : 0;
-        const relativeY = (y - SOCKET_HEIGHT) + SOCKET_OFFSET;
+        const relativeY = y - SOCKET_HEIGHT + SOCKET_OFFSET;
 
         return { x: node.uiData.x + relativeX, y: node.uiData.y + relativeY };
     }

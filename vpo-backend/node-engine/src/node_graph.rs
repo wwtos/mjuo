@@ -8,12 +8,12 @@ use crate::{
     connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
     errors::{NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult, NodesNotConnectedSnafu},
     node::NodeIndex,
-    node_wrapper::NodeWrapper,
+    node_instance::NodeInstance,
     nodes::variant_io,
     socket_registry::SocketRegistry,
 };
 
-pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnectionData>;
+pub type NodeGraphDiff = GraphDiff<NodeInstance, NodeConnectionData>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -31,16 +31,16 @@ pub struct ConnectionIndex(pub EdgeIndex);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
-    nodes: Graph<NodeWrapper, NodeConnectionData>,
+    nodes: Graph<NodeInstance, NodeConnectionData>,
 }
 
-pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeWrapper> {
+pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeInstance> {
     let node_rows = variant_io(&node_type, HashMap::new(), &mut |name: &str| {
         registry.register_socket(name)
     })?
     .node_rows;
 
-    let new_node = NodeWrapper::new(node_type, node_rows)?;
+    let new_node = NodeInstance::new(node_type, node_rows)?;
 
     Ok(NodeOk::new(new_node.value, new_node.warnings))
 }
@@ -196,7 +196,7 @@ impl NodeGraph {
         Ok(self.nodes.remove_edge(edge_index.0)?)
     }
 
-    pub fn remove_node(&mut self, index: NodeIndex) -> Result<(NodeWrapper, NodeGraphDiff), NodeError> {
+    pub fn remove_node(&mut self, index: NodeIndex) -> Result<(NodeInstance, NodeGraphDiff), NodeError> {
         let (old_data, diff) = self.nodes.remove_vertex(index.0)?;
 
         Ok((old_data, diff))
@@ -345,14 +345,14 @@ impl NodeGraph {
             .data)
     }
 
-    pub fn get_node(&self, index: NodeIndex) -> Result<&NodeWrapper, NodeError> {
+    pub fn get_node(&self, index: NodeIndex) -> Result<&NodeInstance, NodeError> {
         Ok(self
             .nodes
             .get_vertex_data(index.0)
             .with_context(|| NodeDoesNotExistSnafu { node_index: index })?)
     }
 
-    pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+    pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeInstance, NodeError> {
         Ok(self
             .nodes
             .get_vertex_data_mut(index.0)
@@ -367,7 +367,7 @@ impl NodeGraph {
         self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
-    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
+    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeInstance)> + '_ {
         self.nodes
             .vertex_data_iter()
             .map(|(index, vertex)| (NodeIndex(index), vertex))
@@ -379,7 +379,7 @@ impl NodeGraph {
             .map(|(index, edge)| (ConnectionIndex(index), edge))
     }
 
-    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnectionData> {
+    pub fn get_graph(&self) -> &Graph<NodeInstance, NodeConnectionData> {
         &self.nodes
     }
 

@@ -8,7 +8,7 @@ use snafu::OptionExt;
 use crate::connection::Socket;
 use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
 use crate::node_graph::NodeGraphDiff;
-use crate::node_wrapper::NodeWrapper;
+use crate::node_instance::NodeInstance;
 use crate::socket_registry::SocketRegistry;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
@@ -140,11 +140,11 @@ impl GraphManager {
             .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
     }
 
-    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeWrapper, NodeError> {
+    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeInstance, NodeError> {
         Ok(self.get_graph(index.graph_index)?.get_node(index.node_index)?)
     }
 
-    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeInstance, NodeError> {
         Ok(self.get_graph_mut(index.graph_index)?.get_node_mut(index.node_index)?)
     }
 
@@ -189,8 +189,8 @@ impl GraphManager {
         diff.push(DiffElement::ChildGraphDiff(graph_index, creation_result.value.1));
 
         // does this node need a child graph?
-        let new_node_wrapper = graph.get_node(new_node_index)?;
-        let uses_child_graph = new_node_wrapper.uses_child_graph();
+        let new_node_instance = graph.get_node(new_node_index)?;
+        let uses_child_graph = new_node_instance.uses_child_graph();
 
         let child_graph_index = if uses_child_graph {
             let new_graph_index = {
