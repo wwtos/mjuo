@@ -168,7 +168,7 @@ pub struct StateInterface<'a> {
     pub states: Option<&'a BTreeMap<NodeIndex, NodeState>>,
 }
 
-pub struct NodeProcessGlobals<'a> {
+pub struct NodeProcessContext<'a> {
     pub current_time: i64,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
@@ -256,7 +256,7 @@ pub trait NodeRuntime: Debug + Clone {
     /// Process all data in and out
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         resources: &[Option<(ResourceIndex, &dyn Any)>],

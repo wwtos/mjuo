@@ -10,7 +10,7 @@ pub struct MidiTransposeNode {
 impl NodeRuntime for MidiTransposeNode {
     fn process(
         &mut self,
-        _globals: NodeProcessGlobals,
+        _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],

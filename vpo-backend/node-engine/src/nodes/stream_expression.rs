@@ -13,7 +13,7 @@ pub struct StreamExpressionNode {
 impl NodeRuntime for StreamExpressionNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -29,7 +29,7 @@ impl NodeRuntime for StreamExpressionNode {
                 }
 
                 // now we run the expression!
-                let result = globals.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
+                let result = context.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
 
                 // convert the output to a usuable form
                 match result {

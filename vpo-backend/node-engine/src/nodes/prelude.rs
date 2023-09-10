@@ -6,7 +6,7 @@ pub(super) use resource_manager::ResourceIndex;
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
 pub(super) use crate::node::{
     midi_input, midi_output, multiple_choice, property, stream_input, stream_output, value_input, value_output,
-    InitResult, Ins, Node, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo, NodeProcessGlobals, NodeRow, NodeRuntime,
+    InitResult, Ins, Node, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext, NodeRow, NodeRuntime,
     NodeState, Outs, ProcessResult,
 };
 pub(super) use crate::{

@@ -46,7 +46,7 @@ impl NodeRuntime for MemoryNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         _outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -69,15 +69,15 @@ impl NodeRuntime for MemoryNode {
             match self.mode {
                 MemoryMode::Loading => {
                     println!("loading");
-                    (globals.state.enqueue_state_updates)(self.memory.clone());
+                    (context.state.enqueue_state_updates)(self.memory.clone());
                 }
                 MemoryMode::Setting => {
-                    (globals.state.request_node_states)();
+                    (context.state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: false };
                 }
                 MemoryMode::MapSetting => {
-                    (globals.state.request_node_states)();
+                    (context.state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: true };
                 }
@@ -87,7 +87,7 @@ impl NodeRuntime for MemoryNode {
             self.state_changed = true;
         }
 
-        if let Some(node_states) = globals.state.states {
+        if let Some(node_states) = context.state.states {
             if let MemoryMode::WaitingForNodeStates { map_setting } = self.mode {
                 if map_setting {
                     self.tracking.clear();

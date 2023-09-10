@@ -18,7 +18,7 @@ impl MidiInNode {
 impl NodeRuntime for MidiInNode {
     fn process(
         &mut self,
-        _globals: NodeProcessGlobals,
+        _context: NodeProcessContext,
         _ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],

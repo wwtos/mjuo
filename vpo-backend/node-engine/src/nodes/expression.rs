@@ -12,7 +12,7 @@ pub struct ExpressionNode {
 impl NodeRuntime for ExpressionNode {
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -35,7 +35,7 @@ impl NodeRuntime for ExpressionNode {
                 }
 
                 // now we run the expression!
-                let result = globals
+                let result = context
                     .script_engine
                     .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
 

@@ -8,7 +8,7 @@ pub struct GainNode {
 impl NodeRuntime for GainNode {
     fn process(
         &mut self,
-        _globals: NodeProcessGlobals,
+        _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],

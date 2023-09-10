@@ -24,7 +24,7 @@ impl OutputsNode {
 impl NodeRuntime for OutputsNode {
     fn process(
         &mut self,
-        _globals: NodeProcessGlobals,
+        _context: NodeProcessContext,
         ins: Ins,
         _outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],

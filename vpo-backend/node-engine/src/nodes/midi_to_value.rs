@@ -39,7 +39,7 @@ impl NodeRuntime for MidiToValueNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -52,7 +52,7 @@ impl NodeRuntime for MidiToValueNode {
 
                 midi_to_scope(&mut self.scope, &message.data);
 
-                let result = globals
+                let result = context
                     .script_engine
                     .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
 

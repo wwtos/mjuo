@@ -45,7 +45,7 @@ impl NodeRuntime for MidiSwitchNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -121,7 +121,7 @@ impl NodeRuntime for MidiSwitchNode {
                             for i in 0..128 {
                                 if self.state & (1 << i) != 0 {
                                     midi_out.push(MidiMessage {
-                                        timestamp: globals.current_time,
+                                        timestamp: context.current_time,
                                         data: MidiData::NoteOn {
                                             channel: 0,
                                             note: i,
@@ -142,7 +142,7 @@ impl NodeRuntime for MidiSwitchNode {
                     for i in 0..128 {
                         if to_turn_off & (1 << i) != 0 {
                             midi_out.push(MidiMessage {
-                                timestamp: globals.current_time,
+                                timestamp: context.current_time,
                                 data: MidiData::NoteOff {
                                     channel: 0,
                                     note: i,

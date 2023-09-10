@@ -91,7 +91,7 @@ impl NodeRuntime for PolyphonicNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -237,9 +237,9 @@ impl NodeRuntime for PolyphonicNode {
             if voice.info.active {
                 // if it's active, process it
                 self.traverser.traverse(
-                    globals.current_time,
-                    globals.script_engine,
-                    globals.resources,
+                    context.current_time,
+                    context.script_engine,
+                    context.resources,
                     vec![],
                     None,
                 );

@@ -66,7 +66,7 @@ impl NodeRuntime for RankPlayerNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -91,7 +91,7 @@ impl NodeRuntime for RankPlayerNode {
             }
 
             self.player.next_buffered(
-                globals.current_time,
+                context.current_time,
                 ins.midis[0].as_ref().unwrap_or(&EMPTY_MIDI),
                 resources,
                 outs.streams[0],

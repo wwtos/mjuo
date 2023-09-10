@@ -34,7 +34,7 @@ impl NodeRuntime for MidiFilterNode {
 
     fn process(
         &mut self,
-        globals: NodeProcessGlobals,
+        context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
         _resources: &[Option<(ResourceIndex, &dyn Any)>],
@@ -48,7 +48,7 @@ impl NodeRuntime for MidiFilterNode {
                         .filter_map(|message| {
                             midi_to_scope(&mut self.scope, &message.data);
 
-                            let result = globals
+                            let result = context
                                 .script_engine
                                 .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
