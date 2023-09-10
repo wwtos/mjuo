@@ -10,11 +10,11 @@ use crate::socket_registry::SocketRegistry;
 lazy_static! {
     pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
         vec![
-            stream_input(0),
-            stream_input(1),
-            midi_input(2),
-            stream_output(0),
-            value_output(3),
+            stream_input("audio"),
+            stream_input("gain"),
+            midi_input("midi"),
+            stream_output("audio"),
+            value_output("gate"),
         ]
     };
 }
@@ -92,7 +92,7 @@ fn graph_connecting() {
     let from_node = graph.get_node(first_node_index).unwrap();
 
     assert_eq!(
-        from_node.has_output_socket(Socket::Simple(2, SocketType::Midi, 1)),
+        from_node.has_output_socket(&Socket::Simple("midi".into(), SocketType::Midi, 1)),
         false
     );
 
@@ -102,16 +102,16 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    Socket::Simple(2, SocketType::Midi, 1),
+                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
                     second_node_index,
-                    Socket::Simple(2, SocketType::Midi, 1),
+                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::SocketDoesNotExist {
-                socket: Socket::Simple(2, SocketType::Midi, 1),
+                socket: Socket::Simple("midi".into(), SocketType::Midi, 1),
             }
         )
     );
@@ -120,7 +120,7 @@ fn graph_connecting() {
     let to_node = graph.get_node(first_node_index).unwrap();
 
     assert_eq!(
-        to_node.has_input_socket(Socket::Simple(99, SocketType::Stream, 1)),
+        to_node.has_input_socket(&Socket::Simple("nonexistant".into(), SocketType::Stream, 1)),
         false
     );
 
@@ -130,16 +130,16 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    Socket::Simple(0, SocketType::Stream, 1),
+                    &Socket::Simple("audio".into(), SocketType::Stream, 1),
                     second_node_index,
-                    Socket::Simple(99, SocketType::Stream, 1),
+                    &Socket::Simple("nonexistant".into(), SocketType::Stream, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::SocketDoesNotExist {
-                socket: Socket::Simple(99, SocketType::Stream, 1)
+                socket: Socket::Simple("nonexistant".into(), SocketType::Stream, 1)
             }
         )
     );
@@ -151,9 +151,9 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    Socket::Simple(0, SocketType::Stream, 1),
+                    &Socket::Simple("audio".into(), SocketType::Stream, 1),
                     second_node_index,
-                    Socket::Simple(2, SocketType::Midi, 1),
+                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
                 )
                 .unwrap_err()
         ),
@@ -171,9 +171,9 @@ fn graph_connecting() {
         graph
             .connect(
                 first_node_index,
-                Socket::Simple(0, SocketType::Stream, 1),
+                &Socket::Simple("audio".into(), SocketType::Stream, 1),
                 second_node_index,
-                Socket::Simple(0, SocketType::Stream, 1),
+                &Socket::Simple("audio".into(), SocketType::Stream, 1),
             )
             .is_ok(),
         true
@@ -186,17 +186,17 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    Socket::Simple(0, SocketType::Stream, 1),
+                    &Socket::Simple("audio".into(), SocketType::Stream, 1),
                     second_node_index,
-                    Socket::Simple(0, SocketType::Stream, 1),
+                    &Socket::Simple("audio".into(), SocketType::Stream, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::AlreadyConnected {
-                from: Socket::Simple(0, SocketType::Stream, 1),
-                to: Socket::Simple(0, SocketType::Stream, 1)
+                from: Socket::Simple("audio".into(), SocketType::Stream, 1),
+                to: Socket::Simple("audio".into(), SocketType::Stream, 1)
             }
         )
     );
@@ -205,9 +205,9 @@ fn graph_connecting() {
     graph
         .connect(
             third_node_index,
-            Socket::Simple(0, SocketType::Stream, 1),
+            &Socket::Simple("audio".into(), SocketType::Stream, 1),
             second_node_index,
-            Socket::Simple(0, SocketType::Stream, 1),
+            &Socket::Simple("audio".into(), SocketType::Stream, 1),
         )
         .unwrap_err();
 
@@ -215,9 +215,9 @@ fn graph_connecting() {
     graph
         .connect(
             third_node_index,
-            Socket::Simple(0, SocketType::Stream, 1),
+            &Socket::Simple("audio".into(), SocketType::Stream, 1),
             second_node_index,
-            Socket::Simple(1, SocketType::Stream, 1),
+            &Socket::Simple("gain".into(), SocketType::Stream, 1),
         )
         .unwrap();
 }
@@ -235,9 +235,9 @@ fn hanging_connections() -> Result<(), NodeError> {
 
     graph.connect(
         first_node,
-        Socket::Simple(0, SocketType::Stream, 1),
+        &Socket::Simple("audio".into(), SocketType::Stream, 1),
         second_node,
-        Socket::Simple(0, SocketType::Stream, 1),
+        &Socket::Simple("audio".into(), SocketType::Stream, 1),
     )?;
 
     assert_eq!(graph.get_output_side_connections(first_node)?.len(), 1); // it should be connected here

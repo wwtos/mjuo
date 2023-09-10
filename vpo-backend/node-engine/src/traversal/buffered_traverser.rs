@@ -223,7 +223,7 @@ impl BufferedTraverser {
                 let default_row = node_instance.get_default(socket).unwrap();
 
                 if let NodeRow::Input(socket, default) = default_row {
-                    let is_connected = graph.get_input_connection_index(*node_index, socket)?.is_some();
+                    let is_connected = graph.get_input_connection_index(*node_index, &socket)?.is_some();
 
                     match socket.socket_type() {
                         SocketType::Stream => {
@@ -253,9 +253,9 @@ impl BufferedTraverser {
 
             for socket in node_instance.list_output_sockets() {
                 match socket.socket_type() {
-                    SocketType::Stream => stream_output_sockets.push(socket),
-                    SocketType::Midi => midi_output_sockets.push(socket),
-                    SocketType::Value => value_output_sockets.push(socket),
+                    SocketType::Stream => stream_output_sockets.push(socket.clone()),
+                    SocketType::Midi => midi_output_sockets.push(socket.clone()),
+                    SocketType::Value => value_output_sockets.push(socket.clone()),
                     _ => {}
                 }
             }
@@ -328,7 +328,7 @@ impl BufferedTraverser {
                             let position_in_stream = other_outputs
                                 .stream_output_sockets
                                 .iter()
-                                .position(|&other_socket| other_socket == connection.data.from_socket)
+                                .position(|other_socket| other_socket == &connection.data.from_socket)
                                 .unwrap()
                                 * self.buffer_size
                                 + other_outputs.stream_outputs_index;
@@ -339,7 +339,7 @@ impl BufferedTraverser {
                             let position_in_midi = other_outputs
                                 .midi_output_sockets
                                 .iter()
-                                .position(|&other_socket| other_socket == connection.data.from_socket)
+                                .position(|other_socket| other_socket == &connection.data.from_socket)
                                 .unwrap()
                                 + other_outputs.midi_outputs_index;
 
@@ -349,7 +349,7 @@ impl BufferedTraverser {
                             let position_in_value = other_outputs
                                 .value_output_sockets
                                 .iter()
-                                .position(|&other_socket| other_socket == connection.data.from_socket)
+                                .position(|other_socket| other_socket == &connection.data.from_socket)
                                 .unwrap()
                                 + other_outputs.value_outputs_index;
 
@@ -625,7 +625,7 @@ impl BufferedTraverser {
     pub fn input_value_default(
         &mut self,
         node_index: NodeIndex,
-        socket: Socket,
+        socket: &Socket,
         value: Primitive,
     ) -> Result<(), NodeError> {
         let locations = self.node_to_location_mapping.get(&node_index);
@@ -634,7 +634,7 @@ impl BufferedTraverser {
             let value_index = locations
                 .value_socket_to_index
                 .iter()
-                .find_map(|&(possible_socket, index)| if possible_socket == socket { Some(index) } else { None });
+                .find_map(|(possible_socket, index)| if possible_socket == socket { Some(*index) } else { None });
 
             if let Some(value_index) = value_index {
                 self.nodes[locations.vec_index]
@@ -643,7 +643,7 @@ impl BufferedTraverser {
 
                 Ok(())
             } else {
-                Err(NodeError::SocketDoesNotExist { socket })
+                Err(NodeError::SocketDoesNotExist { socket: socket.clone() })
             }
         } else {
             Err(NodeError::NodeDoesNotExist { node_index })

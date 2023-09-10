@@ -34,6 +34,6 @@ impl Node for OutputNode {
     }
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
-        NodeIo::simple(vec![stream_input(register("audio"))])
+        NodeIo::simple(vec![stream_input("audio")])
     }
 }

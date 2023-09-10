@@ -91,8 +91,8 @@ impl Node for ToggleNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                value_input(register("set_state"), Primitive::Boolean(false)),
-                value_output(register("state")),
+                value_input("set_state", Primitive::Boolean(false)),
+                value_output("state"),
                 NodeRow::Property("ui_name".into(), PropertyType::String, Property::String("".into())),
             ],
             child_graph_io: None,

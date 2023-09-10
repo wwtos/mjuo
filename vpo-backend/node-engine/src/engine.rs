@@ -61,7 +61,7 @@ impl NodeEngine {
                 NodeEngineUpdate::NewDefaults(defaults) => {
                     if let Some(traverser) = &mut self.traverser {
                         for (node_index, socket, value) in defaults {
-                            traverser.input_value_default(node_index, socket, value).unwrap();
+                            traverser.input_value_default(node_index, &socket, value).unwrap();
                         }
                     }
                 }

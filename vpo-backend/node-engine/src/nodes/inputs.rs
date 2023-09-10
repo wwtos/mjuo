@@ -52,7 +52,7 @@ impl Node for InputsNode {
             NodeIo::simple(
                 sockets
                     .iter()
-                    .map(|socket_type| NodeRow::from_type_and_direction(*socket_type, SocketDirection::Output))
+                    .map(|socket| NodeRow::from_type_and_direction(socket.clone(), SocketDirection::Output))
                     .collect::<Vec<NodeRow>>(),
             )
         } else {

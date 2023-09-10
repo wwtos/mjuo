@@ -126,7 +126,7 @@ impl NodeInstance {
     }
 
     /// Guaranteed to be in order based on local node rows
-    pub fn list_input_sockets(&self) -> Vec<Socket> {
+    pub fn list_input_sockets(&self) -> Vec<&Socket> {
         self.node_rows
             .iter()
             .filter_map(|row| {
@@ -140,7 +140,7 @@ impl NodeInstance {
             .collect()
     }
 
-    pub fn list_output_sockets(&self) -> Vec<Socket> {
+    pub fn list_output_sockets(&self) -> Vec<&Socket> {
         self.node_rows
             .iter()
             .filter_map(|row| {
@@ -154,17 +154,17 @@ impl NodeInstance {
             .collect()
     }
 
-    pub fn has_input_socket(&self, to_find: Socket) -> bool {
+    pub fn has_input_socket(&self, to_find: &Socket) -> bool {
         self.list_input_sockets().iter().any(|&socket| socket == to_find)
     }
 
-    pub fn has_output_socket(&self, to_find: Socket) -> bool {
+    pub fn has_output_socket(&self, to_find: &Socket) -> bool {
         self.list_output_sockets().iter().any(|&socket| socket == to_find)
     }
 
-    pub fn get_default(&self, to_find: Socket) -> Option<NodeRow> {
+    pub fn get_default(&self, to_find: &Socket) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
-            let type_and_direction = (*override_row).clone().to_socket_and_direction();
+            let type_and_direction = override_row.clone().to_socket_and_direction();
 
             if let Some((override_type, override_direction)) = type_and_direction {
                 to_find == override_type && SocketDirection::Input == override_direction
@@ -180,7 +180,7 @@ impl NodeInstance {
         self.node_rows
             .iter()
             .find(|node_row| {
-                let type_and_direction = (*node_row).clone().to_socket_and_direction();
+                let type_and_direction = node_row.clone().to_socket_and_direction();
 
                 if let Some((override_type, override_direction)) = type_and_direction {
                     to_find == override_type && SocketDirection::Input == override_direction

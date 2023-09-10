@@ -445,14 +445,14 @@ impl GraphState {
             Action::ConnectNodes { graph, from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .connect_nodes(graph, from, data.from_socket, to, data.to_socket)?;
+                        .connect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
             Action::DisconnectNodes { graph, from, to, data } => {
                 let (diff, invalidations) =
                     self.graph_manager
-                        .disconnect_nodes(graph, from, data.from_socket, to, data.to_socket)?;
+                        .disconnect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
 
                 (HistoryAction::GraphAction { diff }, vec![invalidations])
             }
@@ -582,7 +582,7 @@ impl GraphState {
                 let changed: Vec<(Socket, SocketValue)> = after
                     .iter()
                     .filter(|&after| !before.iter().any(|before| before == after))
-                    .filter_map(NodeRow::to_socket_and_value)
+                    .filter_map(|row| row.to_socket_and_value().map(|x| (x.0.clone(), x.1)))
                     .collect();
 
                 action_result.push(ActionInvalidation::NewDefaults(index, changed));
@@ -650,7 +650,7 @@ impl GraphState {
                 let changed: Vec<(Socket, SocketValue)> = before
                     .iter()
                     .filter(|&before| !after.iter().any(|after| after == before))
-                    .filter_map(NodeRow::to_socket_and_value)
+                    .filter_map(|row| row.to_socket_and_value().map(|x| (x.0.clone(), x.1)))
                     .collect();
 
                 action_result.push(ActionInvalidation::NewDefaults(index, changed));

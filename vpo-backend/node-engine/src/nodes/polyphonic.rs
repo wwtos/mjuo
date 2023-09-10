@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use smallvec::smallvec;
 
 use sound_engine::midi::messages::{MidiData, MidiMessage};
@@ -286,18 +288,18 @@ impl Node for PolyphonicNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                midi_input(register("default")),
+                midi_input("default"),
                 NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
                 NodeRow::InnerGraph,
-                stream_output(register("audio")),
+                stream_output("audio"),
             ],
             child_graph_io: Some(vec![
                 (
-                    Socket::Simple(register("midi"), SocketType::Midi, 1),
+                    Socket::Simple(Cow::Borrowed("midi"), SocketType::Midi, 1),
                     SocketDirection::Input,
                 ),
                 (
-                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),
                     SocketDirection::Output,
                 ),
             ]),

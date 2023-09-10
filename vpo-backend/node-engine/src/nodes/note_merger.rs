@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
@@ -91,7 +93,7 @@ impl Node for NoteMergerNode {
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            midi_output(register("midi")),
+            midi_output("midi"),
         ];
 
         let input_count = props
@@ -102,7 +104,12 @@ impl Node for NoteMergerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Midi, 1),
+                Socket::WithData(
+                    Cow::Borrowed("input_numbered"),
+                    (i + 1).to_string(),
+                    SocketType::Midi,
+                    1,
+                ),
                 SocketValue::None,
             ));
         }

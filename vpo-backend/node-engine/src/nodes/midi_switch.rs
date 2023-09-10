@@ -169,10 +169,10 @@ impl NodeRuntime for MidiSwitchNode {
 impl Node for MidiSwitchNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi")),
-            value_input(register("engage"), Primitive::Boolean(false)),
+            midi_input("midi"),
+            value_input("engage", Primitive::Boolean(false)),
             multiple_choice("mode", &["normal", "sostenuto", "sustain"], "normal"),
-            midi_output(register("midi")),
+            midi_output("midi"),
         ])
     }
 

@@ -79,8 +79,8 @@ impl Node for WavetableSequencerNode {
                     resource: "".into(),
                 }),
             ),
-            value_input(register("frequency"), Primitive::Float(2.0)),
-            value_output(register("value")),
+            value_input("frequency", Primitive::Float(2.0)),
+            value_output("value"),
         ])
     }
 }

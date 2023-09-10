@@ -80,8 +80,8 @@ impl Node for MidiToValueNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
-            midi_input(register("midi")),
-            value_output(register("value")),
+            midi_input("midi"),
+            value_output("value"),
         ])
     }
 

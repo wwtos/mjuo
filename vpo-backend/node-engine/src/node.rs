@@ -1,6 +1,7 @@
 //! Node module
 
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
@@ -29,18 +30,18 @@ pub enum NodeRow {
 }
 
 impl NodeRow {
-    pub fn to_socket_and_direction(&self) -> Option<(Socket, SocketDirection)> {
+    pub fn to_socket_and_direction(&self) -> Option<(&Socket, SocketDirection)> {
         match self {
-            NodeRow::Input(socket, _) => Some((*socket, SocketDirection::Input)),
-            NodeRow::Output(socket) => Some((*socket, SocketDirection::Output)),
+            NodeRow::Input(socket, _) => Some((socket, SocketDirection::Input)),
+            NodeRow::Output(socket) => Some((socket, SocketDirection::Output)),
             NodeRow::Property(..) => None,
             NodeRow::InnerGraph => None,
         }
     }
 
-    pub fn to_socket_and_value(&self) -> Option<(Socket, SocketValue)> {
+    pub fn to_socket_and_value(&self) -> Option<(&Socket, SocketValue)> {
         match self {
-            NodeRow::Input(socket, value) => Some((*socket, value.clone())),
+            NodeRow::Input(socket, value) => Some((socket, value.clone())),
             NodeRow::Output(_) => None,
             NodeRow::Property(..) => None,
             NodeRow::InnerGraph => None,
@@ -55,28 +56,37 @@ impl NodeRow {
     }
 }
 
-pub fn stream_input(uid: u32) -> NodeRow {
-    NodeRow::Input(Socket::Simple(uid, SocketType::Stream, 1), SocketValue::None)
+pub fn stream_input(name: &'static str) -> NodeRow {
+    NodeRow::Input(
+        Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1),
+        SocketValue::None,
+    )
 }
 
-pub fn midi_input(uid: u32) -> NodeRow {
-    NodeRow::Input(Socket::Simple(uid, SocketType::Midi, 1), SocketValue::None)
+pub fn midi_input(name: &'static str) -> NodeRow {
+    NodeRow::Input(
+        Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1),
+        SocketValue::None,
+    )
 }
 
-pub fn value_input(uid: u32, default: Primitive) -> NodeRow {
-    NodeRow::Input(Socket::Simple(uid, SocketType::Value, 1), SocketValue::Value(default))
+pub fn value_input(name: &'static str, default: Primitive) -> NodeRow {
+    NodeRow::Input(
+        Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1),
+        SocketValue::Value(default),
+    )
 }
 
-pub fn stream_output(uid: u32) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Stream, 1))
+pub fn stream_output(name: &'static str) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1))
 }
 
-pub fn midi_output(uid: u32) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Midi, 1))
+pub fn midi_output(name: &'static str) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1))
 }
 
-pub fn value_output(uid: u32) -> NodeRow {
-    NodeRow::Output(Socket::Simple(uid, SocketType::Value, 1))
+pub fn value_output(name: &'static str) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1))
 }
 
 pub fn property(prop_id: &str, prop_type: PropertyType, prop_default: Property) -> NodeRow {

@@ -141,10 +141,10 @@ impl NodeRuntime for MemoryNode {
 impl Node for MemoryNode {
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            value_input(register("activate"), Primitive::Boolean(false)),
-            value_input(register("load_mode"), Primitive::Boolean(false)),
-            value_input(register("set_mode"), Primitive::Boolean(false)),
-            value_input(register("map_set_mode"), Primitive::Boolean(false)),
+            value_input("activate", Primitive::Boolean(false)),
+            value_input("load_mode", Primitive::Boolean(false)),
+            value_input("set_mode", Primitive::Boolean(false)),
+            value_input("map_set_mode", Primitive::Boolean(false)),
         ])
     }
 

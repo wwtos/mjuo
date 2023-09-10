@@ -32,9 +32,9 @@ impl Node for GainNode {
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo::simple(vec![
-            stream_input(register("audio")),
-            value_input(register("gain"), Primitive::Float(0.0)),
-            stream_output(register("audio")),
+            stream_input("audio"),
+            value_input("gain", Primitive::Float(0.0)),
+            stream_output("audio"),
         ])
     }
 }

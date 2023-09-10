@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiMessage;
 
-use std::fmt::{Debug, Display};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
 
 use crate::{node::NodeIndex, node_graph::NodeConnectionData};
 
@@ -17,7 +20,7 @@ pub struct Connection {
     pub data: NodeConnectionData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct InputSideConnection {
     pub from_socket: Socket,
@@ -25,7 +28,7 @@ pub struct InputSideConnection {
     pub to_socket: Socket,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutputSideConnection {
     pub from_socket: Socket,
@@ -33,18 +36,18 @@ pub struct OutputSideConnection {
     pub to_socket: Socket,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum Socket {
-    Simple(u32, SocketType, usize),
-    Numbered(u32, i32, SocketType, usize),
+    Simple(Cow<'static, str>, SocketType, usize),
+    WithData(Cow<'static, str>, String, SocketType, usize),
 }
 
 impl Socket {
     pub fn socket_type(&self) -> SocketType {
         match self {
             Self::Simple(_, socket_type, _) => *socket_type,
-            Self::Numbered(_, _, socket_type, _) => *socket_type,
+            Self::WithData(_, _, socket_type, _) => *socket_type,
         }
     }
 }

@@ -260,9 +260,9 @@ impl GraphManager {
         &mut self,
         graph: GraphIndex,
         from: NodeIndex,
-        from_socket_type: Socket,
+        from_socket_type: &Socket,
         to: NodeIndex,
-        to_socket_type: Socket,
+        to_socket_type: &Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         let (_, graph_diff) = self
             .get_graph_mut(graph)?
@@ -277,9 +277,9 @@ impl GraphManager {
         &mut self,
         graph: GraphIndex,
         from: NodeIndex,
-        from_socket_type: Socket,
+        from_socket_type: &Socket,
         to: NodeIndex,
-        to_socket_type: Socket,
+        to_socket_type: &Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         let (_, graph_diff) = self
             .get_graph_mut(graph)?

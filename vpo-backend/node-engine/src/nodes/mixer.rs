@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -31,7 +33,7 @@ impl Node for MixerNode {
     fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            stream_output(register("audio")),
+            stream_output("audio"),
         ];
 
         let input_count = props
@@ -41,7 +43,12 @@ impl Node for MixerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Stream, 1),
+                Socket::WithData(
+                    Cow::Borrowed("input_numbered"),
+                    (i + 1).to_string(),
+                    SocketType::Stream,
+                    1,
+                ),
                 SocketValue::Stream(0.0),
             ));
         }

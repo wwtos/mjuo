@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
 
 #[derive(Debug, Clone)]
@@ -80,18 +82,14 @@ impl Node for FunctionNode {
 
     fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
         NodeIo {
-            node_rows: vec![
-                stream_input(register("audio")),
-                NodeRow::InnerGraph,
-                stream_output(register("audio")),
-            ],
+            node_rows: vec![stream_input("audio"), NodeRow::InnerGraph, stream_output("audio")],
             child_graph_io: Some(vec![
                 (
-                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),
                     SocketDirection::Input,
                 ),
                 (
-                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),
                     SocketDirection::Output,
                 ),
             ]),

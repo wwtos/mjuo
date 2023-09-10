@@ -127,13 +127,13 @@ impl Node for ExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            value_output(register("default")),
+            value_output("default"),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
             for i in 0..(*values_in_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered(register("variable-numbered"), i + 1, SocketType::Value, 1),
+                    Socket::WithData("variable_numbered".into(), (i + 1).to_string(), SocketType::Value, 1),
                     SocketValue::Value(Primitive::Float(0.0)),
                 ));
             }

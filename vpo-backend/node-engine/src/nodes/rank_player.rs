@@ -1,10 +1,8 @@
-
-
 use lazy_static::lazy_static;
 use resource_manager::ResourceId;
 use smallvec::SmallVec;
 use sound_engine::{
-    sampling::{rank_player::RankPlayer},
+    sampling::rank_player::RankPlayer,
     util::{cents_to_detune, db_to_gain},
 };
 
@@ -123,11 +121,11 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input(register("midi")),
-            value_input(register("detune"), Primitive::Float(0.0)),
-            value_input(register("db_gain"), Primitive::Float(0.0)),
-            value_input(register("shelf_db_gain"), Primitive::Float(0.0)),
-            stream_output(register("audio")),
+            midi_input("midi"),
+            value_input("detune", Primitive::Float(0.0)),
+            value_input("db_gain", Primitive::Float(0.0)),
+            value_input("shelf_db_gain", Primitive::Float(0.0)),
+            stream_output("audio"),
         ])
     }
 }
