@@ -171,7 +171,7 @@ impl BufferedTraverser {
             };
 
             // get the child graph info, if any
-            let child_graph_info = node_instance.get_child_graph_info();
+            let child_graph_info = node_instance.get_child_graph();
 
             let init_result_res = variant.init(NodeInitParams {
                 props: node_instance.get_properties(),
@@ -181,7 +181,7 @@ impl BufferedTraverser {
                 graph_manager,
                 sound_config: &sound_config,
                 state: node_instance.get_state(),
-                child_graph: child_graph_info,
+                child_graph: child_graph_info.clone(),
             });
 
             // handle any errors from initializing the node

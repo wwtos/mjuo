@@ -6,8 +6,7 @@ use serde_json::{json, Value};
 use crate::{
     connection::{Socket, SocketDirection},
     errors::{NodeError, NodeOk},
-    graph_manager::GraphIndex,
-    node::{NodeGraphAndIo, NodeIndex, NodeRow, NodeState},
+    node::{NodeGraphAndIo, NodeRow, NodeState},
     property::Property,
 };
 
@@ -21,8 +20,7 @@ pub struct NodeInstance {
     properties: HashMap<String, Property>,
     ui_data: HashMap<String, Value>,
     state: NodeState,
-    child_graph_index: Option<GraphIndex>,
-    child_graph_io_indexes: Option<(NodeIndex, NodeIndex)>,
+    child_graph: Option<NodeGraphAndIo>,
 }
 
 impl NodeInstance {
@@ -47,8 +45,7 @@ impl NodeInstance {
             properties,
             ui_data: HashMap::new(),
             state: NodeState::default(),
-            child_graph_index: None,
-            child_graph_io_indexes: None,
+            child_graph: None,
         };
 
         // insert some initial UI data
@@ -64,26 +61,12 @@ impl NodeInstance {
         self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph))
     }
 
-    pub fn set_child_graph_index(&mut self, index: GraphIndex) {
-        self.child_graph_index = Some(index);
+    pub fn set_child_graph(&mut self, graph: NodeGraphAndIo) {
+        self.child_graph = Some(graph);
     }
 
-    pub fn get_child_graph_index(&self) -> &Option<GraphIndex> {
-        &self.child_graph_index
-    }
-
-    pub fn get_child_graph_info(&self) -> Option<NodeGraphAndIo> {
-        if let Some(index) = self.child_graph_index {
-            if let Some((input_index, output_index)) = self.child_graph_io_indexes {
-                return Some(NodeGraphAndIo {
-                    graph: index,
-                    input_index,
-                    output_index,
-                });
-            }
-        }
-
-        None
+    pub fn get_child_graph(&self) -> &Option<NodeGraphAndIo> {
+        &self.child_graph
     }
 
     pub fn get_node_rows(&self) -> &Vec<NodeRow> {

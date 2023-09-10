@@ -7,6 +7,7 @@ use snafu::OptionExt;
 
 use crate::connection::Socket;
 use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
+use crate::node::NodeGraphAndIo;
 use crate::node_graph::NodeGraphDiff;
 use crate::node_instance::NodeInstance;
 use crate::socket_registry::SocketRegistry;
@@ -179,7 +180,7 @@ impl GraphManager {
         registry: &mut SocketRegistry,
         ui_data: HashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
-        let mut diff = vec![];
+        let mut diff: Vec<DiffElement> = vec![];
 
         let graph = self.get_graph_mut(graph_index)?;
         let creation_result = graph.add_node(node_type.into(), registry)?;
@@ -192,18 +193,31 @@ impl GraphManager {
         let new_node_instance = graph.get_node(new_node_index)?;
         let uses_child_graph = new_node_instance.uses_child_graph();
 
-        let child_graph_index = if uses_child_graph {
+        let child_graph = if uses_child_graph {
             let new_graph_index = {
                 // create a graph for it
                 let (new_graph_index, creation_diff) = self.new_graph()?;
                 diff.extend(creation_diff.0);
 
-                new_graph_index
+                // add `Inputs` node and `Outputs` node
+                let new_graph = self.get_graph_mut(new_graph_index).expect("graph to have been created");
+
+                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into(), registry).unwrap().value;
+                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into(), registry).unwrap().value;
+
+                diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
+                diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));
+
+                NodeGraphAndIo {
+                    graph: new_graph_index,
+                    input_index: inputs_index,
+                    output_index: outputs_index,
+                }
             };
 
             // connect the two graphs together
             let (_, connect_diff) =
-                self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index)?;
+                self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index.graph)?;
             diff.extend(connect_diff.0);
 
             Some(new_graph_index)
@@ -213,8 +227,8 @@ impl GraphManager {
 
         let new_node = self.get_graph_mut(graph_index)?.get_node_mut(new_node_index)?;
 
-        if let Some(child_graph_index) = child_graph_index {
-            new_node.set_child_graph_index(child_graph_index);
+        if let Some(child_graph) = child_graph {
+            new_node.set_child_graph(child_graph);
         }
 
         diff.push(DiffElement::ExtendUiData(

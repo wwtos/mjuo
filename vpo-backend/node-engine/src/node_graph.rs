@@ -383,6 +383,10 @@ impl NodeGraph {
         &self.nodes
     }
 
+    pub(crate) fn get_graph_mut(&mut self) -> &mut Graph<NodeInstance, NodeConnectionData> {
+        &mut self.nodes
+    }
+
     pub fn len(&self) -> usize {
         self.nodes.get_verticies().len()
     }

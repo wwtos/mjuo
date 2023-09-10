@@ -165,6 +165,7 @@ pub struct NodeProcessGlobals<'a> {
     pub state: StateInterface<'a>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeGraphAndIo {
     pub graph: GraphIndex,
     pub input_index: NodeIndex,
