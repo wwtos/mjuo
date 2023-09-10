@@ -7,8 +7,8 @@ pub(super) use resource_manager::ResourceIndex;
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
 pub(super) use crate::node::{
-    InitResult, Ins, Node, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext, NodeRow, NodeRuntime,
-    NodeState, Outs, ProcessResult,
+    InitResult, Ins, Node, NodeGetIoContext, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext,
+    NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
 };
 pub(super) use crate::{
     connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue},

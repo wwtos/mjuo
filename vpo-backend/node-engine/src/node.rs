@@ -105,6 +105,10 @@ impl ProcessResult {
     }
 }
 
+pub struct NodeGetIoContext {
+    default_channel_count: usize,
+}
+
 pub struct NodeInitParams<'a> {
     pub props: &'a HashMap<String, Property>,
     pub script_engine: &'a Engine,
@@ -217,7 +221,7 @@ pub trait NodeRuntime: Debug + Clone {
 /// internal state
 pub trait Node: NodeRuntime {
     /// Called at least every time a property is changed
-    fn get_io(props: HashMap<String, Property>) -> NodeIo;
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo;
 
     /// Called when created
     fn new(sound_config: &SoundConfig) -> Self;
