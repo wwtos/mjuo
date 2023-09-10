@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use lazy_static::lazy_static;
 use resource_manager::ResourceId;
 use smallvec::SmallVec;
@@ -64,38 +66,28 @@ impl NodeRuntime for RankPlayerNode {
         })
     }
 
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         let _reset_needed = false;
 
-        if resources[0].is_some() {
-            if let Some(cents) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if resources[0].type_id() != TypeId::of::<()>() {
+            if let Some(cents) = ins.values[0][0].as_float() {
                 self.player.set_detune(cents_to_detune(cents));
             }
 
-            if let Some(db_gain) = ins.values[1].as_ref().and_then(|x| x.as_float()) {
+            if let Some(db_gain) = ins.values[1][0].as_float() {
                 self.player.set_gain(db_to_gain(db_gain));
             }
 
-            if let Some(shelf_db_gain) = ins.values[2].as_ref().and_then(|x| x.as_float()) {
+            if let Some(shelf_db_gain) = ins.values[2][0].as_float() {
                 self.player.set_shelf_db_gain(shelf_db_gain);
             }
 
-            for frame in outs.streams[0].iter_mut() {
+            for frame in outs.streams[0][0].iter_mut() {
                 *frame = 0.0;
             }
 
-            self.player.next_buffered(
-                context.current_time,
-                ins.midis[0].as_ref().unwrap_or(&EMPTY_MIDI),
-                resources,
-                outs.streams[0],
-            );
+            self.player
+                .next_buffered(context.current_time, &ins.midis[0][0], resources, outs.streams[0][0]);
         }
 
         NodeOk::no_warnings(())
@@ -110,7 +102,7 @@ impl Node for RankPlayerNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "rank".into(),
@@ -121,11 +113,11 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input("midi"),
-            value_input("detune", Primitive::Float(0.0)),
-            value_input("db_gain", Primitive::Float(0.0)),
-            value_input("shelf_db_gain", Primitive::Float(0.0)),
-            stream_output("audio"),
+            midi_input("midi", 1),
+            value_input("detune", Primitive::Float(0.0), 1),
+            value_input("db_gain", Primitive::Float(0.0), 1),
+            value_input("shelf_db_gain", Primitive::Float(0.0), 1),
+            stream_output("audio", 1),
         ])
     }
 }

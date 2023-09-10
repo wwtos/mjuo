@@ -37,17 +37,11 @@ impl NodeRuntime for MidiToValueNode {
         }
     }
 
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         let mut warnings = vec![];
 
-        if let (Some(midi_in), Some(ast)) = (ins.midis[0], self.ast.as_ref()) {
-            for message in midi_in {
+        if let Some(ast) = self.ast.as_ref() {
+            for message in ins.midis[0][0] {
                 self.scope.push("timestamp", message.timestamp);
 
                 midi_to_scope(&mut self.scope, &message.data);
@@ -58,7 +52,7 @@ impl NodeRuntime for MidiToValueNode {
 
                 match result {
                     Ok(dynamic) => {
-                        outs.values[0] = dynamic_to_primitive(dynamic);
+                        outs.values[0][0] = dynamic_to_primitive(dynamic);
                     }
                     Err(err) => {
                         warnings.push(NodeWarning::RhaiExecutionFailure {
@@ -77,11 +71,11 @@ impl NodeRuntime for MidiToValueNode {
 }
 
 impl Node for MidiToValueNode {
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
-            midi_input("midi"),
-            value_output("value"),
+            midi_input("midi", 1),
+            value_output("value", 1),
         ])
     }
 

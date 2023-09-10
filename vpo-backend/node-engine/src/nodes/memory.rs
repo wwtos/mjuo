@@ -21,7 +21,7 @@ pub struct MemoryNode {
 
 impl NodeRuntime for MemoryNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let NodeInitParams { state: node_state, .. } = params;
+        let NodeInitParams { node_state, .. } = params;
 
         self.memory = serde_json::from_value(node_state.other.get("memory").unwrap_or(&Value::Null).clone())
             .unwrap_or_else(|_| vec![]);
@@ -49,19 +49,19 @@ impl NodeRuntime for MemoryNode {
         context: NodeProcessContext,
         ins: Ins,
         _outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         self.state_changed = false;
 
-        if let Some(true) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(true) = ins.values[0][0].as_boolean() {
             self.activated = true;
         }
 
-        if let Some(true) = ins.values[1].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(true) = ins.values[1][0].as_boolean() {
             self.mode = MemoryMode::Loading;
-        } else if let Some(true) = ins.values[2].as_ref().and_then(|x| x.as_boolean()) {
+        } else if let Some(true) = ins.values[2][0].as_boolean() {
             self.mode = MemoryMode::Setting;
-        } else if let Some(true) = ins.values[3].as_ref().and_then(|x| x.as_boolean()) {
+        } else if let Some(true) = ins.values[3][0].as_boolean() {
             self.mode = MemoryMode::MapSetting;
         }
 
@@ -69,15 +69,15 @@ impl NodeRuntime for MemoryNode {
             match self.mode {
                 MemoryMode::Loading => {
                     println!("loading");
-                    (context.state.enqueue_state_updates)(self.memory.clone());
+                    (context.external_state.enqueue_state_updates)(self.memory.clone());
                 }
                 MemoryMode::Setting => {
-                    (context.state.request_node_states)();
+                    (context.external_state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: false };
                 }
                 MemoryMode::MapSetting => {
-                    (context.state.request_node_states)();
+                    (context.external_state.request_node_states)();
 
                     self.mode = MemoryMode::WaitingForNodeStates { map_setting: true };
                 }
@@ -87,7 +87,7 @@ impl NodeRuntime for MemoryNode {
             self.state_changed = true;
         }
 
-        if let Some(node_states) = context.state.states {
+        if let Some(node_states) = context.external_state.states {
             if let MemoryMode::WaitingForNodeStates { map_setting } = self.mode {
                 if map_setting {
                     self.tracking.clear();
@@ -139,12 +139,12 @@ impl NodeRuntime for MemoryNode {
 }
 
 impl Node for MemoryNode {
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            value_input("activate", Primitive::Boolean(false)),
-            value_input("load_mode", Primitive::Boolean(false)),
-            value_input("set_mode", Primitive::Boolean(false)),
-            value_input("map_set_mode", Primitive::Boolean(false)),
+            value_input("activate", Primitive::Boolean(false), 1),
+            value_input("load_mode", Primitive::Boolean(false), 1),
+            value_input("set_mode", Primitive::Boolean(false), 1),
+            value_input("map_set_mode", Primitive::Boolean(false), 1),
         ])
     }
 

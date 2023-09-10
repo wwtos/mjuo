@@ -33,11 +33,11 @@ impl NodeRuntime for PortamentoNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(gate) = ins.values[0][0].as_boolean() {
             if self.engaged && !gate {
-                outs.values[0] = float(self.ramp.get_to());
+                outs.values[0][0] = float(self.ramp.get_to());
                 self.ramp.set_position(self.ramp.get_to());
             }
 
@@ -45,19 +45,19 @@ impl NodeRuntime for PortamentoNode {
             self.active = true;
         }
 
-        if let Some(frequency) = ins.values[1].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.values[1][0].as_float() {
             if self.engaged {
                 self.ramp
                     .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
                     .unwrap();
             } else {
-                outs.values[0] = float(frequency);
+                outs.values[0][0] = float(frequency);
             }
 
             self.active = true;
         }
 
-        if let Some(speed) = ins.values[2].as_ref().and_then(|x| x.as_float()) {
+        if let Some(speed) = ins.values[2][0].as_float() {
             self.speed = speed;
             self.ramp
                 .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
@@ -69,7 +69,7 @@ impl NodeRuntime for PortamentoNode {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
-            outs.values[0] = float(out);
+            outs.values[0][0] = float(out);
 
             if self.ramp.is_done() {
                 self.active = false;
@@ -92,17 +92,13 @@ impl Node for PortamentoNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            NodeRow::Property(
-                "ramp_type".into(),
-                PropertyType::MultipleChoice(vec!["exponential".into(), "linear".into()]),
-                Property::MultipleChoice("exponential".into()),
-            ),
-            value_input("gate", Primitive::Boolean(false)),
-            value_input("frequency", Primitive::Float(440.0)),
-            value_input("speed", Primitive::Float(0.2)),
-            value_output("frequency"),
+            multiple_choice("ramp_type", &["exponential", "linear"], "exponential"),
+            value_input("gate", Primitive::Boolean(false), 1),
+            value_input("frequency", Primitive::Float(440.0), 1),
+            value_input("speed", Primitive::Float(0.2), 1),
+            value_output("frequency", 1),
         ])
     }
 }

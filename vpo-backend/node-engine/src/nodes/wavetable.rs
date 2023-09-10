@@ -26,14 +26,14 @@ impl NodeRuntime for WavetableNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.values[0][0].as_float() {
             self.oscillator.set_frequency(frequency);
         }
 
-        if let Some(wavetable) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
-            for frame in outs.streams[0].iter_mut() {
+        if let Some(wavetable) = resources[0].downcast_ref::<MonoSample>() {
+            for frame in outs.streams[0][0].iter_mut() {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }
         }
@@ -50,7 +50,7 @@ impl Node for WavetableNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "wavetable".into(),
@@ -60,8 +60,8 @@ impl Node for WavetableNode {
                     resource: "".into(),
                 }),
             ),
-            value_input("frequency", Primitive::Float(440.0)),
-            stream_output("audio"),
+            value_input("frequency", Primitive::Float(440.0), 1),
+            stream_output("audio", 1),
         ])
     }
 }

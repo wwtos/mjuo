@@ -11,14 +11,16 @@ impl NodeRuntime for GainNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(gain) = ins.values[0] {
-            self.gain = gain.as_float().unwrap_or(0.0);
+        if ins.values[0][0].is_some() {
+            self.gain = ins.values[0][0].as_float().unwrap_or(0.0);
         }
 
-        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
-            *frame_out = *frame_in * self.gain;
+        for (streams_in, streams_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
+            for (frame_in, frame_out) in streams_in.iter().zip(streams_out.iter_mut()) {
+                *frame_out = *frame_in * self.gain;
+            }
         }
 
         NodeOk::no_warnings(())
@@ -30,11 +32,14 @@ impl Node for GainNode {
         GainNode { gain: 0.0 }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let polyphony = default_channels(&props, context.default_channel_count);
+
         NodeIo::simple(vec![
-            stream_input("audio"),
-            value_input("gain", Primitive::Float(0.0)),
-            stream_output("audio"),
+            with_channels(context.default_channel_count),
+            stream_input("audio", polyphony),
+            value_input("gain", Primitive::Float(0.0), 1),
+            stream_output("audio", polyphony),
         ])
     }
 }

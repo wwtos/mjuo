@@ -32,50 +32,45 @@ impl NodeRuntime for MidiFilterNode {
         InitResult::warning(warning)
     }
 
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
-            if let Some(midi) = ins.midis[0] {
-                let output = Some(
-                    midi.iter()
-                        .filter_map(|message| {
-                            midi_to_scope(&mut self.scope, &message.data);
+            if !ins.midis[0][0].is_empty() {
+                let midi = &ins.midis[0][0];
 
-                            let result = context
-                                .script_engine
-                                .eval_ast_with_scope::<bool>(&mut self.scope, filter);
+                let output = midi
+                    .iter()
+                    .filter_map(|message| {
+                        midi_to_scope(&mut self.scope, &message.data);
 
-                            self.scope.rewind(0);
+                        let result = context
+                            .script_engine
+                            .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
-                            match result {
-                                Ok(output) => {
-                                    if output {
-                                        Some(message.clone())
-                                    } else {
-                                        None
-                                    }
-                                }
-                                Err(err) => {
-                                    warning = Some(NodeWarning::RhaiExecutionFailure {
-                                        err: *err,
-                                        script: self.filter_raw.clone(),
-                                    });
+                        self.scope.rewind(0);
 
+                        match result {
+                            Ok(output) => {
+                                if output {
+                                    Some(message.clone())
+                                } else {
                                     None
                                 }
                             }
-                        })
-                        .collect::<MidiBundle>(),
-                );
+                            Err(err) => {
+                                warning = Some(NodeWarning::RhaiExecutionFailure {
+                                    err: *err,
+                                    script: self.filter_raw.clone(),
+                                });
 
-                outs.midis[0] = output;
+                                None
+                            }
+                        }
+                    })
+                    .collect::<MidiBundle>();
+
+                outs.midis[0][0] = output;
             }
         }
 
@@ -92,15 +87,15 @@ impl Node for MidiFilterNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi"),
+            midi_input("midi", 1),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            midi_output("midi"),
+            midi_output("midi", 1),
         ])
     }
 }

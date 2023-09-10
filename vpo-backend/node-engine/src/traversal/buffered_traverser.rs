@@ -180,7 +180,7 @@ impl BufferedTraverser {
                 current_time,
                 graph_manager,
                 sound_config: &sound_config,
-                state: node_instance.get_state(),
+                node_state: node_instance.get_state(),
                 child_graph: child_graph_info.clone(),
             });
 
@@ -544,7 +544,7 @@ impl BufferedTraverser {
                     current_time,
                     script_engine,
                     resources,
-                    state: StateInterface {
+                    external_state: StateInterface {
                         states: graph_state,
                         request_node_states: &mut || requesting_graph_state = true,
                         enqueue_state_updates: &mut |updates| requested_state_updates.extend(updates.into_iter()),

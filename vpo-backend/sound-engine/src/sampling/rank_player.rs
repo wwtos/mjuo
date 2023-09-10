@@ -3,7 +3,7 @@ use std::{any::Any, collections::BTreeMap};
 use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
-use resource_manager::{ResourceId, ResourceIndex, ResourceManager};
+use resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
@@ -134,13 +134,11 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[Option<(ResourceIndex, &dyn Any)>]) {
+    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[&dyn Any]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
-            .and_then(|sample_index| {
-                resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
-            })
+            .and_then(|sample_index| resources[*sample_index].downcast_ref::<MonoSample>())
             .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
 
         if let Some((pipe, sample)) = pipe_and_sample {
@@ -185,14 +183,8 @@ impl RankPlayer {
         self.shelf_db_gain = db_gain;
     }
 
-    pub fn next_buffered(
-        &mut self,
-        time: i64,
-        midi: &MidiBundle,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
-        out: &mut [f32],
-    ) {
-        let rank = resources[0].expect("a rank").1.downcast_ref::<Rank>().expect("a rank");
+    pub fn next_buffered(&mut self, time: i64, midi: &MidiBundle, resources: &[&dyn Any], out: &mut [f32]) {
+        let rank = resources[0].downcast_ref::<Rank>().expect("a rank");
         let out_len = out.len();
 
         for output in out.iter_mut() {
@@ -215,9 +207,7 @@ impl RankPlayer {
             let pipe_and_sample = self
                 .note_to_sample_map
                 .get(&voice.note)
-                .and_then(|sample_index| {
-                    resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
-                })
+                .and_then(|sample_index| resources[*sample_index].downcast_ref::<MonoSample>())
                 .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
             let mut midi_position = 0;

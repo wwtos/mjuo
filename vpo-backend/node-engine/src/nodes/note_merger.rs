@@ -36,47 +36,43 @@ impl NodeRuntime for NoteMergerNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = SmallVec::new();
 
         for (i, messages) in ins.midis.iter().enumerate() {
-            if let Some(messages) = messages {
-                for message in messages {
-                    match message.data {
-                        MidiData::NoteOn { note, .. } => {
-                            let before = self.combined;
+            for message in messages[0] {
+                match message.data {
+                    MidiData::NoteOn { note, .. } => {
+                        let before = self.combined;
 
-                            self.states[i] |= 1_u128 << note;
-                            self.combine();
+                        self.states[i] |= 1_u128 << note;
+                        self.combine();
 
-                            // the state changed, so we should pass this message through
-                            if self.combined != before {
-                                new_messages.push(message.clone());
-                            }
-                        }
-                        MidiData::NoteOff { note, .. } => {
-                            let before = self.combined;
-
-                            self.states[i] &= !(1_u128 << note);
-                            self.combine();
-
-                            // the state changed, so we should pass this message through
-                            if self.combined != before {
-                                new_messages.push(message.clone());
-                            }
-                        }
-                        _ => {
+                        // the state changed, so we should pass this message through
+                        if self.combined != before {
                             new_messages.push(message.clone());
                         }
+                    }
+                    MidiData::NoteOff { note, .. } => {
+                        let before = self.combined;
+
+                        self.states[i] &= !(1_u128 << note);
+                        self.combine();
+
+                        // the state changed, so we should pass this message through
+                        if self.combined != before {
+                            new_messages.push(message.clone());
+                        }
+                    }
+                    _ => {
+                        new_messages.push(message.clone());
                     }
                 }
             }
         }
 
-        if !new_messages.is_empty() {
-            outs.midis[0] = Some(new_messages);
-        }
+        outs.midis[0][0] = new_messages;
 
         ProcessResult::nothing()
     }
@@ -90,10 +86,10 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            midi_output("midi"),
+            midi_output("midi", 1),
         ];
 
         let input_count = props

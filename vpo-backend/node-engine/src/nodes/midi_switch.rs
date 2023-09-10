@@ -43,17 +43,11 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         let mut midi_out: MidiBundle = smallvec![];
 
-        if let Some(midi_in) = ins.midis[0] {
-            for message in midi_in {
+        if !ins.midis[0][0].is_empty() {
+            for message in &ins.midis[0][0] {
                 match message.data {
                     MidiData::NoteOn { note, .. } => {
                         match self.mode {
@@ -108,7 +102,7 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if let Some(engaged) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(engaged) = ins.values[0][0].as_boolean() {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
@@ -159,7 +153,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            outs.midis[0] = Some(midi_out);
+            outs.midis[0][0] = midi_out;
         }
 
         ProcessResult::nothing()
@@ -167,12 +161,12 @@ impl NodeRuntime for MidiSwitchNode {
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi"),
-            value_input("engage", Primitive::Boolean(false)),
+            midi_input("midi", 1),
+            value_input("engage", Primitive::Boolean(false), 1),
             multiple_choice("mode", &["normal", "sostenuto", "sustain"], "normal"),
-            midi_output("midi"),
+            midi_output("midi", 1),
         ])
     }
 

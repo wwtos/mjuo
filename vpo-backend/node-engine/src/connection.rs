@@ -50,6 +50,13 @@ impl Socket {
             Self::WithData(_, _, socket_type, _) => *socket_type,
         }
     }
+
+    pub fn channels(&self) -> usize {
+        match self {
+            Self::Simple(_, _, channels) => *channels,
+            Self::WithData(_, _, _, channels) => *channels,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
@@ -76,6 +83,16 @@ pub enum Primitive {
     Boolean(bool),
     String(String),
     None,
+}
+
+impl Primitive {
+    pub fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Primitive::None)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]

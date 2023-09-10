@@ -9,7 +9,6 @@ pub mod gain;
 pub mod inputs;
 pub mod memory;
 pub mod midi_filter;
-pub mod midi_input;
 pub mod midi_switch;
 pub mod midi_to_value;
 pub mod midi_to_values;
@@ -17,7 +16,6 @@ pub mod midi_transpose;
 pub mod mixer;
 pub mod note_merger;
 pub mod oscillator;
-pub mod output;
 pub mod outputs;
 pub mod polyphonic;
 pub mod portamento;
@@ -33,11 +31,10 @@ use self::midi_to_value::MidiToValueNode;
 use self::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
     function_node::FunctionNode, gain::GainNode, inputs::InputsNode, memory::MemoryNode, midi_filter::MidiFilterNode,
-    midi_input::MidiInNode, midi_switch::MidiSwitchNode, midi_to_values::MidiToValuesNode,
-    midi_transpose::MidiTransposeNode, mixer::MixerNode, note_merger::NoteMergerNode, oscillator::OscillatorNode,
-    output::OutputNode, outputs::OutputsNode, polyphonic::PolyphonicNode, portamento::PortamentoNode,
-    rank_player::RankPlayerNode, stream_expression::StreamExpressionNode, toggle::ToggleNode, wavetable::WavetableNode,
-    wavetable_sequencer::WavetableSequencerNode,
+    midi_switch::MidiSwitchNode, midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode,
+    note_merger::NoteMergerNode, oscillator::OscillatorNode, outputs::OutputsNode, polyphonic::PolyphonicNode,
+    portamento::PortamentoNode, rank_player::RankPlayerNode, stream_expression::StreamExpressionNode,
+    toggle::ToggleNode, wavetable::WavetableNode, wavetable_sequencer::WavetableSequencerNode,
 };
 
 use self::prelude::*;
@@ -46,9 +43,7 @@ use self::prelude::*;
 #[derive(Debug, Clone)]
 pub enum NodeVariant {
     GainNode,
-    OutputNode,
     OscillatorNode,
-    MidiInNode,
     MidiToValuesNode,
     EnvelopeNode,
     BiquadFilterNode,
@@ -81,8 +76,6 @@ impl Default for NodeVariant {
 
 pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant, NodeError> {
     match node_type {
-        "OutputNode" => Ok(OutputNode::new(config).into()),
-        "MidiInNode" => Ok(MidiInNode::new(config).into()),
         "GainNode" => Ok(GainNode::new(config).into()),
         "OscillatorNode" => Ok(OscillatorNode::new(config).into()),
         "MidiToValuesNode" => Ok(MidiToValuesNode::new(config).into()),
@@ -111,34 +104,36 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
     }
 }
 
-pub fn variant_io(node_type: &str, props: HashMap<String, Property>) -> Result<NodeIo, NodeError> {
+pub fn variant_io(
+    node_type: &str,
+    ctx: NodeGetIoContext,
+    props: HashMap<String, Property>,
+) -> Result<NodeIo, NodeError> {
     match node_type {
-        "OutputNode" => Ok(OutputNode::get_io(props)),
-        "MidiInNode" => Ok(MidiInNode::get_io(props)),
-        "GainNode" => Ok(GainNode::get_io(props)),
-        "OscillatorNode" => Ok(OscillatorNode::get_io(props)),
-        "MidiToValuesNode" => Ok(MidiToValuesNode::get_io(props)),
-        "EnvelopeNode" => Ok(EnvelopeNode::get_io(props)),
-        "BiquadFilterNode" => Ok(BiquadFilterNode::get_io(props)),
-        "MixerNode" => Ok(MixerNode::get_io(props)),
-        "ExpressionNode" => Ok(ExpressionNode::get_io(props)),
-        "DummyNode" => Ok(DummyNode::get_io(props)),
-        "FunctionNode" => Ok(FunctionNode::get_io(props)),
-        "InputsNode" => Ok(InputsNode::get_io(props)),
-        "OutputsNode" => Ok(OutputsNode::get_io(props)),
-        "StreamExpressionNode" => Ok(StreamExpressionNode::get_io(props)),
-        "PolyphonicNode" => Ok(PolyphonicNode::get_io(props)),
-        "MidiFilterNode" => Ok(MidiFilterNode::get_io(props)),
-        "WavetableNode" => Ok(WavetableNode::get_io(props)),
-        "PortamentoNode" => Ok(PortamentoNode::get_io(props)),
-        "ToggleNode" => Ok(ToggleNode::get_io(props)),
-        "RankPlayerNode" => Ok(RankPlayerNode::get_io(props)),
-        "NoteMergerNode" => Ok(NoteMergerNode::get_io(props)),
-        "MidiTransposeNode" => Ok(MidiTransposeNode::get_io(props)),
-        "WavetableSequencerNode" => Ok(WavetableSequencerNode::get_io(props)),
-        "MemoryNode" => Ok(MemoryNode::get_io(props)),
-        "MidiSwitchNode" => Ok(MidiSwitchNode::get_io(props)),
-        "MidiToValueNode" => Ok(MidiToValueNode::get_io(props)),
+        "GainNode" => Ok(GainNode::get_io(ctx, props)),
+        "OscillatorNode" => Ok(OscillatorNode::get_io(ctx, props)),
+        "MidiToValuesNode" => Ok(MidiToValuesNode::get_io(ctx, props)),
+        "EnvelopeNode" => Ok(EnvelopeNode::get_io(ctx, props)),
+        "BiquadFilterNode" => Ok(BiquadFilterNode::get_io(ctx, props)),
+        "MixerNode" => Ok(MixerNode::get_io(ctx, props)),
+        "ExpressionNode" => Ok(ExpressionNode::get_io(ctx, props)),
+        "DummyNode" => Ok(DummyNode::get_io(ctx, props)),
+        "FunctionNode" => Ok(FunctionNode::get_io(ctx, props)),
+        "InputsNode" => Ok(InputsNode::get_io(ctx, props)),
+        "OutputsNode" => Ok(OutputsNode::get_io(ctx, props)),
+        "StreamExpressionNode" => Ok(StreamExpressionNode::get_io(ctx, props)),
+        "PolyphonicNode" => Ok(PolyphonicNode::get_io(ctx, props)),
+        "MidiFilterNode" => Ok(MidiFilterNode::get_io(ctx, props)),
+        "WavetableNode" => Ok(WavetableNode::get_io(ctx, props)),
+        "PortamentoNode" => Ok(PortamentoNode::get_io(ctx, props)),
+        "ToggleNode" => Ok(ToggleNode::get_io(ctx, props)),
+        "RankPlayerNode" => Ok(RankPlayerNode::get_io(ctx, props)),
+        "NoteMergerNode" => Ok(NoteMergerNode::get_io(ctx, props)),
+        "MidiTransposeNode" => Ok(MidiTransposeNode::get_io(ctx, props)),
+        "WavetableSequencerNode" => Ok(WavetableSequencerNode::get_io(ctx, props)),
+        "MemoryNode" => Ok(MemoryNode::get_io(ctx, props)),
+        "MidiSwitchNode" => Ok(MidiSwitchNode::get_io(ctx, props)),
+        "MidiToValueNode" => Ok(MidiToValueNode::get_io(ctx, props)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

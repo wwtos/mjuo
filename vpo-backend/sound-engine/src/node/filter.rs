@@ -310,6 +310,12 @@ impl<F: Float> RecursiveFilter<3, F> {
     }
 }
 
+impl Default for RecursiveFilter<3, f32> {
+    fn default() -> Self {
+        BiquadFilter::new(FilterSpec::none())
+    }
+}
+
 pub type BiquadFilter = RecursiveFilter<3, f32>;
 
 // TODO: optimize, this is very sloppy

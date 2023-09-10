@@ -106,7 +106,7 @@ impl ProcessResult {
 }
 
 pub struct NodeGetIoContext {
-    default_channel_count: usize,
+    pub default_channel_count: usize,
 }
 
 pub struct NodeInitParams<'a> {
@@ -118,6 +118,7 @@ pub struct NodeInitParams<'a> {
     pub sound_config: &'a SoundConfig,
     pub node_state: &'a NodeState,
     pub child_graph: Option<NodeGraphAndIo>,
+    pub default_channel_count: usize,
 }
 
 pub struct StateInterface<'a> {

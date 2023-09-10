@@ -10,20 +10,14 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn process(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
-    ) -> NodeResult<()> {
+    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
 
         for (i, value_in) in ins.values.iter().enumerate() {
-            if let Some(value) = value_in {
+            if value_in[0].is_some() {
                 have_values_changed = true;
-                self.values_in[i] = value.clone();
+                self.values_in[i] = value_in[0].clone();
             }
         }
 
@@ -42,12 +36,12 @@ impl NodeRuntime for ExpressionNode {
                 // convert the output to a usuable form
                 match result {
                     Ok(output) => {
-                        outs.values[0] = match output.type_name() {
-                            "bool" => Some(Primitive::Boolean(output.as_bool().unwrap())),
-                            "string" => Some(Primitive::String(output.into_string().unwrap())),
-                            "i32" => Some(Primitive::Int(output.as_int().unwrap())),
-                            "f32" => Some(Primitive::Float(output.as_float().unwrap())),
-                            "()" => None,
+                        outs.values[0][0] = match output.type_name() {
+                            "bool" => bool(output.as_bool().unwrap()),
+                            "string" => string(output.into_string().unwrap()),
+                            "i32" => int(output.as_int().unwrap()),
+                            "f32" => float(output.as_float().unwrap()),
+                            "()" => Primitive::None,
                             _ => {
                                 // cleanup before erroring
                                 self.scope.rewind(0);
@@ -56,7 +50,7 @@ impl NodeRuntime for ExpressionNode {
                                     return_type: output.type_name().to_string(),
                                 });
 
-                                None
+                                Primitive::None
                             }
                         }
                     }
@@ -114,7 +108,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(
@@ -127,7 +121,7 @@ impl Node for ExpressionNode {
                 PropertyType::Integer,
                 Property::Integer(0),
             ),
-            value_output("default"),
+            value_output("default", 1),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {

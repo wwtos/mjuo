@@ -41,14 +41,14 @@ pub fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     }
 }
 
-pub fn dynamic_to_primitive(dynamic: Dynamic) -> Option<Primitive> {
+pub fn dynamic_to_primitive(dynamic: Dynamic) -> Primitive {
     match dynamic.type_name() {
-        "bool" => Some(Primitive::Boolean(dynamic.as_bool().unwrap())),
-        "string" => Some(Primitive::String(dynamic.into_string().unwrap())),
-        "i32" => Some(Primitive::Int(dynamic.as_int().unwrap())),
-        "f32" => Some(Primitive::Float(dynamic.as_float().unwrap())),
-        "()" => None,
-        _ => None,
+        "bool" => Primitive::Boolean(dynamic.as_bool().unwrap()),
+        "string" => Primitive::String(dynamic.into_string().unwrap()),
+        "i32" => Primitive::Int(dynamic.as_int().unwrap()),
+        "f32" => Primitive::Float(dynamic.as_float().unwrap()),
+        "()" => Primitive::None,
+        _ => Primitive::None,
     }
 }
 

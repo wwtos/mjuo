@@ -28,13 +28,13 @@ impl NodeRuntime for WavetableSequencerNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.values[0][0].as_float() {
             self.frequency = frequency;
         }
 
-        if let Some(sample) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
+        if let Some(sample) = resources[0].downcast_ref::<MonoSample>() {
             let wavetable = &sample.audio_raw;
 
             let wavetable_pos = self.phase * wavetable.len() as f32;
@@ -42,7 +42,7 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            outs.values[0] = float(lerp(
+            outs.values[0][0] = float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,
@@ -69,7 +69,7 @@ impl Node for WavetableSequencerNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property(
                 "wavetable",
@@ -79,8 +79,8 @@ impl Node for WavetableSequencerNode {
                     resource: "".into(),
                 }),
             ),
-            value_input("frequency", Primitive::Float(2.0)),
-            value_output("value"),
+            value_input("frequency", Primitive::Float(2.0), 1),
+            value_output("value", 1),
         ])
     }
 }

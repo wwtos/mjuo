@@ -14,13 +14,13 @@ impl NodeRuntime for FunctionNode {
 
         if let Some(graph_and_io) = params.child_graph {
             let NodeGraphAndIo {
-                graph: _,
+                graph_index: _,
                 input_index,
                 output_index,
             } = graph_and_io;
 
             let (traverser, errors_and_warnings) = BufferedTraverser::new(
-                graph_and_io.graph,
+                graph_and_io.graph_index,
                 params.graph_manager,
                 params.script_engine,
                 params.resources,
@@ -44,7 +44,7 @@ impl NodeRuntime for FunctionNode {
         _context: NodeProcessContext,
         _ins: Ins,
         _outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
@@ -80,9 +80,16 @@ impl Node for FunctionNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let polyphony = default_channels(&props, context.default_channel_count);
+
         NodeIo {
-            node_rows: vec![stream_input("audio"), NodeRow::InnerGraph, stream_output("audio")],
+            node_rows: vec![
+                with_channels(context.default_channel_count),
+                stream_input("audio", polyphony),
+                NodeRow::InnerGraph,
+                stream_output("audio", polyphony),
+            ],
             child_graph_io: Some(vec![
                 (
                     Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),

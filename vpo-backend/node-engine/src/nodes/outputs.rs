@@ -1,22 +1,26 @@
+use std::iter::repeat;
+
+use smallvec::SmallVec;
+
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
-    values: Vec<Option<Primitive>>,
-    midis: Vec<Option<MidiBundle>>,
-    streams: Vec<Vec<f32>>,
+    values: Vec<Vec<Primitive>>,
+    midis: Vec<Vec<MidiBundle>>,
+    streams: Vec<Vec<Vec<f32>>>,
 }
 
 impl OutputsNode {
-    pub fn get_streams(&self) -> &Vec<Vec<f32>> {
+    pub fn get_streams(&self) -> &Vec<Vec<Vec<f32>>> {
         &self.streams
     }
 
-    pub fn get_midis(&self) -> &Vec<Option<MidiBundle>> {
+    pub fn get_midis(&self) -> &Vec<Vec<MidiBundle>> {
         &self.midis
     }
 
-    pub fn get_values(&self) -> &Vec<Option<Primitive>> {
+    pub fn get_values(&self) -> &Vec<Vec<Primitive>> {
         &self.values
     }
 }
@@ -27,33 +31,30 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins,
         _outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        for (i, midi) in ins.midis.iter().enumerate() {
-            if let Some(midi) = midi {
-                self.midis[i] = Some(midi.clone());
-            }
+        for (socket_in, local_in) in ins.midis.iter().zip(self.midis.iter_mut()) {
+            local_in.clone_from_slice(&socket_in);
         }
 
-        for (i, value) in ins.values.iter().enumerate() {
-            if let Some(value) = value {
-                self.values[i] = Some(value.clone());
-            }
+        for (socket_in, local_in) in ins.values.iter().zip(self.values.iter_mut()) {
+            local_in.clone_from_slice(&socket_in);
         }
 
-        let buffer_size = ins.streams[0].len();
-
-        self.streams.resize_with(ins.streams.len(), || vec![0.0; buffer_size]);
-
-        for (local_stream, stream_in) in self.streams.iter_mut().zip(ins.streams) {
-            local_stream.resize(buffer_size, 0.0);
-            local_stream.copy_from_slice(stream_in);
+        for (socket_in, local_in) in ins.streams.iter().zip(self.streams.iter_mut()) {
+            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
+                local_channel_in.clone_from_slice(&channel_in);
+            }
         }
 
         NodeOk::no_warnings(())
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let channels = default_channels(params.props, params.default_channel_count);
+
+        let buffer_size = params.sound_config.buffer_size;
+
         if let Some(Property::SocketList(sockets)) = params.props.get("socket_list") {
             let midi_outputs = sockets
                 .iter()
@@ -65,8 +66,46 @@ impl NodeRuntime for OutputsNode {
                 .filter(|output| output.socket_type() == SocketType::Value)
                 .count();
 
-            self.midis.resize(midi_outputs, None);
-            self.values.resize(value_outputs, None);
+            let stream_outputs = sockets
+                .iter()
+                .filter(|output| output.socket_type() == SocketType::Stream)
+                .count();
+
+            self.midis.clear();
+            self.values.clear();
+            self.streams.clear();
+
+            for socket in sockets {
+                let socket_type = socket.socket_type();
+                let channels = socket.channels();
+
+                match socket_type {
+                    SocketType::Stream => {
+                        self.streams
+                            .push(repeat(vec![0.0; buffer_size]).take(channels).collect());
+                    }
+                    SocketType::Midi => {
+                        self.midis.push(repeat(SmallVec::new()).take(channels).collect());
+                    }
+                    SocketType::Value => {
+                        self.values.push(repeat(Primitive::None).take(channels).collect());
+                    }
+                    SocketType::NodeRef => {}
+                }
+            }
+
+            let midi_outputs = sockets
+                .iter()
+                .filter(|output| output.socket_type() == SocketType::Midi)
+                .count();
+
+            let value_outputs = sockets
+                .iter()
+                .filter(|output| output.socket_type() == SocketType::Value)
+                .count();
+
+            self.midis.resize_with(midi_outputs, || vec![SmallVec::new()]);
+            self.values.resize_with(value_outputs, || vec![Primitive::None]);
         }
 
         InitResult::nothing()
@@ -82,7 +121,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

@@ -207,15 +207,18 @@ impl GraphManager {
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));
 
                 NodeGraphAndIo {
-                    graph: new_graph_index,
+                    graph_index: new_graph_index,
                     input_index: inputs_index,
                     output_index: outputs_index,
                 }
             };
 
             // connect the two graphs together
-            let (_, connect_diff) =
-                self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index.graph)?;
+            let (_, connect_diff) = self.connect_graphs(
+                graph_index,
+                ConnectedThrough(new_node_index),
+                new_graph_index.graph_index,
+            )?;
             diff.extend(connect_diff.0);
 
             Some(new_graph_index)

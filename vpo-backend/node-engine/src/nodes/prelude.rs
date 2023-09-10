@@ -17,45 +17,53 @@ pub(super) use crate::{
 pub(super) use sound_engine::SoundConfig;
 
 // TODO: implement all primitive types
-pub fn float(val: f32) -> Option<Primitive> {
-    Some(Primitive::Float(val))
+pub fn float(val: f32) -> Primitive {
+    Primitive::Float(val)
 }
 
-pub fn bool(val: bool) -> Option<Primitive> {
-    Some(Primitive::Boolean(val))
+pub fn int(val: i32) -> Primitive {
+    Primitive::Int(val)
 }
 
-pub fn stream_input(name: &'static str) -> NodeRow {
+pub fn bool(val: bool) -> Primitive {
+    Primitive::Boolean(val)
+}
+
+pub fn string(val: String) -> Primitive {
+    Primitive::String(val)
+}
+
+pub fn stream_input(name: &'static str, polyphony: usize) -> NodeRow {
     NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1),
+        Socket::Simple(Cow::Borrowed(name), SocketType::Stream, polyphony),
         SocketValue::None,
     )
 }
 
-pub fn midi_input(name: &'static str) -> NodeRow {
+pub fn midi_input(name: &'static str, polyphony: usize) -> NodeRow {
     NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1),
+        Socket::Simple(Cow::Borrowed(name), SocketType::Midi, polyphony),
         SocketValue::None,
     )
 }
 
-pub fn value_input(name: &'static str, default: Primitive) -> NodeRow {
+pub fn value_input(name: &'static str, default: Primitive, polyphony: usize) -> NodeRow {
     NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1),
+        Socket::Simple(Cow::Borrowed(name), SocketType::Value, polyphony),
         SocketValue::Value(default),
     )
 }
 
-pub fn stream_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Stream, 1))
+pub fn stream_output(name: &'static str, polyphony: usize) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Stream, polyphony))
 }
 
-pub fn midi_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Midi, 1))
+pub fn midi_output(name: &'static str, polyphony: usize) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Midi, polyphony))
 }
 
-pub fn value_output(name: &'static str) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Value, 1))
+pub fn value_output(name: &'static str, polyphony: usize) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Value, polyphony))
 }
 
 pub fn property(prop_id: &str, prop_type: PropertyType, prop_default: Property) -> NodeRow {
@@ -68,4 +76,19 @@ pub fn multiple_choice(prop_id: &str, choices: &[&str], default_choice: &str) ->
         PropertyType::MultipleChoice(choices.iter().map(|&choice| choice.to_string()).collect()),
         Property::MultipleChoice(default_choice.to_string()),
     )
+}
+
+pub fn with_channels(default_channel_count: usize) -> NodeRow {
+    property(
+        "channels",
+        PropertyType::Integer,
+        Property::Integer(default_channel_count.max(1) as i32),
+    )
+}
+
+pub fn default_channels(props: &HashMap<String, Property>, default: usize) -> usize {
+    match props.get("polyphony") {
+        Some(prop) => prop.as_integer().map(|x| x.max(1) as usize).unwrap_or(default),
+        None => default,
+    }
 }

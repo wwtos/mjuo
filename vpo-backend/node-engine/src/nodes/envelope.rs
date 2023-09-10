@@ -19,30 +19,30 @@ impl NodeRuntime for EnvelopeNode {
         _context: NodeProcessContext,
         ins: Ins,
         outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0].as_ref().and_then(|gate| gate.as_boolean()) {
+        if let Some(gate) = ins.values[0][0].as_boolean() {
             self.gate = gate;
         }
 
-        if let Some(attack) = ins.values[0].as_ref().and_then(|attack| attack.as_float()) {
+        if let Some(attack) = ins.values[1][0].as_float() {
             self.envelope.attack = attack;
         }
 
-        if let Some(decay) = ins.values[0].as_ref().and_then(|decay| decay.as_float()) {
+        if let Some(decay) = ins.values[2][0].as_float() {
             self.envelope.decay = decay;
         }
 
-        if let Some(sustain) = ins.values[0].as_ref().and_then(|sustain| sustain.as_float()) {
+        if let Some(sustain) = ins.values[3][0].as_float() {
             self.envelope.sustain = sustain;
         }
 
-        if let Some(release) = ins.values[0].as_ref().and_then(|release| release.as_float()) {
+        if let Some(release) = ins.values[4][0].as_float() {
             self.envelope.release = release;
         }
 
         if !self.envelope.is_done() || self.gate {
-            outs.values[0] = Some(Primitive::Float(self.envelope.process(self.gate)));
+            outs.values[0][0] = float(self.envelope.process(self.gate));
         }
 
         NodeOk::no_warnings(())
@@ -59,14 +59,14 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            value_input("gate", Primitive::Boolean(false)),
-            value_output("gain"),
-            value_input("attack", Primitive::Float(0.01)),
-            value_input("decay", Primitive::Float(0.3)),
-            value_input("sustain", Primitive::Float(0.8)),
-            value_input("release", Primitive::Float(0.5)),
+            value_input("gate", Primitive::Boolean(false), 1),
+            value_output("gain", 1),
+            value_input("attack", Primitive::Float(0.01), 1),
+            value_input("decay", Primitive::Float(0.3), 1),
+            value_input("sustain", Primitive::Float(0.8), 1),
+            value_input("release", Primitive::Float(0.5), 1),
         ])
     }
 }
