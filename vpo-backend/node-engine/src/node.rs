@@ -6,6 +6,7 @@ use std::fmt::{Debug, Display};
 
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
+use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::ResourceId;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
@@ -159,16 +160,16 @@ impl Default for NodeState {
     }
 }
 
-pub struct Ins<'a> {
-    pub midis: &'a [&'a [MidiBundle]],
-    pub values: &'a [&'a [Primitive]],
-    pub streams: &'a [&'a [&'a [f32]]],
+pub struct Ins<'a, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
+    pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
+    pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
 
-pub struct Outs<'a> {
-    pub midis: &'a mut [&'a mut [MidiBundle]],
-    pub values: &'a mut [&'a mut [Primitive]],
-    pub streams: &'a mut [&'a mut [&'a mut [f32]]],
+pub struct Outs<'a, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
+    pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
+    pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
 
 /// NodeRuntime trait
@@ -213,7 +214,14 @@ pub trait NodeRuntime: Debug + Clone {
     fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process all data in and out
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         ProcessResult::nothing()
     }
 }
