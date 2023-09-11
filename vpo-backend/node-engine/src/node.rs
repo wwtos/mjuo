@@ -219,7 +219,7 @@ pub trait NodeRuntime: Debug + Clone {
         context: NodeProcessContext,
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
-        token: GhostToken<'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
         ProcessResult::nothing()
