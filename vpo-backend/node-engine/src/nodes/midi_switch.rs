@@ -43,11 +43,18 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = smallvec![];
 
-        if !ins.midis[0][0].is_empty() {
-            for message in &ins.midis[0][0] {
+        if !ins.midis[0][0].borrow(token).is_empty() {
+            for message in ins.midis[0][0].borrow(token) {
                 match message.data {
                     MidiData::NoteOn { note, .. } => {
                         match self.mode {
@@ -102,7 +109,7 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if let Some(engaged) = ins.values[0][0].as_boolean() {
+        if let Some(engaged) = ins.values[0][0].borrow(token).as_boolean() {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
@@ -153,7 +160,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            outs.midis[0][0] = midi_out;
+            *outs.midis[0][0].borrow_mut(token) = midi_out;
         }
 
         ProcessResult::nothing()

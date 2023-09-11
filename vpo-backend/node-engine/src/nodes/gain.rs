@@ -6,20 +6,21 @@ pub struct GainNode {
 }
 
 impl NodeRuntime for GainNode {
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if ins.values[0][0].is_some() {
-            self.gain = ins.values[0][0].as_float().unwrap_or(0.0);
+        if ins.values[0][0].borrow(token).is_some() {
+            self.gain = ins.values[0][0].borrow(token).as_float().unwrap_or(0.0);
         }
 
-        for (streams_in, streams_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
-            for (frame_in, frame_out) in streams_in.iter().zip(streams_out.iter_mut()) {
-                *frame_out = *frame_in * self.gain;
+        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
+            for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter_mut()) {
+                *sample_out.borrow_mut(token) = *sample_in.borrow(token) * self.gain;
             }
         }
 

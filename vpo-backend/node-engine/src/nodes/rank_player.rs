@@ -66,28 +66,40 @@ impl NodeRuntime for RankPlayerNode {
         })
     }
 
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         let _reset_needed = false;
 
         if resources[0].type_id() != TypeId::of::<()>() {
-            if let Some(cents) = ins.values[0][0].as_float() {
+            if let Some(cents) = ins.values[0][0].borrow(token).as_float() {
                 self.player.set_detune(cents_to_detune(cents));
             }
 
-            if let Some(db_gain) = ins.values[1][0].as_float() {
+            if let Some(db_gain) = ins.values[1][0].borrow(token).as_float() {
                 self.player.set_gain(db_to_gain(db_gain));
             }
 
-            if let Some(shelf_db_gain) = ins.values[2][0].as_float() {
+            if let Some(shelf_db_gain) = ins.values[2][0].borrow(token).as_float() {
                 self.player.set_shelf_db_gain(shelf_db_gain);
             }
 
-            for frame in outs.streams[0][0].iter_mut() {
-                *frame = 0.0;
+            for frame in outs.streams[0][0].iter() {
+                *frame.borrow_mut(token) = 0.0;
             }
 
-            self.player
-                .next_buffered(context.current_time, &ins.midis[0][0], resources, outs.streams[0][0]);
+            self.player.next_buffered(
+                context.current_time,
+                &ins.midis[0][0],
+                resources,
+                outs.streams[0][0],
+                token,
+            );
         }
 
         NodeOk::no_warnings(())

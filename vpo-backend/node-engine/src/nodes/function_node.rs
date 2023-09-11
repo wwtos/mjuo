@@ -39,11 +39,12 @@ impl NodeRuntime for FunctionNode {
         InitResult::warning(warning)
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        _ins: Ins,
-        _outs: Outs,
+        _ins: Ins<'_, 'brand>,
+        _outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();

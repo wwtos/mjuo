@@ -8,18 +8,20 @@ pub struct MidiTransposeNode {
 }
 
 impl NodeRuntime for MidiTransposeNode {
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(transpose) = ins.values[0][0].as_int() {
+        if let Some(transpose) = ins.values[0][0].borrow(token).as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
 
-        outs.midis[0][0] = ins.midis[0][0]
+        *outs.midis[0][0].borrow_mut(token) = ins.midis[0][0]
+            .borrow(token)
             .iter()
             .filter_map(|message| match message.data {
                 MidiData::NoteOn {

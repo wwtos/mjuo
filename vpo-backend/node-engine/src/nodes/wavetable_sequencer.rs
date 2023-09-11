@@ -23,14 +23,15 @@ impl NodeRuntime for WavetableSequencerNode {
         })
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].as_float() {
+        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.frequency = frequency;
         }
 
@@ -42,7 +43,7 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            outs.values[0][0] = float(lerp(
+            *outs.values[0][0].borrow_mut(token) = float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,

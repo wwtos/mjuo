@@ -6,26 +6,27 @@ use crate::nodes::prelude::*;
 pub struct MidiToValuesNode {}
 
 impl NodeRuntime for MidiToValuesNode {
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        for data in ins.midis[0][0] {
+        for data in ins.midis[0][0].borrow(token) {
             match &data.data {
                 MidiData::NoteOn {
                     channel: _,
                     note,
                     velocity,
                 } => {
-                    outs.values[0][0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
-                    outs.values[1][0] = bool(true);
-                    outs.values[2][0] = float((*velocity as f32) / 127.0);
+                    *outs.values[0][0].borrow_mut(token) = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
+                    *outs.values[1][0].borrow_mut(token) = bool(true);
+                    *outs.values[2][0].borrow_mut(token) = float((*velocity as f32) / 127.0);
                 }
                 MidiData::NoteOff { .. } => {
-                    outs.values[1][0] = bool(false);
+                    *outs.values[1][0].borrow_mut(token) = bool(false);
                 }
                 _ => {}
             }

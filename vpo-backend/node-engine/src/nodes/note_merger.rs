@@ -31,17 +31,18 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = SmallVec::new();
 
         for (i, messages) in ins.midis.iter().enumerate() {
-            for message in messages[0] {
+            for message in messages[0].borrow(token) {
                 match message.data {
                     MidiData::NoteOn { note, .. } => {
                         let before = self.combined;
@@ -72,7 +73,7 @@ impl NodeRuntime for NoteMergerNode {
             }
         }
 
-        outs.midis[0][0] = new_messages;
+        *outs.midis[0][0].borrow_mut(token) = new_messages;
 
         ProcessResult::nothing()
     }

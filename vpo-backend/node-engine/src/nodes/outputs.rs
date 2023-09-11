@@ -1,5 +1,6 @@
 use std::iter::repeat;
 
+use ghost_cell::GhostBorrow;
 use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
@@ -26,24 +27,25 @@ impl OutputsNode {
 }
 
 impl NodeRuntime for OutputsNode {
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        _outs: Outs,
+        ins: Ins<'_, 'brand>,
+        _outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis.iter().zip(self.midis.iter_mut()) {
-            local_in.clone_from_slice(&socket_in);
+            local_in.clone_from_slice(&socket_in.borrow(token));
         }
 
         for (socket_in, local_in) in ins.values.iter().zip(self.values.iter_mut()) {
-            local_in.clone_from_slice(&socket_in);
+            local_in.clone_from_slice(&socket_in.borrow(token));
         }
 
         for (socket_in, local_in) in ins.streams.iter().zip(self.streams.iter_mut()) {
             for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
-                local_channel_in.clone_from_slice(&channel_in);
+                local_channel_in.clone_from_slice(&channel_in.borrow(token));
             }
         }
 

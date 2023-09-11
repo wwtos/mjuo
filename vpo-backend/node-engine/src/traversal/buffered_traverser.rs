@@ -1,6 +1,7 @@
 use core::slice;
 use std::{
     any::Any,
+    cell::Cell,
     collections::BTreeMap,
     fmt::Debug,
     iter::repeat,
@@ -57,6 +58,24 @@ struct NodeTraversalWrapper {
     pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
 }
 
+pub struct NodeIo<'a> {
+    stream_ins: &'a [&'a [&'a [Cell<f32>]]],
+    stream_outs: &'a [&'a [&'a [Cell<f32>]]],
+}
+
+pub struct TraverserInternalIo {
+    streams: Vec<Cell<f32>>,
+    values: Vec<Cell<Primitive>>,
+    midis: Vec<Cell<MidiBundle>>,
+}
+
+pub struct TraverserRefs<'a> {
+    channels: Vec<&'a [Cell<f32>]>,
+    stream_io: Vec<&'a [&'a [Cell<f32>]]>,
+    midi_io: Vec<&'a [Cell<MidiBundle>]>,
+    node_io: Vec<NodeIo<'a>>,
+}
+
 #[derive(Clone, Default)]
 pub struct BufferedTraverser {
     buffer_size: usize,
@@ -66,10 +85,6 @@ pub struct BufferedTraverser {
     nodes_linked_to_ui: Vec<(usize, NodeIndex)>,
 
     node_to_location_mapping: BTreeMap<NodeIndex, NodeAssociatedLocations>,
-
-    midi_outputs: Vec<Option<MidiBundle>>,
-    value_outputs: Vec<Option<Primitive>>,
-    stream_outputs: Vec<f32>,
 
     /// If None, it's not connected to anything (to keep alignment when inputting into node)
     stream_input_mappings: Vec<Option<usize>>,

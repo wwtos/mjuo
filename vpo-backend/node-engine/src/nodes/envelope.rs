@@ -14,35 +14,36 @@ impl NodeRuntime for EnvelopeNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0][0].as_boolean() {
+        if let Some(gate) = ins.values[0][0].borrow(token).as_boolean() {
             self.gate = gate;
         }
 
-        if let Some(attack) = ins.values[1][0].as_float() {
+        if let Some(attack) = ins.values[1][0].borrow(token).as_float() {
             self.envelope.attack = attack;
         }
 
-        if let Some(decay) = ins.values[2][0].as_float() {
+        if let Some(decay) = ins.values[2][0].borrow(token).as_float() {
             self.envelope.decay = decay;
         }
 
-        if let Some(sustain) = ins.values[3][0].as_float() {
+        if let Some(sustain) = ins.values[3][0].borrow(token).as_float() {
             self.envelope.sustain = sustain;
         }
 
-        if let Some(release) = ins.values[4][0].as_float() {
+        if let Some(release) = ins.values[4][0].borrow(token).as_float() {
             self.envelope.release = release;
         }
 
         if !self.envelope.is_done() || self.gate {
-            outs.values[0][0] = float(self.envelope.process(self.gate));
+            *outs.values[0][0].borrow_mut(token) = float(self.envelope.process(self.gate));
         }
 
         NodeOk::no_warnings(())

@@ -20,20 +20,21 @@ impl InputsNode {
 }
 
 impl NodeRuntime for InputsNode {
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        _ins: Ins,
-        outs: Outs,
+        _ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         if !self.sent {
-            for (midis_out, midis_to_output) in outs.midis.iter_mut().zip(self.midis.iter()) {
-                midis_out[0].clone_from_slice(midis_to_output);
+            for (midis_out, midis_to_output) in outs.midis.iter().zip(self.midis.iter()) {
+                midis_out[0].borrow_mut(token).clone_from_slice(midis_to_output);
             }
 
-            for (values_out, value_to_output) in outs.values.iter_mut().zip(self.values.iter()) {
-                values_out[0] = value_to_output.clone();
+            for (values_out, value_to_output) in outs.values.iter().zip(self.values.iter()) {
+                values_out[0].borrow_mut(token).clone_from(value_to_output);
             }
 
             self.sent = true;

@@ -870,6 +870,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ghost-cell"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5fdd3f2182d5fad2c97a25af8992c30e844a775f8fc7339dae5328377d164e6"
+
+[[package]]
 name = "gimli"
 version = "0.27.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1528,6 +1534,7 @@ dependencies = [
  "arr_macro",
  "ddgg",
  "enum_dispatch",
+ "ghost-cell",
  "itertools",
  "lazy_static",
  "petgraph",
@@ -2354,6 +2361,7 @@ dependencies = [
 name = "sound-engine"
 version = "0.1.0"
 dependencies = [
+ "ghost-cell",
  "interp",
  "lazy_static",
  "nalgebra",

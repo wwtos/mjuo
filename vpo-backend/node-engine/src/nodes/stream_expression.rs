@@ -9,7 +9,14 @@ pub struct StreamExpressionNode {
 }
 
 impl NodeRuntime for StreamExpressionNode {
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             for (channel_i, channel_out) in outs.streams[0].iter_mut().enumerate() {
                 for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
@@ -18,7 +25,8 @@ impl NodeRuntime for StreamExpressionNode {
 
                     // add inputs to scope
                     for (j, val) in ins.streams.iter().enumerate() {
-                        self.scope.push(format!("x{}", j + 1), val[frame_i][channel_i]);
+                        self.scope
+                            .push(format!("x{}", j + 1), val[frame_i][channel_i].borrow(token));
                     }
 
                     // now we run the expression!
@@ -27,7 +35,7 @@ impl NodeRuntime for StreamExpressionNode {
                     // convert the output to a usuable form
                     match result {
                         Ok(output) => {
-                            *frame_out = output;
+                            *frame_out.borrow_mut(token) = output;
                         }
                         Err(_) => break,
                     }

@@ -44,24 +44,25 @@ impl NodeRuntime for MemoryNode {
         self.state_changed = true;
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins,
-        _outs: Outs,
+        ins: Ins<'_, 'brand>,
+        _outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         _resources: &[&dyn Any],
     ) -> NodeResult<()> {
         self.state_changed = false;
 
-        if let Some(true) = ins.values[0][0].as_boolean() {
+        if let Some(true) = ins.values[0][0].borrow(token).as_boolean() {
             self.activated = true;
         }
 
-        if let Some(true) = ins.values[1][0].as_boolean() {
+        if let Some(true) = ins.values[1][0].borrow(token).as_boolean() {
             self.mode = MemoryMode::Loading;
-        } else if let Some(true) = ins.values[2][0].as_boolean() {
+        } else if let Some(true) = ins.values[2][0].borrow(token).as_boolean() {
             self.mode = MemoryMode::Setting;
-        } else if let Some(true) = ins.values[3][0].as_boolean() {
+        } else if let Some(true) = ins.values[3][0].borrow(token).as_boolean() {
             self.mode = MemoryMode::MapSetting;
         }
 

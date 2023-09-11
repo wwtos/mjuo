@@ -3,6 +3,8 @@ use std::borrow::Cow;
 pub(super) use std::any::Any;
 pub(super) use std::collections::HashMap;
 
+pub(super) use ghost_cell::GhostToken;
+
 pub(super) use resource_manager::ResourceIndex;
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};

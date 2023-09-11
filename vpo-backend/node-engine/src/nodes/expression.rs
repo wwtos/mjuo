@@ -10,14 +10,21 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
 
         for (i, value_in) in ins.values.iter().enumerate() {
-            if value_in[0].is_some() {
+            if value_in[0].borrow(token).is_some() {
                 have_values_changed = true;
-                self.values_in[i] = value_in[0].clone();
+                self.values_in[i] = value_in[0].borrow(token).clone();
             }
         }
 
@@ -36,7 +43,7 @@ impl NodeRuntime for ExpressionNode {
                 // convert the output to a usuable form
                 match result {
                     Ok(output) => {
-                        outs.values[0][0] = match output.type_name() {
+                        *outs.values[0][0].borrow_mut(token) = match output.type_name() {
                             "bool" => bool(output.as_bool().unwrap()),
                             "string" => string(output.into_string().unwrap()),
                             "i32" => int(output.as_int().unwrap()),

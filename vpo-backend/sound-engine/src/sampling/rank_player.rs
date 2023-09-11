@@ -3,6 +3,7 @@ use std::{any::Any, collections::BTreeMap};
 use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
+use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
@@ -183,16 +184,23 @@ impl RankPlayer {
         self.shelf_db_gain = db_gain;
     }
 
-    pub fn next_buffered(&mut self, time: i64, midi: &MidiBundle, resources: &[&dyn Any], out: &mut [f32]) {
+    pub fn next_buffered<'brand>(
+        &mut self,
+        time: i64,
+        midi: &GhostCell<'brand, MidiBundle>,
+        resources: &[&dyn Any],
+        out: &[GhostCell<'brand, f32>],
+        token: &mut GhostToken<'brand>,
+    ) {
         let rank = resources[0].downcast_ref::<Rank>().expect("a rank");
         let out_len = out.len();
 
-        for output in out.iter_mut() {
-            *output = 0.0;
+        for output in out.iter() {
+            *output.borrow_mut(token) = 0.0;
         }
 
         // allocate any needed voices
-        for message in midi {
+        for message in midi.borrow(token) {
             match message.data {
                 MidiData::NoteOn { note, .. } => {
                     self.allocate_note(rank, note, resources);
@@ -213,13 +221,15 @@ impl RankPlayer {
             let mut midi_position = 0;
 
             if let Some((pipe, sample)) = pipe_and_sample {
-                for (i, output) in out.iter_mut().enumerate() {
-                    while midi_position < midi.len() {
-                        if midi[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
+                for (i, output) in out.iter().enumerate() {
+                    let messages = midi.borrow(token);
+
+                    while midi_position < messages.len() {
+                        if messages[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
                             break;
                         }
 
-                        match midi[midi_position].data {
+                        match messages[midi_position].data {
                             MidiData::NoteOn { note, .. } => {
                                 if voice.note != note {
                                     midi_position += 1;
@@ -259,7 +269,7 @@ impl RankPlayer {
                         i as f32 / out_len as f32,
                     ));
 
-                    *output += voice.player.next_sample(pipe, sample);
+                    *output.borrow_mut(token) += voice.player.next_sample(pipe, sample);
 
                     if voice.player.is_done() {
                         voice.active = false;

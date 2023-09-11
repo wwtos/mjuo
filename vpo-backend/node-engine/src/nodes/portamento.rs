@@ -28,16 +28,17 @@ impl NodeRuntime for PortamentoNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0][0].as_boolean() {
+        if let Some(gate) = ins.values[0][0].borrow(token).as_boolean() {
             if self.engaged && !gate {
-                outs.values[0][0] = float(self.ramp.get_to());
+                *outs.values[0][0].borrow_mut(token) = float(self.ramp.get_to());
                 self.ramp.set_position(self.ramp.get_to());
             }
 
@@ -45,19 +46,19 @@ impl NodeRuntime for PortamentoNode {
             self.active = true;
         }
 
-        if let Some(frequency) = ins.values[1][0].as_float() {
+        if let Some(frequency) = ins.values[1][0].borrow(token).as_float() {
             if self.engaged {
                 self.ramp
                     .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
                     .unwrap();
             } else {
-                outs.values[0][0] = float(frequency);
+                *outs.values[0][0].borrow_mut(token) = float(frequency);
             }
 
             self.active = true;
         }
 
-        if let Some(speed) = ins.values[2][0].as_float() {
+        if let Some(speed) = ins.values[2][0].borrow(token).as_float() {
             self.speed = speed;
             self.ramp
                 .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
@@ -69,7 +70,7 @@ impl NodeRuntime for PortamentoNode {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
-            outs.values[0][0] = float(out);
+            *outs.values[0][0].borrow_mut(token) = float(out);
 
             if self.ramp.is_done() {
                 self.active = false;

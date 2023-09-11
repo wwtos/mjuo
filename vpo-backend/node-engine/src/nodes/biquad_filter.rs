@@ -49,19 +49,20 @@ impl NodeRuntime for BiquadFilterNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins,
-        outs: Outs,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].as_float() {
+        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.filter_spec.f0 = frequency.max(1.0);
             self.recompute();
         }
 
-        if let Some(resonance) = ins.values[1][0].as_float() {
+        if let Some(resonance) = ins.values[1][0].borrow(token).as_float() {
             match &mut self.filter_spec.filter_type {
                 FilterType::LowPass { q } | FilterType::HighPass { q } | FilterType::AllPass { q } => {
                     *q = resonance;
@@ -79,8 +80,8 @@ impl NodeRuntime for BiquadFilterNode {
         }
 
         for (channel_in, channel_out, filter) in multizip((ins.streams[0], outs.streams[0], self.filters.iter_mut())) {
-            for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
-                *frame_out = filter.filter_sample(*frame_in);
+            for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
+                *frame_out.borrow_mut(token) = filter.filter_sample(*frame_in.borrow(token));
             }
         }
 

@@ -32,12 +32,19 @@ impl NodeRuntime for MidiFilterNode {
         InitResult::warning(warning)
     }
 
-    fn process(&mut self, context: NodeProcessContext, ins: Ins, outs: Outs, resources: &[&dyn Any]) -> NodeResult<()> {
+    fn process<'brand>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
+        token: &mut GhostToken<'brand>,
+        resources: &[&dyn Any],
+    ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
-            if !ins.midis[0][0].is_empty() {
-                let midi = &ins.midis[0][0];
+            if !ins.midis[0][0].borrow(token).is_empty() {
+                let midi = &ins.midis[0][0].borrow(token);
 
                 let output = midi
                     .iter()
@@ -70,7 +77,7 @@ impl NodeRuntime for MidiFilterNode {
                     })
                     .collect::<MidiBundle>();
 
-                outs.midis[0][0] = output;
+                *outs.midis[0][0].borrow_mut(token) = output;
             }
         }
 
