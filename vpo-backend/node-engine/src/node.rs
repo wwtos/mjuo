@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
+use bumpalo::Bump;
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use ghost_cell::{GhostCell, GhostToken};
@@ -219,6 +220,7 @@ pub trait NodeRuntime: Debug + Clone {
         ins: Ins<'_, 'frame, 'brand>,
         outs: Outs<'_, 'frame, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &Bump,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         ProcessResult::nothing()
