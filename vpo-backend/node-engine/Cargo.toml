@@ -30,6 +30,7 @@ smallvec = { version = "1.9", features = ["serde"] }
 smartstring = "1.0"
 snafu = "0.7"
 sound-engine = { path = "../sound-engine" }
+common = { path = "../common" }
 wasm-bindgen = "0.2.84"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]

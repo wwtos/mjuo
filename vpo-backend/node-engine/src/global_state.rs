@@ -2,6 +2,7 @@ use std::any::Any;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
+use common::traits::TryRef;
 use resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -14,6 +15,21 @@ pub struct Resources {
     pub ranks: ResourceManager<Rank>,
     #[serde(serialize_with = "serialize_resource_content")]
     pub ui: ResourceManager<String>,
+}
+
+pub enum Resource<'a> {
+    Sample(&'a MonoSample),
+    Rank(&'a Rank),
+    Ui(&'a String),
+}
+
+impl<'a> TryRef<MonoSample> for Resource<'a> {
+    fn try_ref(&self) -> Result<&MonoSample, Self::Error> {
+        match self {
+            Self::Sample(x) => Ok(&x),
+            _ => Err(()),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

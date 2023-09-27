@@ -1,6 +1,5 @@
 //! Node module
 
-use std::any::Any;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
@@ -15,7 +14,7 @@ use sound_engine::SoundConfig;
 use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
-use crate::global_state::Resources;
+use crate::global_state::{Resource, Resources};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::property::{Property, PropertyType};
 
@@ -220,7 +219,7 @@ pub trait NodeRuntime: Debug + Clone {
         ins: Ins<'_, 'frame, 'brand>,
         outs: Outs<'_, 'frame, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         ProcessResult::nothing()
     }
