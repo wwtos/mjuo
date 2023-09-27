@@ -6,6 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+common = { path = "../common" }
 ghost-cell = "0.2.3"
 interp = "0.1.1"
 lazy_static = "1.4.0"
