@@ -6,6 +6,7 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bumpalo = { version = "3.14.0", features = ["collections"] }
 arr_macro = "0.2.1"
 ddgg = { git = "https://github.com/smj-edison/ddgg", features = [
     "js_names",

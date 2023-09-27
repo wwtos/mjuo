@@ -1,6 +1,5 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiMessage;
 
 use std::{
@@ -10,7 +9,8 @@ use std::{
 
 use crate::{node::NodeIndex, node_graph::NodeConnectionData};
 
-pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
+pub type MidiBundle<'bump> = bumpalo::collections::Vec<'bump, MidiMessage>;
+pub type OwnedMidiBundle = Vec<MidiMessage>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -75,13 +75,12 @@ pub enum SocketDirection {
     Output,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum Primitive {
     Float(f32),
     Int(i32),
     Boolean(bool),
-    String(String),
     None,
 }
 
@@ -99,7 +98,7 @@ impl Primitive {
 #[serde(tag = "variant", content = "data")]
 pub enum SocketValue {
     Stream(f32),
-    Midi(MidiBundle),
+    Midi(OwnedMidiBundle),
     Value(Primitive),
     None,
 }
@@ -112,7 +111,7 @@ impl SocketValue {
         }
     }
 
-    pub fn as_midi(self) -> Option<MidiBundle> {
+    pub fn as_midi(self) -> Option<OwnedMidiBundle> {
         match self {
             SocketValue::Midi(value) => Some(value),
             _ => None,

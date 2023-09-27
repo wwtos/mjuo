@@ -160,14 +160,14 @@ impl Default for NodeState {
     }
 }
 
-pub struct Ins<'a, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
+pub struct Ins<'a, 'frame, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle<'frame>>]],
     pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
     pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
 
-pub struct Outs<'a, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
+pub struct Outs<'a, 'frame, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle<'frame>>]],
     pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
     pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
@@ -214,11 +214,11 @@ pub trait NodeRuntime: Debug + Clone {
     fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process all data in and out
-    fn process<'brand>(
+    fn process<'frame, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'_, 'frame, 'brand>,
+        outs: Outs<'_, 'frame, 'brand>,
         token: &mut GhostToken<'brand>,
         resources: &[&dyn Any],
     ) -> NodeResult<()> {
