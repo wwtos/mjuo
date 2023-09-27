@@ -82,4 +82,4 @@ inherits = "dev"
 opt-level = 3
 
 [workspace]
-members = ["sound-engine", "node-engine", "ipc", "resource-manager"]
+members = ["sound-engine", "node-engine", "ipc", "resource-manager", "common"]

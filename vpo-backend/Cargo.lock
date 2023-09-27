@@ -360,6 +360,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.1.0"
+
+[[package]]
 name = "concurrent-queue"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2362,6 +2366,7 @@ dependencies = [
 name = "sound-engine"
 version = "0.1.0"
 dependencies = [
+ "common",
  "ghost-cell",
  "interp",
  "lazy_static",
