@@ -1,13 +1,15 @@
 use std::{cell::Cell, collections::BTreeMap, fmt::Debug};
 
+use buddy_system::arena::BuddyArena;
+use bumpalo::Bump;
 use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::{ResourceId, ResourceIndex};
 use rhai::Engine;
 use smallvec::SmallVec;
-use sound_engine::SoundConfig;
+use sound_engine::{MidiBundle, SoundConfig};
 
 use crate::{
-    connection::{MidiBundle, Primitive, Socket, SocketType},
+    connection::{Primitive, Socket, SocketType},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
     global_state::{ResourceType, Resources},
     graph_manager::{GraphIndex, GraphManager},

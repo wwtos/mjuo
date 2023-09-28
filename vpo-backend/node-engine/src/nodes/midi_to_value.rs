@@ -43,7 +43,7 @@ impl NodeRuntime for MidiToValueNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 

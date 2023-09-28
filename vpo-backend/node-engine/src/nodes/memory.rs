@@ -50,7 +50,7 @@ impl NodeRuntime for MemoryNode {
         ins: Ins<'_, 'brand>,
         _outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        _resources: &[&dyn Any],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         self.state_changed = false;
 

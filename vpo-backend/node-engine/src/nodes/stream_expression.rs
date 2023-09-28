@@ -15,7 +15,7 @@ impl NodeRuntime for StreamExpressionNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             for (channel_i, channel_out) in outs.streams[0].iter_mut().enumerate() {

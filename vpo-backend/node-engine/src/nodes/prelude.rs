@@ -6,17 +6,18 @@ pub(super) use std::collections::HashMap;
 pub(super) use ghost_cell::GhostToken;
 
 pub(super) use resource_manager::ResourceIndex;
+pub(super) use sound_engine::{MidiBundle, SoundConfig};
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
+pub(super) use crate::global_state::Resource;
 pub(super) use crate::node::{
     InitResult, Ins, Node, NodeGetIoContext, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext,
     NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
 };
 pub(super) use crate::{
-    connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketType, SocketValue},
+    connection::{Primitive, Socket, SocketDirection, SocketType, SocketValue},
     property::{Property, PropertyType},
 };
-pub(super) use sound_engine::SoundConfig;
 
 // TODO: implement all primitive types
 pub fn float(val: f32) -> Primitive {
@@ -29,10 +30,6 @@ pub fn int(val: i32) -> Primitive {
 
 pub fn bool(val: bool) -> Primitive {
     Primitive::Boolean(val)
-}
-
-pub fn string(val: String) -> Primitive {
-    Primitive::String(val)
 }
 
 pub fn stream_input(name: &'static str, polyphony: usize) -> NodeRow {

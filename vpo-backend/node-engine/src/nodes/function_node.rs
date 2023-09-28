@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct FunctionNode {
-    traverser: BufferedTraverser,
+    // traverser: BufferedTraverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
@@ -13,27 +13,27 @@ impl NodeRuntime for FunctionNode {
         let mut warning = None;
 
         if let Some(graph_and_io) = params.child_graph {
-            let NodeGraphAndIo {
-                graph_index: _,
-                input_index,
-                output_index,
-            } = graph_and_io;
+            // let NodeGraphAndIo {
+            //     graph_index: _,
+            //     input_index,
+            //     output_index,
+            // } = graph_and_io;
 
-            let (traverser, errors_and_warnings) = BufferedTraverser::new(
-                graph_and_io.graph_index,
-                params.graph_manager,
-                params.script_engine,
-                params.resources,
-                params.current_time,
-                params.sound_config.clone(),
-            )?;
-            self.traverser = traverser;
+            // let (traverser, errors_and_warnings) = BufferedTraverser::new(
+            //     graph_and_io.graph_index,
+            //     params.graph_manager,
+            //     params.script_engine,
+            //     params.resources,
+            //     params.current_time,
+            //     params.sound_config.clone(),
+            // )?;
+            // self.traverser = traverser;
 
-            if errors_and_warnings.any() {
-                warning = Some(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
-            }
+            // if errors_and_warnings.any() {
+            //     warning = Some(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
+            // }
 
-            self.child_io_nodes = Some((input_index, output_index));
+            // self.child_io_nodes = Some((input_index, output_index));
         }
 
         InitResult::warning(warning)
@@ -45,7 +45,7 @@ impl NodeRuntime for FunctionNode {
         _ins: Ins<'_, 'brand>,
         _outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        _resources: &[&dyn Any],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
@@ -76,7 +76,7 @@ impl NodeRuntime for FunctionNode {
 impl Node for FunctionNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         FunctionNode {
-            traverser: BufferedTraverser::default(),
+            // traverser: BufferedTraverser::default(),
             child_io_nodes: None,
         }
     }

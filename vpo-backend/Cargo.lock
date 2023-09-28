@@ -246,6 +246,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "buddy-system"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c1f47a64f3a9ef24cf9420af3e9bc01795139bbacd786f13c392d802135d9c9"
+dependencies = [
+ "generational-arena",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -850,6 +859,15 @@ dependencies = [
  "pango-sys",
  "pkg-config",
  "system-deps",
+]
+
+[[package]]
+name = "generational-arena"
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "877e94aff08e743b651baaea359664321055749b398adff8740a7399af7796e7"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -1536,7 +1554,7 @@ name = "node-engine"
 version = "0.1.0"
 dependencies = [
  "arr_macro",
- "bumpalo",
+ "buddy-system",
  "common",
  "ddgg",
  "enum_dispatch",
@@ -2367,6 +2385,7 @@ dependencies = [
 name = "sound-engine"
 version = "0.1.0"
 dependencies = [
+ "bumpalo",
  "common",
  "ghost-cell",
  "interp",

@@ -24,6 +24,8 @@ pub enum Resource<'a> {
 }
 
 impl<'a> TryRef<MonoSample> for Resource<'a> {
+    type Error = ();
+
     fn try_ref(&self) -> Result<&MonoSample, Self::Error> {
         match self {
             Self::Sample(x) => Ok(&x),

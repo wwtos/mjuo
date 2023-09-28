@@ -16,7 +16,7 @@ impl NodeRuntime for ExpressionNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
@@ -45,7 +45,6 @@ impl NodeRuntime for ExpressionNode {
                     Ok(output) => {
                         *outs.values[0][0].borrow_mut(token) = match output.type_name() {
                             "bool" => bool(output.as_bool().unwrap()),
-                            "string" => string(output.into_string().unwrap()),
                             "i32" => int(output.as_int().unwrap()),
                             "f32" => float(output.as_float().unwrap()),
                             "()" => Primitive::None,

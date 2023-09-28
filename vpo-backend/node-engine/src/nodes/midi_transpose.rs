@@ -14,13 +14,13 @@ impl NodeRuntime for MidiTransposeNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.values[0][0].borrow(token).as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
 
-        *outs.midis[0][0].borrow_mut(token) = ins.midis[0][0]
+        let output = ins.midis[0][0]
             .borrow(token)
             .iter()
             .filter_map(|message| match message.data {
@@ -65,8 +65,9 @@ impl NodeRuntime for MidiTransposeNode {
                     }
                 }
                 _ => Some(message.clone()),
-            })
-            .collect::<MidiBundle>();
+            });
+
+        *outs.midis[0][0].borrow_mut(token) = output.collect();
 
         ProcessResult::nothing()
     }

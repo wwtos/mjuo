@@ -38,7 +38,7 @@ impl NodeRuntime for MidiFilterNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
@@ -46,38 +46,35 @@ impl NodeRuntime for MidiFilterNode {
             if !ins.midis[0][0].borrow(token).is_empty() {
                 let midi = &ins.midis[0][0].borrow(token);
 
-                let output = midi
-                    .iter()
-                    .filter_map(|message| {
-                        midi_to_scope(&mut self.scope, &message.data);
+                let output = midi.iter().filter_map(|message| {
+                    midi_to_scope(&mut self.scope, &message.data);
 
-                        let result = context
-                            .script_engine
-                            .eval_ast_with_scope::<bool>(&mut self.scope, filter);
+                    let result = context
+                        .script_engine
+                        .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
-                        self.scope.rewind(0);
+                    self.scope.rewind(0);
 
-                        match result {
-                            Ok(output) => {
-                                if output {
-                                    Some(message.clone())
-                                } else {
-                                    None
-                                }
-                            }
-                            Err(err) => {
-                                warning = Some(NodeWarning::RhaiExecutionFailure {
-                                    err: *err,
-                                    script: self.filter_raw.clone(),
-                                });
-
+                    match result {
+                        Ok(output) => {
+                            if output {
+                                Some(message.clone())
+                            } else {
                                 None
                             }
                         }
-                    })
-                    .collect::<MidiBundle>();
+                        Err(err) => {
+                            warning = Some(NodeWarning::RhaiExecutionFailure {
+                                err: *err,
+                                script: self.filter_raw.clone(),
+                            });
 
-                *outs.midis[0][0].borrow_mut(token) = output;
+                            None
+                        }
+                    }
+                });
+
+                *outs.midis[0][0].borrow_mut(token) = output.collect();
             }
         }
 

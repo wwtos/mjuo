@@ -1,6 +1,6 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
-use sound_engine::midi::messages::MidiMessage;
+use sound_engine::MidiBundle;
 
 use std::{
     borrow::Cow,
@@ -8,9 +8,6 @@ use std::{
 };
 
 use crate::{node::NodeIndex, node_graph::NodeConnectionData};
-
-pub type MidiBundle<'bump> = bumpalo::collections::Vec<'bump, MidiMessage>;
-pub type OwnedMidiBundle = Vec<MidiMessage>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -98,7 +95,7 @@ impl Primitive {
 #[serde(tag = "variant", content = "data")]
 pub enum SocketValue {
     Stream(f32),
-    Midi(OwnedMidiBundle),
+    Midi(MidiBundle),
     Value(Primitive),
     None,
 }
@@ -111,7 +108,7 @@ impl SocketValue {
         }
     }
 
-    pub fn as_midi(self) -> Option<OwnedMidiBundle> {
+    pub fn as_midi(self) -> Option<MidiBundle> {
         match self {
             SocketValue::Midi(value) => Some(value),
             _ => None,
@@ -158,20 +155,8 @@ impl Primitive {
     }
 
     #[inline]
-    pub fn as_string(self) -> Option<String> {
-        match self {
-            Primitive::String(string) => Some(string),
-            Primitive::Float(float) => Some(float.to_string()),
-            Primitive::Int(int) => Some(int.to_string()),
-            Primitive::Boolean(boolean) => Some(boolean.to_string()),
-            Primitive::None => None,
-        }
-    }
-
-    #[inline]
     pub fn as_dynamic(self) -> Dynamic {
         match self {
-            Primitive::String(string) => Dynamic::from(string),
             Primitive::Float(float) => Dynamic::from(float),
             Primitive::Int(int) => Dynamic::from(int),
             Primitive::Boolean(boolean) => Dynamic::from(boolean),

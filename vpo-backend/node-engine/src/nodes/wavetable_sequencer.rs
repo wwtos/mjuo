@@ -1,5 +1,6 @@
+use common::traits::TryRef;
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{util::interpolate::lerp, MonoSample, SoundConfig};
+use sound_engine::{util::interpolate::lerp, SoundConfig};
 
 use crate::nodes::prelude::*;
 
@@ -29,13 +30,13 @@ impl NodeRuntime for WavetableSequencerNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.frequency = frequency;
         }
 
-        if let Some(sample) = resources[0].downcast_ref::<MonoSample>() {
+        if let Ok(sample) = resources[0].try_ref() {
             let wavetable = &sample.audio_raw;
 
             let wavetable_pos = self.phase * wavetable.len() as f32;

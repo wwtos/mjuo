@@ -29,7 +29,7 @@ impl NodeRuntime for OscillatorNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));

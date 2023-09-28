@@ -52,7 +52,7 @@ impl RankPlayer {
         let note_to_sample_map: BTreeMap<u8, usize> = needed_samples
             .iter()
             .enumerate()
-            .map(|(i, (note, _))| (*note, i + 1))
+            .map(|(i, (note, _))| (*note, i))
             .collect();
 
         let mut resource_list: Vec<ResourceId> = vec![rank_id];
@@ -137,7 +137,7 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[impl TryRef<MonoSample, Error = E>]) {
+    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[&impl TryRef<MonoSample, Error = E>]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
@@ -191,7 +191,7 @@ impl RankPlayer {
         time: i64,
         midi: &GhostCell<'brand, MidiBundle>,
         rank: &Rank,
-        samples: &[impl TryRef<MonoSample, Error = E>],
+        samples: &[&impl TryRef<MonoSample, Error = E>],
         out: &[GhostCell<'brand, f32>],
         token: &mut GhostToken<'brand>,
     ) where

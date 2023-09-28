@@ -3,16 +3,15 @@
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 
-use bumpalo::Bump;
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::ResourceId;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
-use sound_engine::SoundConfig;
+use sound_engine::{MidiBundle, SoundConfig};
 
-use crate::connection::{MidiBundle, Primitive, Socket, SocketDirection, SocketValue};
+use crate::connection::{Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
 use crate::global_state::{Resource, Resources};
@@ -160,14 +159,14 @@ impl Default for NodeState {
     }
 }
 
-pub struct Ins<'a, 'frame, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle<'frame>>]],
+pub struct Ins<'a, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
     pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
     pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
 
-pub struct Outs<'a, 'frame, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle<'frame>>]],
+pub struct Outs<'a, 'brand> {
+    pub midis: &'a [&'a [GhostCell<'brand, MidiBundle>]],
     pub values: &'a [&'a [GhostCell<'brand, Primitive>]],
     pub streams: &'a [&'a [&'a [GhostCell<'brand, f32>]]],
 }
@@ -214,13 +213,12 @@ pub trait NodeRuntime: Debug + Clone {
     fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process all data in and out
-    fn process<'frame, 'brand>(
+    fn process<'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'frame, 'brand>,
-        outs: Outs<'_, 'frame, 'brand>,
+        ins: Ins<'_, 'brand>,
+        outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        arena: &Bump,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         ProcessResult::nothing()

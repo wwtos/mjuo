@@ -1,4 +1,3 @@
-use smallvec::smallvec;
 use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 use super::prelude::*;
@@ -49,9 +48,9 @@ impl NodeRuntime for MidiSwitchNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
-        let mut midi_out: MidiBundle = smallvec![];
+        let mut midi_out: MidiBundle = MidiBundle::new();
 
         if !ins.midis[0][0].borrow(token).is_empty() {
             for message in ins.midis[0][0].borrow(token) {
@@ -113,7 +112,7 @@ impl NodeRuntime for MidiSwitchNode {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
-                let mut midi_out: MidiBundle = smallvec![];
+                let mut midi_out: MidiBundle = MidiBundle::new();
 
                 if engaged {
                     match self.mode {

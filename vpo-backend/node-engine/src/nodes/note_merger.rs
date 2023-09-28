@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use smallvec::SmallVec;
 use sound_engine::midi::messages::MidiData;
 
 use super::prelude::*;
@@ -37,9 +36,9 @@ impl NodeRuntime for NoteMergerNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
-        let mut new_messages: MidiBundle = SmallVec::new();
+        let mut new_messages: MidiBundle = MidiBundle::new();
 
         for (i, messages) in ins.midis.iter().enumerate() {
             for message in messages[0].borrow(token) {

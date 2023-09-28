@@ -2,7 +2,6 @@ use std::any::TypeId;
 
 use lazy_static::lazy_static;
 use resource_manager::ResourceId;
-use smallvec::SmallVec;
 use sound_engine::{
     sampling::rank_player::RankPlayer,
     util::{cents_to_detune, db_to_gain},
@@ -17,7 +16,7 @@ pub struct RankPlayerNode {
 }
 
 lazy_static! {
-    pub static ref EMPTY_MIDI: MidiBundle = SmallVec::new();
+    pub static ref EMPTY_MIDI: MidiBundle = Vec::new();
 }
 
 impl NodeRuntime for RankPlayerNode {
@@ -72,7 +71,7 @@ impl NodeRuntime for RankPlayerNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         let _reset_needed = false;
 
@@ -93,13 +92,16 @@ impl NodeRuntime for RankPlayerNode {
                 *frame.borrow_mut(token) = 0.0;
             }
 
-            self.player.next_buffered(
-                context.current_time,
-                &ins.midis[0][0],
-                resources,
-                outs.streams[0][0],
-                token,
-            );
+            if let Resource::Rank(rank) = resources[0] {
+                self.player.next_buffered(
+                    context.current_time,
+                    &ins.midis[0][0],
+                    rank,
+                    &resources[1..],
+                    outs.streams[0][0],
+                    token,
+                );
+            }
         }
 
         NodeOk::no_warnings(())

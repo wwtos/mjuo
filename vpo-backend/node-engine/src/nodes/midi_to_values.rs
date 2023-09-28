@@ -12,7 +12,7 @@ impl NodeRuntime for MidiToValuesNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         for data in ins.midis[0][0].borrow(token) {
             match &data.data {

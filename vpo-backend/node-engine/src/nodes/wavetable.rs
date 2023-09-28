@@ -1,5 +1,6 @@
+use common::traits::TryRef;
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{node::wavetable_oscillator::WavetableOscillator, MonoSample, SoundConfig};
+use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
 
 use crate::nodes::prelude::*;
 
@@ -27,13 +28,13 @@ impl NodeRuntime for WavetableNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.oscillator.set_frequency(frequency);
         }
 
-        if let Some(wavetable) = resources[0].downcast_ref::<MonoSample>() {
+        if let Ok(wavetable) = resources[0].try_ref() {
             for frame in outs.streams[0][0].iter_mut() {
                 *frame.borrow_mut(token) = self.oscillator.get_next_sample(wavetable);
             }

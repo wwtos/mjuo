@@ -12,7 +12,7 @@ impl NodeRuntime for GainNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if ins.values[0][0].borrow(token).is_some() {
             self.gain = ins.values[0][0].borrow(token).as_float().unwrap_or(0.0);

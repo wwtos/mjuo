@@ -55,7 +55,7 @@ impl NodeRuntime for BiquadFilterNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
             self.filter_spec.f0 = frequency.max(1.0);

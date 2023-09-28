@@ -26,7 +26,7 @@ impl NodeRuntime for InputsNode {
         _ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        _resources: &[&dyn Any],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         if !self.sent {
             for (midis_out, midis_to_output) in outs.midis.iter().zip(self.midis.iter()) {

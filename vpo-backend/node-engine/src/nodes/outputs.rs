@@ -1,7 +1,6 @@
 use std::iter::repeat;
 
 use ghost_cell::GhostBorrow;
-use smallvec::SmallVec;
 
 use crate::nodes::prelude::*;
 
@@ -33,10 +32,12 @@ impl NodeRuntime for OutputsNode {
         ins: Ins<'_, 'brand>,
         _outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        _resources: &[&dyn Any],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis.iter().zip(self.midis.iter_mut()) {
-            local_in.clone_from_slice(&socket_in.borrow(token));
+            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
+                local_channel_in.clone_from_slice(channel_in.borrow(token).as_slice());
+            }
         }
 
         for (socket_in, local_in) in ins.values.iter().zip(self.values.iter_mut()) {
@@ -87,7 +88,7 @@ impl NodeRuntime for OutputsNode {
                             .push(repeat(vec![0.0; buffer_size]).take(channels).collect());
                     }
                     SocketType::Midi => {
-                        self.midis.push(repeat(SmallVec::new()).take(channels).collect());
+                        self.midis.push(repeat(vec![]).take(channels).collect());
                     }
                     SocketType::Value => {
                         self.values.push(repeat(Primitive::None).take(channels).collect());
@@ -106,7 +107,7 @@ impl NodeRuntime for OutputsNode {
                 .filter(|output| output.socket_type() == SocketType::Value)
                 .count();
 
-            self.midis.resize_with(midi_outputs, || vec![SmallVec::new()]);
+            self.midis.resize_with(midi_outputs, || vec![vec![]]);
             self.values.resize_with(value_outputs, || vec![Primitive::None]);
         }
 

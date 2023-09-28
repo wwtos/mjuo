@@ -10,7 +10,7 @@ impl NodeRuntime for MixerNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         for stream_out in outs.streams {
             for channel_out in stream_out.iter_mut() {

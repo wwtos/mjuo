@@ -16,7 +16,8 @@ pub mod util;
 pub mod wave;
 
 pub type SamplePoint = i16;
-pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
+
+pub type MidiBundle = Vec<MidiMessage>;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

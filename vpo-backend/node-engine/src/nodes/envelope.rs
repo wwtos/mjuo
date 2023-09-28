@@ -20,7 +20,7 @@ impl NodeRuntime for EnvelopeNode {
         ins: Ins<'_, 'brand>,
         outs: Outs<'_, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&dyn Any],
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.values[0][0].borrow(token).as_boolean() {
             self.gate = gate;
