@@ -15,10 +15,10 @@ pub struct DoubleBuffer<T> {
 pub struct WouldBlock;
 
 impl<T> DoubleBuffer<T> {
-    pub fn new(buffer_left: T, buffer_right: T) -> DoubleBuffer<T> {
+    pub fn new(active: T, background: T) -> DoubleBuffer<T> {
         DoubleBuffer {
-            active: Mutex::new(buffer_left),
-            background: Mutex::new(buffer_right),
+            active: Mutex::new(active),
+            background: Mutex::new(background),
         }
     }
 }

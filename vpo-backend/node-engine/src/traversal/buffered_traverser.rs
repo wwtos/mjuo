@@ -1,7 +1,5 @@
 use std::{cell::Cell, collections::BTreeMap, fmt::Debug};
 
-use buddy_system::arena::BuddyArena;
-use bumpalo::Bump;
 use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::{ResourceId, ResourceIndex};
 use rhai::Engine;
@@ -74,9 +72,10 @@ fn layout_and_init_nodes(
     let mut value_i: usize = 0;
 
     // now for the fun part ;)
+    //
     // # Step 1, denormalize all of the nodes
-    // Each of the different types of input is split up across a different array, lined up
-    // back to back
+    // Each type of data stream is put in a different array, lined up back to back
+    // according to `traversel_order`
     for (vec_index, node_index) in traversal_order.iter().enumerate() {
         // create and init the node
         let node_instance = graph.get_node(*node_index).expect("node to exist");
@@ -209,6 +208,9 @@ fn layout_and_init_nodes(
         traversal_order,
     })
 }
+
+pub fn calc_indexes(graph_index: GraphIndex,
+    graph_manager: &GraphManager,)
 
 pub fn create_traverser(
     graph_index: GraphIndex,

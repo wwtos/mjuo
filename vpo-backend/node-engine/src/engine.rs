@@ -3,12 +3,11 @@ use std::collections::BTreeMap;
 use rhai::Engine;
 
 use crate::{
-    connection::MidiBundle,
     global_state::Resources,
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
-    traversal::buffered_traverser::{BufferedTraverser, TraverserResult},
+    traversal::buffered_traverser::TraverserResult,
 };
 
 #[derive(Debug)]
