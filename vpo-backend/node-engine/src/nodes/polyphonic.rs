@@ -84,12 +84,13 @@ impl NodeRuntime for PolyphonicNode {
         ))
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         // if !ins.midis[0][0].borrow(token).is_empty() {
@@ -279,7 +280,7 @@ impl Node for PolyphonicNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         NodeIo {

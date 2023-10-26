@@ -1,11 +1,14 @@
 use common::traits::TryRef;
 
-use std::collections::BTreeMap;
+use std::{cell::Cell, collections::BTreeMap};
 
-use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
+use crate::{
+    midi::messages::{MidiData, MidiMessage},
+    util::interpolate::lerp,
+    MonoSample,
+};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
-use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
@@ -186,25 +189,24 @@ impl RankPlayer {
         self.shelf_db_gain = db_gain;
     }
 
-    pub fn next_buffered<'a, 'brand, E>(
+    pub fn next_buffered<'a, E>(
         &mut self,
         time: i64,
-        midi: &GhostCell<'brand, MidiBundle>,
+        midi: &[MidiMessage],
         rank: &Rank,
         samples: &[&impl TryRef<MonoSample, Error = E>],
-        out: &[GhostCell<'brand, f32>],
-        token: &mut GhostToken<'brand>,
+        out: &[Cell<f32>],
     ) where
         E: std::fmt::Debug,
     {
         let out_len = out.len();
 
         for output in out.iter() {
-            *output.borrow_mut(token) = 0.0;
+            output.set(0.0);
         }
 
         // allocate any needed voices
-        for message in midi.borrow(token) {
+        for message in midi.iter() {
             match message.data {
                 MidiData::NoteOn { note, .. } => {
                     self.allocate_note(rank, note, samples);
@@ -226,7 +228,7 @@ impl RankPlayer {
 
             if let Some((pipe, sample)) = pipe_and_sample {
                 for (i, output) in out.iter().enumerate() {
-                    let messages = midi.borrow(token);
+                    let messages = midi;
 
                     while midi_position < messages.len() {
                         if messages[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
@@ -273,7 +275,7 @@ impl RankPlayer {
                         i as f32 / out_len as f32,
                     ));
 
-                    *output.borrow_mut(token) += voice.player.next_sample(pipe, sample);
+                    output.set(output.get() + voice.player.next_sample(pipe, sample));
 
                     if voice.player.is_done() {
                         voice.active = false;

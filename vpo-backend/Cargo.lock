@@ -1583,7 +1583,6 @@ name = "node-engine"
 version = "0.1.0"
 dependencies = [
  "arr_macro",
- "buddy-system 0.1.0",
  "common",
  "ddgg",
  "enum_dispatch",

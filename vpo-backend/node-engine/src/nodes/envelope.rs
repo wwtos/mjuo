@@ -14,36 +14,37 @@ impl NodeRuntime for EnvelopeNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0][0].borrow(token).as_boolean() {
+        if let Some(gate) = ins.values[0][0].get().as_boolean() {
             self.gate = gate;
         }
 
-        if let Some(attack) = ins.values[1][0].borrow(token).as_float() {
+        if let Some(attack) = ins.values[1][0].get().as_float() {
             self.envelope.attack = attack;
         }
 
-        if let Some(decay) = ins.values[2][0].borrow(token).as_float() {
+        if let Some(decay) = ins.values[2][0].get().as_float() {
             self.envelope.decay = decay;
         }
 
-        if let Some(sustain) = ins.values[3][0].borrow(token).as_float() {
+        if let Some(sustain) = ins.values[3][0].get().as_float() {
             self.envelope.sustain = sustain;
         }
 
-        if let Some(release) = ins.values[4][0].borrow(token).as_float() {
+        if let Some(release) = ins.values[4][0].get().as_float() {
             self.envelope.release = release;
         }
 
         if !self.envelope.is_done() || self.gate {
-            *outs.values[0][0].borrow_mut(token) = float(self.envelope.process(self.gate));
+            outs.values[0][0].set(float(self.envelope.process(self.gate)));
         }
 
         NodeOk::no_warnings(())
@@ -60,7 +61,7 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("gate", Primitive::Boolean(false), 1),
             value_output("gain", 1),

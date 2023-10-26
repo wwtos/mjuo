@@ -49,20 +49,21 @@ impl NodeRuntime for BiquadFilterNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
+        if let Some(frequency) = ins.values[0][0].get().as_float() {
             self.filter_spec.f0 = frequency.max(1.0);
             self.recompute();
         }
 
-        if let Some(resonance) = ins.values[1][0].borrow(token).as_float() {
+        if let Some(resonance) = ins.values[1][0].get().as_float() {
             match &mut self.filter_spec.filter_type {
                 FilterType::LowPass { q } | FilterType::HighPass { q } | FilterType::AllPass { q } => {
                     *q = resonance;
@@ -81,7 +82,7 @@ impl NodeRuntime for BiquadFilterNode {
 
         for (channel_in, channel_out, filter) in multizip((ins.streams[0], outs.streams[0], self.filters.iter_mut())) {
             for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
-                *frame_out.borrow_mut(token) = filter.filter_sample(*frame_in.borrow(token));
+                frame_out.set(filter.filter_sample(frame_in.get()));
             }
         }
 
@@ -98,7 +99,7 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         NodeIo {

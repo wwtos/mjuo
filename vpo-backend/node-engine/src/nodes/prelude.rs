@@ -5,6 +5,7 @@ pub(super) use std::collections::HashMap;
 
 pub(super) use ghost_cell::GhostToken;
 
+pub(super) use common::alloc::{Alloc, BuddyArena};
 pub(super) use resource_manager::ResourceIndex;
 pub(super) use sound_engine::{MidiBundle, SoundConfig};
 

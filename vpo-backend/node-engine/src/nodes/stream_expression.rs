@@ -9,24 +9,24 @@ pub struct StreamExpressionNode {
 }
 
 impl NodeRuntime for StreamExpressionNode {
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
-        token: &mut GhostToken<'brand>,
-        resources: &[&Resource],
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
+        _token: &mut GhostToken<'brand>,
+        _arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
-            for (channel_i, channel_out) in outs.streams[0].iter_mut().enumerate() {
-                for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
+            for (channel_i, channel_out) in outs.streams[0].iter().enumerate() {
+                for (frame_i, frame_out) in channel_out.iter().enumerate() {
                     // start by rewinding the scope
                     self.scope.rewind(0);
 
                     // add inputs to scope
                     for (j, val) in ins.streams.iter().enumerate() {
-                        self.scope
-                            .push(format!("x{}", j + 1), val[frame_i][channel_i].borrow(token));
+                        self.scope.push(format!("x{}", j + 1), val[frame_i][channel_i].get());
                     }
 
                     // now we run the expression!
@@ -35,7 +35,7 @@ impl NodeRuntime for StreamExpressionNode {
                     // convert the output to a usuable form
                     match result {
                         Ok(output) => {
-                            *frame_out.borrow_mut(token) = output;
+                            frame_out.set(output);
                         }
                         Err(_) => break,
                     }
@@ -88,7 +88,7 @@ impl Node for StreamExpressionNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         // these are the rows it always has

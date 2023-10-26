@@ -7,7 +7,7 @@ use snafu::OptionExt;
 use crate::{
     connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
     errors::{NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult, NodesNotConnectedSnafu},
-    node::NodeIndex,
+    node::{NodeGetIoContext, NodeIndex},
     node_instance::NodeInstance,
     nodes::variant_io,
 };
@@ -33,10 +33,10 @@ pub struct NodeGraph {
     nodes: Graph<NodeInstance, NodeConnectionData>,
 }
 
-pub(crate) fn create_new_node(node_type: String) -> NodeResult<NodeInstance> {
-    let node_rows = variant_io(&node_type, HashMap::new())?.node_rows;
+pub(crate) fn create_new_node(node_type: &str, ctx: &NodeGetIoContext) -> NodeResult<NodeInstance> {
+    let node_rows = variant_io(node_type, ctx, HashMap::new())?.node_rows;
 
-    let new_node = NodeInstance::new(node_type, node_rows)?;
+    let new_node = NodeInstance::new(node_type.into(), node_rows)?;
 
     Ok(NodeOk::new(new_node.value, new_node.warnings))
 }
@@ -46,8 +46,13 @@ impl NodeGraph {
         NodeGraph { nodes: Graph::new() }
     }
 
-    pub fn add_node(&mut self, node_type: String) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type)?;
+    pub fn add_node(&mut self, node_type: &str) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
+        let new_node = create_new_node(
+            node_type,
+            &NodeGetIoContext {
+                default_channel_count: 1,
+            },
+        )?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value)?;
 
@@ -57,7 +62,14 @@ impl NodeGraph {
     pub fn update_node_rows(&mut self, node_index: NodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
         let node = self.get_node(node_index)?;
 
-        let new_rows = variant_io(&node.get_node_type(), node.get_properties().clone())?.node_rows;
+        let new_rows = variant_io(
+            &node.get_node_type(),
+            &NodeGetIoContext {
+                default_channel_count: 1,
+            },
+            node.get_properties().clone(),
+        )?
+        .node_rows;
 
         let mut diffs = vec![];
 

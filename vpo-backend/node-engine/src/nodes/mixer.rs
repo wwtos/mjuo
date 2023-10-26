@@ -4,26 +4,27 @@ use crate::nodes::prelude::*;
 pub struct MixerNode {}
 
 impl NodeRuntime for MixerNode {
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         for stream_out in outs.streams {
-            for channel_out in stream_out.iter_mut() {
-                for frame_out in channel_out.iter_mut() {
-                    *frame_out.borrow_mut(token) = 0.0;
+            for channel_out in stream_out.iter() {
+                for frame_out in channel_out.iter() {
+                    frame_out.set(0.0);
                 }
             }
         }
 
         for stream_in in ins.streams {
-            for (channel_in, channel_out) in stream_in.iter().zip(outs.streams[0].iter_mut()) {
-                for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
-                    *frame_out.borrow_mut(token) += *frame_in.borrow(token);
+            for (channel_in, channel_out) in stream_in.iter().zip(outs.streams[0].iter()) {
+                for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
+                    frame_out.set(frame_out.get() + frame_in.get());
                 }
             }
         }
@@ -37,7 +38,7 @@ impl Node for MixerNode {
         MixerNode {}
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         let mut node_rows = vec![

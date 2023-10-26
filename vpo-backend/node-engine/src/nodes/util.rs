@@ -51,7 +51,7 @@ pub fn dynamic_to_primitive(dynamic: Dynamic) -> Primitive {
     }
 }
 
-pub fn midi_to_scope(scope: &mut Scope, midi: &MidiData) {
+pub fn add_message_to_scope(scope: &mut Scope, midi: &MidiData) {
     let message_type = match midi {
         MidiData::NoteOff {
             channel,

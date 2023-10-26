@@ -28,17 +28,18 @@ impl NodeRuntime for PortamentoNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0][0].borrow(token).as_boolean() {
+        if let Some(gate) = ins.values[0][0].get().as_boolean() {
             if self.engaged && !gate {
-                *outs.values[0][0].borrow_mut(token) = float(self.ramp.get_to());
+                outs.values[0][0].set(float(self.ramp.get_to()));
                 self.ramp.set_position(self.ramp.get_to());
             }
 
@@ -46,19 +47,19 @@ impl NodeRuntime for PortamentoNode {
             self.active = true;
         }
 
-        if let Some(frequency) = ins.values[1][0].borrow(token).as_float() {
+        if let Some(frequency) = ins.values[1][0].get().as_float() {
             if self.engaged {
                 self.ramp
                     .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
                     .unwrap();
             } else {
-                *outs.values[0][0].borrow_mut(token) = float(frequency);
+                outs.values[0][0].set(float(frequency));
             }
 
             self.active = true;
         }
 
-        if let Some(speed) = ins.values[2][0].borrow(token).as_float() {
+        if let Some(speed) = ins.values[2][0].get().as_float() {
             self.speed = speed;
             self.ramp
                 .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
@@ -70,7 +71,7 @@ impl NodeRuntime for PortamentoNode {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
-            *outs.values[0][0].borrow_mut(token) = float(out);
+            outs.values[0][0].set(float(out));
 
             if self.ramp.is_done() {
                 self.active = false;
@@ -93,7 +94,7 @@ impl Node for PortamentoNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             multiple_choice("ramp_type", &["exponential", "linear"], "exponential"),
             value_input("gate", Primitive::Boolean(false), 1),

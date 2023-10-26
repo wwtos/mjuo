@@ -1,4 +1,4 @@
-use std::iter::repeat;
+use std::{cell::Cell, iter::repeat};
 
 use ghost_cell::GhostBorrow;
 
@@ -26,27 +26,35 @@ impl OutputsNode {
 }
 
 impl NodeRuntime for OutputsNode {
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        _outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        _outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis.iter().zip(self.midis.iter_mut()) {
             for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
-                local_channel_in.clone_from_slice(channel_in.borrow(token).as_slice());
+                local_channel_in.clear();
+
+                if let Some(midi) = channel_in.borrow(token) {
+                    local_channel_in.clone_from_slice(&midi.value);
+                }
             }
         }
 
         for (socket_in, local_in) in ins.values.iter().zip(self.values.iter_mut()) {
-            local_in.clone_from_slice(&socket_in.borrow(token));
+            local_in.clear();
+            local_in.extend(socket_in.iter().map(Cell::get));
         }
 
         for (socket_in, local_in) in ins.streams.iter().zip(self.streams.iter_mut()) {
             for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
-                local_channel_in.clone_from_slice(&channel_in.borrow(token));
+                local_channel_in.clear();
+
+                local_channel_in.extend(channel_in.iter().map(Cell::get));
             }
         }
 
@@ -124,7 +132,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

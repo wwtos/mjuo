@@ -2,9 +2,9 @@
 
 use std::fmt::Debug;
 
+use common::alloc::Alloc;
 use midi::messages::MidiMessage;
 use serde::Serialize;
-use smallvec::SmallVec;
 
 pub mod error;
 pub mod midi;
@@ -18,6 +18,7 @@ pub mod wave;
 pub type SamplePoint = i16;
 
 pub type MidiBundle = Vec<MidiMessage>;
+pub struct MidiIndex<'a>(Alloc<'a, MidiBundle>);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

@@ -22,21 +22,22 @@ impl NodeRuntime for WavetableNode {
         })
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
+        _token: &mut GhostToken<'brand>,
+        _arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
+        if let Some(frequency) = ins.values[0][0].get().as_float() {
             self.oscillator.set_frequency(frequency);
         }
 
         if let Ok(wavetable) = resources[0].try_ref() {
-            for frame in outs.streams[0][0].iter_mut() {
-                *frame.borrow_mut(token) = self.oscillator.get_next_sample(wavetable);
+            for frame in outs.streams[0][0].iter() {
+                frame.set(self.oscillator.get_next_sample(wavetable));
             }
         }
 
@@ -52,7 +53,7 @@ impl Node for WavetableNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "wavetable".into(),

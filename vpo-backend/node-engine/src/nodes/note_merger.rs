@@ -30,49 +30,52 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = MidiBundle::new();
 
         for (i, messages) in ins.midis.iter().enumerate() {
-            for message in messages[0].borrow(token) {
-                match message.data {
-                    MidiData::NoteOn { note, .. } => {
-                        let before = self.combined;
+            if let Some(midi) = messages[0].borrow(token) {
+                for message in midi.value.iter() {
+                    match message.data {
+                        MidiData::NoteOn { note, .. } => {
+                            let before = self.combined;
 
-                        self.states[i] |= 1_u128 << note;
-                        self.combine();
+                            self.states[i] |= 1_u128 << note;
+                            self.combine();
 
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
+                            // the state changed, so we should pass this message through
+                            if self.combined != before {
+                                new_messages.push(message.clone());
+                            }
+                        }
+                        MidiData::NoteOff { note, .. } => {
+                            let before = self.combined;
+
+                            self.states[i] &= !(1_u128 << note);
+                            self.combine();
+
+                            // the state changed, so we should pass this message through
+                            if self.combined != before {
+                                new_messages.push(message.clone());
+                            }
+                        }
+                        _ => {
                             new_messages.push(message.clone());
                         }
-                    }
-                    MidiData::NoteOff { note, .. } => {
-                        let before = self.combined;
-
-                        self.states[i] &= !(1_u128 << note);
-                        self.combine();
-
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
-                            new_messages.push(message.clone());
-                        }
-                    }
-                    _ => {
-                        new_messages.push(message.clone());
                     }
                 }
             }
         }
 
-        *outs.midis[0][0].borrow_mut(token) = new_messages;
+        *outs.midis[0][0].borrow_mut(token) = arena.alloc_slice_fill_iter(new_messages.into_iter()).ok();
 
         ProcessResult::nothing()
     }
@@ -86,7 +89,7 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
             midi_output("midi", 1),

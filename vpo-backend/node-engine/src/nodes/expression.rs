@@ -10,21 +10,22 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
 
         for (i, value_in) in ins.values.iter().enumerate() {
-            if value_in[0].borrow(token).is_some() {
+            if value_in[0].get().is_some() {
                 have_values_changed = true;
-                self.values_in[i] = value_in[0].borrow(token).clone();
+                self.values_in[i] = value_in[0].get();
             }
         }
 
@@ -32,7 +33,7 @@ impl NodeRuntime for ExpressionNode {
             if let Some(ast) = &self.ast {
                 // add inputs to scope
                 for (i, val) in self.values_in.iter().enumerate() {
-                    self.scope.push(format!("x{}", i + 1), val.clone().as_dynamic());
+                    self.scope.push(format!("x{}", i + 1), val.as_dynamic());
                 }
 
                 // now we run the expression!
@@ -43,7 +44,7 @@ impl NodeRuntime for ExpressionNode {
                 // convert the output to a usuable form
                 match result {
                     Ok(output) => {
-                        *outs.values[0][0].borrow_mut(token) = match output.type_name() {
+                        outs.values[0][0].set(match output.type_name() {
                             "bool" => bool(output.as_bool().unwrap()),
                             "i32" => int(output.as_int().unwrap()),
                             "f32" => float(output.as_float().unwrap()),
@@ -58,7 +59,7 @@ impl NodeRuntime for ExpressionNode {
 
                                 Primitive::None
                             }
-                        }
+                        });
                     }
                     Err(err) => {
                         // cleanup before erroring
@@ -114,7 +115,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(

@@ -24,15 +24,16 @@ impl NodeRuntime for ToggleNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(new_state) = ins.values[0][0].borrow(token).as_boolean() {
+        if let Some(new_state) = ins.values[0][0].get().as_boolean() {
             if !self.first_time {
                 self.state = new_state;
                 self.updated_state = ProcessState::Unprocessed(());
@@ -40,7 +41,7 @@ impl NodeRuntime for ToggleNode {
         }
 
         if matches!(self.updated_state, ProcessState::Unprocessed(())) || self.first_time {
-            *outs.values[0][0].borrow_mut(token) = bool(self.state);
+            outs.values[0][0].set(bool(self.state));
         }
 
         self.updated_state = match self.updated_state {
@@ -89,7 +90,7 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 value_input("set_state", Primitive::Boolean(false), 1),

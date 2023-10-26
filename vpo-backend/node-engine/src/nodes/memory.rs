@@ -44,25 +44,26 @@ impl NodeRuntime for MemoryNode {
         self.state_changed = true;
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        _outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        _outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         self.state_changed = false;
 
-        if let Some(true) = ins.values[0][0].borrow(token).as_boolean() {
+        if let Some(true) = ins.values[0][0].get().as_boolean() {
             self.activated = true;
         }
 
-        if let Some(true) = ins.values[1][0].borrow(token).as_boolean() {
+        if let Some(true) = ins.values[1][0].get().as_boolean() {
             self.mode = MemoryMode::Loading;
-        } else if let Some(true) = ins.values[2][0].borrow(token).as_boolean() {
+        } else if let Some(true) = ins.values[2][0].get().as_boolean() {
             self.mode = MemoryMode::Setting;
-        } else if let Some(true) = ins.values[3][0].borrow(token).as_boolean() {
+        } else if let Some(true) = ins.values[3][0].get().as_boolean() {
             self.mode = MemoryMode::MapSetting;
         }
 
@@ -140,7 +141,7 @@ impl NodeRuntime for MemoryNode {
 }
 
 impl Node for MemoryNode {
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("activate", Primitive::Boolean(false), 1),
             value_input("load_mode", Primitive::Boolean(false), 1),

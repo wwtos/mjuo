@@ -35,14 +35,14 @@ impl<'a, T> Drop for Alloc<'a, T> {
     }
 }
 
-pub struct SliceAllocation<'a, T> {
+pub struct SliceAlloc<'a, T> {
     pub value: &'a mut [T],
     buddy_ref: &'a BuddyArena,
     ptr: NonNull<u8>,
     layout: Layout,
 }
 
-impl<'a, T: Debug> Debug for SliceAllocation<'a, T> {
+impl<'a, T: Debug> Debug for SliceAlloc<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SliceAllocation {{ ")?;
         self.value.fmt(f)?;
@@ -50,7 +50,7 @@ impl<'a, T: Debug> Debug for SliceAllocation<'a, T> {
     }
 }
 
-impl<'a, T> Drop for SliceAllocation<'a, T> {
+impl<'a, T> Drop for SliceAlloc<'a, T> {
     fn drop(&mut self) {
         for x in self.value.iter_mut() {
             unsafe {
@@ -86,7 +86,7 @@ impl BuddyArena {
 
     // most methods from here on out are taken from the fantastic `bumpalo` crate
 
-    pub fn alloc_with<T, F>(&self, f: F) -> Result<Alloc<'_, T>, AllocError>
+    pub fn alloc_with<'a, T, F>(&'a self, f: F) -> Result<Alloc<'a, T>, AllocError>
     where
         F: FnOnce() -> T,
     {
@@ -109,7 +109,7 @@ impl BuddyArena {
         })
     }
 
-    pub fn alloc_slice_copy<T>(&self, src: &[T]) -> Result<SliceAllocation<'_, T>, AllocError>
+    pub fn alloc_slice_copy<T>(&self, src: &[T]) -> Result<SliceAlloc<'_, T>, AllocError>
     where
         T: Copy,
     {
@@ -119,7 +119,7 @@ impl BuddyArena {
 
         unsafe {
             ptr::copy_nonoverlapping(src.as_ptr(), dst.as_ptr(), src.len());
-            Ok(SliceAllocation {
+            Ok(SliceAlloc {
                 value: slice::from_raw_parts_mut(dst.as_ptr(), src.len()),
                 buddy_ref: &self,
                 ptr: ptr,
@@ -128,7 +128,7 @@ impl BuddyArena {
         }
     }
 
-    pub fn alloc_slice_fill_with<T, F>(&self, len: usize, mut f: F) -> Result<SliceAllocation<'_, T>, AllocError>
+    pub fn alloc_slice_fill_with<T, F>(&self, len: usize, mut f: F) -> Result<SliceAlloc<'_, T>, AllocError>
     where
         F: FnMut(usize) -> T,
     {
@@ -145,7 +145,7 @@ impl BuddyArena {
             let result = slice::from_raw_parts_mut(dst.as_ptr(), len);
             debug_assert_eq!(Layout::for_value(result), layout);
 
-            Ok(SliceAllocation {
+            Ok(SliceAlloc {
                 value: result,
                 buddy_ref: &self,
                 ptr,
@@ -154,7 +154,7 @@ impl BuddyArena {
         }
     }
 
-    pub fn alloc_slice_fill_iter<T, I>(&self, iter: I) -> Result<SliceAllocation<'_, T>, AllocError>
+    pub fn alloc_slice_fill_iter<T, I>(&self, iter: I) -> Result<SliceAlloc<'_, T>, AllocError>
     where
         I: IntoIterator<Item = T>,
         I::IntoIter: ExactSizeIterator,

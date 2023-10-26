@@ -3,17 +3,18 @@ use lazy_static::lazy_static;
 
 use crate::connection::{Socket, SocketType};
 use crate::errors::NodeError;
-use crate::node::{midi_input, stream_input, stream_output, value_output, NodeRow};
+use crate::node::NodeRow;
 use crate::node_graph::NodeGraph;
+use crate::nodes::prelude::{midi_input, stream_input, stream_output, value_output};
 
 lazy_static! {
     pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
         vec![
-            stream_input("audio"),
-            stream_input("gain"),
-            midi_input("midi"),
-            stream_output("audio"),
-            value_output("gate"),
+            stream_input("audio", 1),
+            stream_input("gain", 1),
+            midi_input("midi", 1),
+            stream_output("audio", 1),
+            value_output("gate", 1),
         ]
     };
 }

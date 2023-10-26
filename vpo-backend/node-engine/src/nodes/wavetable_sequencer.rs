@@ -24,15 +24,16 @@ impl NodeRuntime for WavetableSequencerNode {
         })
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
+        if let Some(frequency) = ins.values[0][0].get().as_float() {
             self.frequency = frequency;
         }
 
@@ -44,11 +45,11 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            *outs.values[0][0].borrow_mut(token) = float(lerp(
+            outs.values[0][0].set(float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,
-            ));
+            )));
 
             self.phase += self.advance_by * self.frequency;
             self.phase = self.phase.fract();
@@ -71,7 +72,7 @@ impl Node for WavetableSequencerNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property(
                 "wavetable",

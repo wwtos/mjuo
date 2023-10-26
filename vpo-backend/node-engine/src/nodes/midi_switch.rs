@@ -42,18 +42,21 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
-        resources: &[&Resource],
+        arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = MidiBundle::new();
 
-        if !ins.midis[0][0].borrow(token).is_empty() {
-            for message in ins.midis[0][0].borrow(token) {
+        if let Some(midi) = ins.midis[0][0].borrow(token) {
+            let messages = &midi.value;
+
+            for message in messages.iter() {
                 match message.data {
                     MidiData::NoteOn { note, .. } => {
                         match self.mode {
@@ -108,7 +111,7 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if let Some(engaged) = ins.values[0][0].borrow(token).as_boolean() {
+        if let Some(engaged) = ins.values[0][0].get().as_boolean() {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
@@ -159,7 +162,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            *outs.midis[0][0].borrow_mut(token) = midi_out;
+            *outs.midis[0][0].borrow_mut(token) = arena.alloc_slice_fill_iter(midi_out.into_iter()).ok();
         }
 
         ProcessResult::nothing()
@@ -167,7 +170,7 @@ impl NodeRuntime for MidiSwitchNode {
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),

@@ -39,12 +39,13 @@ impl NodeRuntime for FunctionNode {
         InitResult::warning(warning)
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        _ins: Ins<'_, 'brand>,
-        _outs: Outs<'_, 'brand>,
+        _ins: Ins<'a, 'arena, 'brand>,
+        _outs: Outs<'a, 'arena, 'brand>,
         token: &mut GhostToken<'brand>,
+        arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
@@ -81,7 +82,7 @@ impl Node for FunctionNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         NodeIo {

@@ -9,7 +9,7 @@ use crate::{
     errors::{NodeError, WarningExt},
     global_state::GlobalState,
     graph_manager::{DiffElement, GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
-    node::{NodeIndex, NodeRow, NodeState},
+    node::{NodeGetIoContext, NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
@@ -660,6 +660,12 @@ impl GraphState {
 
         Ok((new_action, action_result))
     }
+
+    fn get_create_io_context(&self) -> &NodeGetIoContext {
+        &NodeGetIoContext {
+            default_channel_count: 2,
+        }
+    }
 }
 
 impl GraphState {
@@ -691,9 +697,15 @@ impl GraphState {
                 let node = graph.get_node_mut(node_index).expect("node_index to exist");
 
                 node.set_node_rows(
-                    variant_io(&node.get_node_type(), node.get_properties().clone())
-                        .unwrap()
-                        .node_rows,
+                    variant_io(
+                        &node.get_node_type(),
+                        &NodeGetIoContext {
+                            default_channel_count: 1,
+                        },
+                        node.get_properties().clone(),
+                    )
+                    .unwrap()
+                    .node_rows,
                 );
             }
         }

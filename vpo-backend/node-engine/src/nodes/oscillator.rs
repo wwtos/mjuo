@@ -23,20 +23,21 @@ impl NodeRuntime for OscillatorNode {
         InitResult::nothing()
     }
 
-    fn process<'brand>(
+    fn process<'a, 'arena: 'a, 'brand>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'_, 'brand>,
-        outs: Outs<'_, 'brand>,
-        token: &mut GhostToken<'brand>,
-        resources: &[&Resource],
+        ins: Ins<'a, 'arena, 'brand>,
+        outs: Outs<'a, 'arena, 'brand>,
+        _token: &mut GhostToken<'brand>,
+        _arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].borrow(token).as_float() {
+        if let Some(frequency) = ins.values[0][0].get().as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
 
-        for frame in outs.streams[0][0].iter_mut() {
-            *frame.borrow_mut(token) = self.oscillator.process();
+        for frame in outs.streams[0][0].iter() {
+            frame.set(self.oscillator.process());
         }
 
         NodeOk::no_warnings(())
@@ -50,7 +51,7 @@ impl Node for OscillatorNode {
         }
     }
 
-    fn get_io(context: NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("frequency", Primitive::Float(440.0), 1),
             stream_output("audio", 1),
