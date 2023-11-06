@@ -1,18 +1,18 @@
 //! Node module
 
-use std::cell::Cell;
+use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
+use std::mem;
 
 use common::alloc::{Alloc, BuddyArena, SliceAlloc};
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
-use ghost_cell::{GhostCell, GhostToken};
 use resource_manager::ResourceId;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiMessage;
-use sound_engine::{MidiBundle, SoundConfig};
+use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, Socket, SocketDirection, SocketValue};
 
@@ -162,18 +162,139 @@ impl Default for NodeState {
     }
 }
 
-pub type MidiBorrow<'brand, 'arena> = GhostCell<'brand, Option<SliceAlloc<'arena, MidiMessage>>>;
+type MidiRef<'arena> = UnsafeCell<Option<SliceAlloc<'arena, MidiMessage>>>;
 
-pub struct Ins<'a, 'arena, 'brand> {
-    pub midis: &'a [&'a [MidiBorrow<'brand, 'arena>]],
-    pub values: &'a [&'a [Cell<Primitive>]],
-    pub streams: &'a [&'a [&'a [Cell<f32>]]],
+/// All inputs provided to a node
+pub struct Ins<'a, 'arena> {
+    midis: &'a [&'a [UnsafeCell<Option<SliceAlloc<'arena, MidiMessage>>>]],
+    values: &'a [&'a [UnsafeCell<Primitive>]],
+    streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
 }
 
-pub struct Outs<'a, 'arena, 'brand> {
-    pub midis: &'a [&'a [MidiBorrow<'brand, 'arena>]],
-    pub values: &'a [&'a [Cell<Primitive>]],
-    pub streams: &'a [&'a [&'a [Cell<f32>]]],
+/// All outputs provided to a node
+pub struct Outs<'a, 'arena> {
+    midis: &'a [&'a [MidiRef<'arena>]],
+    values: &'a [&'a [UnsafeCell<Primitive>]],
+    streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
+}
+
+// after this line is all of the IO api
+pub struct InputMidiSocket<'a, 'arena> {
+    pub midis: &'a [MidiRef<'arena>],
+}
+
+pub struct InputValueSocket<'a> {
+    pub values: &'a [UnsafeCell<Primitive>],
+}
+
+pub struct InputStreamSocket<'a> {
+    pub streams: &'a [&'a [UnsafeCell<f32>]],
+}
+
+impl<'a, 'arena> InputMidiSocket<'a, 'arena> {
+    pub fn channel(&self, index: usize) -> &'a Option<Alloc<'arena, MidiMessage>> {
+        let midi = self.midis[index];
+
+        unsafe { &*midi.get() }
+    }
+}
+
+impl<'a> InputValueSocket<'a> {
+    pub fn channel(&self, index: usize) -> &'a Primitive {
+        let value = self.values[index];
+
+        unsafe { &*value.get() }
+    }
+}
+
+impl<'a> InputStreamSocket<'a> {
+    pub fn channel(&self, index: usize) -> &'a [f32] {
+        let stream = self.streams[index];
+
+        unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) }
+    }
+}
+
+impl<'a, 'arena> Ins<'a, 'arena> {
+    /// Get the midi socket at index `index`
+    pub fn midi(&self, index: usize) -> InputMidiSocket<'a, 'arena> {
+        InputMidiSocket {
+            midis: self.midis[index],
+        }
+    }
+
+    /// Get the value socket at index `index`
+    pub fn value(&self, index: usize) -> InputValueSocket<'a> {
+        InputValueSocket {
+            values: self.values[index],
+        }
+    }
+
+    /// Get the stream socket at index `index`
+    pub fn stream(&self, index: usize) -> InputStreamSocket<'a> {
+        InputStreamSocket {
+            streams: self.streams[index],
+        }
+    }
+}
+
+pub struct OutputMidiSocket<'a, 'arena> {
+    pub midis: &'a [MidiRef<'arena>],
+}
+
+pub struct OutputValueSocket<'a> {
+    pub values: &'a [UnsafeCell<Primitive>],
+}
+
+pub struct OutputStreamSocket<'a> {
+    pub streams: &'a [&'a [UnsafeCell<f32>]],
+}
+
+impl<'a, 'arena> OutputMidiSocket<'a, 'arena> {
+    pub fn channel(&mut self, index: usize) -> &'a mut Option<Alloc<'arena, MidiMessage>> {
+        let midi = self.midis[index];
+
+        unsafe { &mut *midi.get() }
+    }
+}
+
+impl<'a> OutputValueSocket<'a> {
+    pub fn channel(&mut self, index: usize) -> &'a mut Primitive {
+        let value = self.values[index];
+
+        unsafe { &mut *value.get() }
+    }
+}
+
+impl<'a> OutputStreamSocket<'a> {
+    pub fn channel(&mut self, index: usize) -> &'a mut [f32] {
+        let stream = self.streams[index];
+
+        unsafe { mem::transmute::<&[UnsafeCell<f32>], &mut [f32]>(stream) }
+    }
+}
+
+impl<'a, 'arena> Outs<'a, 'arena> {
+    /// Get the midi socket at index `index`
+    pub fn midi(&mut self, index: usize) -> OutputMidiSocket<'a, 'arena> {
+        OutputMidiSocket {
+            midis: self.midis[index],
+        }
+    }
+
+    /// Get the value socket at index `index`
+    pub fn value(&mut self, index: usize) -> OutputValueSocket<'a> {
+        OutputValueSocket {
+            values: self.values[index],
+        }
+    }
+
+    /// Get the stream socket at index `index`
+    pub fn stream(&mut self, index: usize) -> OutputStreamSocket<'a> {
+        OutputStreamSocket {
+            streams: self.streams[index],
+        }
+    }
 }
 
 /// NodeRuntime trait
@@ -218,12 +339,11 @@ pub trait NodeRuntime: Debug + Clone {
     fn set_state(&mut self, state: serde_json::Value) {}
 
     /// Process all data in and out
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
