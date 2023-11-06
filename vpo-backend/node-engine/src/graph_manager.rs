@@ -47,7 +47,7 @@ pub struct GraphManager {
 impl GraphManager {
     pub fn new() -> Self {
         let mut graph = Graph::new();
-        let (root_index, _) = graph.add_vertex(NodeGraph::new()).unwrap();
+        let (root_index, _) = graph.add_vertex(NodeGraph::new());
 
         GraphManager {
             node_graphs: graph,
@@ -56,7 +56,7 @@ impl GraphManager {
     }
 
     pub fn new_graph(&mut self) -> Result<(GraphIndex, GraphManagerDiff), NodeError> {
-        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new())?;
+        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new());
 
         let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(add_diff)]);
 
@@ -82,7 +82,7 @@ impl GraphManager {
         through: ConnectedThrough,
         to: GraphIndex,
     ) -> Result<(ConnectedThrough, GraphManagerDiff), NodeError> {
-        let shared_edges = self.node_graphs.shared_edges(from.0, to.0)?;
+        let shared_edges: Vec<_> = self.node_graphs.shared_edges(from.0, to.0)?.collect();
 
         for edge_index in &shared_edges {
             let edge = self.node_graphs.get_edge(*edge_index).expect("edge to exist");

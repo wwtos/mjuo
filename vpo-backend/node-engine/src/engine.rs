@@ -8,13 +8,11 @@ use crate::{
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
-    traversal::buffered_traverser::{BufferedTraverser, TraverserResult},
 };
 
 #[derive(Debug)]
 pub struct NodeEngine {
     pub current_time: i64,
-    traverser: Option<BufferedTraverser>,
     io_nodes: Option<IoNodes>,
     scripting_engine: Engine,
     new_states: Vec<(NodeIndex, serde_json::Value)>,

@@ -162,14 +162,16 @@ impl Default for NodeState {
     }
 }
 
+pub type MidiBorrow<'brand, 'arena> = GhostCell<'brand, Option<SliceAlloc<'arena, MidiMessage>>>;
+
 pub struct Ins<'a, 'arena, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, Option<SliceAlloc<'arena, MidiMessage>>>]],
+    pub midis: &'a [&'a [MidiBorrow<'brand, 'arena>]],
     pub values: &'a [&'a [Cell<Primitive>]],
     pub streams: &'a [&'a [&'a [Cell<f32>]]],
 }
 
 pub struct Outs<'a, 'arena, 'brand> {
-    pub midis: &'a [&'a [GhostCell<'brand, Option<SliceAlloc<'arena, MidiMessage>>>]],
+    pub midis: &'a [&'a [MidiBorrow<'brand, 'arena>]],
     pub values: &'a [&'a [Cell<Primitive>]],
     pub streams: &'a [&'a [&'a [Cell<f32>]]],
 }
@@ -239,10 +241,10 @@ pub trait Node: NodeRuntime {
     fn new(sound_config: &SoundConfig) -> Self;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash, PartialOrd, Ord)]
 pub struct NodeIndex(pub VertexIndex);
 
-impl Display for NodeIndex {
+impl Debug for NodeIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "{:?}", self.0)
     }

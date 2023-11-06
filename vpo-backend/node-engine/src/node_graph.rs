@@ -54,7 +54,7 @@ impl NodeGraph {
             },
         )?;
 
-        let (index, diff) = self.nodes.add_vertex(new_node.value)?;
+        let (index, diff) = self.nodes.add_vertex(new_node.value);
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
