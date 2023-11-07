@@ -4,8 +4,9 @@ use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::mem;
+use std::ops::{Index, IndexMut};
 
-use common::alloc::{Alloc, BuddyArena, SliceAlloc};
+use common::alloc::{BuddyArena, SliceAlloc};
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use resource_manager::ResourceId;
@@ -192,10 +193,22 @@ pub struct InputStreamSocket<'a> {
 }
 
 impl<'a, 'arena> InputMidiSocket<'a, 'arena> {
-    pub fn channel(&self, index: usize) -> &'a Option<Alloc<'arena, MidiMessage>> {
+    pub fn channel(&self, index: usize) -> &Option<SliceAlloc<'arena, MidiMessage>> {
         let midi = self.midis[index];
 
         unsafe { &*midi.get() }
+    }
+
+    pub fn channels(&self) -> impl Iterator<Item = &Option<SliceAlloc<'arena, MidiMessage>>> {
+        self.midis.iter().map(|midi| unsafe { &*midi.get() })
+    }
+}
+
+impl<'a, 'arena> Index<usize> for InputMidiSocket<'a, 'arena> {
+    type Output = Option<SliceAlloc<'arena, MidiMessage>>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.channel(index)
     }
 }
 
@@ -205,6 +218,18 @@ impl<'a> InputValueSocket<'a> {
 
         unsafe { &*value.get() }
     }
+
+    pub fn channels(&self) -> impl Iterator<Item = &Primitive> {
+        self.values.iter().map(|value| unsafe { &*value.get() })
+    }
+}
+
+impl<'a> Index<usize> for InputValueSocket<'a> {
+    type Output = Primitive;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.channel(index)
+    }
 }
 
 impl<'a> InputStreamSocket<'a> {
@@ -212,6 +237,20 @@ impl<'a> InputStreamSocket<'a> {
         let stream = self.streams[index];
 
         unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) }
+    }
+
+    pub fn channels(&self) -> impl Iterator<Item = &'a [f32]> {
+        self.streams
+            .iter()
+            .map(|stream| unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) })
+    }
+}
+
+impl<'a> Index<usize> for InputStreamSocket<'a> {
+    type Output = [f32];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        self.channel(index)
     }
 }
 
@@ -236,6 +275,18 @@ impl<'a, 'arena> Ins<'a, 'arena> {
             streams: self.streams[index],
         }
     }
+
+    pub fn midis(&self) -> impl Iterator<Item = InputMidiSocket<'a, 'arena>> {
+        self.midis.iter().map(|midi| InputMidiSocket { midis: *midi })
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = InputValueSocket<'a>> {
+        self.values.iter().map(|value| InputValueSocket { values: *value })
+    }
+
+    pub fn streams(&self) -> impl Iterator<Item = InputStreamSocket<'a>> {
+        self.streams.iter().map(|stream| InputStreamSocket { streams: *stream })
+    }
 }
 
 pub struct OutputMidiSocket<'a, 'arena> {
@@ -251,10 +302,30 @@ pub struct OutputStreamSocket<'a> {
 }
 
 impl<'a, 'arena> OutputMidiSocket<'a, 'arena> {
-    pub fn channel(&mut self, index: usize) -> &'a mut Option<Alloc<'arena, MidiMessage>> {
+    pub fn channel(&mut self, index: usize) -> &mut Option<SliceAlloc<'arena, MidiMessage>> {
         let midi = self.midis[index];
 
         unsafe { &mut *midi.get() }
+    }
+
+    pub fn channels(&self) -> impl Iterator<Item = &mut Option<SliceAlloc<'arena, MidiMessage>>> {
+        self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
+    }
+}
+
+impl<'a, 'arena> Index<usize> for OutputMidiSocket<'a, 'arena> {
+    type Output = Option<SliceAlloc<'arena, MidiMessage>>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        let midi = self.midis[index];
+
+        unsafe { &*midi.get() }
+    }
+}
+
+impl<'a, 'arena> IndexMut<usize> for OutputMidiSocket<'a, 'arena> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.channel(index)
     }
 }
 
@@ -266,11 +337,49 @@ impl<'a> OutputValueSocket<'a> {
     }
 }
 
+impl<'a> Index<usize> for OutputValueSocket<'a> {
+    type Output = Primitive;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        let value = self.values[index];
+
+        unsafe { &*value.get() }
+    }
+}
+
+impl<'a> IndexMut<usize> for OutputValueSocket<'a> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.channel(index)
+    }
+}
+
 impl<'a> OutputStreamSocket<'a> {
     pub fn channel(&mut self, index: usize) -> &'a mut [f32] {
         let stream = self.streams[index];
 
         unsafe { mem::transmute::<&[UnsafeCell<f32>], &mut [f32]>(stream) }
+    }
+
+    pub fn channels(&self) -> impl Iterator<Item = &'a mut [f32]> {
+        self.streams
+            .iter()
+            .map(|stream| unsafe { mem::transmute::<&[UnsafeCell<f32>], &mut [f32]>(stream) })
+    }
+}
+
+impl<'a> Index<usize> for OutputStreamSocket<'a> {
+    type Output = [f32];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        let stream = self.streams[index];
+
+        unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) }
+    }
+}
+
+impl<'a> IndexMut<usize> for OutputStreamSocket<'a> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        self.channel(index)
     }
 }
 
@@ -294,6 +403,20 @@ impl<'a, 'arena> Outs<'a, 'arena> {
         OutputStreamSocket {
             streams: self.streams[index],
         }
+    }
+
+    pub fn midis(&self) -> impl Iterator<Item = OutputMidiSocket<'a, 'arena>> {
+        self.midis.iter().map(|midi| OutputMidiSocket { midis: *midi })
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = OutputValueSocket<'a>> {
+        self.values.iter().map(|value| OutputValueSocket { values: *value })
+    }
+
+    pub fn streams(&self) -> impl Iterator<Item = OutputStreamSocket<'a>> {
+        self.streams
+            .iter()
+            .map(|stream| OutputStreamSocket { streams: *stream })
     }
 }
 
@@ -343,7 +466,7 @@ pub trait NodeRuntime: Debug + Clone {
         &mut self,
         context: NodeProcessContext,
         ins: Ins<'a, 'arena>,
-        outs: Outs<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
