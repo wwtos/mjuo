@@ -8,20 +8,19 @@ pub struct MidiTransposeNode {
 }
 
 impl NodeRuntime for MidiTransposeNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(transpose) = ins.values[0][0].get().as_int() {
+        if let Some(transpose) = ins.value(0)[0].as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
 
-        if let Some(midi) = ins.midis[0][0].borrow(token) {
+        if let Some(midi) = ins.midi(0)[0] {
             let output: Vec<MidiMessage> = midi
                 .value
                 .iter()
@@ -70,7 +69,7 @@ impl NodeRuntime for MidiTransposeNode {
                 })
                 .collect();
 
-            *outs.midis[0][0].borrow_mut(token) = arena.alloc_slice_fill_iter(output.into_iter()).ok();
+            outs.midi(0)[0] = arena.alloc_slice_fill_iter(output.into_iter()).ok();
         }
 
         ProcessResult::nothing()

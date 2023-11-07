@@ -37,19 +37,18 @@ impl NodeRuntime for MidiToValueNode {
         }
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
         if let Some(ast) = self.ast.as_ref() {
-            if let Some(midi) = ins.midis[0][0].borrow(token) {
+            if let Some(midi) = ins.midi(0)[0] {
                 for message in midi.value.iter() {
                     self.scope.push("timestamp", message.timestamp);
 
@@ -61,7 +60,7 @@ impl NodeRuntime for MidiToValueNode {
 
                     match result {
                         Ok(dynamic) => {
-                            outs.values[0][0].set(dynamic_to_primitive(dynamic));
+                            outs.value(0)[0] = dynamic_to_primitive(dynamic);
                         }
                         Err(err) => {
                             warnings.push(NodeWarning::RhaiExecutionFailure {

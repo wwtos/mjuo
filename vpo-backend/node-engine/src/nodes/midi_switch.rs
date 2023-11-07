@@ -42,18 +42,17 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = MidiBundle::new();
 
-        if let Some(midi) = ins.midis[0][0].borrow(token) {
+        if let Some(midi) = ins.midi(0)[0] {
             let messages = &midi.value;
 
             for message in messages.iter() {
@@ -111,7 +110,7 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if let Some(engaged) = ins.values[0][0].get().as_boolean() {
+        if let Some(engaged) = ins.value(0)[0].as_boolean() {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
@@ -162,7 +161,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            *outs.midis[0][0].borrow_mut(token) = arena.alloc_slice_fill_iter(midi_out.into_iter()).ok();
+            outs.midi(0)[0] = arena.alloc_slice_fill_iter(midi_out.into_iter()).ok();
         }
 
         ProcessResult::nothing()

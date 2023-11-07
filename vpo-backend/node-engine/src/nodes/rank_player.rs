@@ -57,40 +57,39 @@ impl NodeRuntime for RankPlayerNode {
         })
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         _arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let _reset_needed = false;
 
-        if let Some(cents) = ins.values[0][0].get().as_float() {
+        if let Some(cents) = ins.value(0)[0].as_float() {
             self.player.set_detune(cents_to_detune(cents));
         }
 
-        if let Some(db_gain) = ins.values[1][0].get().as_float() {
+        if let Some(db_gain) = ins.value(1)[0].as_float() {
             self.player.set_gain(db_to_gain(db_gain));
         }
 
-        if let Some(shelf_db_gain) = ins.values[2][0].get().as_float() {
+        if let Some(shelf_db_gain) = ins.value(2)[0].as_float() {
             self.player.set_shelf_db_gain(shelf_db_gain);
         }
 
-        for frame in outs.streams[0][0].iter() {
-            frame.set(0.0);
+        for frame in outs.stream(0)[0].iter_mut() {
+            *frame = 0.0;
         }
 
         if let Resource::Rank(rank) = resources[0] {
             self.player.next_buffered(
                 context.current_time,
-                ins.midis[0][0].borrow(token).as_ref().map(|x| &*x.value).unwrap_or(&[]),
+                ins.midi(0)[0].as_ref().map(|x| &*x.value).unwrap_or(&[]),
                 rank,
                 &resources[1..],
-                outs.streams[0][0],
+                &mut outs.stream(0)[0],
             );
         }
 

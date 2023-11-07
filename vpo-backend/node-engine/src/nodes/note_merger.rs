@@ -30,19 +30,18 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = MidiBundle::new();
 
-        for (i, messages) in ins.midis.iter().enumerate() {
-            if let Some(midi) = messages[0].borrow(token) {
+        for (i, messages) in ins.midis().enumerate() {
+            if let Some(midi) = messages[0] {
                 for message in midi.value.iter() {
                     match message.data {
                         MidiData::NoteOn { note, .. } => {
@@ -75,7 +74,7 @@ impl NodeRuntime for NoteMergerNode {
             }
         }
 
-        *outs.midis[0][0].borrow_mut(token) = arena.alloc_slice_fill_iter(new_messages.into_iter()).ok();
+        outs.midi(0)[0] = arena.alloc_slice_fill_iter(new_messages.into_iter()).ok();
 
         ProcessResult::nothing()
     }

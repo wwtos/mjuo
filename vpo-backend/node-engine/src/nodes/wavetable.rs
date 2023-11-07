@@ -22,22 +22,21 @@ impl NodeRuntime for WavetableNode {
         })
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        _token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         _arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].get().as_float() {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency);
         }
 
         if let Ok(wavetable) = resources[0].try_ref() {
-            for frame in outs.streams[0][0].iter() {
-                frame.set(self.oscillator.get_next_sample(wavetable));
+            for frame in outs.stream(0)[0].iter() {
+                *frame = self.oscillator.get_next_sample(wavetable);
             }
         }
 

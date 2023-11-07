@@ -49,21 +49,20 @@ impl NodeRuntime for BiquadFilterNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        _token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         _arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].get().as_float() {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.filter_spec.f0 = frequency.max(1.0);
             self.recompute();
         }
 
-        if let Some(resonance) = ins.values[1][0].get().as_float() {
+        if let Some(resonance) = ins.value(1)[0].as_float() {
             match &mut self.filter_spec.filter_type {
                 FilterType::LowPass { q } | FilterType::HighPass { q } | FilterType::AllPass { q } => {
                     *q = resonance;
@@ -80,9 +79,13 @@ impl NodeRuntime for BiquadFilterNode {
             }
         }
 
-        for (channel_in, channel_out, filter) in multizip((ins.streams[0], outs.streams[0], self.filters.iter_mut())) {
+        for (channel_in, channel_out, filter) in multizip((
+            ins.stream(0).channels(),
+            outs.stream(0).channels(),
+            self.filters.iter_mut(),
+        )) {
             for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
-                frame_out.set(filter.filter_sample(frame_in.get()));
+                *frame_out = filter.filter_sample(*frame_in);
             }
         }
 

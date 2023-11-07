@@ -195,14 +195,14 @@ impl RankPlayer {
         midi: &[MidiMessage],
         rank: &Rank,
         samples: &[&impl TryRef<MonoSample, Error = E>],
-        out: &[Cell<f32>],
+        out: &mut [f32],
     ) where
         E: std::fmt::Debug,
     {
         let out_len = out.len();
 
-        for output in out.iter() {
-            output.set(0.0);
+        for output in out.iter_mut() {
+            *output = 0.0;
         }
 
         // allocate any needed voices
@@ -227,7 +227,7 @@ impl RankPlayer {
             let mut midi_position = 0;
 
             if let Some((pipe, sample)) = pipe_and_sample {
-                for (i, output) in out.iter().enumerate() {
+                for (i, output) in out.iter_mut().enumerate() {
                     let messages = midi;
 
                     while midi_position < messages.len() {
@@ -275,7 +275,7 @@ impl RankPlayer {
                         i as f32 / out_len as f32,
                     ));
 
-                    output.set(output.get() + voice.player.next_sample(pipe, sample));
+                    *output += voice.player.next_sample(pipe, sample);
 
                     if voice.player.is_done() {
                         voice.active = false;

@@ -1,7 +1,5 @@
 use std::{cell::Cell, iter::repeat};
 
-use ghost_cell::GhostBorrow;
-
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
@@ -26,35 +24,35 @@ impl OutputsNode {
 }
 
 impl NodeRuntime for OutputsNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        _outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        _outs: Outs<'a, 'arena>,
+
         arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
-        for (socket_in, local_in) in ins.midis.iter().zip(self.midis.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
+        for (socket_in, local_in) in ins.midis().zip(self.midis.iter_mut()) {
+            for (channel_in, local_channel_in) in socket_in.channels().zip(local_in.iter_mut()) {
                 local_channel_in.clear();
 
-                if let Some(midi) = channel_in.borrow(token) {
+                if let Some(midi) = channel_in {
                     local_channel_in.clone_from_slice(&midi.value);
                 }
             }
         }
 
-        for (socket_in, local_in) in ins.values.iter().zip(self.values.iter_mut()) {
+        for (socket_in, local_in) in ins.values().zip(self.values.iter_mut()) {
             local_in.clear();
-            local_in.extend(socket_in.iter().map(Cell::get));
+            local_in.extend(socket_in.channels());
         }
 
-        for (socket_in, local_in) in ins.streams.iter().zip(self.streams.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
+        for (socket_in, local_in) in ins.streams().zip(self.streams.iter_mut()) {
+            for (channel_in, local_channel_in) in socket_in.channels().zip(local_in.iter_mut()) {
                 local_channel_in.clear();
 
-                local_channel_in.extend(channel_in.iter().map(Cell::get));
+                local_channel_in.extend(channel_in.iter());
             }
         }
 

@@ -20,22 +20,21 @@ impl InputsNode {
 }
 
 impl NodeRuntime for InputsNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        _ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        _ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if !self.sent {
-            for (message_out, message_in) in outs.midis[0].iter().zip(self.midis.drain(..)) {
-                *message_out.borrow_mut(token) = arena.alloc_slice_fill_iter(message_in.into_iter()).ok();
+            for (message_out, message_in) in outs.midi(0).channels().zip(self.midis.drain(..)) {
+                *message_out = arena.alloc_slice_fill_iter(message_in.into_iter()).ok();
             }
 
-            for (values_out, value_to_output) in outs.values.iter().zip(self.values.iter()) {
-                values_out[0].set(*value_to_output);
+            for (mut values_out, value_to_output) in outs.values().zip(self.values.iter()) {
+                values_out[0] = *value_to_output;
             }
 
             self.sent = true;

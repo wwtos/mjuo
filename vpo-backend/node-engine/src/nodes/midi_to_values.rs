@@ -6,16 +6,15 @@ use crate::nodes::prelude::*;
 pub struct MidiToValuesNode {}
 
 impl NodeRuntime for MidiToValuesNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(midi) = ins.midis[0][0].borrow(token) {
+        if let Some(midi) = ins.midi(0)[0] {
             for data in midi.value.iter() {
                 match &data.data {
                     MidiData::NoteOn {
@@ -23,12 +22,12 @@ impl NodeRuntime for MidiToValuesNode {
                         note,
                         velocity,
                     } => {
-                        outs.values[0][0].set(float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0)));
-                        outs.values[1][0].set(bool(true));
-                        outs.values[2][0].set(float((*velocity as f32) / 127.0));
+                        outs.value(0)[0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
+                        outs.value(1)[0] = bool(true);
+                        outs.value(2)[0] = float((*velocity as f32) / 127.0);
                     }
                     MidiData::NoteOff { .. } => {
-                        outs.values[1][0].set(bool(false));
+                        outs.value(1)[0] = bool(false);
                     }
                     _ => {}
                 }

@@ -24,16 +24,15 @@ impl NodeRuntime for WavetableSequencerNode {
         })
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].get().as_float() {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.frequency = frequency;
         }
 
@@ -45,11 +44,11 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            outs.values[0][0].set(float(lerp(
+            outs.value(0)[0] = float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,
-            )));
+            ));
 
             self.phase += self.advance_by * self.frequency;
             self.phase = self.phase.fract();

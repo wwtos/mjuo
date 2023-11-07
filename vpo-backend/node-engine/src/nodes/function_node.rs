@@ -39,12 +39,12 @@ impl NodeRuntime for FunctionNode {
         InitResult::warning(warning)
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        _ins: Ins<'a, 'arena, 'brand>,
-        _outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        _ins: Ins<'a, 'arena>,
+        _outs: Outs<'a, 'arena>,
+
         arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {

@@ -4,27 +4,26 @@ use crate::nodes::prelude::*;
 pub struct MixerNode {}
 
 impl NodeRuntime for MixerNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        for stream_out in outs.streams {
-            for channel_out in stream_out.iter() {
+        for stream_out in outs.streams() {
+            for channel_out in stream_out.channels() {
                 for frame_out in channel_out.iter() {
-                    frame_out.set(0.0);
+                    *frame_out = 0.0;
                 }
             }
         }
 
-        for stream_in in ins.streams {
-            for (channel_in, channel_out) in stream_in.iter().zip(outs.streams[0].iter()) {
+        for stream_in in ins.streams() {
+            for (channel_in, channel_out) in stream_in.channels().zip(outs.stream(0).channels()) {
                 for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
-                    frame_out.set(frame_out.get() + frame_in.get());
+                    *frame_out += *frame_in;
                 }
             }
         }

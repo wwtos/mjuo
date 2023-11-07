@@ -23,21 +23,20 @@ impl NodeRuntime for OscillatorNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        _token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         _arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0][0].get().as_float() {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
 
-        for frame in outs.streams[0][0].iter() {
-            frame.set(self.oscillator.process());
+        for frame in outs.stream(0)[0].iter() {
+            *frame = self.oscillator.process();
         }
 
         NodeOk::no_warnings(())

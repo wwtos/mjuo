@@ -84,22 +84,22 @@ impl NodeRuntime for PolyphonicNode {
         ))
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        outs: Outs<'a, 'arena>,
+
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        // if !ins.midis[0][0].borrow(token).is_empty() {
+        // if !ins.midi(0)[0].is_empty() {
         //     let (child_input_node, _) = self.child_io_nodes.expect("child graph to be supplied");
 
         //     // have we created any voices?
         //     if !self.voices.is_empty() {
         //         // go through all the messages and send them to all the appropriate locations
-        //         for message in ins.midis[0][0].borrow(token) {
+        //         for message in ins.midi(0)[0] {
         //             let message_to_pass_to_all = match message.data {
         //                 MidiData::NoteOff { note, .. } => {
         //                     // look to see if there's a note on for this one, send it a turn off
@@ -249,7 +249,7 @@ impl NodeRuntime for PolyphonicNode {
 
         //         for (channel_out, child_channel_out) in outs.streams[0].iter_mut().zip(&child_output[0]) {
         //             for (frame_out, child_frame_out) in channel_out.iter_mut().zip(child_channel_out.iter()) {
-        //                 *frame_out.borrow_mut(token) += child_frame_out;
+        //                 *frame_out += child_frame_out;
         //             }
         //         }
 

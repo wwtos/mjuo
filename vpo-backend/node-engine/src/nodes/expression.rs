@@ -10,22 +10,21 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
 
-        for (i, value_in) in ins.values.iter().enumerate() {
-            if value_in[0].get().is_some() {
+        for (i, value_in) in ins.values().enumerate() {
+            if value_in[0].is_some() {
                 have_values_changed = true;
-                self.values_in[i] = value_in[0].get();
+                self.values_in[i] = value_in[0];
             }
         }
 
@@ -44,7 +43,7 @@ impl NodeRuntime for ExpressionNode {
                 // convert the output to a usuable form
                 match result {
                     Ok(output) => {
-                        outs.values[0][0].set(match output.type_name() {
+                        outs.value(0)[0] = match output.type_name() {
                             "bool" => bool(output.as_bool().unwrap()),
                             "i32" => int(output.as_int().unwrap()),
                             "f32" => float(output.as_float().unwrap()),
@@ -59,7 +58,7 @@ impl NodeRuntime for ExpressionNode {
 
                                 Primitive::None
                             }
-                        });
+                        };
                     }
                     Err(err) => {
                         // cleanup before erroring

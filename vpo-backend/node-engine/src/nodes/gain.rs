@@ -6,22 +6,21 @@ pub struct GainNode {
 }
 
 impl NodeRuntime for GainNode {
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        _token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         _arena: &'arena BuddyArena,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
-        if ins.values[0][0].get().is_some() {
-            self.gain = ins.values[0][0].get().as_float().unwrap_or(0.0);
+        if ins.value(0)[0].is_some() {
+            self.gain = ins.value(0)[0].as_float().unwrap_or(0.0);
         }
 
-        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter()) {
+        for (frame_in, frame_out) in ins.stream(0).channels().zip(outs.stream(0).channels()) {
             for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter()) {
-                sample_out.set(sample_in.get() * self.gain);
+                *sample_out = *sample_in * self.gain;
             }
         }
 

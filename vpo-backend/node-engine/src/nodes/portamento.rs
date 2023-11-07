@@ -28,18 +28,18 @@ impl NodeRuntime for PortamentoNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
+
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(gate) = ins.values[0][0].get().as_boolean() {
+        if let Some(gate) = ins.value(0)[0].as_boolean() {
             if self.engaged && !gate {
-                outs.values[0][0].set(float(self.ramp.get_to()));
+                outs.value(0)[0] = float(self.ramp.get_to());
                 self.ramp.set_position(self.ramp.get_to());
             }
 
@@ -47,19 +47,19 @@ impl NodeRuntime for PortamentoNode {
             self.active = true;
         }
 
-        if let Some(frequency) = ins.values[1][0].get().as_float() {
+        if let Some(frequency) = ins.value(1)[0].as_float() {
             if self.engaged {
                 self.ramp
                     .set_ramp_parameters(self.ramp.get_position(), frequency, self.speed)
                     .unwrap();
             } else {
-                outs.values[0][0].set(float(frequency));
+                outs.value(0)[0] = float(frequency);
             }
 
             self.active = true;
         }
 
-        if let Some(speed) = ins.values[2][0].get().as_float() {
+        if let Some(speed) = ins.value(2)[0].as_float() {
             self.speed = speed;
             self.ramp
                 .set_ramp_parameters(self.ramp.get_position(), self.ramp.get_to(), self.speed)
@@ -71,7 +71,7 @@ impl NodeRuntime for PortamentoNode {
         if self.engaged && self.active {
             let out = self.ramp.process();
 
-            outs.values[0][0].set(float(out));
+            outs.value(0)[0] = float(out);
 
             if self.ramp.is_done() {
                 self.active = false;

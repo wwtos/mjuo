@@ -24,16 +24,15 @@ impl NodeRuntime for ToggleNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a, 'brand>(
+    fn process<'a, 'arena: 'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena, 'brand>,
-        outs: Outs<'a, 'arena, 'brand>,
-        token: &mut GhostToken<'brand>,
+        ins: Ins<'a, 'arena>,
+        mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
         resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(new_state) = ins.values[0][0].get().as_boolean() {
+        if let Some(new_state) = ins.value(0)[0].as_boolean() {
             if !self.first_time {
                 self.state = new_state;
                 self.updated_state = ProcessState::Unprocessed(());
@@ -41,7 +40,7 @@ impl NodeRuntime for ToggleNode {
         }
 
         if matches!(self.updated_state, ProcessState::Unprocessed(())) || self.first_time {
-            outs.values[0][0].set(bool(self.state));
+            outs.value(0)[0] = bool(self.state);
         }
 
         self.updated_state = match self.updated_state {
