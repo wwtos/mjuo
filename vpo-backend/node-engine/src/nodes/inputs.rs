@@ -29,7 +29,7 @@ impl NodeRuntime for InputsNode {
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if !self.sent {
-            for (message_out, message_in) in outs.midi(0).channels().zip(self.midis.drain(..)) {
+            for (message_out, message_in) in outs.midi(0).iter_mut().zip(self.midis.drain(..)) {
                 *message_out = arena.alloc_slice_fill_iter(message_in.into_iter()).ok();
             }
 

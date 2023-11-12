@@ -1632,12 +1632,14 @@ dependencies = [
  "common",
  "ddgg",
  "enum_dispatch",
+ "generational-arena",
  "ghost-cell",
  "itertools",
  "lazy_static",
  "petgraph",
  "resource-manager",
  "rhai",
+ "self_cell",
  "serde",
  "serde_json",
  "smallvec",
@@ -2293,6 +2295,12 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "self_cell"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c309e515543e67811222dbc9e3dd7e1056279b782e1dacffe4242b718734fb6"
 
 [[package]]
 name = "semver"

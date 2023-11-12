@@ -11,10 +11,10 @@ impl NodeRuntime for MidiToValuesNode {
         _context: NodeProcessContext,
         ins: Ins<'a, 'arena>,
         mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        _arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
-        if let Some(midi) = ins.midi(0)[0] {
+        if let Some(midi) = &ins.midi(0)[0] {
             for data in midi.value.iter() {
                 match &data.data {
                     MidiData::NoteOn {
@@ -43,7 +43,7 @@ impl Node for MidiToValuesNode {
         MidiToValuesNode {}
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_output("frequency", 1),

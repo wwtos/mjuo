@@ -34,7 +34,7 @@ impl NodeRuntime for OutputsNode {
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis().zip(self.midis.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.channels().zip(local_in.iter_mut()) {
+            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
                 local_channel_in.clear();
 
                 if let Some(midi) = channel_in {
@@ -45,11 +45,11 @@ impl NodeRuntime for OutputsNode {
 
         for (socket_in, local_in) in ins.values().zip(self.values.iter_mut()) {
             local_in.clear();
-            local_in.extend(socket_in.channels());
+            local_in.extend(socket_in.iter());
         }
 
         for (socket_in, local_in) in ins.streams().zip(self.streams.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.channels().zip(local_in.iter_mut()) {
+            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
                 local_channel_in.clear();
 
                 local_channel_in.extend(channel_in.iter());

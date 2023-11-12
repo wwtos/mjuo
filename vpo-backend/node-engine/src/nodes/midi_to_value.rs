@@ -42,13 +42,13 @@ impl NodeRuntime for MidiToValueNode {
         context: NodeProcessContext,
         ins: Ins<'a, 'arena>,
         mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        _arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
         if let Some(ast) = self.ast.as_ref() {
-            if let Some(midi) = ins.midi(0)[0] {
+            if let Some(midi) = &ins.midi(0)[0] {
                 for message in midi.value.iter() {
                     self.scope.push("timestamp", message.timestamp);
 

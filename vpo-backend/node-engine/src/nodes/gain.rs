@@ -18,8 +18,8 @@ impl NodeRuntime for GainNode {
             self.gain = ins.value(0)[0].as_float().unwrap_or(0.0);
         }
 
-        for (frame_in, frame_out) in ins.stream(0).channels().zip(outs.stream(0).channels()) {
-            for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter()) {
+        for (frame_in, frame_out) in ins.stream(0).iter().zip(outs.stream(0).iter_mut()) {
+            for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter_mut()) {
                 *sample_out = *sample_in * self.gain;
             }
         }

@@ -155,16 +155,15 @@ impl GraphState {
         };
 
         let scripting_engine: Engine = Engine::new_raw();
-        let mut root_traverser = BufferedTraverser::default();
 
-        root_traverser.init_graph(
-            root_graph_index,
-            &graph_manager,
-            &scripting_engine,
-            &global_state.resources.read().unwrap(),
-            0,
-            global_state.sound_config.clone(),
-        )?;
+        // root_traverser.init_graph(
+        //     root_graph_index,
+        //     &graph_manager,
+        //     &scripting_engine,
+        //     &global_state.resources.read().unwrap(),
+        //     0,
+        //     global_state.sound_config.clone(),
+        // )?;
 
         Ok(GraphState {
             history,
@@ -178,36 +177,36 @@ impl GraphState {
         })
     }
 
-    pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
-        let script_engine = rhai::Engine::new_raw();
-        let resources = global_state.resources.read().unwrap();
+    // pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
+    //     let script_engine = rhai::Engine::new_raw();
+    //     let resources = global_state.resources.read().unwrap();
 
-        let (traverser, _errors_and_warnings) = BufferedTraverser::new(
-            self.root_graph_index,
-            &self.graph_manager,
-            &script_engine,
-            &resources,
-            0,
-            global_state.sound_config.clone(),
-        )?;
+    //     let (traverser, _errors_and_warnings) = BufferedTraverser::new(
+    //         self.root_graph_index,
+    //         &self.graph_manager,
+    //         &script_engine,
+    //         &resources,
+    //         0,
+    //         global_state.sound_config.clone(),
+    //     )?;
 
-        Ok(traverser)
-    }
+    //     Ok(BufferedTraverser {})
+    // }
 
     pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
         let script_engine = rhai::Engine::new_raw();
         let resources = global_state.resources.read().unwrap();
 
-        let (traverser, _errors_and_warnings) = BufferedTraverser::new(
-            self.root_graph_index,
-            &self.graph_manager,
-            &script_engine,
-            &resources,
-            0,
-            global_state.sound_config.clone(),
-        )?;
+        // let (traverser, _errors_and_warnings) = BufferedTraverser::new(
+        //     self.root_graph_index,
+        //     &self.graph_manager,
+        //     &script_engine,
+        //     &resources,
+        //     0,
+        //     global_state.sound_config.clone(),
+        // )?;
 
-        Ok(NodeEngine::new(traverser, script_engine, self.io_nodes.clone()))
+        Ok(NodeEngine::new(script_engine, self.io_nodes.clone()))
     }
 
     pub fn get_node_state(&self) -> BTreeMap<NodeIndex, NodeState> {

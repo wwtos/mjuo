@@ -8,6 +8,7 @@ use crate::{
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
+    traversal::buffered_traverser::BufferedTraverser,
 };
 
 #[derive(Debug)]
@@ -20,10 +21,9 @@ pub struct NodeEngine {
 }
 
 impl NodeEngine {
-    pub fn new(traverser: BufferedTraverser, scripting_engine: Engine, io_nodes: IoNodes) -> NodeEngine {
+    pub fn new(scripting_engine: Engine, io_nodes: IoNodes) -> NodeEngine {
         NodeEngine {
             current_time: 0,
-            traverser: Some(traverser),
             io_nodes: Some(io_nodes),
             scripting_engine,
             new_states: vec![],
@@ -36,16 +36,11 @@ impl NodeEngine {
 
         NodeEngine {
             current_time: 0,
-            traverser: None,
             io_nodes: None,
             scripting_engine: engine,
             new_states: vec![],
             current_graph_state: None,
         }
-    }
-
-    pub fn initialized(&self) -> bool {
-        self.traverser.is_some()
     }
 
     pub fn apply_state_updates(&mut self, updates: Vec<NodeEngineUpdate>) {

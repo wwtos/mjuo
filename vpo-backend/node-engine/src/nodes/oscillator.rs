@@ -35,7 +35,7 @@ impl NodeRuntime for OscillatorNode {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
 
-        for frame in outs.stream(0)[0].iter() {
+        for frame in outs.stream(0)[0].iter_mut() {
             *frame = self.oscillator.process();
         }
 

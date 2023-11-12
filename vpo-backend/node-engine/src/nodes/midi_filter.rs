@@ -39,18 +39,18 @@ impl NodeRuntime for MidiFilterNode {
         ins: Ins<'a, 'arena>,
         mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
-            if let Some(midi) = ins.midi(0)[0] {
+            if let Some(midi) = &ins.midi(0)[0] {
                 let messages = &midi.value;
 
                 self.scratch.clear();
 
                 // create a list of trues and falses of which messages should be passed on
-                let filtered = messages.iter().enumerate().map(|(i, msg)| {
+                let filtered = messages.iter().map(|msg| {
                     add_message_to_scope(&mut self.scope, &msg.data);
 
                     let result = context
@@ -106,7 +106,7 @@ impl Node for MidiFilterNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             NodeRow::Property(

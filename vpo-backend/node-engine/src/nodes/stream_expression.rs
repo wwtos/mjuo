@@ -18,8 +18,8 @@ impl NodeRuntime for StreamExpressionNode {
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
-            for (channel_i, channel_out) in outs.stream(0).channels().enumerate() {
-                for (frame_i, frame_out) in channel_out.iter().enumerate() {
+            for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
+                for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
                     // start by rewinding the scope
                     self.scope.rewind(0);
 

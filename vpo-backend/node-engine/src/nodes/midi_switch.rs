@@ -52,7 +52,7 @@ impl NodeRuntime for MidiSwitchNode {
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = MidiBundle::new();
 
-        if let Some(midi) = ins.midi(0)[0] {
+        if let Some(midi) = &ins.midi(0)[0] {
             let messages = &midi.value;
 
             for message in messages.iter() {
@@ -169,7 +169,7 @@ impl NodeRuntime for MidiSwitchNode {
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),

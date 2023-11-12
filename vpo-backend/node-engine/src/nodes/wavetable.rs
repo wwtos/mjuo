@@ -35,7 +35,7 @@ impl NodeRuntime for WavetableNode {
         }
 
         if let Ok(wavetable) = resources[0].try_ref() {
-            for frame in outs.stream(0)[0].iter() {
+            for frame in outs.stream(0)[0].iter_mut() {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }
         }

@@ -36,12 +36,12 @@ impl NodeRuntime for NoteMergerNode {
         ins: Ins<'a, 'arena>,
         mut outs: Outs<'a, 'arena>,
         arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = MidiBundle::new();
 
         for (i, messages) in ins.midis().enumerate() {
-            if let Some(midi) = messages[0] {
+            if let Some(midi) = &messages[0] {
                 for message in midi.value.iter() {
                     match message.data {
                         MidiData::NoteOn { note, .. } => {
@@ -88,7 +88,7 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
             midi_output("midi", 1),

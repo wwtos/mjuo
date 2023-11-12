@@ -9,20 +9,20 @@ impl NodeRuntime for MixerNode {
         _context: NodeProcessContext,
         ins: Ins<'a, 'arena>,
         mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        _arena: &'arena BuddyArena,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         for stream_out in outs.streams() {
-            for channel_out in stream_out.channels() {
-                for frame_out in channel_out.iter() {
+            for channel_out in stream_out.iter_mut() {
+                for frame_out in channel_out.iter_mut() {
                     *frame_out = 0.0;
                 }
             }
         }
 
         for stream_in in ins.streams() {
-            for (channel_in, channel_out) in stream_in.channels().zip(outs.stream(0).channels()) {
-                for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
+            for (channel_in, channel_out) in stream_in.iter().zip(outs.stream(0).iter_mut()) {
+                for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
                     *frame_out += *frame_in;
                 }
             }

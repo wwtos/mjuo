@@ -79,12 +79,10 @@ impl NodeRuntime for BiquadFilterNode {
             }
         }
 
-        for (channel_in, channel_out, filter) in multizip((
-            ins.stream(0).channels(),
-            outs.stream(0).channels(),
-            self.filters.iter_mut(),
-        )) {
-            for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter()) {
+        for (channel_in, channel_out, filter) in
+            multizip((ins.stream(0).iter(), outs.stream(0).iter_mut(), self.filters.iter_mut()))
+        {
+            for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
                 *frame_out = filter.filter_sample(*frame_in);
             }
         }
