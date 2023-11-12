@@ -8,12 +8,12 @@ pub struct MidiTransposeNode {
 }
 
 impl NodeRuntime for MidiTransposeNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.value(0)[0].as_int() {
@@ -21,8 +21,9 @@ impl NodeRuntime for MidiTransposeNode {
         }
 
         if let Some(midi) = &ins.midi(0)[0] {
-            let output: Vec<MidiMessage> = midi
-                .value
+            let output: Vec<MidiMessage> = midi_store
+                .borrow_midi(midi)
+                .unwrap()
                 .iter()
                 .filter_map(|message| match message.data {
                     MidiData::NoteOn {
@@ -69,7 +70,7 @@ impl NodeRuntime for MidiTransposeNode {
                 })
                 .collect();
 
-            outs.midi(0)[0] = arena.alloc_slice_fill_iter(output.into_iter()).ok();
+            outs.midi(0)[0] = midi_store.register_midis(output.into_iter());
         }
 
         ProcessResult::nothing()

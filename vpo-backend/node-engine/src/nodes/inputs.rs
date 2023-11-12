@@ -20,17 +20,17 @@ impl InputsNode {
 }
 
 impl NodeRuntime for InputsNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
-        _ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
-        _resources: &[&Resource],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         if !self.sent {
             for (message_out, message_in) in outs.midi(0).iter_mut().zip(self.midis.drain(..)) {
-                *message_out = arena.alloc_slice_fill_iter(message_in.into_iter()).ok();
+                *message_out = midi_store.register_midis(message_in.into_iter());
             }
 
             for (mut values_out, value_to_output) in outs.values().zip(self.values.iter()) {

@@ -10,12 +10,12 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;

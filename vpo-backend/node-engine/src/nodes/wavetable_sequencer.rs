@@ -24,12 +24,12 @@ impl NodeRuntime for WavetableSequencerNode {
         })
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.value(0)[0].as_float() {

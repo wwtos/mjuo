@@ -84,13 +84,12 @@ impl NodeRuntime for PolyphonicNode {
         ))
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        outs: Outs<'a, 'arena>,
-
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         // if !ins.midi(0)[0].is_empty() {

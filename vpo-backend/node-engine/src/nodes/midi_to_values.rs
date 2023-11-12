@@ -6,16 +6,18 @@ use crate::nodes::prelude::*;
 pub struct MidiToValuesNode {}
 
 impl NodeRuntime for MidiToValuesNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        _arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(midi) = &ins.midi(0)[0] {
-            for data in midi.value.iter() {
+            let messages = midi_store.borrow_midi(midi).unwrap();
+
+            for data in messages.iter() {
                 match &data.data {
                     MidiData::NoteOn {
                         channel: _,

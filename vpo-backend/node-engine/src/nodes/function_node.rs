@@ -39,14 +39,13 @@ impl NodeRuntime for FunctionNode {
         InitResult::warning(warning)
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
-        _ins: Ins<'a, 'arena>,
-        _outs: Outs<'a, 'arena>,
-
-        arena: &'arena BuddyArena,
-        _resources: &[&Resource],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 

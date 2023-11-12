@@ -4,12 +4,12 @@ use crate::nodes::prelude::*;
 pub struct MixerNode {}
 
 impl NodeRuntime for MixerNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        _arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         for stream_out in outs.streams() {

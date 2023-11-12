@@ -14,13 +14,13 @@ impl NodeRuntime for EnvelopeNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
-        resources: &[&Resource],
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             self.gate = gate;
@@ -60,7 +60,7 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("gate", Primitive::Boolean(false), 1),
             value_output("gain", 1),

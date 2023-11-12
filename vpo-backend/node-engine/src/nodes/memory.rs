@@ -44,14 +44,13 @@ impl NodeRuntime for MemoryNode {
         self.state_changed = true;
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        _outs: Outs<'a, 'arena>,
-
-        arena: &'arena BuddyArena,
-        _resources: &[&Resource],
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         self.state_changed = false;
 

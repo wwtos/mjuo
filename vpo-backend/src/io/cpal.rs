@@ -9,7 +9,6 @@ use cpal::{
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
 use node_engine::{
-    connection::MidiBundle,
     engine::NodeEngine,
     global_state::Resources,
     state::{FromNodeEngine, NodeEngineUpdate},
@@ -17,7 +16,7 @@ use node_engine::{
 use rtrb::RingBuffer;
 use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
-use sound_engine::midi::messages::MidiMessage;
+use sound_engine::{midi::messages::MidiMessage, MidiBundle};
 use tokio::sync::broadcast;
 
 use crate::errors::EngineError;

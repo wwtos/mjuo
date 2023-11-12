@@ -69,7 +69,7 @@ pub fn calculate_graph_traverse_order(original_graph: &NodeGraph) -> Vec<NodeInd
 }
 
 #[derive(Debug)]
-pub(crate) struct NodeIoCount {
+pub struct NodeIoCount {
     pub node: NodeVariant,
     pub to_input: Vec<(usize, Vec<Primitive>)>,
     pub midi_inputs: Vec<usize>,

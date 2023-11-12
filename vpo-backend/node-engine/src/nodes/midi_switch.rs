@@ -42,18 +42,18 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = MidiBundle::new();
 
         if let Some(midi) = &ins.midi(0)[0] {
-            let messages = &midi.value;
+            let messages = midi_store.borrow_midi(midi).unwrap();
 
             for message in messages.iter() {
                 match message.data {
@@ -161,7 +161,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            outs.midi(0)[0] = arena.alloc_slice_fill_iter(midi_out.into_iter()).ok();
+            outs.midi(0)[0] = midi_store.register_midis(midi_out.into_iter());
         }
 
         ProcessResult::nothing()

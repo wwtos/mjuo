@@ -23,12 +23,12 @@ impl NodeRuntime for OscillatorNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        _arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.value(0)[0].as_float() {

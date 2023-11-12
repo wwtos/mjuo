@@ -37,19 +37,21 @@ impl NodeRuntime for MidiToValueNode {
         }
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        _arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
         if let Some(ast) = self.ast.as_ref() {
             if let Some(midi) = &ins.midi(0)[0] {
-                for message in midi.value.iter() {
+                let messages = midi_store.borrow_midi(midi).unwrap();
+
+                for message in messages.iter() {
                     self.scope.push("timestamp", message.timestamp);
 
                     add_message_to_scope(&mut self.scope, &message.data);

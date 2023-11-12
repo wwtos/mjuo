@@ -1,4 +1,4 @@
-use std::{cell::Cell, iter::repeat};
+use std::iter::repeat;
 
 use crate::nodes::prelude::*;
 
@@ -24,21 +24,20 @@ impl OutputsNode {
 }
 
 impl NodeRuntime for OutputsNode {
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        _outs: Outs<'a, 'arena>,
-
-        arena: &'arena BuddyArena,
-        _resources: &[&Resource],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[&Resource],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis().zip(self.midis.iter_mut()) {
             for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
                 local_channel_in.clear();
 
                 if let Some(midi) = channel_in {
-                    local_channel_in.clone_from_slice(&midi.value);
+                    local_channel_in.clone_from_slice(midi_store.borrow_midi(midi).unwrap());
                 }
             }
         }

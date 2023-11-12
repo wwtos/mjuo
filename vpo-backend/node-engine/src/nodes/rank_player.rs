@@ -57,12 +57,12 @@ impl NodeRuntime for RankPlayerNode {
         })
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        _arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         let _reset_needed = false;
@@ -86,7 +86,10 @@ impl NodeRuntime for RankPlayerNode {
         if let Resource::Rank(rank) = resources[0] {
             self.player.next_buffered(
                 context.current_time,
-                ins.midi(0)[0].as_ref().map(|x| &*x.value).unwrap_or(&[]),
+                ins.midi(0)[0]
+                    .as_ref()
+                    .and_then(|x| midi_store.borrow_midi(x))
+                    .unwrap_or(&[]),
                 rank,
                 &resources[1..],
                 &mut outs.stream(0)[0],

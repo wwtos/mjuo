@@ -30,19 +30,21 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = MidiBundle::new();
 
         for (i, messages) in ins.midis().enumerate() {
             if let Some(midi) = &messages[0] {
-                for message in midi.value.iter() {
+                let messages = midi_store.borrow_midi(midi).unwrap();
+
+                for message in messages.iter() {
                     match message.data {
                         MidiData::NoteOn { note, .. } => {
                             let before = self.combined;
@@ -74,7 +76,7 @@ impl NodeRuntime for NoteMergerNode {
             }
         }
 
-        outs.midi(0)[0] = arena.alloc_slice_fill_iter(new_messages.into_iter()).ok();
+        outs.midi(0)[0] = midi_store.register_midis(new_messages.into_iter());
 
         ProcessResult::nothing()
     }

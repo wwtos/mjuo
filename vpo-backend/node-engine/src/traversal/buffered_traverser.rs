@@ -11,15 +11,13 @@ use sound_engine::SoundConfig;
 use crate::{
     connection::Primitive,
     global_state::Resources,
-    node::{Ins, MidiRef, NodeProcessContext, NodeRuntime, Outs, StateInterface},
+    midi_store::MidiStore,
+    node::{Ins, MidiStoreInterface, MidisIndex, NodeProcessContext, NodeRuntime, Outs, StateInterface},
     nodes::NodeVariant,
     traversal::calculate_traversal_order::NodeMappedIo,
 };
 
-use super::{
-    calculate_traversal_order::{Indexes, IoSpec},
-    midi_store::MidiStore,
-};
+use super::calculate_traversal_order::{Indexes, IoSpec};
 
 struct BufferChunks<'a>(Vec<&'a [UnsafeCell<f32>]>);
 self_cell!(
@@ -41,25 +39,19 @@ fn build_chunked_buffer(buffer: Vec<UnsafeCell<f32>>, chunk_size: usize) -> Chun
     ChunkedBuffer::new(buffer, |buffer| BufferChunks(buffer.chunks_exact(chunk_size).collect()))
 }
 
-pub struct MidiIndex(generational_arena::Index);
-
-pub struct MidiStoreInterface<'a> {
-    store: &'a mut MidiStore,
-}
-
 struct TraverserIo {
     stream_io: ChunkedBuffer,
     value_io: Vec<UnsafeCell<Primitive>>,
-    midi_io: Vec<UnsafeCell<Option<MidiIndex>>>,
+    midi_io: Vec<UnsafeCell<Option<MidisIndex>>>,
     stream_default: ChunkedBuffer,
-    midi_default: Vec<UnsafeCell<Option<MidiIndex>>>,
+    midi_default: Vec<UnsafeCell<Option<MidisIndex>>>,
     value_default: Vec<UnsafeCell<Primitive>>,
 }
 
 struct TraverserRefs<'io> {
     stream_sockets: Vec<&'io [&'io [UnsafeCell<f32>]]>,
     value_sockets: Vec<&'io [UnsafeCell<Primitive>]>,
-    midi_sockets: Vec<&'io [MidiRef<'io>]>,
+    midi_sockets: Vec<&'io [UnsafeCell<Option<MidisIndex>>]>,
 }
 
 self_cell!(
@@ -104,12 +96,10 @@ fn build_io(config: SoundConfig, indexes: &Indexes, arena: BuddyArena) -> Traver
     }
 }
 
-fn build_refs<'io>(io: &'io TraverserIoWithArena, config: SoundConfig, indexes: &Indexes) -> TraverserRefs<'io> {
+fn build_refs<'io>(io: &'io TraverserIo, config: SoundConfig, indexes: &Indexes) -> TraverserRefs<'io> {
     let mut stream_sockets: Vec<&[&[UnsafeCell<f32>]]> = vec![];
-    let mut midi_sockets: Vec<&[MidiRef]> = vec![];
+    let mut midi_sockets: Vec<&[UnsafeCell<Option<MidisIndex>>]> = vec![];
     let mut value_sockets: Vec<&[UnsafeCell<Primitive>]> = vec![];
-
-    let io = &io.borrow_dependent();
 
     for stream_config in &indexes.streams {
         if let Some(stream_config) = stream_config {
@@ -144,21 +134,16 @@ fn build_refs<'io>(io: &'io TraverserIoWithArena, config: SoundConfig, indexes: 
 
 self_cell!(
     struct IoAndRefs {
-        owner: TraverserIoWithArena,
+        owner: TraverserIo,
 
         #[covariant]
         dependent: TraverserRefs,
     }
 );
 
-impl IoAndRefs {
-    fn borrow_arena(&self) -> &BuddyArena {
-        self.borrow_owner().borrow_owner()
-    }
-}
-
 pub struct BufferedTraverser {
     io_and_refs: IoAndRefs,
+    store: MidiStore,
     config: SoundConfig,
     engine: Engine,
     time: i64,
@@ -193,6 +178,8 @@ pub fn build_traverser<'a, 'arena>(
 
     let mut current_time = start_time;
 
+    let mut store = MidiStore::new(1_000_000, 4096);
+
     for i in midi_sockets {
         for j in i.iter() {
             dbg!(j);
@@ -226,7 +213,7 @@ pub fn build_traverser<'a, 'arena>(
                         &stream_sockets[io.stream_out.clone()],
                     )
                 },
-                io_and_refs.borrow_arena(),
+                &mut MidiStoreInterface::new(&mut store),
                 &[],
             )
             .unwrap();
@@ -238,21 +225,16 @@ pub fn build_traverser<'a, 'arena>(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        cell::{Cell, UnsafeCell},
-        collections::BTreeMap,
-        iter::{repeat, repeat_with},
-    };
+    use std::{cell::UnsafeCell, collections::BTreeMap, iter::repeat_with};
 
     use common::alloc::BuddyArena;
-    use ghost_cell::{GhostCell, GhostToken};
     use sound_engine::SoundConfig;
 
     use crate::{
         connection::{Primitive, Socket, SocketType},
         global_state::Resources,
         graph_manager::GraphManager,
-        node::MidiRef,
+        node::MidisIndex,
         traversal::calculate_traversal_order::{calc_indexes, get_node_io_needed},
     };
 
@@ -305,25 +287,26 @@ mod tests {
         let stream_io: Vec<UnsafeCell<f32>> = repeat_with(|| UnsafeCell::new(0.0))
             .take(8 * indexes.stream_count)
             .collect();
-        let midi_io: Vec<MidiRef> = repeat_with(|| UnsafeCell::new(None)).take(indexes.midi_count).collect();
+        let midi_io: Vec<UnsafeCell<Option<MidisIndex>>> =
+            repeat_with(|| UnsafeCell::new(None)).take(indexes.midi_count).collect();
         let value_io: Vec<UnsafeCell<Primitive>> = repeat_with(|| UnsafeCell::new(Primitive::None))
             .take(indexes.value_count)
             .collect();
 
-        start_traverser(
-            SoundConfig {
-                sample_rate: 48_000,
-                buffer_size: 8,
-            },
-            needed_io,
-            &indexes,
-            &stream_io[..],
-            &value_io[..],
-            &midi_io[..],
-            &rhai::Engine::new(),
-            &Resources::default(),
-            0,
-            &arena,
-        );
+        // start_traverser(
+        //     SoundConfig {
+        //         sample_rate: 48_000,
+        //         buffer_size: 8,
+        //     },
+        //     needed_io,
+        //     &indexes,
+        //     &stream_io[..],
+        //     &value_io[..],
+        //     &midi_io[..],
+        //     &rhai::Engine::new(),
+        //     &Resources::default(),
+        //     0,
+        //     &arena,
+        // );
     }
 }

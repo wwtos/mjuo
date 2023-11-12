@@ -28,13 +28,12 @@ impl NodeRuntime for PortamentoNode {
         InitResult::nothing()
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-
-        arena: &'arena BuddyArena,
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         resources: &[&Resource],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.value(0)[0].as_boolean() {

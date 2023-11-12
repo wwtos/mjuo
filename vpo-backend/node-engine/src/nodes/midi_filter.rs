@@ -33,19 +33,19 @@ impl NodeRuntime for MidiFilterNode {
         InitResult::warning(warning)
     }
 
-    fn process<'a, 'arena: 'a>(
+    fn process<'a>(
         &mut self,
         context: NodeProcessContext,
-        ins: Ins<'a, 'arena>,
-        mut outs: Outs<'a, 'arena>,
-        arena: &'arena BuddyArena,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
         _resources: &[&Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
             if let Some(midi) = &ins.midi(0)[0] {
-                let messages = &midi.value;
+                let messages = midi_store.borrow_midi(midi).unwrap();
 
                 self.scratch.clear();
 
@@ -77,7 +77,7 @@ impl NodeRuntime for MidiFilterNode {
                 let new_len = self.scratch.iter().filter(|x| **x).count();
                 let mut i = 0;
 
-                let messages_out = arena.alloc_slice_fill_with(new_len, |_| {
+                let messages_out = midi_store.map_midis(midi, new_len, |messages, _| {
                     while self.scratch[i] == false {
                         i += 1;
                     }
@@ -88,7 +88,7 @@ impl NodeRuntime for MidiFilterNode {
                     messages[i].clone()
                 });
 
-                outs.midi(0)[0] = messages_out.ok();
+                outs.midi(0)[0] = messages_out;
             }
         }
 
