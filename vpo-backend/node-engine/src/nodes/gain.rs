@@ -12,7 +12,7 @@ impl NodeRuntime for GainNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if ins.value(0)[0].is_some() {
             self.gain = ins.value(0)[0].as_float().unwrap_or(0.0);

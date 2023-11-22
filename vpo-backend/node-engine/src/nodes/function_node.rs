@@ -45,7 +45,7 @@ impl NodeRuntime for FunctionNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        resources: &[Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 

@@ -48,9 +48,9 @@ impl NodeRuntime for MemoryNode {
         &mut self,
         context: NodeProcessContext,
         ins: Ins<'a>,
-        mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        _outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         self.state_changed = false;
 
@@ -140,7 +140,7 @@ impl NodeRuntime for MemoryNode {
 }
 
 impl Node for MemoryNode {
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("activate", Primitive::Boolean(false), 1),
             value_input("load_mode", Primitive::Boolean(false), 1),

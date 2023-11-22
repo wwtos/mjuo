@@ -36,7 +36,7 @@ impl NodeRuntime for NoteMergerNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut new_messages: MidiBundle = MidiBundle::new();
 

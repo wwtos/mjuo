@@ -39,7 +39,7 @@ impl NodeRuntime for MidiFilterNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
@@ -85,7 +85,7 @@ impl NodeRuntime for MidiFilterNode {
                     let out = i;
                     i += 1;
 
-                    messages[i].clone()
+                    messages[out].clone()
                 });
 
                 outs.midi(0)[0] = messages_out;

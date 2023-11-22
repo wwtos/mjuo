@@ -1,6 +1,6 @@
 use common::traits::TryRef;
 
-use std::{cell::Cell, collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use crate::{
     midi::messages::{MidiData, MidiMessage},
@@ -140,7 +140,7 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[&impl TryRef<MonoSample, Error = E>]) {
+    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[impl TryRef<MonoSample, Error = E>]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
@@ -194,7 +194,7 @@ impl RankPlayer {
         time: i64,
         midi: &[MidiMessage],
         rank: &Rank,
-        samples: &[&impl TryRef<MonoSample, Error = E>],
+        samples: &[impl TryRef<MonoSample, Error = E>],
         out: &mut [f32],
     ) where
         E: std::fmt::Debug,

@@ -43,7 +43,7 @@ impl NodeRuntime for MidiToValueNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
@@ -82,7 +82,7 @@ impl NodeRuntime for MidiToValueNode {
 }
 
 impl Node for MidiToValueNode {
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
             midi_input("midi", 1),

@@ -34,7 +34,7 @@ impl NodeRuntime for PortamentoNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             if self.engaged && !gate {

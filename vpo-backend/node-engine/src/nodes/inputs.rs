@@ -22,11 +22,11 @@ impl InputsNode {
 impl NodeRuntime for InputsNode {
     fn process<'a>(
         &mut self,
-        context: NodeProcessContext,
-        ins: Ins<'a>,
+        _context: NodeProcessContext,
+        _ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if !self.sent {
             for (message_out, message_in) in outs.midi(0).iter_mut().zip(self.midis.drain(..)) {

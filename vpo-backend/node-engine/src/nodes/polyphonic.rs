@@ -90,7 +90,7 @@ impl NodeRuntime for PolyphonicNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        resources: &[Resource],
     ) -> NodeResult<()> {
         // if !ins.midi(0)[0].is_empty() {
         //     let (child_input_node, _) = self.child_io_nodes.expect("child graph to be supplied");

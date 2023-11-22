@@ -14,7 +14,7 @@ impl NodeRuntime for MidiTransposeNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.value(0)[0].as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
@@ -81,7 +81,7 @@ impl Node for MidiTransposeNode {
     fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
-            value_input("transpose", Primitive::Int(0), 1),
+            value_input("transpose", int(0), 1),
             midi_output("midi", 1),
         ])
     }

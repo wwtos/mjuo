@@ -26,11 +26,11 @@ impl OutputsNode {
 impl NodeRuntime for OutputsNode {
     fn process<'a>(
         &mut self,
-        context: NodeProcessContext,
+        _context: NodeProcessContext,
         ins: Ins<'a>,
-        mut outs: Outs<'a>,
+        _outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         for (socket_in, local_in) in ins.midis().zip(self.midis.iter_mut()) {
             for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
@@ -59,26 +59,9 @@ impl NodeRuntime for OutputsNode {
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let channels = default_channels(params.props, params.default_channel_count);
-
         let buffer_size = params.sound_config.buffer_size;
 
         if let Some(Property::SocketList(sockets)) = params.props.get("socket_list") {
-            let midi_outputs = sockets
-                .iter()
-                .filter(|output| output.socket_type() == SocketType::Midi)
-                .count();
-
-            let value_outputs = sockets
-                .iter()
-                .filter(|output| output.socket_type() == SocketType::Value)
-                .count();
-
-            let stream_outputs = sockets
-                .iter()
-                .filter(|output| output.socket_type() == SocketType::Stream)
-                .count();
-
             self.midis.clear();
             self.values.clear();
             self.streams.clear();
@@ -129,7 +112,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

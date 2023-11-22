@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::connection::{Connection, Primitive, Socket, SocketType};
 use crate::errors::{NodeError, NodeWarning};
-use crate::global_state::{ResourceType, Resources};
+use crate::global_state::{ResourceType, ResourceTypeAndIndex, Resources};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
@@ -78,6 +78,8 @@ pub struct NodeIoCount {
     pub midi_outputs: Vec<Socket>,
     pub value_outputs: Vec<Socket>,
     pub stream_outputs: Vec<Socket>,
+    pub resources_count: usize,
+    pub resources_index: usize,
     pub midi_index: usize,
     pub value_index: usize,
     pub stream_index: usize,
@@ -86,7 +88,7 @@ pub struct NodeIoCount {
 #[derive(Debug)]
 pub struct IoSpec {
     pub nodes: BTreeMap<NodeIndex, NodeIoCount>,
-    pub resources_tracking: Vec<(ResourceId, Option<(ResourceType, ResourceIndex)>)>,
+    pub resources_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     pub nodes_linked_to_ui: Vec<(usize, NodeIndex)>,
     pub traversal_order: Vec<NodeIndex>,
 }
@@ -99,6 +101,7 @@ pub struct NodeMappedIo {
     pub stream_out: Range<usize>,
     pub midi_out: Range<usize>,
     pub value_out: Range<usize>,
+    pub resources: Range<usize>,
 }
 
 #[derive(Debug)]
@@ -113,9 +116,10 @@ pub struct Indexes {
     pub midi_count: usize,
     pub value_count: usize,
     pub node_io: BTreeMap<NodeIndex, NodeMappedIo>,
+    pub resources_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
 }
 
-pub fn get_node_io_needed(
+pub fn calc_io_spec(
     graph: &NodeGraph,
     mut old_nodes: BTreeMap<NodeIndex, NodeVariant>,
     sound_config: &SoundConfig,
@@ -130,7 +134,7 @@ pub fn get_node_io_needed(
     let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
     let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
-    let mut resources_tracking: Vec<(ResourceId, Option<(ResourceType, ResourceIndex)>)> = vec![];
+    let mut resources_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)> = vec![];
     let mut nodes_linked_to_ui: Vec<(usize, NodeIndex)> = vec![];
 
     let mut nodes: BTreeMap<NodeIndex, NodeIoCount> = BTreeMap::new();
@@ -186,6 +190,7 @@ pub fn get_node_io_needed(
             }
         };
 
+        let resources_i = resources_tracking.len();
         for needed_resource in &needed_resources {
             let resource_index = resources.get_resource_index(needed_resource);
 
@@ -259,6 +264,8 @@ pub fn get_node_io_needed(
                 midi_index: midi_i,
                 value_index: value_i,
                 stream_index: stream_i,
+                resources_count: needed_resources.len(),
+                resources_index: resources_i,
             },
         );
 
@@ -461,10 +468,6 @@ pub fn calc_indexes(
             }
         }
 
-        dbg!(stream_io_inputs);
-        dbg!(midi_io_inputs);
-        dbg!(value_io_inputs);
-
         node_mapped_io.insert(
             *index,
             NodeMappedIo {
@@ -474,6 +477,7 @@ pub fn calc_indexes(
                 stream_out: stream_io_output_index..(stream_io_output_index + stream_io_outputs),
                 midi_out: midi_io_output_index..(midi_io_output_index + midi_io_outputs),
                 value_out: value_io_output_index..(value_io_output_index + value_io_outputs),
+                resources: io_setup.resources_index..(io_setup.resources_index + io_setup.resources_count),
             },
         );
     }
@@ -489,5 +493,6 @@ pub fn calc_indexes(
         midi_count,
         value_count,
         node_io: node_mapped_io,
+        resources_tracking: io_needed.resources_tracking.clone(),
     })
 }

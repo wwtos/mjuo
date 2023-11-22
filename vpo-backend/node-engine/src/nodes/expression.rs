@@ -15,8 +15,8 @@ impl NodeRuntime for ExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
         let mut have_values_changed = false;
@@ -114,7 +114,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(

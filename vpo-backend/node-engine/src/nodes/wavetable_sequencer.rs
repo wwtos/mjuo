@@ -6,7 +6,6 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct WavetableSequencerNode {
-    value_out: f32,
     /// 0-1, not 0-TWO_PI
     phase: f32,
     frequency: f32,
@@ -29,8 +28,8 @@ impl NodeRuntime for WavetableSequencerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        _midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.frequency = frequency;
@@ -65,7 +64,6 @@ impl Node for WavetableSequencerNode {
         WavetableSequencerNode {
             phase: 0.0,
             frequency: 1.0,
-            value_out: 0.0,
             advance_by,
             index: None,
         }

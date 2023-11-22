@@ -521,7 +521,7 @@ pub trait NodeRuntime: Debug + Clone {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        resources: &[Resource],
     ) -> NodeResult<()> {
         ProcessResult::nothing()
     }

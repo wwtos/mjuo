@@ -30,7 +30,7 @@ impl NodeRuntime for ToggleNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        resources: &[&Resource],
+        resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(new_state) = ins.value(0)[0].as_boolean() {
             if !self.first_time {

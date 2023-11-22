@@ -18,6 +18,14 @@ pub struct MidiStore {
     store: MidiStoreInternal,
 }
 
+impl std::fmt::Debug for MidiStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MidiStore {{ ")?;
+        self.store.borrow_dependent().fmt(f)?;
+        write!(f, " }}")
+    }
+}
+
 impl MidiStore {
     pub fn new(alloc_bytes: usize, storage_size: usize) -> MidiStore {
         let store = MidiStoreInternal::new(BuddyArena::new(alloc_bytes), |_| Arena::with_capacity(storage_size));

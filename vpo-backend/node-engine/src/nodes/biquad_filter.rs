@@ -55,7 +55,7 @@ impl NodeRuntime for BiquadFilterNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.filter_spec.f0 = frequency.max(1.0);

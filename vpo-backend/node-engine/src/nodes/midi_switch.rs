@@ -15,7 +15,6 @@ pub struct MidiSwitchNode {
     state: u128,
     ignoring: u128,
     engaged: bool,
-    midi_out: Option<MidiBundle>,
 }
 
 impl NodeRuntime for MidiSwitchNode {
@@ -48,7 +47,7 @@ impl NodeRuntime for MidiSwitchNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut midi_out: MidiBundle = MidiBundle::new();
 
@@ -184,7 +183,6 @@ impl Node for MidiSwitchNode {
             state: 0,
             ignoring: 0,
             engaged: false,
-            midi_out: None,
         }
     }
 }

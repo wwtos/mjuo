@@ -15,7 +15,7 @@ impl NodeRuntime for StreamExpressionNode {
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStoreInterface,
-        _resources: &[&Resource],
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
             for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
