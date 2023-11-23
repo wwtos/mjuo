@@ -1,6 +1,6 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
-use sound_engine::MidiBundle;
+use sound_engine::MidiChannel;
 
 use std::{
     borrow::Cow,
@@ -33,7 +33,7 @@ pub struct OutputSideConnection {
     pub to_socket: Socket,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum Socket {
     Simple(Cow<'static, str>, SocketType, usize),
@@ -56,7 +56,7 @@ impl Socket {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketType {
     Stream,
@@ -95,7 +95,7 @@ impl Primitive {
 #[serde(tag = "variant", content = "data")]
 pub enum SocketValue {
     Stream(f32),
-    Midi(MidiBundle),
+    Midi(MidiChannel),
     Value(Primitive),
     None,
 }
@@ -108,7 +108,7 @@ impl SocketValue {
         }
     }
 
-    pub fn as_midi(self) -> Option<MidiBundle> {
+    pub fn as_midi(self) -> Option<MidiChannel> {
         match self {
             SocketValue::Midi(value) => Some(value),
             _ => None,

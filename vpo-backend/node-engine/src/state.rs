@@ -177,36 +177,32 @@ impl GraphState {
         })
     }
 
-    // pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
-    //     let script_engine = rhai::Engine::new_raw();
-    //     let resources = global_state.resources.read().unwrap();
-
-    //     let (traverser, _errors_and_warnings) = BufferedTraverser::new(
-    //         self.root_graph_index,
-    //         &self.graph_manager,
-    //         &script_engine,
-    //         &resources,
-    //         0,
-    //         global_state.sound_config.clone(),
-    //     )?;
-
-    //     Ok(BufferedTraverser {})
-    // }
-
-    pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
-        let script_engine = rhai::Engine::new_raw();
+    pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
         let resources = global_state.resources.read().unwrap();
 
-        // let (traverser, _errors_and_warnings) = BufferedTraverser::new(
-        //     self.root_graph_index,
-        //     &self.graph_manager,
-        //     &script_engine,
-        //     &resources,
-        //     0,
-        //     global_state.sound_config.clone(),
-        // )?;
+        let traverser = BufferedTraverser::new(
+            global_state.sound_config.clone(),
+            &self.graph_manager,
+            self.root_graph_index,
+            &resources,
+            0,
+        )?;
 
-        Ok(NodeEngine::new(script_engine, self.io_nodes.clone()))
+        Ok(traverser)
+    }
+
+    pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
+        let resources = global_state.resources.read().unwrap();
+
+        let traverser = BufferedTraverser::new(
+            global_state.sound_config.clone(),
+            &self.graph_manager,
+            self.root_graph_index,
+            &resources,
+            0,
+        )?;
+
+        Ok(NodeEngine::new(traverser, self.io_nodes.clone()))
     }
 
     pub fn get_node_state(&self) -> BTreeMap<NodeIndex, NodeState> {

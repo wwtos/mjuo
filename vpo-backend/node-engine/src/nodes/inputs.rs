@@ -3,7 +3,7 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
     values: Vec<Primitive>,
-    midis: Vec<MidiBundle>,
+    midis: Vec<MidiChannel>,
     sent: bool,
 }
 
@@ -13,7 +13,7 @@ impl InputsNode {
         self.sent = false;
     }
 
-    pub fn set_midis(&mut self, midis: Vec<MidiBundle>) {
+    pub fn set_midis(&mut self, midis: Vec<MidiChannel>) {
         self.midis = midis;
         self.sent = false;
     }

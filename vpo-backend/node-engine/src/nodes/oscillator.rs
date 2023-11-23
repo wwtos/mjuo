@@ -31,6 +31,8 @@ impl NodeRuntime for OscillatorNode {
         _midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
+        dbg!(ins.value(0)[0]);
+
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }

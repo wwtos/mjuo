@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use crate::connection::{Connection, Primitive, Socket, SocketType};
 use crate::errors::{NodeError, NodeWarning};
-use crate::global_state::{ResourceType, ResourceTypeAndIndex, Resources};
+use crate::global_state::{ResourceTypeAndIndex, Resources};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
@@ -12,8 +12,9 @@ use crate::nodes::{new_variant, NodeVariant};
 use ddgg::VertexIndex;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
-use resource_manager::{ResourceId, ResourceIndex};
+use resource_manager::ResourceId;
 use rhai::Engine;
+use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
 pub fn calculate_graph_traverse_order(original_graph: &NodeGraph) -> Vec<NodeIndex> {
@@ -83,6 +84,8 @@ pub struct NodeIoCount {
     pub midi_index: usize,
     pub value_index: usize,
     pub stream_index: usize,
+    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub socket_lookup: BTreeMap<Socket, usize>,
 }
 
 #[derive(Debug)]
@@ -207,6 +210,8 @@ pub fn calc_io_spec(
         let mut value_inputs: Vec<usize> = vec![];
 
         let mut to_input: Vec<(usize, Vec<Primitive>)> = vec![];
+        let mut values_to_input = SmallVec::new();
+        let mut socket_lookup = BTreeMap::new();
 
         // go through the node by all its inputs
         for socket in node_instance.list_input_sockets() {
@@ -215,12 +220,16 @@ pub fn calc_io_spec(
             if let NodeRow::Input(socket, default) = default_row {
                 match socket.socket_type() {
                     SocketType::Stream => {
+                        socket_lookup.insert(socket.clone(), stream_inputs.len());
                         stream_inputs.push(socket.channels());
                     }
                     SocketType::Midi => {
+                        socket_lookup.insert(socket.clone(), midi_inputs.len());
                         midi_inputs.push(socket.channels());
                     }
                     SocketType::Value => {
+                        values_to_input.push((value_inputs.len(), default.clone().as_value().unwrap()));
+                        socket_lookup.insert(socket.clone(), value_inputs.len());
                         value_inputs.push(socket.channels());
 
                         // if it's not receiving from anything, be sure to input its default
@@ -266,6 +275,8 @@ pub fn calc_io_spec(
                 stream_index: stream_i,
                 resources_count: needed_resources.len(),
                 resources_index: resources_i,
+                socket_lookup,
+                values_to_input,
             },
         );
 

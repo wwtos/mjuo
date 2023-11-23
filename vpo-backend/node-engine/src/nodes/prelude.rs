@@ -4,7 +4,7 @@ pub(super) use std::collections::HashMap;
 
 pub(super) use common::alloc::BuddyArena;
 pub(super) use resource_manager::ResourceIndex;
-pub(super) use sound_engine::{MidiBundle, SoundConfig};
+pub(super) use sound_engine::{MidiChannel, SoundConfig};
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
 pub(super) use crate::global_state::Resource;

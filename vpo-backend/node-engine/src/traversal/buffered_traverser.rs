@@ -14,19 +14,19 @@ use smallvec::SmallVec;
 use sound_engine::SoundConfig;
 
 use crate::{
-    connection::Primitive,
-    errors::{NodeError, NodeWarning},
+    connection::{Primitive, Socket},
+    errors::{ErrorsAndWarnings, NodeError, NodeWarning},
     global_state::{Resource, ResourceTypeAndIndex, Resources},
+    graph_manager::{GraphIndex, GraphManager},
     midi_store::MidiStore,
     node::{
         Ins, MidiStoreInterface, MidisIndex, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, Outs,
         StateInterface,
     },
     nodes::NodeVariant,
-    traversal::calculate_traversal_order::NodeMappedIo,
 };
 
-use super::calculate_traversal_order::{Indexes, IoSpec};
+use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes, IoSpec};
 
 #[derive(Debug)]
 struct BufferChunks<'a>(Vec<&'a [UnsafeCell<f32>]>);
@@ -159,11 +159,20 @@ struct TraverserNode {
     pub resources: Range<usize>,
     pub node: NodeVariant,
     pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub socket_lookup: BTreeMap<Socket, usize>,
+}
+
+pub struct StepResult {
+    pub errors_and_warnings: ErrorsAndWarnings,
+    pub state_changes: Vec<(NodeIndex, NodeState)>,
+    pub requested_state_updates: Vec<(NodeIndex, serde_json::Value)>,
+    pub request_for_graph_state: bool,
 }
 
 #[derive(Debug)]
 pub struct BufferedTraverser {
     nodes: Vec<TraverserNode>,
+    nodes_with_state: Vec<(usize, NodeIndex)>,
     node_to_index_mapping: BTreeMap<NodeIndex, usize>,
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
@@ -176,22 +185,47 @@ pub struct BufferedTraverser {
     value_ref_scratch: Vec<&'static [UnsafeCell<Primitive>]>,
 }
 
+unsafe impl Send for BufferedTraverser {}
+
 impl BufferedTraverser {
-    pub fn new<'a>(config: SoundConfig, mut io_spec: IoSpec, indexes: &Indexes, start_time: i64) -> BufferedTraverser {
+    pub fn new<'a>(
+        config: SoundConfig,
+        manager: &GraphManager,
+        graph_index: GraphIndex,
+        resources: &Resources,
+        start_time: i64,
+    ) -> Result<BufferedTraverser, NodeError> {
+        let mut io_spec = calc_io_spec(
+            manager.get_graph(graph_index).unwrap(),
+            BTreeMap::new(),
+            &config,
+            &mut rhai::Engine::new(),
+            resources,
+            0,
+            &manager,
+            1,
+        )?;
+        let indexes = calc_indexes(&io_spec, graph_index, &manager)?;
+
         let mut node_to_index_mapping = BTreeMap::new();
 
         for (i, node_index) in io_spec.traversal_order.iter().enumerate() {
             node_to_index_mapping.insert(*node_index, i);
         }
 
-        let io = build_io(config.clone(), indexes);
-        let io_and_refs = IoAndRefs::new(io, |io| build_refs(io, indexes));
+        let io = build_io(config.clone(), &indexes);
+        let io_and_refs = IoAndRefs::new(io, |io| build_refs(io, &indexes));
 
         let mut nodes: Vec<TraverserNode> = vec![];
+        let mut nodes_with_state: Vec<(usize, NodeIndex)> = vec![];
 
-        for index in io_spec.traversal_order.iter() {
+        for (i, index) in io_spec.traversal_order.iter().enumerate() {
             let spec = io_spec.nodes.remove(index).unwrap();
             let indexes = indexes.node_io[index].clone();
+
+            if spec.node.has_state() {
+                nodes_with_state.push((i, *index));
+            }
 
             nodes.push(TraverserNode {
                 stream_in: indexes.stream_in,
@@ -202,7 +236,8 @@ impl BufferedTraverser {
                 value_out: indexes.value_out,
                 resources: indexes.resources,
                 node: spec.node,
-                values_to_input: SmallVec::new(),
+                values_to_input: spec.values_to_input,
+                socket_lookup: spec.socket_lookup,
             });
         }
 
@@ -211,8 +246,9 @@ impl BufferedTraverser {
 
         let engine = rhai::Engine::new();
 
-        BufferedTraverser {
+        Ok(BufferedTraverser {
             nodes,
+            nodes_with_state,
             node_to_index_mapping,
             resource_tracking: io_spec.resources_tracking,
             io_and_refs,
@@ -224,7 +260,7 @@ impl BufferedTraverser {
             resource_scratch: vec![],
             value_input_scratch: vec![],
             value_ref_scratch: vec![],
-        }
+        })
     }
 
     pub fn step(
@@ -232,7 +268,7 @@ impl BufferedTraverser {
         resources: &Resources,
         updated_node_states: Vec<(NodeIndex, serde_json::Value)>,
         graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
-    ) {
+    ) -> StepResult {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
 
@@ -278,6 +314,9 @@ impl BufferedTraverser {
             node.set_state(new_node_state);
         }
 
+        let mut requesting_graph_state = false;
+        let mut requested_state_updates = vec![];
+
         for node in self.nodes.iter_mut() {
             let mut value_ref_scratch: Vec<&[UnsafeCell<Primitive>]> =
                 mem::replace(&mut self.value_ref_scratch, vec![]).recycle();
@@ -287,13 +326,15 @@ impl BufferedTraverser {
             let value_inputs = if node.values_to_input.is_empty() {
                 &value_sockets[node.value_in.clone()]
             } else {
+                // create a custom `value_inputs` to inject changed valuse
                 value_ref_scratch.extend(&value_sockets[node.value_in.clone()]);
 
-                for (input_at, value) in node.values_to_input.drain(..) {
-                    let new_idx = self.value_input_scratch.len();
-                    value_input_scratch.push(UnsafeCell::new(value));
+                for (_, value) in &node.values_to_input {
+                    value_input_scratch.push(UnsafeCell::new(value.clone()));
+                }
 
-                    value_ref_scratch[input_at] = &self.value_input_scratch[new_idx..(new_idx + 1)];
+                for (i, (input_at, _)) in node.values_to_input.drain(..).enumerate() {
+                    value_ref_scratch[input_at] = &value_input_scratch[i..(i + 1)];
                 }
 
                 &value_ref_scratch
@@ -306,9 +347,9 @@ impl BufferedTraverser {
                         resources,
                         script_engine: &self.engine,
                         external_state: StateInterface {
-                            request_node_states: &mut || {},
-                            enqueue_state_updates: &mut |_| {},
-                            states: None,
+                            states: graph_state,
+                            request_node_states: &mut || requesting_graph_state = true,
+                            enqueue_state_updates: &mut |updates| requested_state_updates.extend(updates.into_iter()),
                         },
                     },
                     unsafe {
@@ -334,6 +375,12 @@ impl BufferedTraverser {
             self.value_input_scratch = value_input_scratch.recycle();
         }
 
+        for (vec_index, node_index) in &self.nodes_with_state {
+            if let Some(new_node_state) = self.nodes[*vec_index].node.get_state() {
+                state_changes.push((*node_index, new_node_state));
+            }
+        }
+
         let debugging = self.io_and_refs.borrow_owner().stream_io.borrow_owner();
         println!("{:?}", unsafe {
             &*mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(&debugging[..]).get()
@@ -342,20 +389,53 @@ impl BufferedTraverser {
         self.time += self.config.buffer_size as i64;
 
         self.resource_scratch = all_resources.recycle();
+
+        StepResult {
+            errors_and_warnings: ErrorsAndWarnings { errors, warnings },
+            state_changes,
+            request_for_graph_state: requesting_graph_state,
+            requested_state_updates: requested_state_updates,
+        }
+    }
+
+    pub fn input_value_default(
+        &mut self,
+        node_index: NodeIndex,
+        socket: &Socket,
+        value: Primitive,
+    ) -> Result<(), NodeError> {
+        let mapped_index = self.node_to_index_mapping.get(&node_index);
+
+        if let Some(mapped_index) = mapped_index {
+            let value_index = self.nodes[*mapped_index].socket_lookup.get(socket);
+
+            if let Some(value_index) = value_index.copied() {
+                self.nodes[*mapped_index].values_to_input.push((value_index, value));
+
+                Ok(())
+            } else {
+                Err(NodeError::SocketDoesNotExist { socket: socket.clone() })
+            }
+        } else {
+            Err(NodeError::NodeDoesNotExist { node_index })
+        }
+    }
+
+    pub fn get_node_mut(&mut self, index: NodeIndex) -> Option<&mut NodeVariant> {
+        self.node_to_index_mapping
+            .get(&index)
+            .map(|internal_index| &mut self.nodes[*internal_index].node)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use sound_engine::SoundConfig;
 
     use crate::{
         connection::{Socket, SocketType},
         global_state::Resources,
         graph_manager::GraphManager,
-        traversal::calculate_traversal_order::{calc_indexes, calc_io_spec},
     };
 
     use super::BufferedTraverser;
@@ -393,20 +473,9 @@ mod tests {
             buffer_size: 4,
         };
 
-        let io_spec = calc_io_spec(
-            manager.get_graph(graph_index).unwrap(),
-            BTreeMap::new(),
-            &sound_config,
-            &mut rhai::Engine::new(),
-            &Resources::default(),
-            0,
-            &manager,
-            1,
-        )
-        .unwrap();
-        let indexes = calc_indexes(&io_spec, graph_index, &manager).unwrap();
-
-        let mut traverser = BufferedTraverser::new(sound_config.clone(), io_spec, &indexes, 0);
+        let mut traverser =
+            BufferedTraverser::new(sound_config.clone(), &manager, graph_index, &Resources::default(), 0).unwrap();
+        traverser.step(&Resources::default(), vec![], None);
         traverser.step(&Resources::default(), vec![], None);
     }
 }

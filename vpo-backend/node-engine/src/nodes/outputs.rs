@@ -5,7 +5,7 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
     values: Vec<Vec<Primitive>>,
-    midis: Vec<Vec<MidiBundle>>,
+    midis: Vec<Vec<MidiChannel>>,
     streams: Vec<Vec<Vec<f32>>>,
 }
 
@@ -14,7 +14,7 @@ impl OutputsNode {
         &self.streams
     }
 
-    pub fn get_midis(&self) -> &Vec<Vec<MidiBundle>> {
+    pub fn get_midis(&self) -> &Vec<Vec<MidiChannel>> {
         &self.midis
     }
 

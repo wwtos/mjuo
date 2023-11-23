@@ -49,7 +49,7 @@ impl NodeRuntime for MidiSwitchNode {
         midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        let mut midi_out: MidiBundle = MidiBundle::new();
+        let mut midi_out: MidiChannel = MidiChannel::new();
 
         if let Some(midi) = &ins.midi(0)[0] {
             let messages = midi_store.borrow_midi(midi).unwrap();
@@ -113,7 +113,7 @@ impl NodeRuntime for MidiSwitchNode {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
-                let mut midi_out: MidiBundle = MidiBundle::new();
+                let mut midi_out: MidiChannel = MidiChannel::new();
 
                 if engaged {
                     match self.mode {

@@ -30,11 +30,11 @@ impl NodeRuntime for PortamentoNode {
 
     fn process<'a>(
         &mut self,
-        context: NodeProcessContext,
+        _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
-        resources: &[Resource],
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             if self.engaged && !gate {
@@ -93,7 +93,7 @@ impl Node for PortamentoNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             multiple_choice("ramp_type", &["exponential", "linear"], "exponential"),
             value_input("gate", Primitive::Boolean(false), 1),

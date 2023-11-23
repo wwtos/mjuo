@@ -14,7 +14,7 @@ pub struct RankPlayerNode {
 }
 
 lazy_static! {
-    pub static ref EMPTY_MIDI: MidiBundle = Vec::new();
+    pub static ref EMPTY_MIDI: MidiChannel = Vec::new();
 }
 
 impl NodeRuntime for RankPlayerNode {
