@@ -84,7 +84,7 @@ pub fn with_channels(default_channel_count: usize) -> NodeRow {
 }
 
 pub fn default_channels(props: &HashMap<String, Property>, default: usize) -> usize {
-    match props.get("polyphony") {
+    match props.get("channels") {
         Some(prop) => prop.as_integer().map(|x| x.max(1) as usize).unwrap_or(default),
         None => default,
     }

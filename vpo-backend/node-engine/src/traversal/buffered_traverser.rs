@@ -381,11 +381,6 @@ impl BufferedTraverser {
             }
         }
 
-        let debugging = self.io_and_refs.borrow_owner().stream_io.borrow_owner();
-        println!("{:?}", unsafe {
-            &*mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(&debugging[..]).get()
-        });
-
         self.time += self.config.buffer_size as i64;
 
         self.resource_scratch = all_resources.recycle();

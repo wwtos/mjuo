@@ -157,7 +157,7 @@ impl NodeGraph {
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
-        if from_socket.socket_type() != to_socket.socket_type() {
+        if from_socket.socket_type() != to_socket.socket_type() || from_socket.channels() != to_socket.channels() {
             return Err(NodeError::IncompatibleSocketTypes {
                 from: from_socket.socket_type(),
                 to: to_socket.socket_type(),

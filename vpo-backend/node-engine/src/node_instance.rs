@@ -6,7 +6,8 @@ use serde_json::{json, Value};
 use crate::{
     connection::{Socket, SocketDirection},
     errors::{NodeError, NodeOk},
-    node::{NodeGraphAndIo, NodeRow, NodeState},
+    node::{NodeGetIoContext, NodeGraphAndIo, NodeRow, NodeState},
+    nodes::variant_io,
     property::Property,
 };
 
@@ -75,6 +76,12 @@ impl NodeInstance {
 
     pub fn set_node_rows(&mut self, rows: Vec<NodeRow>) -> Vec<NodeRow> {
         mem::replace(&mut self.node_rows, rows)
+    }
+
+    pub fn refresh_node_rows(&mut self, ctx: &NodeGetIoContext) {
+        self.node_rows = variant_io(&self.node_type, ctx, self.properties.clone())
+            .unwrap()
+            .node_rows;
     }
 
     pub fn get_property(&self, name: &str) -> Option<Property> {
@@ -164,7 +171,7 @@ impl NodeInstance {
 
     pub fn get_default(&self, to_find: &Socket) -> Option<NodeRow> {
         let possible_override = self.default_overrides.iter().find(|override_row| {
-            let type_and_direction = override_row.clone().to_socket_and_direction();
+            let type_and_direction = override_row.to_socket_and_direction();
 
             if let Some((override_type, override_direction)) = type_and_direction {
                 to_find == override_type && SocketDirection::Input == override_direction
@@ -180,7 +187,7 @@ impl NodeInstance {
         self.node_rows
             .iter()
             .find(|node_row| {
-                let type_and_direction = node_row.clone().to_socket_and_direction();
+                let type_and_direction = node_row.to_socket_and_direction();
 
                 if let Some((override_type, override_direction)) = type_and_direction {
                     to_find == override_type && SocketDirection::Input == override_direction

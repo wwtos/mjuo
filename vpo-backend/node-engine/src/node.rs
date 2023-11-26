@@ -59,6 +59,7 @@ impl NodeRow {
     }
 }
 
+#[derive(Debug)]
 pub struct NodeIo {
     pub node_rows: Vec<NodeRow>,
     pub child_graph_io: Option<Vec<(Socket, SocketDirection)>>,

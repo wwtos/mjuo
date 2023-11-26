@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use crate::{
-    connection::{Primitive, Socket, SocketValue},
+    connection::{Primitive, Socket, SocketType, SocketValue},
     engine::NodeEngine,
     errors::{NodeError, WarningExt},
     global_state::GlobalState,
@@ -148,10 +148,29 @@ impl GraphState {
         let (output_node, input_node) = {
             let graph = graph_manager.get_graph_mut(root_graph_index)?;
 
-            let output_node = graph.add_node("OutputNode".into()).unwrap().value;
-            let input_node = graph.add_node("MidiInNode".into()).unwrap().value;
+            let (output_node, _) = graph.add_node("OutputsNode".into()).unwrap().value;
+            let (input_node, _) = graph.add_node("InputsNode".into()).unwrap().value;
 
-            (output_node.0, input_node.0)
+            let input = graph.get_node_mut(input_node).unwrap();
+
+            input.set_property(
+                "socket_list".into(),
+                Property::SocketList(vec![Socket::Simple("midi".into(), SocketType::Midi, 1)]),
+            );
+            input.refresh_node_rows(&NodeGetIoContext {
+                default_channel_count: 1,
+            });
+
+            let output = graph.get_node_mut(output_node).unwrap();
+            output.set_property(
+                "socket_list".into(),
+                Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 1)]),
+            );
+            output.refresh_node_rows(&NodeGetIoContext {
+                default_channel_count: 1,
+            });
+
+            (output_node, input_node)
         };
 
         let scripting_engine: Engine = Engine::new_raw();

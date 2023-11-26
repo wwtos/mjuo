@@ -11,7 +11,6 @@
     } from "$lib/util/discriminated-union";
     import type { Property, PropertyType } from "$lib/node-engine/property";
     import { localize } from "@nubolab-ffwd/svelte-fluent";
-    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
     import type {
         Socket,
         SocketDirection,
@@ -21,6 +20,7 @@
     import type { VertexIndex } from "$lib/ddgg/graph";
     import UiNodeRow from "./UiNodeRow.svelte";
     import { deepEqual } from "fast-equals";
+    import { localizeSocket } from "$lib/lang/i18n";
     // in pixels, these numbers are derived from the css below and the css in ./Socket.svelte
     // update in node-engine/node.ts, constants at the top
 
@@ -29,7 +29,6 @@
     export let graph: NodeGraph;
     export let wrapper: NodeInstance;
     export let nodeIndex: VertexIndex;
-    export let registry: SocketRegistry;
     export let title: string;
     export let x: number;
     export let y: number;
@@ -79,7 +78,7 @@
                 },
             }),
             InnerGraph: () => ({ variant: "InnerGraphRow" }),
-        })
+        }),
     );
 
     let node: HTMLDivElement;
@@ -94,8 +93,8 @@
         return row.variant === "SocketRow"
             ? JSON.stringify([row.socket, row.socketDirection])
             : row.variant === "PropertyRow"
-            ? "prop." + row.propName
-            : "innerGraph";
+              ? "prop." + row.propName
+              : "innerGraph";
     }
 
     function openInnerGraph() {
@@ -142,7 +141,7 @@
                         );
                     },
                 },
-                () => false
+                () => false,
             );
         });
 
@@ -182,9 +181,7 @@
                 nodes={graph}
                 socket={row.socket}
                 direction={row.socketDirection}
-                label={$localize(
-                    ...registry.getSocketInterpolation(row.socket)
-                )}
+                label={localizeSocket($localize, row.socket)}
                 on:socketMousedown={onSocketMousedown}
                 on:socketMouseup={onSocketMouseup}
                 on:overrideUpdate={onOverrideUpdate}

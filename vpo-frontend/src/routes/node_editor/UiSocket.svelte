@@ -57,9 +57,34 @@
             </svg>
         </div>
     {/if}
+    <span
+        class="socket-text"
+        class:input={direction.variant === "Input"}
+        class:output={direction.variant === "Output"}
+        on:mousedown={socketMousedown}
+        on:mouseup={socketMouseupRaw}
+    >
+        {Socket.channels(socket)}
+    </span>
 </div>
 
 <style>
+    .socket-text {
+        position: absolute;
+        margin-top: 6px;
+        text-align: center;
+        width: 26px;
+        height: 26px;
+    }
+
+    .socket-text.input {
+        margin-left: -26px;
+    }
+
+    .socket-text.output {
+        margin-left: -12px;
+    }
+
     .socket-container {
         display: inline-block;
     }
@@ -82,8 +107,8 @@
         border-radius: 100%;
         background: #96b38a;
         border: 2px solid white;
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
     }
 
     .midi {

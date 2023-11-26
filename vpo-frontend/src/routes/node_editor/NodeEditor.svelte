@@ -14,7 +14,6 @@
     import { transformMouseRelativeToEditor } from "$lib/util/mouse-transforms";
     import { NODE_WIDTH, type NodeInstance } from "$lib/node-engine/node";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
-    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
     import type {
         Socket,
         SocketDirection,
@@ -29,7 +28,6 @@
     export let ipcSocket: IpcSocket;
     export let activeGraph: BehaviorSubject<NodeGraph>;
     export let graphManager: GraphManager;
-    export let socketRegistry: SocketRegistry;
 
     let previousSubscriptions: Array<Subscription> = [];
 
@@ -152,7 +150,7 @@
             editor,
             zoomer,
             event.clientX,
-            event.clientY
+            event.clientY,
         );
 
         if (shiftHeld) {
@@ -177,7 +175,7 @@
             editor,
             zoomer,
             clientX,
-            clientY
+            clientY,
         );
 
         if (selection) {
@@ -256,7 +254,7 @@
             editor,
             zoomer,
             event.clientX,
-            event.clientY
+            event.clientY,
         );
 
         if (draggedState.length === 0 && !controlHeld) {
@@ -340,13 +338,13 @@
             value: string;
             clientX: number;
             clientY: number;
-        }>
+        }>,
     ) {
         let [mouseX, mouseY] = transformMouseRelativeToEditor(
             editor,
             zoomer,
             ev.detail.clientX,
-            ev.detail.clientY
+            ev.detail.clientY,
         );
 
         ipcSocket.commit([
@@ -381,7 +379,7 @@
             $activeGraph.keyedConnectionStore.subscribe(
                 (newKeyedConnections) => {
                     keyedConnections = newKeyedConnections;
-                }
+                },
             ),
         ];
     }
@@ -395,14 +393,14 @@
             editor,
             zoomer,
             e.event.clientX,
-            e.event.clientY
+            e.event.clientY,
         );
 
         if (e.direction.variant === "Input") {
             // see if it's already connected, in which case we're disconnecting it
             let connection = $activeGraph.getNodeInputConnection(
                 e.vertexIndex,
-                e.socket
+                e.socket,
             );
 
             // check if we are already connected
@@ -422,7 +420,7 @@
                             },
                         },
                     ],
-                    false
+                    false,
                 );
 
                 // add the connection line back for connecting to something else
@@ -436,7 +434,7 @@
                 const fromNodeXY = $activeGraph.getNodeSocketXy(
                     connection.fromNode,
                     connection.fromSocket,
-                    { variant: "Output" }
+                    { variant: "Output" },
                 );
 
                 connectionBeingCreated = {
@@ -509,7 +507,7 @@
                     },
                 },
             ],
-            false
+            false,
         );
     }
 
@@ -522,12 +520,12 @@
         const fromXY = $activeGraph.getNodeSocketXy(
             connection.fromNode,
             connection.data.fromSocket,
-            { variant: "Output" }
+            { variant: "Output" },
         );
         const toXY = $activeGraph.getNodeSocketXy(
             connection.toNode,
             connection.data.toSocket,
-            { variant: "Input" }
+            { variant: "Input" },
         );
 
         return {
@@ -539,7 +537,7 @@
     }
 
     async function breadcrumbChangeGraph(
-        event: CustomEvent<{ index: VertexIndex }>
+        event: CustomEvent<{ index: VertexIndex }>,
     ) {
         while (
             path.length > 1 &&
@@ -625,7 +623,6 @@
                     wrapper={node}
                     nodeIndex={index}
                     onMousedown={onNodeMousedown}
-                    registry={socketRegistry}
                     x={node.uiData.x}
                     y={node.uiData.y}
                     title={node.uiData.title || ""}

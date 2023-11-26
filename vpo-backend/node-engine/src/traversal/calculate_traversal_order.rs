@@ -365,11 +365,12 @@ pub fn calc_indexes(
                 let connection = graph.get_graph().get_edge(connection_index.0).expect("edge to exist");
                 let from_index = NodeIndex(connection.get_from());
 
-                let from = graph.get_node(from_index).unwrap();
-
                 // ensure same channel length (TODO: figure out this edge case, it would
                 // be better to repeat the input channels, like faust)
-                assert!(from.list_output_sockets().iter().any(|socket| socket == input));
+                assert_eq!(
+                    connection.data.from_socket.channels(),
+                    connection.data.to_socket.channels()
+                );
 
                 // where is the other nodes' output location?
                 let io_setup_of_other = &nodes[&from_index];
