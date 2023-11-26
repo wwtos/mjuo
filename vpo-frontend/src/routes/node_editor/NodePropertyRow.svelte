@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { VertexIndex } from "$lib/ddgg/graph";
-    import type { NodeWrapper } from "$lib/node-engine/node";
+    import type { NodeInstance } from "$lib/node-engine/node";
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { Property, PropertyType } from "$lib/node-engine/property";
     import { matchOrElse } from "$lib/util/discriminated-union";
@@ -8,7 +8,7 @@
     import { deepEqual } from "fast-equals";
     import { preventHistoryKeyActions } from "./editor-utils";
 
-    export let nodeWrapper: NodeWrapper;
+    export let nodeInstance: NodeInstance;
     export let nodeIndex: VertexIndex;
     export let propName: string;
     export let propType: PropertyType;
@@ -51,8 +51,8 @@
         );
 
         // only send updates if it's changed
-        if (!deepEqual(nodeWrapper.properties[propName], newValueParsed)) {
-            nodeWrapper.properties[propName] = newValueParsed;
+        if (!deepEqual(nodeInstance.properties[propName], newValueParsed)) {
+            nodeInstance.properties[propName] = newValueParsed;
 
             nodes.markNodeAsUpdated(nodeIndex, ["properties"]);
             nodes.writeChangedNodesToServer();

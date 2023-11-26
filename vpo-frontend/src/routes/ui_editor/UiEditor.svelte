@@ -8,7 +8,7 @@
     import { SplitDirection } from "$lib/components/layout/enums";
     import UiElement from "./UiElement.svelte";
     import type { VertexIndex } from "$lib/ddgg/graph";
-    import type { NodeWrapper } from "$lib/node-engine/node";
+    import type { NodeInstance } from "$lib/node-engine/node";
 
     export let socket: IpcSocket;
     export let graphManager: GraphManager;
@@ -31,7 +31,7 @@
 
     let uiNodes: Array<{
         index: VertexIndex;
-        node: NodeWrapper;
+        node: NodeInstance;
         uiName: string;
     }>;
 

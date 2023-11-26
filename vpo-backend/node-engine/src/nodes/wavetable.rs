@@ -1,5 +1,6 @@
+use common::traits::TryRef;
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{node::wavetable_oscillator::WavetableOscillator, MonoSample, SoundConfig};
+use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
 
 use crate::nodes::prelude::*;
 
@@ -21,19 +22,20 @@ impl NodeRuntime for WavetableNode {
         })
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency);
         }
 
-        if let Some(wavetable) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
-            for frame in outs.streams[0].iter_mut() {
+        if let Ok(wavetable) = resources[0].try_ref() {
+            for frame in outs.stream(0)[0].iter_mut() {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }
         }
@@ -50,7 +52,7 @@ impl Node for WavetableNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "wavetable".into(),
@@ -60,8 +62,8 @@ impl Node for WavetableNode {
                     resource: "".into(),
                 }),
             ),
-            value_input(register("frequency"), Primitive::Float(440.0)),
-            stream_output(register("audio")),
+            value_input("frequency", Primitive::Float(440.0), 1),
+            stream_output("audio", 1),
         ])
     }
 }

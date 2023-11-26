@@ -23,18 +23,19 @@ impl NodeRuntime for OscillatorNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
 
-        for frame in outs.streams[0].iter_mut() {
+        for frame in outs.stream(0)[0].iter_mut() {
             *frame = self.oscillator.process();
         }
 
@@ -49,20 +50,11 @@ impl Node for OscillatorNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            value_input(register("frequency"), Primitive::Float(440.0)),
-            stream_output(register("audio")),
-            NodeRow::Property(
-                "waveform".to_string(),
-                PropertyType::MultipleChoice(vec![
-                    "sine".to_string(),
-                    "sawtooth".to_string(),
-                    "square".to_string(),
-                    "triangle".to_string(),
-                ]),
-                Property::MultipleChoice("square".to_string()),
-            ),
+            value_input("frequency", Primitive::Float(440.0), 1),
+            stream_output("audio", 1),
+            multiple_choice("waveform", &["sine", "sawtooth", "square", "triangle"], "square"),
         ])
     }
 }

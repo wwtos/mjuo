@@ -1,9 +1,15 @@
-use std::{any::Any, collections::BTreeMap};
+use common::traits::TryRef;
 
-use crate::{midi::messages::MidiData, util::interpolate::lerp, MidiBundle, MonoSample};
+use std::collections::BTreeMap;
+
+use crate::{
+    midi::messages::{MidiData, MidiMessage},
+    util::interpolate::lerp,
+    MonoSample,
+};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
-use resource_manager::{ResourceId, ResourceIndex, ResourceManager};
+use resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {
@@ -49,7 +55,7 @@ impl RankPlayer {
         let note_to_sample_map: BTreeMap<u8, usize> = needed_samples
             .iter()
             .enumerate()
-            .map(|(i, (note, _))| (*note, i + 1))
+            .map(|(i, (note, _))| (*note, i))
             .collect();
 
         let mut resource_list: Vec<ResourceId> = vec![rank_id];
@@ -134,13 +140,11 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note(&mut self, rank: &Rank, note: u8, resources: &[Option<(ResourceIndex, &dyn Any)>]) {
+    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[impl TryRef<MonoSample, Error = E>]) {
         let pipe_and_sample = self
             .note_to_sample_map
             .get(&note)
-            .and_then(|sample_index| {
-                resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
-            })
+            .and_then(|sample_index| samples[*sample_index].try_ref().ok())
             .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
 
         if let Some((pipe, sample)) = pipe_and_sample {
@@ -185,14 +189,16 @@ impl RankPlayer {
         self.shelf_db_gain = db_gain;
     }
 
-    pub fn next_buffered(
+    pub fn next_buffered<'a, E>(
         &mut self,
         time: i64,
-        midi: &MidiBundle,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        midi: &[MidiMessage],
+        rank: &Rank,
+        samples: &[impl TryRef<MonoSample, Error = E>],
         out: &mut [f32],
-    ) {
-        let rank = resources[0].expect("a rank").1.downcast_ref::<Rank>().expect("a rank");
+    ) where
+        E: std::fmt::Debug,
+    {
         let out_len = out.len();
 
         for output in out.iter_mut() {
@@ -200,10 +206,10 @@ impl RankPlayer {
         }
 
         // allocate any needed voices
-        for message in midi {
+        for message in midi.iter() {
             match message.data {
                 MidiData::NoteOn { note, .. } => {
-                    self.allocate_note(rank, note, resources);
+                    self.allocate_note(rank, note, samples);
                 }
                 _ => {}
             }
@@ -215,21 +221,21 @@ impl RankPlayer {
             let pipe_and_sample = self
                 .note_to_sample_map
                 .get(&voice.note)
-                .and_then(|sample_index| {
-                    resources[*sample_index].and_then(|resource| resource.1.downcast_ref::<MonoSample>())
-                })
+                .and_then(|sample_index| samples[*sample_index].try_ref().ok())
                 .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
 
             let mut midi_position = 0;
 
             if let Some((pipe, sample)) = pipe_and_sample {
                 for (i, output) in out.iter_mut().enumerate() {
-                    while midi_position < midi.len() {
-                        if midi[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
+                    let messages = midi;
+
+                    while midi_position < messages.len() {
+                        if messages[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
                             break;
                         }
 
-                        match midi[midi_position].data {
+                        match messages[midi_position].data {
                             MidiData::NoteOn { note, .. } => {
                                 if voice.note != note {
                                     midi_position += 1;

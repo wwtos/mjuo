@@ -1,11 +1,11 @@
+use common::traits::TryRef;
 use resource_manager::{ResourceId, ResourceIndex};
-use sound_engine::{util::interpolate::lerp, MonoSample, SoundConfig};
+use sound_engine::{util::interpolate::lerp, SoundConfig};
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct WavetableSequencerNode {
-    value_out: f32,
     /// 0-1, not 0-TWO_PI
     phase: f32,
     frequency: f32,
@@ -23,18 +23,19 @@ impl NodeRuntime for WavetableSequencerNode {
         })
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.frequency = frequency;
         }
 
-        if let Some(sample) = resources[0].and_then(|resource| resource.1.downcast_ref::<MonoSample>()) {
+        if let Ok(sample) = resources[0].try_ref() {
             let wavetable = &sample.audio_raw;
 
             let wavetable_pos = self.phase * wavetable.len() as f32;
@@ -42,7 +43,7 @@ impl NodeRuntime for WavetableSequencerNode {
             let wavetable_index = wavetable_pos as usize;
             let wavetable_offset = wavetable_pos.fract();
 
-            outs.values[0] = float(lerp(
+            outs.value(0)[0] = float(lerp(
                 wavetable[wavetable_index],
                 wavetable[(wavetable_index + 1) % wavetable.len()],
                 wavetable_offset,
@@ -63,13 +64,12 @@ impl Node for WavetableSequencerNode {
         WavetableSequencerNode {
             phase: 0.0,
             frequency: 1.0,
-            value_out: 0.0,
             advance_by,
             index: None,
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property(
                 "wavetable",
@@ -79,8 +79,8 @@ impl Node for WavetableSequencerNode {
                     resource: "".into(),
                 }),
             ),
-            value_input(register("frequency"), Primitive::Float(2.0)),
-            value_output(register("value")),
+            value_input("frequency", Primitive::Float(2.0), 1),
+            value_output("value", 1),
         ])
     }
 }

@@ -7,9 +7,9 @@ use snafu::OptionExt;
 
 use crate::connection::Socket;
 use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
+use crate::node::NodeGraphAndIo;
 use crate::node_graph::NodeGraphDiff;
-use crate::node_wrapper::NodeWrapper;
-use crate::socket_registry::SocketRegistry;
+use crate::node_instance::NodeInstance;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
@@ -47,7 +47,7 @@ pub struct GraphManager {
 impl GraphManager {
     pub fn new() -> Self {
         let mut graph = Graph::new();
-        let (root_index, _) = graph.add_vertex(NodeGraph::new()).unwrap();
+        let (root_index, _) = graph.add_vertex(NodeGraph::new());
 
         GraphManager {
             node_graphs: graph,
@@ -56,7 +56,7 @@ impl GraphManager {
     }
 
     pub fn new_graph(&mut self) -> Result<(GraphIndex, GraphManagerDiff), NodeError> {
-        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new())?;
+        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new());
 
         let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(add_diff)]);
 
@@ -82,7 +82,7 @@ impl GraphManager {
         through: ConnectedThrough,
         to: GraphIndex,
     ) -> Result<(ConnectedThrough, GraphManagerDiff), NodeError> {
-        let shared_edges = self.node_graphs.shared_edges(from.0, to.0)?;
+        let shared_edges: Vec<_> = self.node_graphs.shared_edges(from.0, to.0)?.collect();
 
         for edge_index in &shared_edges {
             let edge = self.node_graphs.get_edge(*edge_index).expect("edge to exist");
@@ -140,11 +140,11 @@ impl GraphManager {
             .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
     }
 
-    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeWrapper, NodeError> {
+    pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeInstance, NodeError> {
         Ok(self.get_graph(index.graph_index)?.get_node(index.node_index)?)
     }
 
-    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+    pub fn get_node_mut(&mut self, index: GlobalNodeIndex) -> Result<&mut NodeInstance, NodeError> {
         Ok(self.get_graph_mut(index.graph_index)?.get_node_mut(index.node_index)?)
     }
 
@@ -176,34 +176,49 @@ impl GraphManager {
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
-        registry: &mut SocketRegistry,
         ui_data: HashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
-        let mut diff = vec![];
+        let mut diff: Vec<DiffElement> = vec![];
 
         let graph = self.get_graph_mut(graph_index)?;
-        let creation_result = graph.add_node(node_type.into(), registry)?;
+        let creation_result = graph.add_node(node_type.into())?;
 
         let new_node_index = creation_result.value.0;
 
         diff.push(DiffElement::ChildGraphDiff(graph_index, creation_result.value.1));
 
         // does this node need a child graph?
-        let new_node_wrapper = graph.get_node(new_node_index)?;
-        let uses_child_graph = new_node_wrapper.uses_child_graph();
+        let new_node_instance = graph.get_node(new_node_index)?;
+        let uses_child_graph = new_node_instance.uses_child_graph();
 
-        let child_graph_index = if uses_child_graph {
+        let child_graph = if uses_child_graph {
             let new_graph_index = {
                 // create a graph for it
                 let (new_graph_index, creation_diff) = self.new_graph()?;
                 diff.extend(creation_diff.0);
 
-                new_graph_index
+                // add `Inputs` node and `Outputs` node
+                let new_graph = self.get_graph_mut(new_graph_index).expect("graph to have been created");
+
+                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into()).unwrap().value;
+                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into()).unwrap().value;
+
+                diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
+                diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));
+
+                NodeGraphAndIo {
+                    graph_index: new_graph_index,
+                    input_index: inputs_index,
+                    output_index: outputs_index,
+                }
             };
 
             // connect the two graphs together
-            let (_, connect_diff) =
-                self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index)?;
+            let (_, connect_diff) = self.connect_graphs(
+                graph_index,
+                ConnectedThrough(new_node_index),
+                new_graph_index.graph_index,
+            )?;
             diff.extend(connect_diff.0);
 
             Some(new_graph_index)
@@ -213,8 +228,8 @@ impl GraphManager {
 
         let new_node = self.get_graph_mut(graph_index)?.get_node_mut(new_node_index)?;
 
-        if let Some(child_graph_index) = child_graph_index {
-            new_node.set_child_graph_index(child_graph_index);
+        if let Some(child_graph) = child_graph {
+            new_node.set_child_graph(child_graph);
         }
 
         diff.push(DiffElement::ExtendUiData(
@@ -246,9 +261,9 @@ impl GraphManager {
         &mut self,
         graph: GraphIndex,
         from: NodeIndex,
-        from_socket_type: Socket,
+        from_socket_type: &Socket,
         to: NodeIndex,
-        to_socket_type: Socket,
+        to_socket_type: &Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         let (_, graph_diff) = self
             .get_graph_mut(graph)?
@@ -263,9 +278,9 @@ impl GraphManager {
         &mut self,
         graph: GraphIndex,
         from: NodeIndex,
-        from_socket_type: Socket,
+        from_socket_type: &Socket,
         to: NodeIndex,
-        to_socket_type: Socket,
+        to_socket_type: &Socket,
     ) -> Result<(GraphManagerDiff, ActionInvalidation), NodeError> {
         let (_, graph_diff) = self
             .get_graph_mut(graph)?

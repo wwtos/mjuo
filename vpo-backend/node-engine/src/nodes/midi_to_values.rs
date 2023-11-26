@@ -6,27 +6,30 @@ use crate::nodes::prelude::*;
 pub struct MidiToValuesNode {}
 
 impl NodeRuntime for MidiToValuesNode {
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(midi) = ins.midis[0] {
-            for data in midi {
+        if let Some(midi) = &ins.midi(0)[0] {
+            let messages = midi_store.borrow_midi(midi).unwrap();
+
+            for data in messages.iter() {
                 match &data.data {
                     MidiData::NoteOn {
                         channel: _,
                         note,
                         velocity,
                     } => {
-                        outs.values[0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
-                        outs.values[1] = bool(true);
-                        outs.values[2] = float((*velocity as f32) / 127.0);
+                        outs.value(0)[0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
+                        outs.value(1)[0] = bool(true);
+                        outs.value(2)[0] = float((*velocity as f32) / 127.0);
                     }
                     MidiData::NoteOff { .. } => {
-                        outs.values[1] = bool(false);
+                        outs.value(1)[0] = bool(false);
                     }
                     _ => {}
                 }
@@ -42,12 +45,12 @@ impl Node for MidiToValuesNode {
         MidiToValuesNode {}
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi")),
-            value_output(register("frequency")),
-            value_output(register("gate")),
-            value_output(register("velocity")),
+            midi_input("midi", 1),
+            value_output("frequency", 1),
+            value_output("gate", 1),
+            value_output("velocity", 1),
         ])
     }
 }

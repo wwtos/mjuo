@@ -2,34 +2,40 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
-    values: Vec<Option<Primitive>>,
-    midis: Vec<Option<MidiBundle>>,
+    values: Vec<Primitive>,
+    midis: Vec<MidiChannel>,
     sent: bool,
 }
 
 impl InputsNode {
-    pub fn set_values(&mut self, values: Vec<Option<Primitive>>) {
+    pub fn set_values(&mut self, values: Vec<Primitive>) {
         self.values = values;
         self.sent = false;
     }
 
-    pub fn set_midis(&mut self, midis: Vec<Option<MidiBundle>>) {
+    pub fn set_midis(&mut self, midis: Vec<MidiChannel>) {
         self.midis = midis;
         self.sent = false;
     }
 }
 
 impl NodeRuntime for InputsNode {
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        _ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        _ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if !self.sent {
-            outs.midis.clone_from_slice(&self.midis[..]);
-            outs.values.clone_from_slice(&self.values[..]);
+            for (message_out, message_in) in outs.midi(0).iter_mut().zip(self.midis.drain(..)) {
+                *message_out = midi_store.register_midis(message_in.into_iter());
+            }
+
+            for (mut values_out, value_to_output) in outs.values().zip(self.values.iter()) {
+                values_out[0] = *value_to_output;
+            }
 
             self.sent = true;
         }
@@ -47,12 +53,12 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets
                     .iter()
-                    .map(|socket_type| NodeRow::from_type_and_direction(*socket_type, SocketDirection::Output))
+                    .map(|socket| NodeRow::from_type_and_direction(socket.clone(), SocketDirection::Output))
                     .collect::<Vec<NodeRow>>(),
             )
         } else {

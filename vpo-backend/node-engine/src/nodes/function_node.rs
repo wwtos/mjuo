@@ -1,8 +1,10 @@
-use crate::{nodes::prelude::*, traversal::buffered_traverser::BufferedTraverser};
+use std::borrow::Cow;
+
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct FunctionNode {
-    traverser: BufferedTraverser,
+    // traverser: BufferedTraverser,
     child_io_nodes: Option<(NodeIndex, NodeIndex)>,
 }
 
@@ -11,38 +13,39 @@ impl NodeRuntime for FunctionNode {
         let mut warning = None;
 
         if let Some(graph_and_io) = params.child_graph {
-            let NodeGraphAndIo {
-                graph: _,
-                input_index,
-                output_index,
-            } = graph_and_io;
+            // let NodeGraphAndIo {
+            //     graph_index: _,
+            //     input_index,
+            //     output_index,
+            // } = graph_and_io;
 
-            let (traverser, errors_and_warnings) = BufferedTraverser::new(
-                graph_and_io.graph,
-                params.graph_manager,
-                params.script_engine,
-                params.resources,
-                params.current_time,
-                params.sound_config.clone(),
-            )?;
-            self.traverser = traverser;
+            // let (traverser, errors_and_warnings) = BufferedTraverser::new(
+            //     graph_and_io.graph_index,
+            //     params.graph_manager,
+            //     params.script_engine,
+            //     params.resources,
+            //     params.current_time,
+            //     params.sound_config.clone(),
+            // )?;
+            // self.traverser = traverser;
 
-            if errors_and_warnings.any() {
-                warning = Some(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
-            }
+            // if errors_and_warnings.any() {
+            //     warning = Some(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
+            // }
 
-            self.child_io_nodes = Some((input_index, output_index));
+            // self.child_io_nodes = Some((input_index, output_index));
         }
 
         InitResult::warning(warning)
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        _ins: Ins,
-        _outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
@@ -73,25 +76,28 @@ impl NodeRuntime for FunctionNode {
 impl Node for FunctionNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         FunctionNode {
-            traverser: BufferedTraverser::default(),
+            // traverser: BufferedTraverser::default(),
             child_io_nodes: None,
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let polyphony = default_channels(&props, context.default_channel_count);
+
         NodeIo {
             node_rows: vec![
-                stream_input(register("audio")),
+                with_channels(context.default_channel_count),
+                stream_input("audio", polyphony),
                 NodeRow::InnerGraph,
-                stream_output(register("audio")),
+                stream_output("audio", polyphony),
             ],
             child_graph_io: Some(vec![
                 (
-                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),
                     SocketDirection::Input,
                 ),
                 (
-                    Socket::Simple(register("audio"), SocketType::Stream, 1),
+                    Socket::Simple(Cow::Borrowed("audio"), SocketType::Stream, 1),
                     SocketDirection::Output,
                 ),
             ]),

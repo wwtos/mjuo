@@ -12,9 +12,8 @@
     import type { NodeGraph } from "$lib/node-engine/node_graph";
     import type { VertexIndex } from "$lib/ddgg/graph";
     import { transformMouseRelativeToEditor } from "$lib/util/mouse-transforms";
-    import { NODE_WIDTH, type NodeWrapper } from "$lib/node-engine/node";
+    import { NODE_WIDTH, type NodeInstance } from "$lib/node-engine/node";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
-    import type { SocketRegistry } from "$lib/node-engine/socket_registry";
     import type {
         Socket,
         SocketDirection,
@@ -29,7 +28,6 @@
     export let ipcSocket: IpcSocket;
     export let activeGraph: BehaviorSubject<NodeGraph>;
     export let graphManager: GraphManager;
-    export let socketRegistry: SocketRegistry;
 
     let previousSubscriptions: Array<Subscription> = [];
 
@@ -152,7 +150,7 @@
             editor,
             zoomer,
             event.clientX,
-            event.clientY
+            event.clientY,
         );
 
         if (shiftHeld) {
@@ -177,7 +175,7 @@
             editor,
             zoomer,
             clientX,
-            clientY
+            clientY,
         );
 
         if (selection) {
@@ -187,7 +185,7 @@
 
         // have we not started dragging?
         if (draggedState.length === 0 && keepSelected) {
-            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
+            const node = $activeGraph.getNode(keepSelected) as NodeInstance;
 
             // if control isn't pressed, and the one clicked isn't selected, deselect all of them
             if (!controlHeld && !node.uiData.selected) {
@@ -206,7 +204,7 @@
             const selected = getSelected($activeGraph);
 
             draggedState = selected.map((nodeIndex) => {
-                const node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+                const node = $activeGraph.getNode(nodeIndex) as NodeInstance;
                 const offset: [number, number] = [
                     mouseX - node.uiData.x,
                     mouseY - node.uiData.y,
@@ -222,7 +220,7 @@
         // if the mouse was moved and we are dragging nodes, update those node's position
         if (draggedState.length > 0) {
             for (let { node: nodeIndex, offset } of draggedState) {
-                let node = $activeGraph.getNode(nodeIndex) as NodeWrapper;
+                let node = $activeGraph.getNode(nodeIndex) as NodeInstance;
 
                 node.uiData = {
                     ...node.uiData,
@@ -256,7 +254,7 @@
             editor,
             zoomer,
             event.clientX,
-            event.clientY
+            event.clientY,
         );
 
         if (draggedState.length === 0 && !controlHeld) {
@@ -264,7 +262,7 @@
 
             for (let selected of selectedNodes) {
                 if (!deepEqual(selected, keepSelected)) {
-                    const node = $activeGraph.getNode(selected) as NodeWrapper;
+                    const node = $activeGraph.getNode(selected) as NodeInstance;
 
                     node.uiData.selected = false;
                 }
@@ -275,7 +273,7 @@
 
         if (keepSelected) {
             // mark this one as dragging
-            const node = $activeGraph.getNode(keepSelected) as NodeWrapper;
+            const node = $activeGraph.getNode(keepSelected) as NodeInstance;
 
             node.uiData = {
                 ...node.uiData,
@@ -315,7 +313,7 @@
             deselectAll($activeGraph);
 
             for (let index of insideAABB) {
-                const node = $activeGraph.getNode(index) as NodeWrapper;
+                const node = $activeGraph.getNode(index) as NodeInstance;
 
                 node.uiData.selected = true;
 
@@ -340,13 +338,13 @@
             value: string;
             clientX: number;
             clientY: number;
-        }>
+        }>,
     ) {
         let [mouseX, mouseY] = transformMouseRelativeToEditor(
             editor,
             zoomer,
             ev.detail.clientX,
-            ev.detail.clientY
+            ev.detail.clientY,
         );
 
         ipcSocket.commit([
@@ -366,7 +364,7 @@
         createNodeMenu.visible = false;
     }
 
-    let keyedNodes: [string, NodeWrapper, VertexIndex][];
+    let keyedNodes: [string, NodeInstance, VertexIndex][];
     let keyedConnections: [string, Connection][];
 
     $: {
@@ -381,7 +379,7 @@
             $activeGraph.keyedConnectionStore.subscribe(
                 (newKeyedConnections) => {
                     keyedConnections = newKeyedConnections;
-                }
+                },
             ),
         ];
     }
@@ -395,14 +393,14 @@
             editor,
             zoomer,
             e.event.clientX,
-            e.event.clientY
+            e.event.clientY,
         );
 
         if (e.direction.variant === "Input") {
             // see if it's already connected, in which case we're disconnecting it
             let connection = $activeGraph.getNodeInputConnection(
                 e.vertexIndex,
-                e.socket
+                e.socket,
             );
 
             // check if we are already connected
@@ -422,7 +420,7 @@
                             },
                         },
                     ],
-                    false
+                    false,
                 );
 
                 // add the connection line back for connecting to something else
@@ -436,7 +434,7 @@
                 const fromNodeXY = $activeGraph.getNodeSocketXy(
                     connection.fromNode,
                     connection.fromSocket,
-                    { variant: "Output" }
+                    { variant: "Output" },
                 );
 
                 connectionBeingCreated = {
@@ -509,7 +507,7 @@
                     },
                 },
             ],
-            false
+            false,
         );
     }
 
@@ -522,12 +520,12 @@
         const fromXY = $activeGraph.getNodeSocketXy(
             connection.fromNode,
             connection.data.fromSocket,
-            { variant: "Output" }
+            { variant: "Output" },
         );
         const toXY = $activeGraph.getNodeSocketXy(
             connection.toNode,
             connection.data.toSocket,
-            { variant: "Input" }
+            { variant: "Input" },
         );
 
         return {
@@ -539,7 +537,7 @@
     }
 
     async function breadcrumbChangeGraph(
-        event: CustomEvent<{ index: VertexIndex }>
+        event: CustomEvent<{ index: VertexIndex }>,
     ) {
         while (
             path.length > 1 &&
@@ -625,7 +623,6 @@
                     wrapper={node}
                     nodeIndex={index}
                     onMousedown={onNodeMousedown}
-                    registry={socketRegistry}
                     x={node.uiData.x}
                     y={node.uiData.y}
                     title={node.uiData.title || ""}

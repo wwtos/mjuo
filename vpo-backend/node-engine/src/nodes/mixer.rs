@@ -4,18 +4,27 @@ use crate::nodes::prelude::*;
 pub struct MixerNode {}
 
 impl NodeRuntime for MixerNode {
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        for (i, frame) in outs.streams[0].iter_mut().enumerate() {
-            *frame = 0.0;
+        for stream_out in outs.streams() {
+            for channel_out in stream_out.iter_mut() {
+                for frame_out in channel_out.iter_mut() {
+                    *frame_out = 0.0;
+                }
+            }
+        }
 
-            for stream_in in ins.streams {
-                *frame += stream_in[i];
+        for stream_in in ins.streams() {
+            for (channel_in, channel_out) in stream_in.iter().zip(outs.stream(0).iter_mut()) {
+                for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
+                    *frame_out += *frame_in;
+                }
             }
         }
 
@@ -28,10 +37,13 @@ impl Node for MixerNode {
         MixerNode {}
     }
 
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let polyphony = default_channels(&props, context.default_channel_count);
+
         let mut node_rows = vec![
-            NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            stream_output(register("audio")),
+            with_channels(context.default_channel_count),
+            property("input_count", PropertyType::Integer, Property::Integer(2)),
+            stream_output("audio", polyphony),
         ];
 
         let input_count = props
@@ -41,7 +53,12 @@ impl Node for MixerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Stream, 1),
+                Socket::WithData(
+                    "input_numbered".into(),
+                    (i + 1).to_string(),
+                    SocketType::Stream,
+                    polyphony,
+                ),
                 SocketValue::Stream(0.0),
             ));
         }

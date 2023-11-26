@@ -1,7 +1,7 @@
 <script lang="ts">
     import type { VertexIndex } from "$lib/ddgg/graph";
     import type { GlobalState } from "$lib/node-engine/global_state";
-    import type { NodeWrapper } from "$lib/node-engine/node";
+    import type { NodeInstance } from "$lib/node-engine/node";
     import { createEventDispatcher, onMount } from "svelte";
     import type { Writable } from "svelte/store";
     import { parse } from "toml";
@@ -13,7 +13,7 @@
     export let y: number = 0;
     export let selected = false;
     export let nodeType: string;
-    export let state: NodeWrapper["state"];
+    export let state: NodeInstance["state"];
     export let properties: { [key: string]: string };
     export let globalState: Writable<GlobalState>;
     export let locked = false;

@@ -10,7 +10,7 @@ impl Node for DummyNode {
         DummyNode
     }
 
-    fn get_io(_props: HashMap<String, Property>, _register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![])
     }
 }

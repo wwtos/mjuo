@@ -13,6 +13,7 @@ ddgg = { git = "https://github.com/smj-edison/ddgg", features = [
     "serde_string_indexes",
 ] }
 enum_dispatch = "0.3.8"
+ghost-cell = "0.2.3"
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 petgraph = "0.6.0"
@@ -28,7 +29,12 @@ smallvec = { version = "1.9", features = ["serde"] }
 smartstring = "1.0"
 snafu = "0.7"
 sound-engine = { path = "../sound-engine" }
+common = { path = "../common" }
 wasm-bindgen = "0.2.84"
+clocked = "0.1.0"
+self_cell = "1.0.1"
+generational-arena = "0.2.9"
+recycle_vec = "1.0.4"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 web-sys = { version = "0.3.61", features = [] }

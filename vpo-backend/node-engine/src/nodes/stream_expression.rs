@@ -9,32 +9,35 @@ pub struct StreamExpressionNode {
 }
 
 impl NodeRuntime for StreamExpressionNode {
-    fn process(
+    fn process<'a>(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(ast) = &self.ast {
-            for (i, frame) in outs.streams[0].iter_mut().enumerate() {
-                // start by rewinding the scope
-                self.scope.rewind(0);
+            for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
+                for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
+                    // start by rewinding the scope
+                    self.scope.rewind(0);
 
-                // add inputs to scope
-                for (j, val) in ins.streams.iter().enumerate() {
-                    self.scope.push(format!("x{}", j + 1), val[i]);
-                }
-
-                // now we run the expression!
-                let result = globals.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
-
-                // convert the output to a usuable form
-                match result {
-                    Ok(output) => {
-                        *frame = output;
+                    // add inputs to scope
+                    for (j, val) in ins.streams().enumerate() {
+                        self.scope.push(format!("x{}", j + 1), val[frame_i][channel_i]);
                     }
-                    Err(_) => break,
+
+                    // now we run the expression!
+                    let result = context.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
+
+                    // convert the output to a usuable form
+                    match result {
+                        Ok(output) => {
+                            *frame_out = output;
+                        }
+                        Err(_) => break,
+                    }
                 }
             }
 
@@ -84,26 +87,21 @@ impl Node for StreamExpressionNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let channels = default_channels(&props, context.default_channel_count);
+
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
-            NodeRow::Property(
-                "expression".to_string(),
-                PropertyType::String,
-                Property::String("".to_string()),
-            ),
-            NodeRow::Property(
-                "values_in_count".to_string(),
-                PropertyType::Integer,
-                Property::Integer(0),
-            ),
-            stream_output(register("audio")),
+            with_channels(context.default_channel_count),
+            property("expression", PropertyType::String, Property::String("".into())),
+            property("values_in_count", PropertyType::Integer, Property::Integer(0)),
+            stream_output("audio", channels),
         ];
 
         if let Some(Property::Integer(values_in_count)) = props.get("values_in_count") {
             for i in 0..(*values_in_count) {
                 node_rows.push(NodeRow::Input(
-                    Socket::Numbered(register("variable-numbered"), i + 1, SocketType::Value, 1),
+                    Socket::WithData("variable_numbered".into(), (i + 1).to_string(), SocketType::Value, 1),
                     SocketValue::Value(Primitive::Float(0.0)),
                 ));
             }

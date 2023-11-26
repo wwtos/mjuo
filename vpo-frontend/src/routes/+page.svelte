@@ -17,7 +17,7 @@
     $: height = $dimensions.height;
 
     let activeGraph: BehaviorSubject<NodeGraph> = new BehaviorSubject(
-        data.graphManager.getRootGraph()
+        data.graphManager.getRootGraph(),
     );
 </script>
 
@@ -33,7 +33,6 @@
             {activeGraph}
             graphManager={data.graphManager}
             ipcSocket={data.socket}
-            socketRegistry={data.socketRegistry}
         />
     {:else if section === "uiEditor"}
         <UiEditor

@@ -37,11 +37,11 @@ pub enum NodeError {
     AlreadyConnected { from: Socket, to: Socket },
     #[snafu(display("Input socket already occupied (Input {socket:?})"))]
     InputSocketOccupied { socket: Socket },
-    #[snafu(display("Node does not exist in graph (index `{node_index}`)"))]
+    #[snafu(display("Node does not exist in graph (index `{node_index:?}`)"))]
     NodeDoesNotExist { node_index: NodeIndex },
-    #[snafu(display("Node already exists at index `{node_index}`"))]
+    #[snafu(display("Node already exists at index `{node_index:?}`"))]
     NodeAlreadyExists { node_index: NodeIndex },
-    #[snafu(display("Mismatched node index: currently {current}, got {incoming}"))]
+    #[snafu(display("Mismatched node index: currently {current:?}, got {incoming:?}"))]
     MismatchedNodeIndex { current: NodeIndex, incoming: NodeIndex },
     #[snafu(display("Node index `{index}` out of bounds"))]
     IndexOutOfBounds { index: usize },

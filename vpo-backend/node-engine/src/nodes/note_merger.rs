@@ -1,4 +1,5 @@
-use smallvec::SmallVec;
+use std::borrow::Cow;
+
 use sound_engine::midi::messages::MidiData;
 
 use super::prelude::*;
@@ -29,18 +30,21 @@ impl NodeRuntime for NoteMergerNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        let mut new_messages: MidiBundle = SmallVec::new();
+        let mut new_messages: MidiChannel = MidiChannel::new();
 
-        for (i, messages) in ins.midis.iter().enumerate() {
-            if let Some(messages) = messages {
-                for message in messages {
+        for (i, messages) in ins.midis().enumerate() {
+            if let Some(midi) = &messages[0] {
+                let messages = midi_store.borrow_midi(midi).unwrap();
+
+                for message in messages.iter() {
                     match message.data {
                         MidiData::NoteOn { note, .. } => {
                             let before = self.combined;
@@ -72,9 +76,7 @@ impl NodeRuntime for NoteMergerNode {
             }
         }
 
-        if !new_messages.is_empty() {
-            outs.midis[0] = Some(new_messages);
-        }
+        outs.midi(0)[0] = midi_store.register_midis(new_messages.into_iter());
 
         ProcessResult::nothing()
     }
@@ -88,10 +90,10 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            midi_output(register("midi")),
+            midi_output("midi", 1),
         ];
 
         let input_count = props
@@ -102,7 +104,12 @@ impl Node for NoteMergerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::Numbered(register("input-numbered"), i + 1, SocketType::Midi, 1),
+                Socket::WithData(
+                    Cow::Borrowed("input_numbered"),
+                    (i + 1).to_string(),
+                    SocketType::Midi,
+                    1,
+                ),
                 SocketValue::None,
             ));
         }

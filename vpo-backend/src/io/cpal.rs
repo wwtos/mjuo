@@ -9,7 +9,6 @@ use cpal::{
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
 use node_engine::{
-    connection::MidiBundle,
     engine::NodeEngine,
     global_state::Resources,
     state::{FromNodeEngine, NodeEngineUpdate},
@@ -17,7 +16,7 @@ use node_engine::{
 use rtrb::RingBuffer;
 use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
-use sound_engine::midi::messages::MidiMessage;
+use sound_engine::{midi::messages::MidiMessage, MidiChannel};
 use tokio::sync::broadcast;
 
 use crate::errors::EngineError;
@@ -55,7 +54,7 @@ impl CpalBackend {
         buffer_size: usize,
         io_requested_buffer_size: usize,
         sample_rate: u32,
-        midi_in: mpsc::Receiver<MidiBundle>,
+        midi_in: mpsc::Receiver<MidiChannel>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
         to_main: broadcast::Sender<Vec<FromNodeEngine>>,
     ) -> Result<(Stream, StreamConfig), EngineError> {
@@ -102,7 +101,7 @@ impl CpalBackend {
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
         sample_rate: u32,
-        midi_in: mpsc::Receiver<MidiBundle>,
+        midi_in: mpsc::Receiver<MidiChannel>,
         state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
         to_main: broadcast::Sender<Vec<FromNodeEngine>>,
     ) -> Result<Stream, EngineError> {
@@ -135,7 +134,7 @@ impl CpalBackend {
                             for (i, frame) in out.iter_mut().enumerate() {
                                 // are there enough slots open to step the engine?
                                 if producer.slots() > buffer_size * config.channels as usize {
-                                    let midi = midi_in.try_recv().unwrap_or(smallvec![]);
+                                    let midi = midi_in.try_recv().unwrap_or(vec![]);
 
                                     if let Some(message) = midi.first() {
                                         if midi_time_offset == 0 || message.timestamp < playback_time_micros {
@@ -156,11 +155,13 @@ impl CpalBackend {
                                         .position(|message| message.timestamp > playback_time + buffer_size as i64)
                                     {
                                         Some(stop_at) => {
-                                            let midi_constrained: MidiBundle = midi_buffer.drain(..stop_at).collect();
+                                            let midi_constrained: Vec<Vec<MidiMessage>> =
+                                                midi_buffer.drain(..stop_at).map(|x| vec![x]).collect();
                                             engine.step(midi_constrained, &resources, &mut buffer)
                                         }
                                         None => {
-                                            let midi_all: MidiBundle = midi_buffer.drain(..).collect();
+                                            let midi_all: Vec<Vec<MidiMessage>> =
+                                                midi_buffer.drain(..).map(|x| vec![x]).collect();
                                             engine.step(midi_all, &resources, &mut buffer)
                                         }
                                     };

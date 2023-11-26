@@ -69,14 +69,12 @@
 
             if (message.action === "graph/updateGraph") {
                 data.graphManager.applyJson(message.payload);
-            } else if (message.action === "registry/updateRegistry") {
-                data.socketRegistry.applyJson(message.payload);
             } else if (message.action === "state/updateGlobalState") {
                 const newGlobalState = message.payload;
 
                 for (let i in newGlobalState.resources.ui) {
                     newGlobalState.resources.ui[i] = parse(
-                        newGlobalState.resources.ui[i]
+                        newGlobalState.resources.ui[i],
                     );
                 }
 

@@ -2,14 +2,13 @@ use std::sync::mpsc::Receiver;
 use std::{io::Write, sync::mpsc};
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
-use node_engine::connection::MidiBundle;
 use snafu::ResultExt;
 use sound_engine::midi::messages::MidiMessage;
 use sound_engine::midi::parse::MidiParser;
 
 use crate::errors::EngineError;
 
-pub fn connect_midir_backend() -> Result<(Receiver<MidiBundle>, MidiInputConnection<()>), EngineError> {
+pub fn connect_midir_backend() -> Result<(Receiver<Vec<MidiMessage>>, MidiInputConnection<()>), EngineError> {
     let mut parser = MidiParser::new();
     let (sender, receiver) = mpsc::channel();
 
@@ -25,7 +24,7 @@ pub fn connect_midir_backend() -> Result<(Receiver<MidiBundle>, MidiInputConnect
                 parser.write_all(message).unwrap();
 
                 if !parser.parsed.is_empty() {
-                    let messages: MidiBundle = parser
+                    let messages: Vec<MidiMessage> = parser
                         .parsed
                         .drain(..)
                         .map(|data| MidiMessage {

@@ -7,13 +7,12 @@ use snafu::OptionExt;
 use crate::{
     connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
     errors::{NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult, NodesNotConnectedSnafu},
-    node::NodeIndex,
-    node_wrapper::NodeWrapper,
+    node::{NodeGetIoContext, NodeIndex},
+    node_instance::NodeInstance,
     nodes::variant_io,
-    socket_registry::SocketRegistry,
 };
 
-pub type NodeGraphDiff = GraphDiff<NodeWrapper, NodeConnectionData>;
+pub type NodeGraphDiff = GraphDiff<NodeInstance, NodeConnectionData>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -31,16 +30,13 @@ pub struct ConnectionIndex(pub EdgeIndex);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
-    nodes: Graph<NodeWrapper, NodeConnectionData>,
+    nodes: Graph<NodeInstance, NodeConnectionData>,
 }
 
-pub(crate) fn create_new_node(node_type: String, registry: &mut SocketRegistry) -> NodeResult<NodeWrapper> {
-    let node_rows = variant_io(&node_type, HashMap::new(), &mut |name: &str| {
-        registry.register_socket(name)
-    })?
-    .node_rows;
+pub(crate) fn create_new_node(node_type: &str, ctx: &NodeGetIoContext) -> NodeResult<NodeInstance> {
+    let node_rows = variant_io(node_type, ctx, HashMap::new())?.node_rows;
 
-    let new_node = NodeWrapper::new(node_type, node_rows)?;
+    let new_node = NodeInstance::new(node_type.into(), node_rows)?;
 
     Ok(NodeOk::new(new_node.value, new_node.warnings))
 }
@@ -50,29 +46,28 @@ impl NodeGraph {
         NodeGraph { nodes: Graph::new() }
     }
 
-    pub fn add_node(
-        &mut self,
-        node_type: String,
-        registry: &mut SocketRegistry,
-    ) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type, registry)?;
+    pub fn add_node(&mut self, node_type: &str) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
+        let new_node = create_new_node(
+            node_type,
+            &NodeGetIoContext {
+                default_channel_count: 1,
+            },
+        )?;
 
-        let (index, diff) = self.nodes.add_vertex(new_node.value)?;
+        let (index, diff) = self.nodes.add_vertex(new_node.value);
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
 
-    pub fn update_node_rows(
-        &mut self,
-        node_index: NodeIndex,
-        registry: &mut SocketRegistry,
-    ) -> Result<Vec<NodeGraphDiff>, NodeError> {
+    pub fn update_node_rows(&mut self, node_index: NodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
         let node = self.get_node(node_index)?;
 
         let new_rows = variant_io(
             &node.get_node_type(),
+            &NodeGetIoContext {
+                default_channel_count: 1,
+            },
             node.get_properties().clone(),
-            &mut |name: &str| registry.register_socket(name),
         )?
         .node_rows;
 
@@ -82,7 +77,7 @@ impl NodeGraph {
             .get_node_rows()
             .iter()
             .filter(|&old_row| !new_rows.iter().any(|new_row| new_row == old_row))
-            .filter_map(|row| row.to_socket_and_direction())
+            .filter_map(|row| row.to_socket_and_direction().map(|x| (x.0.clone(), x.1)))
             .collect();
 
         for input_connection in self.get_input_side_connections(node_index)? {
@@ -91,9 +86,9 @@ impl NodeGraph {
             }) {
                 let (_, diff) = self.disconnect(
                     input_connection.from_node,
-                    input_connection.from_socket,
+                    &input_connection.from_socket,
                     node_index,
-                    input_connection.to_socket,
+                    &input_connection.to_socket,
                 )?;
 
                 diffs.push(diff);
@@ -106,9 +101,9 @@ impl NodeGraph {
             }) {
                 let (_, diff) = self.disconnect(
                     node_index,
-                    output_connection.from_socket,
+                    &output_connection.from_socket,
                     output_connection.to_node,
-                    output_connection.to_socket,
+                    &output_connection.to_socket,
                 )?;
 
                 diffs.push(diff);
@@ -124,17 +119,17 @@ impl NodeGraph {
     pub fn connect(
         &mut self,
         from_index: NodeIndex,
-        from_socket: Socket,
+        from_socket: &Socket,
         to_index: NodeIndex,
-        to_socket: Socket,
+        to_socket: &Socket,
     ) -> Result<(ConnectionIndex, NodeGraphDiff), NodeError> {
         // check that this connection doesn't already exist
         let existing_connection = self.get_input_connection_index(to_index, to_socket)?;
 
         if existing_connection.is_some() {
             return Err(NodeError::AlreadyConnected {
-                from: from_socket.to_owned(),
-                to: to_socket.to_owned(),
+                from: from_socket.clone(),
+                to: to_socket.clone(),
             });
         }
 
@@ -162,16 +157,21 @@ impl NodeGraph {
         }
 
         // make sure the types are of the same family (midi can't connect to stream, etc)
-        if from_socket.socket_type() != to_socket.socket_type() {
+        if from_socket.socket_type() != to_socket.socket_type() || from_socket.channels() != to_socket.channels() {
             return Err(NodeError::IncompatibleSocketTypes {
                 from: from_socket.socket_type(),
                 to: to_socket.socket_type(),
             });
         }
 
-        let (edge_index, graph_diff) =
-            self.nodes
-                .add_edge(from_index.0, to_index.0, NodeConnectionData { from_socket, to_socket })?;
+        let (edge_index, graph_diff) = self.nodes.add_edge(
+            from_index.0,
+            to_index.0,
+            NodeConnectionData {
+                from_socket: from_socket.clone(),
+                to_socket: to_socket.clone(),
+            },
+        )?;
 
         Ok((ConnectionIndex(edge_index), graph_diff))
     }
@@ -179,9 +179,9 @@ impl NodeGraph {
     pub fn disconnect(
         &mut self,
         from_index: NodeIndex,
-        from_socket: Socket,
+        from_socket: &Socket,
         to_index: NodeIndex,
-        to_socket: Socket,
+        to_socket: &Socket,
     ) -> Result<(NodeConnectionData, NodeGraphDiff), NodeError> {
         // check that the connection exists
         let edge_index = self.get_connection_index(from_index, from_socket, to_index, to_socket)?;
@@ -196,7 +196,7 @@ impl NodeGraph {
         Ok(self.nodes.remove_edge(edge_index.0)?)
     }
 
-    pub fn remove_node(&mut self, index: NodeIndex) -> Result<(NodeWrapper, NodeGraphDiff), NodeError> {
+    pub fn remove_node(&mut self, index: NodeIndex) -> Result<(NodeInstance, NodeGraphDiff), NodeError> {
         let (old_data, diff) = self.nodes.remove_vertex(index.0)?;
 
         Ok((old_data, diff))
@@ -205,25 +205,25 @@ impl NodeGraph {
     pub fn get_connection_index(
         &self,
         from_index: NodeIndex,
-        from_socket: Socket,
+        from_socket: &Socket,
         to_index: NodeIndex,
-        to_socket: Socket,
+        to_socket: &Socket,
     ) -> Result<ConnectionIndex, NodeError> {
         let edges = self.nodes.shared_edges(from_index.0, to_index.0)?;
 
         for edge_index in edges {
             let edge = &self.nodes.get_edge(edge_index).expect("edge to exist").data;
 
-            if edge.from_socket == from_socket && edge.to_socket == to_socket {
+            if &edge.from_socket == from_socket && &edge.to_socket == to_socket {
                 return Ok(ConnectionIndex(edge_index));
             }
         }
 
         Err(NodeError::NodesNotConnected {
             from_index,
-            from_socket,
+            from_socket: from_socket.clone(),
             to_index,
-            to_socket,
+            to_socket: to_socket.clone(),
         })
     }
 
@@ -256,7 +256,7 @@ impl NodeGraph {
     pub fn get_input_connection_index(
         &self,
         to_index: NodeIndex,
-        to_socket: Socket,
+        to_socket: &Socket,
     ) -> Result<Option<ConnectionIndex>, NodeError> {
         let edge_indexes = self
             .nodes
@@ -272,7 +272,7 @@ impl NodeGraph {
                     .map(|edge| (&edge.data, edge_index))
                     .expect("edge to exist")
             })
-            .filter(|(edge, _)| edge.to_socket == to_socket)
+            .filter(|(edge, _)| &edge.to_socket == to_socket)
             .map(|(_, edge_index)| ConnectionIndex(*edge_index))
             .collect::<Vec<ConnectionIndex>>();
 
@@ -291,9 +291,9 @@ impl NodeGraph {
             .map(|(from_node, edge_index)| {
                 let edge = self.nodes.get_edge(*edge_index).expect("edge to exist");
                 InputSideConnection {
-                    from_socket: edge.data.from_socket,
+                    from_socket: edge.data.from_socket.clone(),
                     from_node: NodeIndex(*from_node),
-                    to_socket: edge.data.to_socket,
+                    to_socket: edge.data.to_socket.clone(),
                 }
             })
             .collect::<Vec<InputSideConnection>>();
@@ -314,9 +314,9 @@ impl NodeGraph {
                 let edge = self.nodes.get_edge(*edge_index).expect("edge to exist");
 
                 OutputSideConnection {
-                    from_socket: edge.data.from_socket,
+                    from_socket: edge.data.from_socket.clone(),
                     to_node: NodeIndex(*to_node),
-                    to_socket: edge.data.to_socket,
+                    to_socket: edge.data.to_socket.clone(),
                 }
             })
             .collect::<Vec<OutputSideConnection>>();
@@ -327,9 +327,9 @@ impl NodeGraph {
     pub fn get_connection(
         &self,
         from_index: NodeIndex,
-        from_socket: Socket,
+        from_socket: &Socket,
         to_index: NodeIndex,
-        to_socket: Socket,
+        to_socket: &Socket,
     ) -> Result<&NodeConnectionData, NodeError> {
         let index = self.get_connection_index(from_index, from_socket, to_index, to_socket)?;
 
@@ -338,21 +338,21 @@ impl NodeGraph {
             .get_edge(index.0)
             .with_context(|| NodesNotConnectedSnafu {
                 from_index,
-                from_socket,
+                from_socket: from_socket.clone(),
                 to_index,
-                to_socket,
+                to_socket: to_socket.clone(),
             })?
             .data)
     }
 
-    pub fn get_node(&self, index: NodeIndex) -> Result<&NodeWrapper, NodeError> {
+    pub fn get_node(&self, index: NodeIndex) -> Result<&NodeInstance, NodeError> {
         Ok(self
             .nodes
             .get_vertex_data(index.0)
             .with_context(|| NodeDoesNotExistSnafu { node_index: index })?)
     }
 
-    pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeWrapper, NodeError> {
+    pub fn get_node_mut(&mut self, index: NodeIndex) -> Result<&mut NodeInstance, NodeError> {
         Ok(self
             .nodes
             .get_vertex_data_mut(index.0)
@@ -367,7 +367,7 @@ impl NodeGraph {
         self.nodes.edge_indexes().map(ConnectionIndex)
     }
 
-    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeWrapper)> + '_ {
+    pub fn nodes_data_iter(&self) -> impl Iterator<Item = (NodeIndex, &NodeInstance)> + '_ {
         self.nodes
             .vertex_data_iter()
             .map(|(index, vertex)| (NodeIndex(index), vertex))
@@ -379,8 +379,12 @@ impl NodeGraph {
             .map(|(index, edge)| (ConnectionIndex(index), edge))
     }
 
-    pub fn get_graph(&self) -> &Graph<NodeWrapper, NodeConnectionData> {
+    pub fn get_graph(&self) -> &Graph<NodeInstance, NodeConnectionData> {
         &self.nodes
+    }
+
+    pub(crate) fn get_graph_mut(&mut self) -> &mut Graph<NodeInstance, NodeConnectionData> {
+        &mut self.nodes
     }
 
     pub fn len(&self) -> usize {

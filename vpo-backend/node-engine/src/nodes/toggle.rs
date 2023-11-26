@@ -15,7 +15,7 @@ impl NodeRuntime for ToggleNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         self.first_time = true;
 
-        if let Some(new_state) = params.state.value.as_bool() {
+        if let Some(new_state) = params.node_state.value.as_bool() {
             self.state = new_state;
         }
 
@@ -24,14 +24,15 @@ impl NodeRuntime for ToggleNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(new_state) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(new_state) = ins.value(0)[0].as_boolean() {
             if !self.first_time {
                 self.state = new_state;
                 self.updated_state = ProcessState::Unprocessed(());
@@ -39,7 +40,7 @@ impl NodeRuntime for ToggleNode {
         }
 
         if matches!(self.updated_state, ProcessState::Unprocessed(())) || self.first_time {
-            outs.values[0] = bool(self.state);
+            outs.value(0)[0] = bool(self.state);
         }
 
         self.updated_state = match self.updated_state {
@@ -88,11 +89,11 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
-                value_input(register("set_state"), Primitive::Boolean(false)),
-                value_output(register("state")),
+                value_input("set_state", Primitive::Boolean(false), 1),
+                value_output("state", 1),
                 NodeRow::Property("ui_name".into(), PropertyType::String, Property::String("".into())),
             ],
             child_graph_io: None,

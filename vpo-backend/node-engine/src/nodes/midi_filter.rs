@@ -2,13 +2,14 @@ use rhai::{Scope, AST};
 
 use crate::nodes::prelude::*;
 
-use super::util::midi_to_scope;
+use super::util::add_message_to_scope;
 
 #[derive(Debug, Clone)]
 pub struct MidiFilterNode {
     filter: Option<Box<AST>>,
     filter_raw: String,
     scope: Box<Scope<'static>>,
+    scratch: Vec<bool>,
 }
 
 impl NodeRuntime for MidiFilterNode {
@@ -32,50 +33,62 @@ impl NodeRuntime for MidiFilterNode {
         InitResult::warning(warning)
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut warning: Option<NodeWarning> = None;
 
         if let Some(filter) = &self.filter {
-            if let Some(midi) = ins.midis[0] {
-                let output = Some(
-                    midi.iter()
-                        .filter_map(|message| {
-                            midi_to_scope(&mut self.scope, &message.data);
+            if let Some(midi) = &ins.midi(0)[0] {
+                let messages = midi_store.borrow_midi(midi).unwrap();
 
-                            let result = globals
-                                .script_engine
-                                .eval_ast_with_scope::<bool>(&mut self.scope, filter);
+                self.scratch.clear();
 
-                            self.scope.rewind(0);
+                // create a list of trues and falses of which messages should be passed on
+                let filtered = messages.iter().map(|msg| {
+                    add_message_to_scope(&mut self.scope, &msg.data);
 
-                            match result {
-                                Ok(output) => {
-                                    if output {
-                                        Some(message.clone())
-                                    } else {
-                                        None
-                                    }
-                                }
-                                Err(err) => {
-                                    warning = Some(NodeWarning::RhaiExecutionFailure {
-                                        err: *err,
-                                        script: self.filter_raw.clone(),
-                                    });
+                    let result = context
+                        .script_engine
+                        .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
-                                    None
-                                }
-                            }
-                        })
-                        .collect::<MidiBundle>(),
-                );
+                    self.scope.rewind(0);
 
-                outs.midis[0] = output;
+                    match result {
+                        Ok(output) => output,
+                        Err(err) => {
+                            warning = Some(NodeWarning::RhaiExecutionFailure {
+                                err: *err,
+                                script: self.filter_raw.clone(),
+                            });
+
+                            false
+                        }
+                    }
+                });
+
+                self.scratch.extend(filtered);
+
+                let new_len = self.scratch.iter().filter(|x| **x).count();
+                let mut i = 0;
+
+                let messages_out = midi_store.map_midis(midi, new_len, |messages, _| {
+                    while self.scratch[i] == false {
+                        i += 1;
+                    }
+
+                    let out = i;
+                    i += 1;
+
+                    messages[out].clone()
+                });
+
+                outs.midi(0)[0] = messages_out;
             }
         }
 
@@ -89,18 +102,19 @@ impl Node for MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
             scope: Box::new(Scope::new()),
+            scratch: Vec::with_capacity(16),
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi")),
+            midi_input("midi", 1),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            midi_output(register("midi")),
+            midi_output("midi", 1),
         ])
     }
 }

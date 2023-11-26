@@ -1,12 +1,10 @@
 use ipc::ipc_message::IpcMessage;
-use node_engine::{
-    global_state::GlobalState, graph_manager::GraphIndex, socket_registry::SocketRegistry, state::GraphState,
-};
+use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::GraphState};
 use serde_json::json;
 use snafu::ResultExt;
 
 use crate::{
-    errors::{EngineError, JsonParserSnafu, NodeSnafu},
+    errors::{EngineError, NodeSnafu},
     Sender,
 };
 
@@ -28,17 +26,6 @@ pub fn send_graph_updates(
             "nodes": json["nodes"],
             "graphIndex": graph_index
         }
-    }}));
-
-    Ok(())
-}
-
-pub fn send_registry_updates(registry: &SocketRegistry, to_server: &Sender<IpcMessage>) -> Result<(), EngineError> {
-    let json = serde_json::to_value(registry).context(JsonParserSnafu)?;
-
-    let _ = to_server.send(IpcMessage::Json(json! {{
-        "action": "registry/updateRegistry",
-        "payload": json
     }}));
 
     Ok(())

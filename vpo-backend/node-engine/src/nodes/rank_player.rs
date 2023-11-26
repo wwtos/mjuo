@@ -1,10 +1,7 @@
-
-
 use lazy_static::lazy_static;
 use resource_manager::ResourceId;
-use smallvec::SmallVec;
 use sound_engine::{
-    sampling::{rank_player::RankPlayer},
+    sampling::rank_player::RankPlayer,
     util::{cents_to_detune, db_to_gain},
 };
 
@@ -17,23 +14,17 @@ pub struct RankPlayerNode {
 }
 
 lazy_static! {
-    pub static ref EMPTY_MIDI: MidiBundle = SmallVec::new();
+    pub static ref EMPTY_MIDI: MidiChannel = Vec::new();
 }
 
 impl NodeRuntime for RankPlayerNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let mut did_settings_change = false;
-
         if let Some(polyphony) = params
             .props
             .get("polyphony")
             .and_then(|polyphony| polyphony.clone().as_integer())
         {
             let polyphony = polyphony.max(1);
-
-            if polyphony != self.polyphony as i32 {
-                did_settings_change |= true;
-            }
 
             self.polyphony = polyphony as usize;
         }
@@ -66,37 +57,42 @@ impl NodeRuntime for RankPlayerNode {
         })
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        resources: &[Resource],
     ) -> NodeResult<()> {
         let _reset_needed = false;
 
-        if resources[0].is_some() {
-            if let Some(cents) = ins.values[0].as_ref().and_then(|x| x.as_float()) {
-                self.player.set_detune(cents_to_detune(cents));
-            }
+        if let Some(cents) = ins.value(0)[0].as_float() {
+            self.player.set_detune(cents_to_detune(cents));
+        }
 
-            if let Some(db_gain) = ins.values[1].as_ref().and_then(|x| x.as_float()) {
-                self.player.set_gain(db_to_gain(db_gain));
-            }
+        if let Some(db_gain) = ins.value(1)[0].as_float() {
+            self.player.set_gain(db_to_gain(db_gain));
+        }
 
-            if let Some(shelf_db_gain) = ins.values[2].as_ref().and_then(|x| x.as_float()) {
-                self.player.set_shelf_db_gain(shelf_db_gain);
-            }
+        if let Some(shelf_db_gain) = ins.value(2)[0].as_float() {
+            self.player.set_shelf_db_gain(shelf_db_gain);
+        }
 
-            for frame in outs.streams[0].iter_mut() {
-                *frame = 0.0;
-            }
+        for frame in outs.stream(0)[0].iter_mut() {
+            *frame = 0.0;
+        }
 
+        if let Some(Resource::Rank(rank)) = resources.get(0) {
             self.player.next_buffered(
-                globals.current_time,
-                ins.midis[0].as_ref().unwrap_or(&EMPTY_MIDI),
-                resources,
-                outs.streams[0],
+                context.current_time,
+                ins.midi(0)[0]
+                    .as_ref()
+                    .and_then(|x| midi_store.borrow_midi(x))
+                    .unwrap_or(&[]),
+                rank,
+                &resources[1..],
+                &mut outs.stream(0)[0],
             );
         }
 
@@ -112,7 +108,7 @@ impl Node for RankPlayerNode {
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "rank".into(),
@@ -123,11 +119,11 @@ impl Node for RankPlayerNode {
                 }),
             ),
             NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
-            midi_input(register("midi")),
-            value_input(register("detune"), Primitive::Float(0.0)),
-            value_input(register("db_gain"), Primitive::Float(0.0)),
-            value_input(register("shelf_db_gain"), Primitive::Float(0.0)),
-            stream_output(register("audio")),
+            midi_input("midi", 1),
+            value_input("detune", Primitive::Float(0.0), 1),
+            value_input("db_gain", Primitive::Float(0.0), 1),
+            value_input("shelf_db_gain", Primitive::Float(0.0), 1),
+            stream_output("audio", 1),
         ])
     }
 }

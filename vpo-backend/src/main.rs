@@ -27,7 +27,7 @@ async fn main_async() {
     let (to_server, mut from_server) = start_ipc(26642);
 
     let engine_buffer_size = 64;
-    let io_requested_buffer_size = 512;
+    let io_requested_buffer_size = 1024;
 
     let mut global_state = GlobalState::new(SoundConfig::default());
 

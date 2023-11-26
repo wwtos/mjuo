@@ -1,4 +1,3 @@
-use smallvec::smallvec;
 use sound_engine::midi::messages::{MidiData, MidiMessage};
 
 use super::prelude::*;
@@ -16,7 +15,6 @@ pub struct MidiSwitchNode {
     state: u128,
     ignoring: u128,
     engaged: bool,
-    midi_out: Option<MidiBundle>,
 }
 
 impl NodeRuntime for MidiSwitchNode {
@@ -43,17 +41,20 @@ impl NodeRuntime for MidiSwitchNode {
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        let mut midi_out: MidiBundle = smallvec![];
+        let mut midi_out: MidiChannel = MidiChannel::new();
 
-        if let Some(midi_in) = ins.midis[0] {
-            for message in midi_in {
+        if let Some(midi) = &ins.midi(0)[0] {
+            let messages = midi_store.borrow_midi(midi).unwrap();
+
+            for message in messages.iter() {
                 match message.data {
                     MidiData::NoteOn { note, .. } => {
                         match self.mode {
@@ -108,11 +109,11 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if let Some(engaged) = ins.values[0].as_ref().and_then(|x| x.as_boolean()) {
+        if let Some(engaged) = ins.value(0)[0].as_boolean() {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
-                let mut midi_out: MidiBundle = smallvec![];
+                let mut midi_out: MidiChannel = MidiChannel::new();
 
                 if engaged {
                     match self.mode {
@@ -121,7 +122,7 @@ impl NodeRuntime for MidiSwitchNode {
                             for i in 0..128 {
                                 if self.state & (1 << i) != 0 {
                                     midi_out.push(MidiMessage {
-                                        timestamp: globals.current_time,
+                                        timestamp: context.current_time,
                                         data: MidiData::NoteOn {
                                             channel: 0,
                                             note: i,
@@ -142,7 +143,7 @@ impl NodeRuntime for MidiSwitchNode {
                     for i in 0..128 {
                         if to_turn_off & (1 << i) != 0 {
                             midi_out.push(MidiMessage {
-                                timestamp: globals.current_time,
+                                timestamp: context.current_time,
                                 data: MidiData::NoteOff {
                                     channel: 0,
                                     note: i,
@@ -159,7 +160,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            outs.midis[0] = Some(midi_out);
+            outs.midi(0)[0] = midi_store.register_midis(midi_out.into_iter());
         }
 
         ProcessResult::nothing()
@@ -167,12 +168,12 @@ impl NodeRuntime for MidiSwitchNode {
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input(register("midi")),
-            value_input(register("engage"), Primitive::Boolean(false)),
+            midi_input("midi", 1),
+            value_input("engage", Primitive::Boolean(false), 1),
             multiple_choice("mode", &["normal", "sostenuto", "sustain"], "normal"),
-            midi_output(register("midi")),
+            midi_output("midi", 1),
         ])
     }
 
@@ -182,7 +183,6 @@ impl Node for MidiSwitchNode {
             state: 0,
             ignoring: 0,
             engaged: false,
-            midi_out: None,
         }
     }
 }

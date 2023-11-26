@@ -1,26 +1,29 @@
 use std::collections::HashMap;
 
+use itertools::multizip;
 use sound_engine::node::filter::{filter_coeffs, BiquadFilter, FilterSpec, FilterType};
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct BiquadFilterNode {
-    filter: BiquadFilter,
+    filters: Vec<BiquadFilter>,
     filter_spec: FilterSpec<f32>,
     q: f32,
 }
 
 impl BiquadFilterNode {
     fn recompute(&mut self) {
-        self.filter.set_coeffs(filter_coeffs(self.filter_spec.clone()));
+        let coeffs = filter_coeffs(self.filter_spec.clone());
+
+        for filter in self.filters.iter_mut() {
+            filter.set_coeffs(coeffs.clone());
+        }
     }
 }
 
 impl NodeRuntime for BiquadFilterNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        self.filter.reset_history();
-
         if let Some(Property::MultipleChoice(filter_type)) = params.props.get("filter_type") {
             self.filter_spec = FilterSpec {
                 f0: self.filter_spec.f0,
@@ -36,24 +39,30 @@ impl NodeRuntime for BiquadFilterNode {
             };
         }
 
-        self.filter.set_coeffs(filter_coeffs(self.filter_spec.clone()));
+        self.filters.resize(
+            default_channels(&params.props, params.default_channel_count),
+            BiquadFilter::default(),
+        );
+
+        self.recompute();
 
         InitResult::nothing()
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        _globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        _context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(frequency) = ins.values[0].as_ref().and_then(|f| f.as_float()) {
+        if let Some(frequency) = ins.value(0)[0].as_float() {
             self.filter_spec.f0 = frequency.max(1.0);
             self.recompute();
         }
 
-        if let Some(resonance) = ins.values[1].as_ref().and_then(|r| r.as_float()) {
+        if let Some(resonance) = ins.value(1)[0].as_float() {
             match &mut self.filter_spec.filter_type {
                 FilterType::LowPass { q } | FilterType::HighPass { q } | FilterType::AllPass { q } => {
                     *q = resonance;
@@ -70,8 +79,12 @@ impl NodeRuntime for BiquadFilterNode {
             }
         }
 
-        for (frame_in, frame_out) in ins.streams[0].iter().zip(outs.streams[0].iter_mut()) {
-            *frame_out = self.filter.filter_sample(*frame_in);
+        for (channel_in, channel_out, filter) in
+            multizip((ins.stream(0).iter(), outs.stream(0).iter_mut(), self.filters.iter_mut()))
+        {
+            for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
+                *frame_out = filter.filter_sample(*frame_in);
+            }
         }
 
         NodeOk::no_warnings(())
@@ -81,30 +94,27 @@ impl NodeRuntime for BiquadFilterNode {
 impl Node for BiquadFilterNode {
     fn new(_config: &SoundConfig) -> BiquadFilterNode {
         BiquadFilterNode {
-            filter: BiquadFilter::new(FilterSpec::none()),
+            filters: vec![],
             filter_spec: FilterSpec::none(),
             q: 0.7,
         }
     }
 
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+        let polyphony = default_channels(&props, context.default_channel_count);
+
         NodeIo {
             node_rows: vec![
-                NodeRow::Property(
-                    "filter_type".to_string(),
-                    PropertyType::MultipleChoice(vec![
-                        "lowpass".to_string(),
-                        "highpass".to_string(),
-                        "bandpass".to_string(),
-                        "notch".to_string(),
-                        "allpass".to_string(),
-                    ]),
-                    Property::MultipleChoice("lowpass".to_string()),
+                with_channels(context.default_channel_count),
+                multiple_choice(
+                    "filter_type",
+                    &["lowpass", "highpass", "bandpass", "notch", "allpass"],
+                    "lowpass",
                 ),
-                stream_input(register("audio")),
-                value_input(register("frequency"), Primitive::Float(20000.0)),
-                value_input(register("resonance"), Primitive::Float(0.707)),
-                stream_output(register("audio")),
+                stream_input("audio", polyphony),
+                value_input("frequency", Primitive::Float(20000.0), 1),
+                value_input("resonance", Primitive::Float(0.707), 1),
+                stream_output("audio", polyphony),
             ],
             child_graph_io: None,
         }

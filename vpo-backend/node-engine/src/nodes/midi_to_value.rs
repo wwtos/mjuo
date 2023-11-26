@@ -2,7 +2,7 @@ use rhai::{Dynamic, Scope, AST};
 
 use super::{
     prelude::*,
-    util::{dynamic_to_primitive, midi_to_scope},
+    util::{add_message_to_scope, dynamic_to_primitive},
 };
 
 #[derive(Debug, Clone)]
@@ -37,38 +37,43 @@ impl NodeRuntime for MidiToValueNode {
         }
     }
 
-    fn process(
+    fn process<'a>(
         &mut self,
-        globals: NodeProcessGlobals,
-        ins: Ins,
-        outs: Outs,
-        _resources: &[Option<(ResourceIndex, &dyn Any)>],
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut warnings = vec![];
 
-        if let (Some(midi_in), Some(ast)) = (ins.midis[0], self.ast.as_ref()) {
-            for message in midi_in {
-                self.scope.push("timestamp", message.timestamp);
+        if let Some(ast) = self.ast.as_ref() {
+            if let Some(midi) = &ins.midi(0)[0] {
+                let messages = midi_store.borrow_midi(midi).unwrap();
 
-                midi_to_scope(&mut self.scope, &message.data);
+                for message in messages.iter() {
+                    self.scope.push("timestamp", message.timestamp);
 
-                let result = globals
-                    .script_engine
-                    .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
+                    add_message_to_scope(&mut self.scope, &message.data);
 
-                match result {
-                    Ok(dynamic) => {
-                        outs.values[0] = dynamic_to_primitive(dynamic);
+                    let result = context
+                        .script_engine
+                        .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
+
+                    match result {
+                        Ok(dynamic) => {
+                            outs.value(0)[0] = dynamic_to_primitive(dynamic);
+                        }
+                        Err(err) => {
+                            warnings.push(NodeWarning::RhaiExecutionFailure {
+                                err: *err,
+                                script: self.expression_raw.clone(),
+                            });
+                        }
                     }
-                    Err(err) => {
-                        warnings.push(NodeWarning::RhaiExecutionFailure {
-                            err: *err,
-                            script: self.expression_raw.clone(),
-                        });
-                    }
+
+                    self.scope.rewind(0);
                 }
-
-                self.scope.rewind(0);
             }
         }
 
@@ -77,11 +82,11 @@ impl NodeRuntime for MidiToValueNode {
 }
 
 impl Node for MidiToValueNode {
-    fn get_io(_props: HashMap<String, Property>, register: &mut dyn FnMut(&str) -> u32) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
-            midi_input(register("midi")),
-            value_output(register("value")),
+            midi_input("midi", 1),
+            value_output("value", 1),
         ])
     }
 

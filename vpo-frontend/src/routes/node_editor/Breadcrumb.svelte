@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
     import { createEventDispatcher } from "svelte";
 
     export let path = [
@@ -10,7 +10,7 @@
 
     const dispatch = createEventDispatcher();
 
-    const onClick = (index) => {
+    const onClick = (index: string) => {
         dispatch("click", {
             index,
         });

@@ -1,13 +1,13 @@
 use rhai::Dynamic;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use sound_engine::midi::messages::MidiMessage;
+use sound_engine::MidiChannel;
 
-use std::fmt::{Debug, Display};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
 
 use crate::{node::NodeIndex, node_graph::NodeConnectionData};
-
-pub type MidiBundle = SmallVec<[MidiMessage; 2]>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct Connection {
     pub data: NodeConnectionData,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct InputSideConnection {
     pub from_socket: Socket,
@@ -25,7 +25,7 @@ pub struct InputSideConnection {
     pub to_socket: Socket,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OutputSideConnection {
     pub from_socket: Socket,
@@ -33,23 +33,30 @@ pub struct OutputSideConnection {
     pub to_socket: Socket,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum Socket {
-    Simple(u32, SocketType, usize),
-    Numbered(u32, i32, SocketType, usize),
+    Simple(Cow<'static, str>, SocketType, usize),
+    WithData(Cow<'static, str>, String, SocketType, usize),
 }
 
 impl Socket {
     pub fn socket_type(&self) -> SocketType {
         match self {
             Self::Simple(_, socket_type, _) => *socket_type,
-            Self::Numbered(_, _, socket_type, _) => *socket_type,
+            Self::WithData(_, _, socket_type, _) => *socket_type,
+        }
+    }
+
+    pub fn channels(&self) -> usize {
+        match self {
+            Self::Simple(_, _, channels) => *channels,
+            Self::WithData(_, _, _, channels) => *channels,
         }
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketType {
     Stream,
@@ -65,20 +72,30 @@ pub enum SocketDirection {
     Output,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum Primitive {
     Float(f32),
     Int(i32),
     Boolean(bool),
-    String(String),
+    None,
+}
+
+impl Primitive {
+    pub fn is_some(&self) -> bool {
+        !self.is_none()
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Primitive::None)
+    }
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketValue {
     Stream(f32),
-    Midi(MidiBundle),
+    Midi(MidiChannel),
     Value(Primitive),
     None,
 }
@@ -91,7 +108,7 @@ impl SocketValue {
         }
     }
 
-    pub fn as_midi(self) -> Option<MidiBundle> {
+    pub fn as_midi(self) -> Option<MidiChannel> {
         match self {
             SocketValue::Midi(value) => Some(value),
             _ => None,
@@ -138,22 +155,12 @@ impl Primitive {
     }
 
     #[inline]
-    pub fn as_string(self) -> Option<String> {
-        match self {
-            Primitive::String(string) => Some(string),
-            Primitive::Float(float) => Some(float.to_string()),
-            Primitive::Int(int) => Some(int.to_string()),
-            Primitive::Boolean(boolean) => Some(boolean.to_string()),
-        }
-    }
-
-    #[inline]
     pub fn as_dynamic(self) -> Dynamic {
         match self {
-            Primitive::String(string) => Dynamic::from(string),
             Primitive::Float(float) => Dynamic::from(float),
             Primitive::Int(int) => Dynamic::from(int),
             Primitive::Boolean(boolean) => Dynamic::from(boolean),
+            Primitive::None => Dynamic::from(()),
         }
     }
 }

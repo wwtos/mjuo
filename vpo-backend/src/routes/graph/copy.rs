@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ipc::ipc_message::IpcMessage;
-use node_engine::{graph_manager::GraphIndex, node_graph::NodeConnectionData, node_wrapper::NodeWrapper};
+use node_engine::{graph_manager::GraphIndex, node_graph::NodeConnectionData, node_instance::NodeInstance};
 use petgraph::Graph;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -33,7 +33,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         .nodes_data_iter()
         .filter(|(_, node)| matches!(node.get_ui_data().get("selected"), Some(Value::Bool(true))));
 
-    let mut mini_graph: Graph<NodeWrapper, NodeConnectionData> = Graph::new();
+    let mut mini_graph: Graph<NodeInstance, NodeConnectionData> = Graph::new();
     let mut mapping = BTreeMap::new();
 
     // populate the mini graph with all the selected nodes

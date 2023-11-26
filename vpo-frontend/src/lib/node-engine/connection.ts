@@ -22,15 +22,21 @@ export interface OutputSideConnection {
 }
 
 export type Socket = DiscriminatedUnion<"variant", {
-    Simple: { data: [number, SocketType, number] },
-    Numbered: { data: [number, number, SocketType, number] }
+    Simple: { data: [string, SocketType, number] },
+    WithData: { data: [string, string, SocketType, number] }
 }>;
 
 export const Socket = {
     socketType(socket: Socket) {
         return match(socket, {
-            Simple: ({data: [_, socket_type]}) => socket_type,
-            Numbered: ({data: [_, __, socket_type]}) => socket_type,
+            Simple: ({ data: [_, socket_type] }) => socket_type,
+            WithData: ({ data: [_, __, socket_type] }) => socket_type,
+        });
+    },
+    channels(socket: Socket): number {
+        return match(socket, {
+            Simple: ({ data: [_, __, channels] }) => channels,
+            WithData: ({ data: [_, __, ___, channels] }) => channels,
         });
     }
 };

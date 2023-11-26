@@ -10,7 +10,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{JsonParserSnafu, NodeSnafu},
     routes::prelude::*,
-    util::{send_graph_updates, send_registry_updates},
+    util::send_graph_updates,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -47,10 +47,6 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
 
     for graph_index in touched_graphs {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
-    }
-
-    if update_registry {
-        send_registry_updates(state.state.get_registry(), state.to_server)?;
     }
 
     Ok(RouteReturn {
