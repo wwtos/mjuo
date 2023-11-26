@@ -83,7 +83,7 @@ impl NodeRuntime for RankPlayerNode {
             *frame = 0.0;
         }
 
-        if let Resource::Rank(rank) = resources[0] {
+        if let Some(Resource::Rank(rank)) = resources.get(0) {
             self.player.next_buffered(
                 context.current_time,
                 ins.midi(0)[0]
