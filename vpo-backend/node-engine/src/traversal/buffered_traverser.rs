@@ -6,8 +6,8 @@ use std::{
     ops::Range,
 };
 
+use common::resource_manager::ResourceId;
 use recycle_vec::VecExt;
-use resource_manager::ResourceId;
 use rhai::Engine;
 use self_cell::self_cell;
 use smallvec::SmallVec;
@@ -26,7 +26,7 @@ use crate::{
     nodes::NodeVariant,
 };
 
-use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes, IoSpec};
+use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes};
 
 #[derive(Debug)]
 struct BufferChunks<'a>(Vec<&'a [UnsafeCell<f32>]>);
@@ -437,13 +437,13 @@ mod tests {
 
     #[test]
     fn test_layout() {
-        let mut manager = GraphManager::new();
+        let mut manager = GraphManager::new(1);
         let (graph_index, _) = manager.new_graph().unwrap();
         let graph = manager.get_graph_mut(graph_index).unwrap();
 
-        let (gain, _) = graph.add_node("GainNode").unwrap().value;
-        let (midi, _) = graph.add_node("MidiToValuesNode").unwrap().value;
-        let (osc, _) = graph.add_node("OscillatorNode").unwrap().value;
+        let (gain, _) = graph.add_node("GainNode", 1).unwrap().value;
+        let (midi, _) = graph.add_node("MidiToValuesNode", 1).unwrap().value;
+        let (osc, _) = graph.add_node("OscillatorNode", 1).unwrap().value;
 
         graph
             .connect(

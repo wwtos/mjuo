@@ -1,5 +1,5 @@
+use common::resource_manager::ResourceId;
 use ddgg::GraphError;
-use resource_manager::ResourceId;
 use rhai::{EvalAltResult, ParseError};
 use snafu::Snafu;
 

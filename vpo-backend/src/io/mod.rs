@@ -11,9 +11,9 @@ use std::time::Instant;
 
 use lazy_static::lazy_static;
 
+use common::resource_manager::ResourceManager;
 use node_engine::{global_state::GlobalState, state::GraphState};
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use resource_manager::ResourceManager;
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};

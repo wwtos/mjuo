@@ -1,5 +1,5 @@
+use common::resource_manager::ResourceId;
 use lazy_static::lazy_static;
-use resource_manager::ResourceId;
 use sound_engine::{
     sampling::rank_player::RankPlayer,
     util::{cents_to_detune, db_to_gain},

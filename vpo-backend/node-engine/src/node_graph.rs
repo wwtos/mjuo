@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    ops::{Index, IndexMut},
+};
 
 use ddgg::{Edge, EdgeIndex, Graph, GraphDiff};
 use serde::{Deserialize, Serialize};
@@ -46,30 +49,27 @@ impl NodeGraph {
         NodeGraph { nodes: Graph::new() }
     }
 
-    pub fn add_node(&mut self, node_type: &str) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(
-            node_type,
-            &NodeGetIoContext {
-                default_channel_count: 1,
-            },
-        )?;
+    pub fn add_node(
+        &mut self,
+        node_type: &str,
+        default_channel_count: usize,
+    ) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
+        let new_node = create_new_node(node_type, &NodeGetIoContext::no_io_yet(default_channel_count))?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value);
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
 
-    pub fn update_node_rows(&mut self, node_index: NodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
+    pub fn update_node_rows(
+        &mut self,
+        node_index: NodeIndex,
+        default_channel_count: usize,
+    ) -> Result<Vec<NodeGraphDiff>, NodeError> {
         let node = self.get_node(node_index)?;
+        let ctx = self.create_get_io_context(node_index, default_channel_count)?;
 
-        let new_rows = variant_io(
-            &node.get_node_type(),
-            &NodeGetIoContext {
-                default_channel_count: 1,
-            },
-            node.get_properties().clone(),
-        )?
-        .node_rows;
+        let new_rows = variant_io(&node.get_node_type(), &ctx, node.get_properties().clone())?.node_rows;
 
         let mut diffs = vec![];
 
@@ -383,10 +383,6 @@ impl NodeGraph {
         &self.nodes
     }
 
-    pub(crate) fn get_graph_mut(&mut self) -> &mut Graph<NodeInstance, NodeConnectionData> {
-        &mut self.nodes
-    }
-
     pub fn len(&self) -> usize {
         self.nodes.get_verticies().len()
     }
@@ -405,6 +401,48 @@ impl NodeGraph {
         self.nodes.rollback_diff(diff)?;
 
         Ok(())
+    }
+
+    pub fn create_get_io_context(
+        &self,
+        index: NodeIndex,
+        default_channel_count: usize,
+    ) -> Result<NodeGetIoContext, NodeError> {
+        let vertex = self
+            .nodes
+            .get_vertex(index.0)
+            .context(NodeDoesNotExistSnafu { node_index: index })?;
+
+        let connected_inputs: Vec<Socket> = vertex
+            .get_connections_from()
+            .iter()
+            .map(|(_, connection)| self.nodes[*connection].data.to_socket.clone())
+            .collect();
+        let connected_outputs: Vec<Socket> = vertex
+            .get_connections_to()
+            .iter()
+            .map(|(_, connection)| self.nodes[*connection].data.from_socket.clone())
+            .collect();
+
+        Ok(NodeGetIoContext {
+            default_channel_count,
+            connected_inputs,
+            connected_outputs,
+        })
+    }
+}
+
+impl Index<NodeIndex> for NodeGraph {
+    type Output = NodeInstance;
+
+    fn index(&self, index: NodeIndex) -> &Self::Output {
+        self.get_node(index).unwrap()
+    }
+}
+
+impl IndexMut<NodeIndex> for NodeGraph {
+    fn index_mut(&mut self, index: NodeIndex) -> &mut Self::Output {
+        self.get_node_mut(index).unwrap()
     }
 }
 

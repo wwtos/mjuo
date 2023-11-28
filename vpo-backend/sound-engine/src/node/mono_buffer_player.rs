@@ -49,12 +49,11 @@ impl MonoBufferPlayer {
             return 0.0; // out of interpolation bounds
         }
 
-        let buffer_position = (buffer_position_unsafe - 1) as usize;
-        let sample = &buffer.audio_raw;
+        let out = hermite_lookup(self.audio_position, &buffer.audio_raw);
 
         self.audio_position += self.adjusted_playback_rate;
 
-        hermite_lookup(self.audio_position, sample)
+        out
     }
 
     pub fn seek(&mut self, location: f32) {

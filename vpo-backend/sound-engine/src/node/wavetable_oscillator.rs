@@ -16,11 +16,7 @@ impl WavetableOscillator {
         }
     }
 
-    pub fn new_with_frequency(
-        sound_config: SoundConfig,
-        wavetable: &MonoSample,
-        frequency: f32,
-    ) -> WavetableOscillator {
+    pub fn new_with_frequency(sound_config: SoundConfig, frequency: f32) -> WavetableOscillator {
         let mut oscillator = WavetableOscillator::new(sound_config);
         oscillator.set_frequency(frequency);
 

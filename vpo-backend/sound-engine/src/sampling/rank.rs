@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use resource_manager::ResourceId;
+use common::resource_manager::ResourceId;
 use serde::Serialize;
 
 use super::{phase_calculator::PhaseCalculator, pipe_player::EnvelopeIndexes};

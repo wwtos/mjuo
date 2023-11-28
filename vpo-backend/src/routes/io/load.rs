@@ -11,7 +11,7 @@ use crate::{
     util::{send_global_state_updates, send_graph_updates},
 };
 
-pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
     let file = AsyncFileDialog::new().pick_file().await;
 
     if let Some(file) = file {

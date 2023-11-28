@@ -1,5 +1,4 @@
 use common::traits::TryRef;
-use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::{node::wavetable_oscillator::WavetableOscillator, SoundConfig};
 
 use crate::nodes::prelude::*;
@@ -7,7 +6,6 @@ use crate::nodes::prelude::*;
 #[derive(Debug, Clone)]
 pub struct WavetableNode {
     oscillator: WavetableOscillator,
-    index: Option<ResourceIndex>,
 }
 
 impl NodeRuntime for WavetableNode {
@@ -34,7 +32,7 @@ impl NodeRuntime for WavetableNode {
             self.oscillator.set_frequency(frequency);
         }
 
-        if let Ok(wavetable) = resources[0].try_ref() {
+        if let Some(wavetable) = resources.get(0).and_then(|x| x.try_ref().ok()) {
             for frame in outs.stream(0)[0].iter_mut() {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }
@@ -48,20 +46,12 @@ impl Node for WavetableNode {
     fn new(config: &SoundConfig) -> Self {
         WavetableNode {
             oscillator: WavetableOscillator::new(config.clone()),
-            index: None,
         }
     }
 
     fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            NodeRow::Property(
-                "wavetable".into(),
-                PropertyType::Resource("wavetables".into()),
-                Property::Resource(ResourceId {
-                    namespace: "wavetables".into(),
-                    resource: "".into(),
-                }),
-            ),
+            resource("wavetable", "samples"),
             value_input("frequency", Primitive::Float(440.0), 1),
             stream_output("audio", 1),
         ])

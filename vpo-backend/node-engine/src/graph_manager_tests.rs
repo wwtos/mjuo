@@ -2,7 +2,7 @@ use crate::graph_manager::GraphManager;
 
 #[test]
 fn create_graph() {
-    let mut graph_manager = GraphManager::new();
+    let mut graph_manager = GraphManager::new(1);
 
     let (index, _) = graph_manager.new_graph().unwrap();
 

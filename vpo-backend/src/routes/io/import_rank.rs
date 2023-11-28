@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use common::resource_manager::ResourceId;
 use futures::future::join_all;
-use resource_manager::ResourceId;
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;

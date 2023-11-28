@@ -42,16 +42,18 @@ pub struct GlobalNodeIndex {
 pub struct GraphManager {
     node_graphs: Graph<NodeGraph, ConnectedThrough>,
     root_index: GraphIndex,
+    default_channel_count: usize,
 }
 
 impl GraphManager {
-    pub fn new() -> Self {
+    pub fn new(default_channel_count: usize) -> Self {
         let mut graph = Graph::new();
         let (root_index, _) = graph.add_vertex(NodeGraph::new());
 
         GraphManager {
             node_graphs: graph,
             root_index: GraphIndex(root_index),
+            default_channel_count,
         }
     }
 
@@ -180,8 +182,10 @@ impl GraphManager {
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff: Vec<DiffElement> = vec![];
 
+        let default_channel_count = self.default_channel_count;
+
         let graph = self.get_graph_mut(graph_index)?;
-        let creation_result = graph.add_node(node_type.into())?;
+        let creation_result = graph.add_node(node_type, default_channel_count)?;
 
         let new_node_index = creation_result.value.0;
 
@@ -200,8 +204,9 @@ impl GraphManager {
                 // add `Inputs` node and `Outputs` node
                 let new_graph = self.get_graph_mut(new_graph_index).expect("graph to have been created");
 
-                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into()).unwrap().value;
-                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into()).unwrap().value;
+                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into(), default_channel_count)?.value;
+                let (outputs_index, outputs_diff) =
+                    new_graph.add_node("OutputsNode".into(), default_channel_count)?.value;
 
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));

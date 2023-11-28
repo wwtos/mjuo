@@ -6,8 +6,7 @@ use serde_json::{json, Value};
 use crate::{
     connection::{Socket, SocketDirection},
     errors::{NodeError, NodeOk},
-    node::{NodeGetIoContext, NodeGraphAndIo, NodeRow, NodeState},
-    nodes::variant_io,
+    node::{NodeGraphAndIo, NodeRow, NodeState},
     property::Property,
 };
 
@@ -76,12 +75,6 @@ impl NodeInstance {
 
     pub fn set_node_rows(&mut self, rows: Vec<NodeRow>) -> Vec<NodeRow> {
         mem::replace(&mut self.node_rows, rows)
-    }
-
-    pub fn refresh_node_rows(&mut self, ctx: &NodeGetIoContext) {
-        self.node_rows = variant_io(&self.node_type, ctx, self.properties.clone())
-            .unwrap()
-            .node_rows;
     }
 
     pub fn get_property(&self, name: &str) -> Option<Property> {

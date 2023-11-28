@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
+use common::resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use common::traits::TryRef;
-use resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use serde::Serialize;
 use serde_json::{json, Value};
 use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
@@ -95,6 +95,7 @@ pub struct GlobalState {
     pub import_folder: Option<PathBuf>,
     pub sound_config: SoundConfig,
     pub resources: Arc<RwLock<Resources>>,
+    pub default_channel_count: usize,
 }
 
 impl GlobalState {
@@ -104,6 +105,7 @@ impl GlobalState {
             import_folder: None,
             resources: Arc::new(RwLock::new(Resources::default())),
             sound_config,
+            default_channel_count: 2,
         }
     }
 

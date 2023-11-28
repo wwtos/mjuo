@@ -22,6 +22,7 @@ pub mod portamento;
 pub mod prelude;
 pub mod rank_player;
 pub mod stream_expression;
+pub mod test_node;
 pub mod toggle;
 pub mod util;
 pub mod wavetable;
@@ -34,7 +35,7 @@ use self::{
     midi_switch::MidiSwitchNode, midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode,
     note_merger::NoteMergerNode, oscillator::OscillatorNode, outputs::OutputsNode, polyphonic::PolyphonicNode,
     portamento::PortamentoNode, rank_player::RankPlayerNode, stream_expression::StreamExpressionNode,
-    toggle::ToggleNode, wavetable::WavetableNode, wavetable_sequencer::WavetableSequencerNode,
+    test_node::TestNode, toggle::ToggleNode, wavetable::WavetableNode, wavetable_sequencer::WavetableSequencerNode,
 };
 
 use self::prelude::*;
@@ -66,6 +67,7 @@ pub enum NodeVariant {
     MemoryNode,
     MidiSwitchNode,
     MidiToValueNode,
+    TestNode,
 }
 
 impl Default for NodeVariant {
@@ -100,6 +102,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MemoryNode" => Ok(MemoryNode::new(config).into()),
         "MidiSwitchNode" => Ok(MidiSwitchNode::new(config).into()),
         "MidiToValueNode" => Ok(MidiToValueNode::new(config).into()),
+        "TestNode" => Ok(TestNode::new(config).into()),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -134,6 +137,7 @@ pub fn variant_io(
         "MemoryNode" => Ok(MemoryNode::get_io(ctx, props)),
         "MidiSwitchNode" => Ok(MidiSwitchNode::get_io(ctx, props)),
         "MidiToValueNode" => Ok(MidiToValueNode::get_io(ctx, props)),
+        "TestNode" => Ok(TestNode::get_io(ctx, props)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

@@ -14,7 +14,6 @@ use node_engine::{
     state::{FromNodeEngine, NodeEngineUpdate},
 };
 use rtrb::RingBuffer;
-use smallvec::smallvec;
 use snafu::{OptionExt, ResultExt};
 use sound_engine::{midi::messages::MidiMessage, MidiChannel};
 use tokio::sync::broadcast;

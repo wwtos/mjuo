@@ -15,7 +15,6 @@ use crate::{
     property::Property,
     traversal::buffered_traverser::BufferedTraverser,
 };
-use rhai::Engine;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IoNodes {
@@ -134,55 +133,40 @@ pub struct GraphState {
     graph_manager: GraphManager,
     root_graph_index: GraphIndex,
     io_nodes: IoNodes,
+    default_channel_count: usize,
 }
 
 impl GraphState {
     pub fn new(global_state: &GlobalState) -> Result<GraphState, NodeError> {
+        let default_channel_count = global_state.default_channel_count;
+
         let history = Vec::new();
         let place_in_history = 0;
 
-        let mut graph_manager: GraphManager = GraphManager::new();
+        let mut graph_manager: GraphManager = GraphManager::new(default_channel_count);
 
         let root_graph_index = graph_manager.root_index();
 
         let (output_node, input_node) = {
             let graph = graph_manager.get_graph_mut(root_graph_index)?;
 
-            let (output_node, _) = graph.add_node("OutputsNode".into()).unwrap().value;
-            let (input_node, _) = graph.add_node("InputsNode".into()).unwrap().value;
+            let (output_node, _) = graph.add_node("OutputsNode".into(), default_channel_count)?.value;
+            let (input_node, _) = graph.add_node("InputsNode".into(), default_channel_count)?.value;
 
-            let input = graph.get_node_mut(input_node).unwrap();
-
-            input.set_property(
+            graph.get_node_mut(input_node)?.set_property(
                 "socket_list".into(),
                 Property::SocketList(vec![Socket::Simple("midi".into(), SocketType::Midi, 1)]),
             );
-            input.refresh_node_rows(&NodeGetIoContext {
-                default_channel_count: 1,
-            });
-
-            let output = graph.get_node_mut(output_node).unwrap();
-            output.set_property(
+            graph.get_node_mut(output_node)?.set_property(
                 "socket_list".into(),
                 Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 1)]),
             );
-            output.refresh_node_rows(&NodeGetIoContext {
-                default_channel_count: 1,
-            });
+
+            graph.update_node_rows(input_node, global_state.default_channel_count)?;
+            graph.update_node_rows(output_node, global_state.default_channel_count)?;
 
             (output_node, input_node)
         };
-
-        let scripting_engine: Engine = Engine::new_raw();
-
-        // root_traverser.init_graph(
-        //     root_graph_index,
-        //     &graph_manager,
-        //     &scripting_engine,
-        //     &global_state.resources.read().unwrap(),
-        //     0,
-        //     global_state.sound_config.clone(),
-        // )?;
 
         Ok(GraphState {
             history,
@@ -193,6 +177,7 @@ impl GraphState {
                 input: input_node,
                 output: output_node,
             },
+            default_channel_count: global_state.default_channel_count,
         })
     }
 
@@ -481,7 +466,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 let before_props = node.set_properties(new_props.clone());
-                let graph_diffs = graph.update_node_rows(index.node_index)?;
+                let graph_diffs = graph.update_node_rows(index.node_index, self.default_channel_count)?;
 
                 let graph_diff = GraphManagerDiff(
                     graph_diffs
@@ -547,7 +532,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(after.clone());
-                let graph_diffs = graph.update_node_rows(index.node_index)?;
+                let graph_diffs = graph.update_node_rows(index.node_index, self.default_channel_count)?;
 
                 let graph_diff = GraphManagerDiff(
                     graph_diffs
@@ -624,7 +609,7 @@ impl GraphState {
                 let node = graph.get_node_mut(index.node_index)?;
 
                 node.set_properties(before.clone());
-                graph.update_node_rows(index.node_index)?;
+                graph.update_node_rows(index.node_index, self.default_channel_count)?;
 
                 let cloned = graph_diff.clone();
                 action_result = self.graph_manager.rollback_action(graph_diff)?;
@@ -674,12 +659,6 @@ impl GraphState {
 
         Ok((new_action, action_result))
     }
-
-    fn get_create_io_context(&self) -> &NodeGetIoContext {
-        &NodeGetIoContext {
-            default_channel_count: 2,
-        }
-    }
 }
 
 impl GraphState {
@@ -713,9 +692,7 @@ impl GraphState {
                 node.set_node_rows(
                     variant_io(
                         &node.get_node_type(),
-                        &NodeGetIoContext {
-                            default_channel_count: 1,
-                        },
+                        &NodeGetIoContext::no_io_yet(self.default_channel_count),
                         node.get_properties().clone(),
                     )
                     .unwrap()

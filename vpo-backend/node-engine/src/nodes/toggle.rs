@@ -29,8 +29,8 @@ impl NodeRuntime for ToggleNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
-        resources: &[Resource],
+        _midi_store: &mut MidiStoreInterface,
+        _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(new_state) = ins.value(0)[0].as_boolean() {
             if !self.first_time {
@@ -89,7 +89,7 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 value_input("set_state", Primitive::Boolean(false), 1),

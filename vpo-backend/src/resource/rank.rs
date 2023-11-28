@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fs::read_to_string, path::Path};
 
-use resource_manager::{ResourceId, ResourceManager};
+use common::resource_manager::{ResourceId, ResourceManager};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 use sound_engine::{

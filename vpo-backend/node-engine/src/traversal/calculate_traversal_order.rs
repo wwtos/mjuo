@@ -9,10 +9,10 @@ use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
 use crate::nodes::{new_variant, NodeVariant};
 
+use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
-use resource_manager::ResourceId;
 use rhai::Engine;
 use smallvec::SmallVec;
 use sound_engine::SoundConfig;
@@ -365,8 +365,10 @@ pub fn calc_indexes(
                 let connection = graph.get_graph().get_edge(connection_index.0).expect("edge to exist");
                 let from_index = NodeIndex(connection.get_from());
 
-                // ensure same channel length (TODO: figure out this edge case, it would
-                // be better to repeat the input channels, like faust)
+                // make sure it's not being connected to itself
+                assert_ne!(connection.get_from(), connection.get_to());
+
+                // ensure same channel length
                 assert_eq!(
                     connection.data.from_socket.channels(),
                     connection.data.to_socket.channels()
