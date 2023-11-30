@@ -8,7 +8,7 @@ use crate::{
     connection::{Primitive, Socket, SocketType, SocketValue},
     engine::NodeEngine,
     errors::{NodeError, WarningExt},
-    global_state::GlobalState,
+    global_state::{GlobalState, Resources},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     node::{NodeGetIoContext, NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnectionData, NodeGraph},
@@ -174,9 +174,11 @@ impl GraphState {
         })
     }
 
-    pub fn get_traverser(&self, global_state: &GlobalState) -> Result<BufferedTraverser, NodeError> {
-        let resources = global_state.resources.read().unwrap();
-
+    pub fn get_traverser(
+        &self,
+        global_state: &GlobalState,
+        resources: &Resources,
+    ) -> Result<BufferedTraverser, NodeError> {
         let traverser = BufferedTraverser::new(
             global_state.sound_config.clone(),
             &self.graph_manager,
@@ -188,9 +190,7 @@ impl GraphState {
         Ok(traverser)
     }
 
-    pub fn get_engine(&self, global_state: &GlobalState) -> Result<NodeEngine, NodeError> {
-        let resources = global_state.resources.read().unwrap();
-
+    pub fn get_engine(&self, global_state: &GlobalState, resources: &Resources) -> Result<NodeEngine, NodeError> {
         let traverser = BufferedTraverser::new(
             global_state.sound_config.clone(),
             &self.graph_manager,
@@ -271,6 +271,7 @@ impl GraphState {
         &self,
         invalidations: Vec<ActionInvalidation>,
         global_state: &GlobalState,
+        resources: &Resources,
     ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
         let mut root_graph_reindex_needed = false;
         let mut new_defaults = vec![];
@@ -302,7 +303,9 @@ impl GraphState {
         let mut updates = vec![];
 
         if root_graph_reindex_needed {
-            updates.push(NodeEngineUpdate::NewNodeEngine(self.get_engine(global_state)?));
+            updates.push(NodeEngineUpdate::NewNodeEngine(
+                self.get_engine(global_state, resources)?,
+            ));
         }
 
         if !new_defaults.is_empty() {

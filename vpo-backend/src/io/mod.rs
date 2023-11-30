@@ -12,6 +12,7 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 
 use common::resource_manager::ResourceManager;
+use node_engine::global_state::Resources;
 use node_engine::{global_state::GlobalState, state::GraphState};
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use semver::Version;
@@ -101,9 +102,7 @@ where
 }
 
 /// Make sure samples are loaded before ranks!
-pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), EngineError> {
-    let root = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
-
+pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Result<(), EngineError> {
     let relative_file = file
         .strip_prefix(root)
         .whatever_context(format!("Could not strip \"{:?}\" of \"{:?}\"", file, root))?;
@@ -115,7 +114,7 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
-            let mut resources = global_state.resources.write().expect("not poisoned");
+            let mut resources = resources;
 
             if resources.ranks.get_index(resource.as_ref()).is_some() {
                 resources.ranks.remove_resource(resource.as_ref());
@@ -125,24 +124,20 @@ pub fn load_single(file: &Path, global_state: &mut GlobalState) -> Result<(), En
             resources.ranks.add_resource(resource.into_owned(), rank);
         }
         "samples" => {
-            let samples = &mut global_state.resources.write().expect("not poisoned").samples;
-
-            if samples.get_index(resource.as_ref()).is_some() {
-                samples.remove_resource(resource.as_ref());
+            if resources.samples.get_index(resource.as_ref()).is_some() {
+                resources.samples.remove_resource(resource.as_ref());
             }
 
             let sample = load_sample(file)?;
-            samples.add_resource(resource.into_owned(), sample);
+            resources.samples.add_resource(resource.into_owned(), sample);
         }
         "ui" => {
-            let ui = &mut global_state.resources.write().expect("not poisoned").ui;
-
-            if ui.get_index(resource.as_ref()).is_some() {
-                ui.remove_resource(resource.as_ref());
+            if resources.ui.get_index(resource.as_ref()).is_some() {
+                resources.ui.remove_resource(resource.as_ref());
             }
 
             let ui_element = load_ui_from_file(file)?;
-            ui.add_resource(resource.into_owned(), ui_element);
+            resources.ui.add_resource(resource.into_owned(), ui_element);
         }
         _ => {}
     }
@@ -154,6 +149,7 @@ pub fn load(
     path: &Path,
     state: &mut GraphState,
     global_state: &mut GlobalState,
+    resources: &mut Resources,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
         .parent()
@@ -172,7 +168,7 @@ pub fn load(
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
     *state = GraphState::new(global_state).unwrap();
-    global_state.reset();
+    resources.reset();
 
     println!("Loading resources...");
     let time = Instant::now();
@@ -183,7 +179,6 @@ pub fn load(
     })?;
     let ui = load_resources(&parent.join("ui"), &["toml"], &load_ui_from_file)?;
 
-    let mut resources = global_state.resources.write().unwrap();
     resources.samples.extend(samples);
     resources.ranks.extend(ranks);
     resources.ui.extend(ui);

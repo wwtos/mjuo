@@ -16,7 +16,7 @@ type Sender<T> = SendBuffer<T>;
 type Sender<T> = broadcast::Sender<T>;
 
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::{mpsc, RwLock};
 use std::{error::Error, io::Write};
 
 #[cfg(any(unix, windows))]
@@ -28,7 +28,7 @@ use ipc::send_buffer::SendBuffer;
 
 use io::file_watcher::FileWatcher;
 use node_engine::{
-    global_state::GlobalState,
+    global_state::{GlobalState, Resources},
     state::{GraphState, NodeEngineUpdate},
 };
 use routes::route;
@@ -54,11 +54,12 @@ pub async fn handle_msg(
     to_server: &broadcast::Sender<IpcMessage>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
+    resources_lock: &RwLock<Resources>,
     engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
     project_dir_sender: &mut broadcast::Sender<PathBuf>,
 ) {
-    let result = route(msg, to_server, state, global_state).await;
+    let result = route(msg, to_server, state, global_state, resources_lock).await;
 
     match result {
         Ok(route_result) => {

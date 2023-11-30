@@ -1,4 +1,4 @@
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, RwLock};
 
 use futures::executor::block_on;
 use futures::join;
@@ -6,7 +6,7 @@ use futures::lock::MutexGuard;
 use futures::StreamExt;
 use tokio::sync::broadcast;
 
-use node_engine::global_state::GlobalState;
+use node_engine::global_state::{GlobalState, Resources};
 use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
 use sound_engine::SoundConfig;
 
@@ -30,6 +30,7 @@ async fn main_async() {
     let io_requested_buffer_size = 1024;
 
     let mut global_state = GlobalState::new(SoundConfig::default());
+    let resources = Arc::new(RwLock::new(Resources::default()));
 
     // start up midi and audio
     let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
@@ -45,7 +46,7 @@ async fn main_async() {
     let (_stream, config) = backend
         .connect(
             output_device,
-            global_state.resources.clone(),
+            resources.clone(),
             engine_buffer_size,
             io_requested_buffer_size,
             48_000,
@@ -64,7 +65,9 @@ async fn main_async() {
     let graph_state = GraphState::new(&global_state).unwrap();
     to_engine
         .send(vec![NodeEngineUpdate::NewNodeEngine(
-            graph_state.get_engine(&global_state).unwrap(),
+            graph_state
+                .get_engine(&global_state, &*resources.read().unwrap())
+                .unwrap(),
         )])
         .unwrap();
 
@@ -90,6 +93,7 @@ async fn main_async() {
                                 &to_server,
                                 graph_state,
                                 global_state,
+                                &*resources.clone(),
                                 &to_engine,
                                 &mut file_watcher,
                                 &mut project_dir_sender,
@@ -149,7 +153,8 @@ async fn main_async() {
                 Ok(event) => {
                     for e in event {
                         MutexGuard::map(global_state.lock().await, |global_state| {
-                            let _ = load_single(&e.path, global_state);
+                            let root = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
+                            let _ = load_single(root, &e.path, &mut *resources.clone().write().unwrap());
 
                             send_global_state_updates(global_state, &to_server).unwrap();
 
