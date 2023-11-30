@@ -6,10 +6,10 @@ use crate::node_graph::NodeGraph;
 
 #[test]
 fn graph_node_crud() {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // add a new node
-    let (first_node_index, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
+    let (first_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
 
     // check that the node exists
     assert!(graph.get_node(first_node_index).is_ok());
@@ -31,7 +31,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(first_node_index).is_err());
 
     // now add a second node
-    let (second_node_index, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
+    let (second_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
 
     // as it took the place of the first one, let's make sure we can't try to
     // retrieve the old one and get the new one
@@ -54,7 +54,7 @@ fn graph_node_crud() {
     assert!(graph.get_node(second_node_index).is_ok());
 
     // add another node for good measure to make sure it's growing
-    graph.add_node("TestNode".into(), 1).unwrap().value;
+    graph.add_node("TestNode".into()).unwrap().value;
 
     assert_eq!(graph.len(), 2);
 
@@ -63,12 +63,12 @@ fn graph_node_crud() {
 
 #[test]
 fn graph_connecting() {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // add two new nodes
-    let (first_node_index, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
-    let (second_node_index, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
-    let (third_node_index, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
+    let (first_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
+    let (second_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
+    let (third_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
 
     // try connecting the first node to the second node with a socket
     // the the first one doesn't have
@@ -209,11 +209,11 @@ fn graph_connecting() {
 /// connections from all the nodes it's connected to
 #[test]
 fn hanging_connections() -> Result<(), NodeError> {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // set up a simple network
-    let (first_node, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
-    let (second_node, _) = graph.add_node("TestNode".into(), 1).unwrap().value;
+    let (first_node, _) = graph.add_node("TestNode".into()).unwrap().value;
+    let (second_node, _) = graph.add_node("TestNode".into()).unwrap().value;
 
     graph.connect(
         first_node,

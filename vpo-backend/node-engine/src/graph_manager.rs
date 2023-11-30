@@ -23,6 +23,17 @@ pub enum DiffElement {
 #[derive(Debug, Clone)]
 pub struct GraphManagerDiff(pub Vec<DiffElement>);
 
+impl GraphManagerDiff {
+    pub fn from_graph_diffs(graph_index: GraphIndex, diffs: Vec<NodeGraphDiff>) -> GraphManagerDiff {
+        GraphManagerDiff(
+            diffs
+                .into_iter()
+                .map(|diff| DiffElement::ChildGraphDiff(graph_index, diff))
+                .collect(),
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GraphIndex(pub VertexIndex);
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,7 +59,7 @@ pub struct GraphManager {
 impl GraphManager {
     pub fn new(default_channel_count: usize) -> Self {
         let mut graph = Graph::new();
-        let (root_index, _) = graph.add_vertex(NodeGraph::new());
+        let (root_index, _) = graph.add_vertex(NodeGraph::new(default_channel_count));
 
         GraphManager {
             node_graphs: graph,
@@ -58,7 +69,7 @@ impl GraphManager {
     }
 
     pub fn new_graph(&mut self) -> Result<(GraphIndex, GraphManagerDiff), NodeError> {
-        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new());
+        let (graph_index, add_diff) = self.node_graphs.add_vertex(NodeGraph::new(self.default_channel_count));
 
         let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(add_diff)]);
 
@@ -89,7 +100,7 @@ impl GraphManager {
         for edge_index in &shared_edges {
             let edge = self.node_graphs.get_edge(*edge_index).expect("edge to exist");
 
-            if edge.data == through {
+            if *edge.data() == through {
                 let (old_data, remove_diff) = self.node_graphs.remove_edge(shared_edges[0])?;
 
                 let diff = GraphManagerDiff(vec![DiffElement::GraphManagerDiff(remove_diff)]);
@@ -182,10 +193,8 @@ impl GraphManager {
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff: Vec<DiffElement> = vec![];
 
-        let default_channel_count = self.default_channel_count;
-
         let graph = self.get_graph_mut(graph_index)?;
-        let creation_result = graph.add_node(node_type, default_channel_count)?;
+        let creation_result = graph.add_node(node_type)?;
 
         let new_node_index = creation_result.value.0;
 
@@ -204,9 +213,8 @@ impl GraphManager {
                 // add `Inputs` node and `Outputs` node
                 let new_graph = self.get_graph_mut(new_graph_index).expect("graph to have been created");
 
-                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into(), default_channel_count)?.value;
-                let (outputs_index, outputs_diff) =
-                    new_graph.add_node("OutputsNode".into(), default_channel_count)?.value;
+                let (inputs_index, inputs_diff) = new_graph.add_node("InputsNode".into())?.value;
+                let (outputs_index, outputs_diff) = new_graph.add_node("OutputsNode".into())?.value;
 
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));

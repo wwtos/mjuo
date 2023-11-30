@@ -33,7 +33,7 @@ pub fn calculate_graph_traverse_order(original_graph: &NodeGraph) -> Vec<NodeInd
         graph.add_edge(
             graph_lookup[&edge.get_from()],
             graph_lookup[&edge.get_to()],
-            edge.data.clone(),
+            edge.data().clone(),
         );
     }
 
@@ -370,8 +370,8 @@ pub fn calc_indexes(
 
                 // ensure same channel length
                 assert_eq!(
-                    connection.data.from_socket.channels(),
-                    connection.data.to_socket.channels()
+                    connection.data().from_socket.channels(),
+                    connection.data().to_socket.channels()
                 );
 
                 // where is the other nodes' output location?
@@ -383,7 +383,7 @@ pub fn calc_indexes(
                         let other_stream_pos = io_setup_of_other
                             .stream_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.stream_index;
 
@@ -394,7 +394,7 @@ pub fn calc_indexes(
                         let other_midi_pos = io_setup_of_other
                             .midi_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.midi_index;
 
@@ -405,7 +405,7 @@ pub fn calc_indexes(
                         let other_value_pos = io_setup_of_other
                             .value_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.value_index;
 

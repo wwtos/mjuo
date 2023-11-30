@@ -441,9 +441,9 @@ mod tests {
         let (graph_index, _) = manager.new_graph().unwrap();
         let graph = manager.get_graph_mut(graph_index).unwrap();
 
-        let (gain, _) = graph.add_node("GainNode", 1).unwrap().value;
-        let (midi, _) = graph.add_node("MidiToValuesNode", 1).unwrap().value;
-        let (osc, _) = graph.add_node("OscillatorNode", 1).unwrap().value;
+        let (gain, _) = graph.add_node("GainNode").unwrap().value;
+        let (midi, _) = graph.add_node("MidiToValuesNode").unwrap().value;
+        let (osc, _) = graph.add_node("OscillatorNode").unwrap().value;
 
         graph
             .connect(

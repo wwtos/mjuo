@@ -111,6 +111,7 @@ impl ProcessResult {
     }
 }
 
+#[derive(Debug)]
 pub struct NodeGetIoContext {
     pub default_channel_count: usize,
     pub connected_inputs: Vec<Socket>,
