@@ -547,6 +547,8 @@ impl GraphState {
         self.root_graph_index = root_graph_index;
         self.io_nodes = io_nodes;
 
+        self.graph_manager.default_channel_count = self.default_channel_count;
+
         let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
         for graph_index in graphs {
             let graph = self

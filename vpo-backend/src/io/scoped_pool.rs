@@ -6,10 +6,7 @@ use std::{
     thread::{self, available_parallelism},
 };
 
-pub fn scoped_pool<T: Send, R: Send, F>(
-    tasks: impl IntoIterator<Item = T>,
-    f: &F,
-) -> Result<Vec<R>, Box<dyn Any + Send>>
+pub fn scoped_pool<T: Send, R: Send, F>(tasks: impl IntoIterator<Item = T>, f: &F) -> Vec<R>
 where
     F: Fn(T) -> R + Send + Sync,
 {
@@ -20,7 +17,7 @@ where
     let (senders, receivers): (Vec<mpsc::Sender<Option<T>>>, Vec<mpsc::Receiver<Option<T>>>) =
         repeat_with(|| mpsc::channel()).take(threads).unzip();
 
-    let merged: Result<Vec<R>, Box<dyn Any + Send>> = thread::scope(|s| {
+    let merged: Vec<R> = thread::scope(|s| {
         let guards: Vec<thread::ScopedJoinHandle<'_, Vec<R>>> = receivers
             .into_iter()
             .map(|receiver| {
@@ -51,9 +48,10 @@ where
         let processed = guards
             .into_iter()
             .map(|guard| guard.join())
-            .collect::<Result<Vec<Vec<R>>, Box<dyn Any + Send>>>()?;
+            .collect::<Result<Vec<Vec<R>>, Box<dyn Any + Send>>>()
+            .unwrap();
 
-        Ok(processed.into_iter().flatten().collect())
+        processed.into_iter().flatten().collect()
     });
 
     merged

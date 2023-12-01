@@ -31,6 +31,8 @@ sound-engine = { path = "./sound-engine" }
 toml_edit = { version = "0.19.8", features = ["serde"] }
 petgraph = { version = "0.6.0", features = ["serde-1"] }
 clocked = "0.1.0"
+rayon = "1.8.0"
+flume = "0.11.0"
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -48,15 +50,12 @@ demangle-name-section = true
 [target.'cfg(any(unix,windows))'.dependencies]
 cpal = "0.15.0"
 hound = "3.5.0"
-hyper = { version = "0.14.26", features = ["full"] }
 midir = "0.8"
 rfd = "0.11.3"
 rtrb = "0.2.3"
 symphonia = { version = "0.5.2", features = ["all"] }
-tokio = "1.28.0"
 walkdir = "2"
-tower = { version = "0.4", features = ["full"] }
-tower-http = { version = "0.4", features = ["fs"] }
+
 
 [profile.release]
 lto = true

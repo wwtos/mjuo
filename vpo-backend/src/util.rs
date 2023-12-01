@@ -32,15 +32,15 @@ pub fn send_graph_updates(
 }
 
 pub fn send_global_state_updates(
-    global_state: &mut GlobalState,
+    global_state: &GlobalState,
     to_server: &Sender<IpcMessage>,
 ) -> Result<(), EngineError> {
-    // let json = global_state.to_json();
+    let json = global_state.to_json();
 
-    // let _ = to_server.send(IpcMessage::Json(json! {{
-    //     "action": "state/updateGlobalState",
-    //     "payload": json
-    // }}));
+    let _ = to_server.send(IpcMessage::Json(json! {{
+        "action": "state/updateGlobalState",
+        "payload": json
+    }}));
 
     Ok(())
 }

@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use common::resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use common::traits::TryRef;
 use serde::Serialize;
+use serde_json::json;
 use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 
 #[derive(Default, Serialize, Debug)]
@@ -116,5 +117,12 @@ impl GlobalState {
             .as_ref()
             .and_then(|project| project.parent())
             .map(|dir| dir.into())
+    }
+
+    pub fn to_json(&self) -> serde_json::Value {
+        json!({
+            "activeProject": self.active_project,
+            "soundConfig": self.sound_config,
+        })
     }
 }

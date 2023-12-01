@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     error,
-    sync::{mpsc, Arc, RwLock},
+    sync::{Arc, RwLock},
 };
 
 use cpal::{
@@ -16,7 +16,6 @@ use node_engine::{
 use rtrb::RingBuffer;
 use snafu::{OptionExt, ResultExt};
 use sound_engine::{midi::messages::MidiMessage, MidiChannel};
-use tokio::sync::broadcast;
 
 use crate::errors::EngineError;
 
@@ -53,9 +52,9 @@ impl CpalBackend {
         buffer_size: usize,
         io_requested_buffer_size: usize,
         sample_rate: u32,
-        midi_in: mpsc::Receiver<MidiChannel>,
-        state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
-        to_main: broadcast::Sender<Vec<FromNodeEngine>>,
+        midi_in: flume::Receiver<MidiChannel>,
+        state_update_in: flume::Receiver<Vec<NodeEngineUpdate>>,
+        to_main: flume::Sender<Vec<FromNodeEngine>>,
     ) -> Result<(Stream, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
 
@@ -100,9 +99,9 @@ impl CpalBackend {
         resources: Arc<RwLock<Resources>>,
         buffer_size: usize,
         sample_rate: u32,
-        midi_in: mpsc::Receiver<MidiChannel>,
-        state_update_in: mpsc::Receiver<Vec<NodeEngineUpdate>>,
-        to_main: broadcast::Sender<Vec<FromNodeEngine>>,
+        midi_in: flume::Receiver<MidiChannel>,
+        state_update_in: flume::Receiver<Vec<NodeEngineUpdate>>,
+        to_main: flume::Sender<Vec<FromNodeEngine>>,
     ) -> Result<Stream, EngineError> {
         let mut engine: NodeEngine = NodeEngine::uninitialized();
         let (mut producer, mut consumer) = RingBuffer::<f32>::new(buffer_size * 2 * config.channels as usize);

@@ -53,7 +53,8 @@ pub struct GlobalNodeIndex {
 pub struct GraphManager {
     node_graphs: Graph<NodeGraph, ConnectedThrough>,
     root_index: GraphIndex,
-    default_channel_count: usize,
+    #[serde(skip)]
+    pub(crate) default_channel_count: usize,
 }
 
 impl GraphManager {

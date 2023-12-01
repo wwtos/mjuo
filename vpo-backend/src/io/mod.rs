@@ -1,7 +1,7 @@
 pub mod cpal;
 pub mod file_watcher;
 pub mod midir;
-mod scoped_pool;
+pub mod scoped_pool;
 
 use std::fmt::Debug;
 use std::fs;
@@ -15,6 +15,7 @@ use common::resource_manager::ResourceManager;
 use node_engine::global_state::Resources;
 use node_engine::{global_state::GlobalState, state::GraphState};
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
@@ -67,6 +68,7 @@ where
     let asset_list = WalkDir::new(path)
         .follow_links(true)
         .into_iter()
+        .par_bridge()
         .filter_map(|e| {
             if let Ok(res) = e {
                 if res.metadata().unwrap().is_file() {
@@ -87,12 +89,13 @@ where
         });
 
     // spawn threads to load everything
-    let new_resources = scoped_pool(asset_list, &|(key, location)| {
-        let new_resource = load_resource(&location).unwrap();
+    let new_resources: Vec<_> = asset_list
+        .map(|(key, location)| {
+            let new_resource = load_resource(&location).unwrap();
 
-        (key, new_resource)
-    })
-    .unwrap();
+            (key, new_resource)
+        })
+        .collect();
 
     for (key, resource) in new_resources.into_iter() {
         resources.add_resource(key, resource);
@@ -114,8 +117,6 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
-            let mut resources = resources;
-
             if resources.ranks.get_index(resource.as_ref()).is_some() {
                 resources.ranks.remove_resource(resource.as_ref());
             }

@@ -1,22 +1,18 @@
 use std::{
     collections::BTreeMap,
     fs::{self, remove_file},
-    sync::{Arc, Mutex},
 };
 
 use common::resource_manager::ResourceId;
-use futures::future::join_all;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
-use sound_engine::{
-    sampling::{
-        envelope::{calc_sample_metadata, SampleMetadata},
-        phase_calculator::PhaseCalculator,
-        pipe_player::{envelope_indexes, EnvelopeType},
-        rank::{Pipe, Rank},
-    },
-    MonoSample,
+use sound_engine::sampling::{
+    envelope::calc_sample_metadata,
+    phase_calculator::PhaseCalculator,
+    pipe_player::{envelope_indexes, EnvelopeType},
+    rank::{Pipe, Rank},
 };
 
 use crate::{
@@ -58,13 +54,9 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
     fs::create_dir_all(&sample_directory).context(IoSnafu)?;
 
     if let Some(files) = files {
-        let calculated: Arc<Mutex<Vec<(SampleMetadata, String, MonoSample, u8)>>> = Arc::new(Mutex::new(vec![]));
-
-        join_all(files.into_iter().map(|file| {
-            let calculated_clone = calculated.clone();
-            let sample_directory = sample_directory.clone();
-
-            tokio::spawn(async move {
+        let mut samples: Vec<_> = files
+            .into_par_iter()
+            .map(|file| {
                 let path = file.path();
                 let sample = load_sample(path);
 
@@ -100,16 +92,14 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
 
                     writer.finalize().unwrap();
 
-                    calculated_clone
-                        .lock()
-                        .unwrap()
-                        .push((metadata, filename, sample, note));
+                    Some((metadata, filename, sample, note))
+                } else {
+                    None
                 }
             })
-        }))
-        .await;
+            .filter_map(|x| x)
+            .collect();
 
-        let mut samples = Arc::try_unwrap(calculated).unwrap().into_inner().unwrap();
         let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
 
         samples.sort_by_key(|sample| sample.3);

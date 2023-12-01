@@ -13,14 +13,12 @@ pub mod wasm_lib;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 #[cfg(any(unix, windows))]
-type Sender<T> = broadcast::Sender<T>;
+type Sender<T> = flume::Sender<T>;
 
 use std::path::PathBuf;
 use std::sync::{mpsc, RwLock};
+use std::thread::JoinHandle;
 use std::{error::Error, io::Write};
-
-#[cfg(any(unix, windows))]
-use tokio::sync::broadcast;
 
 use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
@@ -35,29 +33,27 @@ use routes::route;
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
-pub fn start_ipc(port: u32) -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
+pub fn start_ipc(port: u32) -> (flume::Sender<IpcMessage>, flume::Receiver<IpcMessage>, JoinHandle<()>) {
     use ipc::ipc_server;
 
-    let (to_tokio, _from_main) = broadcast::channel(128);
-    let (to_main, from_tokio) = broadcast::channel(128);
+    let (to_server, from_main) = flume::unbounded();
+    let (to_main, from_server) = flume::unbounded();
 
-    let to_tokio_cloned = to_tokio.clone();
+    let handle = ipc_server::start_ipc(from_main, to_main, port);
 
-    tokio::spawn(async move { ipc_server::start_ipc(to_tokio_cloned, to_main, port).await });
-
-    (to_tokio, from_tokio)
+    (to_server, from_server, handle)
 }
 
 #[cfg(any(unix, windows))]
 pub async fn handle_msg(
     msg: IpcMessage,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &flume::Sender<IpcMessage>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
     resources_lock: &RwLock<Resources>,
-    engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
+    engine_sender: &flume::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
-    project_dir_sender: &mut broadcast::Sender<PathBuf>,
+    project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
     let result = route(msg, to_server, state, global_state, resources_lock).await;
 

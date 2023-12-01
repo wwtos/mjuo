@@ -1,27 +1,42 @@
+use std::thread::{self, JoinHandle};
+
+use tokio::net::{TcpListener, TcpStream};
+use tokio::runtime;
+
 use futures::{try_join, SinkExt, StreamExt};
 use log::info;
 use snafu::ResultExt;
-use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::broadcast;
-use tokio_tungstenite::tungstenite::{self, Message};
+use tokio_tungstenite::tungstenite::Message;
 
-use crate::error::{IpcError, ReceiveSnafu, WebsocketSnafu};
+use crate::error::{IpcError, WebsocketSnafu};
 use crate::ipc_message::IpcMessage;
 
-pub async fn start_ipc(to_tokio: broadcast::Sender<IpcMessage>, to_main: broadcast::Sender<IpcMessage>, port: u32) {
-    let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
-        .await
-        .expect("failed to bind");
+pub fn start_ipc(
+    from_main: flume::Receiver<IpcMessage>,
+    to_main: flume::Sender<IpcMessage>,
+    port: u32,
+) -> JoinHandle<()> {
+    thread::spawn(move || {
+        // let me manage my own dang threads, will you?
+        let rt = runtime::Builder::new_current_thread().enable_io().build().unwrap();
 
-    while let Ok((stream, _)) = listener.accept().await {
-        tokio::spawn(create_connection_task(stream, to_tokio.subscribe(), to_main.clone()));
-    }
+        rt.block_on(async {
+            // TODO: fail gracefully
+            let listener = TcpListener::bind(format!("127.0.0.1:{port}"))
+                .await
+                .expect("failed to bind");
+
+            while let Ok((stream, _)) = listener.accept().await {
+                tokio::spawn(create_connection_task(stream, from_main.clone(), to_main.clone()));
+            }
+        });
+    })
 }
 
 async fn create_connection_task(
     stream: TcpStream,
-    mut from_main: broadcast::Receiver<IpcMessage>,
-    to_main: broadcast::Sender<IpcMessage>,
+    mut from_main: flume::Receiver<IpcMessage>,
+    to_main: flume::Sender<IpcMessage>,
 ) {
     let addr = stream
         .peer_addr()
@@ -54,7 +69,7 @@ async fn create_connection_task(
         // from main to websocket
         async move {
             loop {
-                let msg = from_main.recv().await.context(ReceiveSnafu)?;
+                let msg = from_main.recv_async().await.unwrap();
 
                 let IpcMessage::Json(json) = msg;
 
@@ -62,7 +77,7 @@ async fn create_connection_task(
                     .send(Message::Text(serde_json::to_string(&json).unwrap()))
                     .await;
 
-                if let Err(tungstenite::error::Error::ConnectionClosed) = err {
+                if let Err(tokio_tungstenite::tungstenite::error::Error::ConnectionClosed) = err {
                     break;
                 }
             }
