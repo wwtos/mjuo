@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    default,
     ops::{Index, IndexMut},
 };
 

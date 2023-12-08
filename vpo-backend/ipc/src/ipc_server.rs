@@ -96,7 +96,6 @@ async fn create_connection_task(
     let sending_block = async move {
         loop {
             let msg = from_main.recv().await.unwrap();
-            dbg!(&msg);
 
             let IpcMessage::Json(json) = msg;
 

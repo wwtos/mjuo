@@ -241,25 +241,6 @@ impl GraphState {
     pub fn get_io_nodes(&self) -> IoNodes {
         self.io_nodes.clone()
     }
-
-    pub fn notify_parents_of_graph_change(&mut self, graph_index: GraphIndex) -> Result<(), NodeError> {
-        if graph_index != self.graph_manager.root_index() {
-            let parent_nodes = self.graph_manager.get_graph_parents(graph_index)?;
-
-            for GlobalNodeIndex {
-                graph_index: parent_node_graph,
-                node_index: parent_node_index,
-            } in parent_nodes
-            {
-                let parent_node_graph = self.graph_manager.get_graph(parent_node_graph)?;
-                // let subgraph = &mut self.graph_manager.get_graph(graph_index)?.graph.borrow_mut();
-
-                // let node = parent_node_graph.get_node_mut(parent_node_index)?;
-            }
-        }
-
-        Ok(())
-    }
 }
 
 impl GraphState {

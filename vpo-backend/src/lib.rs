@@ -16,7 +16,7 @@ type Sender<T> = SendBuffer<T>;
 type Sender<T> = flume::Sender<T>;
 
 use std::path::PathBuf;
-use std::sync::{mpsc, RwLock};
+use std::sync::RwLock;
 use std::thread::JoinHandle;
 use std::{error::Error, io::Write};
 

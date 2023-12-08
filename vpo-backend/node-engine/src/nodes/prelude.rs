@@ -3,7 +3,6 @@ use std::borrow::Cow;
 pub(super) use std::collections::HashMap;
 
 use common::resource_manager::ResourceId;
-pub(super) use common::resource_manager::ResourceIndex;
 pub(super) use sound_engine::{MidiChannel, SoundConfig};
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
