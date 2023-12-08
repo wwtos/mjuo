@@ -1,10 +1,9 @@
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
 
+use common::resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use common::traits::TryRef;
-use resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::json;
 use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
 
 #[derive(Default, Serialize, Debug)]
@@ -87,6 +86,12 @@ impl Resources {
 
         None
     }
+
+    pub fn reset(&mut self) {
+        self.ranks.clear();
+        self.samples.clear();
+        self.ui.clear();
+    }
 }
 
 #[derive(Debug)]
@@ -94,7 +99,7 @@ pub struct GlobalState {
     pub active_project: Option<PathBuf>,
     pub import_folder: Option<PathBuf>,
     pub sound_config: SoundConfig,
-    pub resources: Arc<RwLock<Resources>>,
+    pub default_channel_count: usize,
 }
 
 impl GlobalState {
@@ -102,27 +107,9 @@ impl GlobalState {
         GlobalState {
             active_project: None,
             import_folder: None,
-            resources: Arc::new(RwLock::new(Resources::default())),
             sound_config,
+            default_channel_count: 2,
         }
-    }
-
-    pub fn reset(&mut self) {
-        let mut resources = self.resources.write().unwrap();
-
-        resources.ranks.clear();
-        resources.samples.clear();
-        resources.ui.clear();
-    }
-
-    pub fn to_json(&self) -> Value {
-        let resources = self.resources.read().unwrap();
-
-        json!({
-            "activeProject": self.active_project,
-            "soundConfig": self.sound_config,
-            "resources": *resources
-        })
     }
 
     pub fn project_directory(&self) -> Option<PathBuf> {
@@ -130,5 +117,12 @@ impl GlobalState {
             .as_ref()
             .and_then(|project| project.parent())
             .map(|dir| dir.into())
+    }
+
+    pub fn to_json(&self) -> serde_json::Value {
+        json!({
+            "activeProject": self.active_project,
+            "soundConfig": self.sound_config,
+        })
     }
 }

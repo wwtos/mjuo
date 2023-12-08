@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{pipe_player::PipePlayer, rank::Rank};
-use resource_manager::{ResourceId, ResourceManager};
+use common::resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
 struct Voice {

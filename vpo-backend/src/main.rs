@@ -1,41 +1,40 @@
-use std::sync::mpsc;
+use std::cell::RefCell;
+use std::sync::{Arc, RwLock};
 
-use futures::executor::block_on;
+use futures::executor::LocalPool;
 use futures::join;
-use futures::lock::MutexGuard;
+use futures::task::LocalSpawnExt;
 use futures::StreamExt;
-use tokio::sync::broadcast;
+use ipc::file_server::start_file_server;
 
-use node_engine::global_state::GlobalState;
+use node_engine::global_state::{GlobalState, Resources};
 use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
 use sound_engine::SoundConfig;
 
-use tower_http::services::ServeDir;
 use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::io::midir::connect_midir_backend;
-use vpo_backend::util::{send_global_state_updates, send_graph_updates};
+use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
-#[tokio::main]
-async fn main() {
-    main_async().await;
-}
+fn main() {
+    let mut executor = LocalPool::new();
+    let spawner = executor.spawner();
 
-async fn main_async() {
-    let (to_server, mut from_server) = start_ipc(26642);
+    let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
     let engine_buffer_size = 64;
     let io_requested_buffer_size = 1024;
 
     let mut global_state = GlobalState::new(SoundConfig::default());
+    let resources = Arc::new(RwLock::new(Resources::default()));
 
     // start up midi and audio
     let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
-    let (to_engine, from_main) = mpsc::channel();
-    let (to_main, mut from_engine) = broadcast::channel(128);
-    let (project_dir_sender, mut project_dir_receiver) = broadcast::channel(16);
+    let (to_engine, from_main) = flume::unbounded();
+    let (to_main, from_engine) = flume::unbounded();
+    let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
     let mut backend = CpalBackend::new();
     let output_device = backend.get_default_output().unwrap();
@@ -45,7 +44,7 @@ async fn main_async() {
     let (_stream, config) = backend
         .connect(
             output_device,
-            global_state.resources.clone(),
+            resources.clone(),
             engine_buffer_size,
             io_requested_buffer_size,
             48_000,
@@ -62,138 +61,110 @@ async fn main_async() {
     };
 
     let graph_state = GraphState::new(&global_state).unwrap();
+
+    // send initial node engine instance to sound engine
     to_engine
         .send(vec![NodeEngineUpdate::NewNodeEngine(
-            graph_state.get_engine(&global_state).unwrap(),
+            graph_state
+                .get_engine(&global_state, &*resources.clone().read().unwrap())
+                .unwrap(),
         )])
         .unwrap();
 
     println!("sample rate: {}", config.sample_rate.0);
 
-    let global_state = futures::lock::Mutex::new(global_state);
-    let graph_state = futures::lock::Mutex::new(graph_state);
+    let graph_state = RefCell::new(graph_state);
+    let global_state = RefCell::new(global_state);
 
-    let message_receiving_block = async {
-        let mut project_dir_sender = project_dir_sender.clone();
+    // spawn all the async tasks
+    spawner
+        .spawn_local(async move {
+            let client_communication = async {
+                let mut project_dir_sender = project_dir_sender.clone();
+                let to_server = &to_server.clone();
 
-        loop {
-            let msg = from_server.recv().await;
+                loop {
+                    let msg = from_server.recv_async().await.unwrap();
 
-            if let Ok(msg) = msg {
-                let (graph_state_lock, global_state_lock) = join!(graph_state.lock(), global_state.lock());
-
-                MutexGuard::map(graph_state_lock, |graph_state| {
-                    MutexGuard::map(global_state_lock, |global_state| {
-                        block_on(async {
-                            handle_msg(
-                                msg,
-                                &to_server,
-                                graph_state,
-                                global_state,
-                                &to_engine,
-                                &mut file_watcher,
-                                &mut project_dir_sender,
-                            )
-                            .await;
-                        });
-
-                        global_state
-                    });
-
-                    graph_state
-                });
-            }
-        }
-    };
-
-    let engine_message_receiving_block = async {
-        while let Ok(engine_updates) = from_engine.recv().await {
-            MutexGuard::map(graph_state.lock().await, |graph_state| {
-                for engine_update in engine_updates {
-                    match engine_update {
-                        FromNodeEngine::NodeStateUpdates(updates) => {
-                            let root_index = graph_state.get_root_graph_index();
-
-                            let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
-
-                            for (node_index, new_state) in updates {
-                                if let Ok(node) = graph.get_node_mut(node_index) {
-                                    node.set_state(new_state);
-                                }
-                            }
-
-                            send_graph_updates(graph_state, root_index, &to_server).unwrap();
-                        }
-                        FromNodeEngine::RequestedStateUpdates(updates) => {
-                            // TODO: don't unwrap here, instead recreate the engine if it fails
-                            to_engine.send(vec![NodeEngineUpdate::NewNodeState(updates)]).unwrap();
-                        }
-                        FromNodeEngine::GraphStateRequested => {
-                            // TODO: don't unwrap here, instead recreate the engine if it fails
-                            to_engine
-                                .send(vec![NodeEngineUpdate::CurrentNodeStates(graph_state.get_node_state())])
-                                .unwrap();
-                        }
-                    }
+                    handle_msg(
+                        msg,
+                        &to_server,
+                        &mut *graph_state.borrow_mut(),
+                        &mut *global_state.borrow_mut(),
+                        &*resources.clone(),
+                        &to_engine,
+                        &mut file_watcher,
+                        &mut project_dir_sender,
+                    )
+                    .await;
                 }
-                graph_state
-            });
-        }
-    };
-
-    let file_watcher_block = async {
-        let to_server = to_server.clone();
-
-        while let Some(res) = file_receiver.next().await {
-            match res {
-                Ok(event) => {
-                    for e in event {
-                        MutexGuard::map(global_state.lock().await, |global_state| {
-                            let _ = load_single(&e.path, global_state);
-
-                            send_global_state_updates(global_state, &to_server).unwrap();
-
-                            global_state
-                        });
-                    }
-                }
-                Err(e) => println!("watch error: {:?}", e),
-            }
-        }
-    };
-
-    let fs_block = async {
-        let mut updated_project_receiver = project_dir_sender.subscribe();
-
-        loop {
-            updated_project_receiver.recv().await.expect("not closed");
-            let project_dir = project_dir_receiver.recv().await.expect("not closed");
-
-            let service = ServeDir::new(project_dir);
-
-            let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 26643));
-            let server = async {
-                hyper::Server::bind(&addr)
-                    .serve(tower::make::Shared::new(service))
-                    .await
-                    .expect("server error")
             };
 
-            tokio::select! {
-                _ = updated_project_receiver.recv() => {
-                    // if a new project dir comes in, it'll drop the file server
-                }
-                _ = server => {}
-            }
-        }
-    };
+            let sound_engine_communication = async {
+                let to_server = to_server.clone();
 
-    // debugging
-    // let mut output_file = File::create("out.pcm").unwrap();
-    join!(
-        message_receiving_block,
-        file_watcher_block,
-        engine_message_receiving_block,
-        fs_block
-    );
+                while let Ok(engine_updates) = from_engine.recv_async().await {
+                    for engine_update in engine_updates {
+                        match engine_update {
+                            FromNodeEngine::NodeStateUpdates(updates) => {
+                                let root_index = graph_state.borrow().get_root_graph_index();
+
+                                let mut graph_state = graph_state.borrow_mut();
+                                let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
+
+                                for (node_index, new_state) in updates {
+                                    if let Ok(node) = graph.get_node_mut(node_index) {
+                                        node.set_state(new_state);
+                                    }
+                                }
+
+                                send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
+                            }
+                            FromNodeEngine::RequestedStateUpdates(updates) => {
+                                // TODO: don't unwrap here, instead recreate the engine if it fails
+                                to_engine.send(vec![NodeEngineUpdate::NewNodeState(updates)]).unwrap();
+                            }
+                            FromNodeEngine::GraphStateRequested => {
+                                // TODO: don't unwrap here, instead recreate the engine if it fails
+                                to_engine
+                                    .send(vec![NodeEngineUpdate::CurrentNodeStates(
+                                        graph_state.borrow().get_node_state(),
+                                    )])
+                                    .unwrap();
+                            }
+                        }
+                    }
+                }
+            };
+
+            let file_watcher = async {
+                let to_server = to_server.clone();
+                let resources = resources.clone();
+
+                while let Some(res) = file_receiver.next().await {
+                    match res {
+                        Ok(event) => {
+                            for e in event {
+                                // go through all the file events and reload those resources
+                                let global_state = global_state.borrow();
+                                let mut resources_lock = resources.write().unwrap();
+
+                                let root_dir = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
+                                let _ = load_single(root_dir, &e.path, &mut *resources_lock);
+
+                                send_resource_updates(&*resources_lock, &to_server).unwrap();
+                            }
+                        }
+                        Err(e) => println!("watch error: {:?}", e),
+                    }
+                }
+            };
+
+            join!(client_communication, sound_engine_communication, file_watcher);
+        })
+        .unwrap();
+
+    let _fs_handle = start_file_server(project_dir_receiver);
+
+    executor.run();
 }

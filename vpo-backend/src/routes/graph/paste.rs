@@ -132,7 +132,11 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     Ok(RouteReturn {
         engine_updates: state
             .state
-            .invalidations_to_engine_updates(invalidations, state.global_state)
+            .invalidations_to_engine_updates(
+                invalidations,
+                state.global_state,
+                &*state.resources_lock.read().unwrap(),
+            )
             .context(NodeSnafu)?,
         new_project: false,
     })

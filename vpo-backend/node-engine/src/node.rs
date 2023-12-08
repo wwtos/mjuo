@@ -6,9 +6,9 @@ use std::fmt::Debug;
 use std::mem;
 use std::ops::{Index, IndexMut};
 
+use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
-use resource_manager::ResourceId;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
 use sound_engine::midi::messages::MidiMessage;
@@ -74,6 +74,7 @@ impl NodeIo {
     }
 }
 
+#[derive(Debug)]
 pub struct InitResult {
     pub changed_properties: Option<HashMap<String, Property>>,
     pub needed_resources: Vec<ResourceId>,
@@ -110,8 +111,21 @@ impl ProcessResult {
     }
 }
 
+#[derive(Debug)]
 pub struct NodeGetIoContext {
     pub default_channel_count: usize,
+    pub connected_inputs: Vec<Socket>,
+    pub connected_outputs: Vec<Socket>,
+}
+
+impl NodeGetIoContext {
+    pub fn no_io_yet(default_channel_count: usize) -> NodeGetIoContext {
+        NodeGetIoContext {
+            default_channel_count,
+            connected_inputs: vec![],
+            connected_outputs: vec![],
+        }
+    }
 }
 
 pub struct NodeInitParams<'a> {

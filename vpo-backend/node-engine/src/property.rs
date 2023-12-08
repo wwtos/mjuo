@@ -1,4 +1,4 @@
-use resource_manager::ResourceId;
+use common::resource_manager::ResourceId;
 use serde::{Deserialize, Serialize};
 
 use crate::connection::Socket;

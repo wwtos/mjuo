@@ -52,7 +52,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
             mapping.get(&node::NodeIndex(connection.get_from())),
             mapping.get(&node::NodeIndex(connection.get_to())),
         ) {
-            mini_graph.add_edge(*from, *to, connection.data.clone());
+            mini_graph.add_edge(*from, *to, connection.data().clone());
         }
     }
 

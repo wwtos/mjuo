@@ -1,9 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-use node_engine::{
-    graph_manager::GlobalNodeIndex,
-    state::{Action, ActionInvalidation},
-};
+use node_engine::{graph_manager::GlobalNodeIndex, state::ActionInvalidation};
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt;
 
@@ -29,7 +26,6 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         .context(NodeSnafu)?;
 
     let mut touched_graphs = HashSet::new();
-    let mut update_registry = false;
 
     for invalidation in &invalidations {
         match invalidation {
@@ -38,8 +34,6 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
             | ActionInvalidation::NewDefaults(GlobalNodeIndex { graph_index: index, .. }, _)
             | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
                 touched_graphs.insert(index);
-
-                update_registry = true;
             }
             ActionInvalidation::None => {}
         }
@@ -52,7 +46,11 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     Ok(RouteReturn {
         engine_updates: state
             .state
-            .invalidations_to_engine_updates(invalidations, state.global_state)
+            .invalidations_to_engine_updates(
+                invalidations,
+                state.global_state,
+                &*state.resources_lock.read().unwrap(),
+            )
             .context(NodeSnafu)?,
         new_project: false,
     })

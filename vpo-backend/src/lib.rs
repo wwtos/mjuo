@@ -13,14 +13,12 @@ pub mod wasm_lib;
 #[cfg(target_arch = "wasm32")]
 type Sender<T> = SendBuffer<T>;
 #[cfg(any(unix, windows))]
-type Sender<T> = broadcast::Sender<T>;
+type Sender<T> = flume::Sender<T>;
 
 use std::path::PathBuf;
-use std::sync::mpsc;
+use std::sync::RwLock;
+use std::thread::JoinHandle;
 use std::{error::Error, io::Write};
-
-#[cfg(any(unix, windows))]
-use tokio::sync::broadcast;
 
 use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
@@ -28,37 +26,36 @@ use ipc::send_buffer::SendBuffer;
 
 use io::file_watcher::FileWatcher;
 use node_engine::{
-    global_state::GlobalState,
+    global_state::{GlobalState, Resources},
     state::{GraphState, NodeEngineUpdate},
 };
 use routes::route;
 use serde_json::json;
 
 #[cfg(any(unix, windows))]
-pub fn start_ipc(port: u32) -> (broadcast::Sender<IpcMessage>, broadcast::Receiver<IpcMessage>) {
+pub fn start_ipc(port: u32) -> (flume::Sender<IpcMessage>, flume::Receiver<IpcMessage>, JoinHandle<()>) {
     use ipc::ipc_server;
 
-    let (to_tokio, _from_main) = broadcast::channel(128);
-    let (to_main, from_tokio) = broadcast::channel(128);
+    let (to_server, from_main) = flume::unbounded();
+    let (to_main, from_server) = flume::unbounded();
 
-    let to_tokio_cloned = to_tokio.clone();
+    let handle = ipc_server::start_ipc(from_main, to_main, port);
 
-    tokio::spawn(async move { ipc_server::start_ipc(to_tokio_cloned, to_main, port).await });
-
-    (to_tokio, from_tokio)
+    (to_server, from_server, handle)
 }
 
 #[cfg(any(unix, windows))]
 pub async fn handle_msg(
     msg: IpcMessage,
-    to_server: &broadcast::Sender<IpcMessage>,
+    to_server: &flume::Sender<IpcMessage>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
-    engine_sender: &mpsc::Sender<Vec<NodeEngineUpdate>>,
+    resources_lock: &RwLock<Resources>,
+    engine_sender: &flume::Sender<Vec<NodeEngineUpdate>>,
     file_watcher: &mut FileWatcher,
-    project_dir_sender: &mut broadcast::Sender<PathBuf>,
+    project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
-    let result = route(msg, to_server, state, global_state).await;
+    let result = route(msg, to_server, state, global_state, resources_lock).await;
 
     match result {
         Ok(route_result) => {
@@ -71,8 +68,7 @@ pub async fn handle_msg(
                     global_state
                         .active_project
                         .as_ref()
-                        .unwrap()
-                        .parent()
+                        .and_then(|x| x.parent())
                         .unwrap()
                         .to_owned(),
                 );
@@ -99,7 +95,6 @@ pub async fn handle_msg(
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {
     let mut data_out = vec![0_u8; data.len() * 4];
 
-    // TODO: would memcpy work here faster?
     for i in 0..data.len() {
         let num = data[i].to_le_bytes();
 

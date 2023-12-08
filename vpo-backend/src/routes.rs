@@ -4,9 +4,11 @@ mod prelude;
 #[cfg(any(windows, unix))]
 pub mod io;
 
+use std::sync::RwLock;
+
 use ipc::ipc_message::IpcMessage;
 use node_engine::{
-    global_state::GlobalState,
+    global_state::{GlobalState, Resources},
     state::{GraphState, NodeEngineUpdate},
 };
 use serde_json::Value;
@@ -23,6 +25,7 @@ pub struct RouteState<'a> {
     pub to_server: &'a Sender<IpcMessage>,
     pub state: &'a mut GraphState,
     pub global_state: &'a mut GlobalState,
+    pub resources_lock: &'a RwLock<Resources>,
 }
 
 pub async fn route(
@@ -30,6 +33,7 @@ pub async fn route(
     to_server: &Sender<IpcMessage>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
+    resources_lock: &RwLock<Resources>,
 ) -> Result<RouteReturn, EngineError> {
     let IpcMessage::Json(json) = msg;
 
@@ -42,6 +46,7 @@ pub async fn route(
                 to_server,
                 state,
                 global_state,
+                resources_lock,
             };
 
             return match action_name.as_str() {

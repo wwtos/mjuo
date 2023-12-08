@@ -1,5 +1,5 @@
+use common::resource_manager::ResourceId;
 use common::traits::TryRef;
-use resource_manager::{ResourceId, ResourceIndex};
 use sound_engine::{util::interpolate::lerp, SoundConfig};
 
 use crate::nodes::prelude::*;
@@ -10,7 +10,6 @@ pub struct WavetableSequencerNode {
     phase: f32,
     frequency: f32,
     advance_by: f32,
-    index: Option<(String, ResourceIndex)>,
 }
 
 impl NodeRuntime for WavetableSequencerNode {
@@ -65,11 +64,10 @@ impl Node for WavetableSequencerNode {
             phase: 0.0,
             frequency: 1.0,
             advance_by,
-            index: None,
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property(
                 "wavetable",

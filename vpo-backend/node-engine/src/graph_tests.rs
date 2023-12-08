@@ -1,27 +1,12 @@
 use ddgg::GraphError;
-use lazy_static::lazy_static;
 
 use crate::connection::{Socket, SocketType};
 use crate::errors::NodeError;
-use crate::node::NodeRow;
 use crate::node_graph::NodeGraph;
-use crate::nodes::prelude::{midi_input, stream_input, stream_output, value_output};
-
-lazy_static! {
-    pub static ref TEST_NODE_ROWS: Vec<NodeRow> = {
-        vec![
-            stream_input("audio", 1),
-            stream_input("gain", 1),
-            midi_input("midi", 1),
-            stream_output("audio", 1),
-            value_output("gate", 1),
-        ]
-    };
-}
 
 #[test]
 fn graph_node_crud() {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // add a new node
     let (first_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
@@ -78,7 +63,7 @@ fn graph_node_crud() {
 
 #[test]
 fn graph_connecting() {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // add two new nodes
     let (first_node_index, _) = graph.add_node("TestNode".into()).unwrap().value;
@@ -224,7 +209,7 @@ fn graph_connecting() {
 /// connections from all the nodes it's connected to
 #[test]
 fn hanging_connections() -> Result<(), NodeError> {
-    let mut graph = NodeGraph::new();
+    let mut graph = NodeGraph::new(1);
 
     // set up a simple network
     let (first_node, _) = graph.add_node("TestNode".into()).unwrap().value;

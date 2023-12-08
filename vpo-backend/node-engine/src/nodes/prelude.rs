@@ -2,15 +2,14 @@ use std::borrow::Cow;
 
 pub(super) use std::collections::HashMap;
 
-pub(super) use common::alloc::BuddyArena;
-pub(super) use resource_manager::ResourceIndex;
+use common::resource_manager::ResourceId;
 pub(super) use sound_engine::{MidiChannel, SoundConfig};
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
 pub(super) use crate::global_state::Resource;
 pub(super) use crate::node::{
-    InitResult, Ins, MidiStoreInterface, Node, NodeGetIoContext, NodeGraphAndIo, NodeIndex, NodeInitParams, NodeIo,
-    NodeProcessContext, NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
+    InitResult, Ins, MidiStoreInterface, Node, NodeGetIoContext, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext,
+    NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
 };
 pub(super) use crate::{
     connection::{Primitive, Socket, SocketDirection, SocketType, SocketValue},
@@ -61,6 +60,17 @@ pub fn midi_output(name: &'static str, polyphony: usize) -> NodeRow {
 
 pub fn value_output(name: &'static str, polyphony: usize) -> NodeRow {
     NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Value, polyphony))
+}
+
+pub fn resource(prop_id: &str, namespace: &str) -> NodeRow {
+    NodeRow::Property(
+        prop_id.into(),
+        PropertyType::Resource(namespace.into()),
+        Property::Resource(ResourceId {
+            namespace: namespace.into(),
+            resource: "".into(),
+        }),
+    )
 }
 
 pub fn property(prop_id: &str, prop_type: PropertyType, prop_default: Property) -> NodeRow {

@@ -1,5 +1,4 @@
-use std::sync::mpsc::Receiver;
-use std::{io::Write, sync::mpsc};
+use std::io::Write;
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 use snafu::ResultExt;
@@ -8,9 +7,9 @@ use sound_engine::midi::parse::MidiParser;
 
 use crate::errors::EngineError;
 
-pub fn connect_midir_backend() -> Result<(Receiver<Vec<MidiMessage>>, MidiInputConnection<()>), EngineError> {
+pub fn connect_midir_backend() -> Result<(flume::Receiver<Vec<MidiMessage>>, MidiInputConnection<()>), EngineError> {
     let mut parser = MidiParser::new();
-    let (sender, receiver) = mpsc::channel();
+    let (sender, receiver) = flume::unbounded();
 
     let mut midi_in = MidiInput::new("Mason-Jones Unit Orchestra").whatever_context("Failed to create midi device")?;
     midi_in.ignore(Ignore::None);

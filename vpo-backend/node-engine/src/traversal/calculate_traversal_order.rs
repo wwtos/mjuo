@@ -9,10 +9,10 @@ use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
 use crate::nodes::{new_variant, NodeVariant};
 
+use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
 use petgraph::algo::{greedy_feedback_arc_set, toposort};
 use petgraph::prelude::*;
-use resource_manager::ResourceId;
 use rhai::Engine;
 use smallvec::SmallVec;
 use sound_engine::SoundConfig;
@@ -33,7 +33,7 @@ pub fn calculate_graph_traverse_order(original_graph: &NodeGraph) -> Vec<NodeInd
         graph.add_edge(
             graph_lookup[&edge.get_from()],
             graph_lookup[&edge.get_to()],
-            edge.data.clone(),
+            edge.data().clone(),
         );
     }
 
@@ -365,11 +365,13 @@ pub fn calc_indexes(
                 let connection = graph.get_graph().get_edge(connection_index.0).expect("edge to exist");
                 let from_index = NodeIndex(connection.get_from());
 
-                // ensure same channel length (TODO: figure out this edge case, it would
-                // be better to repeat the input channels, like faust)
+                // make sure it's not being connected to itself
+                assert_ne!(connection.get_from(), connection.get_to());
+
+                // ensure same channel length
                 assert_eq!(
-                    connection.data.from_socket.channels(),
-                    connection.data.to_socket.channels()
+                    connection.data().from_socket.channels(),
+                    connection.data().to_socket.channels()
                 );
 
                 // where is the other nodes' output location?
@@ -381,7 +383,7 @@ pub fn calc_indexes(
                         let other_stream_pos = io_setup_of_other
                             .stream_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.stream_index;
 
@@ -392,7 +394,7 @@ pub fn calc_indexes(
                         let other_midi_pos = io_setup_of_other
                             .midi_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.midi_index;
 
@@ -403,7 +405,7 @@ pub fn calc_indexes(
                         let other_value_pos = io_setup_of_other
                             .value_outputs
                             .iter()
-                            .position(|other_socket| other_socket == &connection.data.from_socket)
+                            .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
                             + io_setup_of_other.value_index;
 

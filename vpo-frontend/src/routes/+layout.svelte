@@ -72,13 +72,10 @@
             } else if (message.action === "state/updateGlobalState") {
                 const newGlobalState = message.payload;
 
-                for (let i in newGlobalState.resources.ui) {
-                    newGlobalState.resources.ui[i] = parse(
-                        newGlobalState.resources.ui[i],
-                    );
-                }
-
                 data.globalEngineState.set(newGlobalState);
+            } else if (message.action === "state/updateResources") {
+                data.globalResources.set(JSON.parse(message.payload));
+                data.globalResources.subscribe((x) => console.log(x));
             } else if (message.action === "toast/error") {
                 toast.push({
                     msg: message.payload,

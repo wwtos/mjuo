@@ -5,7 +5,9 @@ export interface SoundConfig {
 export interface GlobalState {
     activeProject: string | null;
     soundConfig: SoundConfig;
-    resources: {
-        ui: { [key: string]: any }
-    };
+
+}
+
+export interface Resources {
+    ui: { [key: string]: any };
 }
