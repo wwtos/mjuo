@@ -68,8 +68,7 @@ pub async fn handle_msg(
                     global_state
                         .active_project
                         .as_ref()
-                        .unwrap()
-                        .parent()
+                        .and_then(|x| x.parent())
                         .unwrap()
                         .to_owned(),
                 );
@@ -96,7 +95,6 @@ pub async fn handle_msg(
 pub fn write_to_file(output_file: &mut std::fs::File, data: &[f32]) -> Result<(), Box<dyn Error>> {
     let mut data_out = vec![0_u8; data.len() * 4];
 
-    // TODO: would memcpy work here faster?
     for i in 0..data.len() {
         let num = data[i].to_le_bytes();
 

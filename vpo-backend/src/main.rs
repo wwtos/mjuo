@@ -15,21 +15,20 @@ use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::io::midir::connect_midir_backend;
-use vpo_backend::util::{send_global_state_updates, send_graph_updates};
+use vpo_backend::util::{send_global_state_updates, send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
 fn main() {
     let mut executor = LocalPool::new();
     let spawner = executor.spawner();
 
-    let (to_server, mut from_server, _handle) = start_ipc(26642);
+    let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
     let engine_buffer_size = 64;
     let io_requested_buffer_size = 1024;
 
     let mut global_state = GlobalState::new(SoundConfig::default());
-    let resources = Resources::default();
-    let resources = Arc::new(RwLock::new(resources));
+    let resources = Arc::new(RwLock::new(Resources::default()));
 
     // start up midi and audio
     let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
@@ -62,6 +61,8 @@ fn main() {
     };
 
     let graph_state = GraphState::new(&global_state).unwrap();
+
+    // send initial node engine instance to sound engine
     to_engine
         .send(vec![NodeEngineUpdate::NewNodeEngine(
             graph_state
@@ -75,7 +76,7 @@ fn main() {
     let graph_state = RefCell::new(graph_state);
     let global_state = RefCell::new(global_state);
 
-    // handle communication with clients
+    // spawn all the async tasks
     spawner
         .spawn_local(async move {
             let client_communication = async {
@@ -138,16 +139,20 @@ fn main() {
 
             let file_watcher = async {
                 let to_server = to_server.clone();
+                let resources = resources.clone();
 
                 while let Some(res) = file_receiver.next().await {
                     match res {
                         Ok(event) => {
                             for e in event {
+                                // go through all the file events and reload those resources
                                 let global_state = global_state.borrow();
-                                let root = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
-                                let _ = load_single(root, &e.path, &mut *resources.clone().write().unwrap());
+                                let mut resources_lock = resources.write().unwrap();
 
-                                send_global_state_updates(&*global_state, &to_server).unwrap();
+                                let root_dir = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
+                                let _ = load_single(root_dir, &e.path, &mut *resources_lock);
+
+                                send_resource_updates(&*resources_lock, &to_server).unwrap();
                             }
                         }
                         Err(e) => println!("watch error: {:?}", e),
@@ -159,7 +164,7 @@ fn main() {
         })
         .unwrap();
 
-    let fs_handle = start_file_server(project_dir_receiver);
+    let _fs_handle = start_file_server(project_dir_receiver);
 
     executor.run();
 }

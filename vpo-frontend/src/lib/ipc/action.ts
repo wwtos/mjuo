@@ -1,5 +1,5 @@
 import type { Graph } from "$lib/ddgg/graph";
-import type { GlobalState } from "$lib/node-engine/global_state";
+import type { GlobalState, Resources } from "$lib/node-engine/global_state";
 import type { NodeInstance } from "$lib/node-engine/node";
 import type { NodeConnection } from "$lib/node-engine/node_graph";
 import type { DiscriminatedUnion } from "$lib/util/discriminated-union";
@@ -16,8 +16,8 @@ export type IpcAction = DiscriminatedUnion<
         "state/updateGlobalState": {
             payload: GlobalState;
         };
-        "registry/updateRegistry": {
-            payload: object;
+        "state/updateResources": {
+            payload: string
         };
         "toast/error": {
             payload: string;

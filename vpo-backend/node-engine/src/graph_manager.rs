@@ -54,7 +54,7 @@ pub struct GraphManager {
     node_graphs: Graph<NodeGraph, ConnectedThrough>,
     root_index: GraphIndex,
     #[serde(skip)]
-    pub(crate) default_channel_count: usize,
+    default_channel_count: usize,
 }
 
 impl GraphManager {
@@ -152,6 +152,18 @@ impl GraphManager {
             .node_graphs
             .get_vertex_data_mut(index.0)
             .with_context(|| GraphDoesNotExistSnafu { graph_index: index })?)
+    }
+
+    pub fn set_default_channel_count(&mut self, default_channel_count: usize) {
+        self.default_channel_count = default_channel_count;
+
+        let indexes: Vec<_> = self.node_graphs.vertex_indexes().collect();
+
+        for graph in indexes {
+            let child_graph = self.node_graphs.get_vertex_data_mut(graph).unwrap();
+
+            child_graph.set_default_channel_count(default_channel_count);
+        }
     }
 
     pub fn get_node(&self, index: GlobalNodeIndex) -> Result<&NodeInstance, NodeError> {

@@ -1,10 +1,14 @@
 use ipc::ipc_message::IpcMessage;
-use node_engine::{global_state::GlobalState, graph_manager::GraphIndex, state::GraphState};
+use node_engine::{
+    global_state::{GlobalState, Resources},
+    graph_manager::GraphIndex,
+    state::GraphState,
+};
 use serde_json::json;
 use snafu::ResultExt;
 
 use crate::{
-    errors::{EngineError, NodeSnafu},
+    errors::{EngineError, JsonParserSnafu, NodeSnafu},
     Sender,
 };
 
@@ -39,6 +43,17 @@ pub fn send_global_state_updates(
 
     let _ = to_server.send(IpcMessage::Json(json! {{
         "action": "state/updateGlobalState",
+        "payload": json
+    }}));
+
+    Ok(())
+}
+
+pub fn send_resource_updates(resources: &Resources, to_server: &Sender<IpcMessage>) -> Result<(), EngineError> {
+    let json = serde_json::to_string(resources).context(JsonParserSnafu)?;
+
+    let _ = to_server.send(IpcMessage::Json(json! {{
+        "action": "state/updateResources",
         "payload": json
     }}));
 

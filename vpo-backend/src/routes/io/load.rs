@@ -8,7 +8,7 @@ use crate::{
     errors::EngineError,
     io::load,
     routes::{prelude::*, RouteReturn},
-    util::{send_global_state_updates, send_graph_updates},
+    util::{send_global_state_updates, send_graph_updates, send_resource_updates},
 };
 
 pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
@@ -25,6 +25,7 @@ pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError
 
         send_global_state_updates(state.global_state, state.to_server)?;
         send_graph_updates(state.state, state.state.get_root_graph_index(), state.to_server)?;
+        send_resource_updates(resources, state.to_server)?;
 
         return Ok(RouteReturn {
             engine_updates: vec![NodeEngineUpdate::NewNodeEngine(

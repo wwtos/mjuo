@@ -165,6 +165,7 @@ pub fn load(
         }
     }
 
+    // read again after migrating (TODO: only do when necessary)
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 

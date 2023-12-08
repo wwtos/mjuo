@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    default,
     ops::{Index, IndexMut},
 };
 
@@ -34,6 +35,7 @@ pub struct ConnectionIndex(pub EdgeIndex);
 #[serde(rename_all = "camelCase")]
 pub struct NodeGraph {
     nodes: Graph<NodeInstance, NodeConnectionData>,
+    #[serde(skip)]
     default_channel_count: usize,
 }
 
@@ -434,6 +436,10 @@ impl NodeGraph {
             connected_inputs,
             connected_outputs,
         })
+    }
+
+    pub fn set_default_channel_count(&mut self, default_channel_count: usize) {
+        self.default_channel_count = default_channel_count;
     }
 }
 
