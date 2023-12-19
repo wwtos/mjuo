@@ -1,6 +1,6 @@
+pub mod clocked;
 pub mod cpal;
 pub mod file_watcher;
-pub mod midir;
 pub mod scoped_pool;
 
 use std::fmt::Debug;
@@ -12,13 +12,14 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 
 use common::resource_manager::ResourceManager;
-use node_engine::global_state::Resources;
-use node_engine::{global_state::GlobalState, state::GraphState};
+use node_engine::resources::Resources;
+use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
+use sound_engine::SoundConfig;
 use walkdir::WalkDir;
 
 use crate::errors::{IoSnafu, JsonParserSnafu};
@@ -28,8 +29,6 @@ use crate::migrations::migrate;
 use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
 use crate::resource::ui::load_ui_from_file;
-
-use self::scoped_pool::scoped_pool;
 
 const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
@@ -149,7 +148,6 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
 pub fn load(
     path: &Path,
     state: &mut GraphState,
-    global_state: &mut GlobalState,
     resources: &mut Resources,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
@@ -169,7 +167,7 @@ pub fn load(
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = GraphState::new(global_state).unwrap();
+    *state = GraphState::new(SoundConfig::default()).unwrap();
     resources.reset();
 
     println!("Loading resources...");

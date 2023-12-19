@@ -34,11 +34,7 @@ pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
     Ok(RouteReturn {
         engine_updates: state
             .state
-            .invalidations_to_engine_updates(
-                invalidations,
-                state.global_state,
-                &*state.resources_lock.read().unwrap(),
-            )
+            .invalidations_to_engine_updates(invalidations, &*state.resources_lock.read().unwrap())
             .context(NodeSnafu)?,
         new_project: false,
     })

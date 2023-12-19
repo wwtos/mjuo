@@ -1,14 +1,11 @@
 use ipc::ipc_message::IpcMessage;
-use node_engine::{
-    global_state::{GlobalState, Resources},
-    graph_manager::GraphIndex,
-    state::GraphState,
-};
+use node_engine::{graph_manager::GraphIndex, resources::Resources, state::GraphState};
 use serde_json::json;
 use snafu::ResultExt;
 
 use crate::{
     errors::{EngineError, JsonParserSnafu, NodeSnafu},
+    state::GlobalState,
     Sender,
 };
 

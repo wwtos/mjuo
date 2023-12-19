@@ -1,7 +1,7 @@
+use clocked::midi::MidiMessage;
 use common::alloc::{BuddyArena, SliceAlloc};
 use generational_arena::{Arena, Index};
 use self_cell::self_cell;
-use sound_engine::midi::messages::MidiMessage;
 
 type MidiStorage<'a> = Arena<SliceAlloc<'a, MidiMessage>>;
 

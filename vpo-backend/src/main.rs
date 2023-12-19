@@ -7,27 +7,24 @@ use futures::task::LocalSpawnExt;
 use futures::StreamExt;
 use ipc::file_server::start_file_server;
 
-use node_engine::global_state::{GlobalState, Resources};
+use node_engine::resources::Resources;
 use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
 use sound_engine::SoundConfig;
 
 use vpo_backend::io::cpal::CpalBackend;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
-use vpo_backend::io::midir::connect_midir_backend;
+use vpo_backend::state::GlobalState;
 use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
 fn main() {
-    let mut executor = LocalPool::new();
-    let spawner = executor.spawner();
+    let mut async_executor = LocalPool::new();
 
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
-    let engine_buffer_size = 64;
-    let io_requested_buffer_size = 1024;
-
-    let mut global_state = GlobalState::new(SoundConfig::default());
+    let graph_state = GraphState::new(SoundConfig::default()).unwrap();
+    let global_state = GlobalState::new();
     let resources = Arc::new(RwLock::new(Resources::default()));
 
     // start up midi and audio
@@ -45,29 +42,19 @@ fn main() {
         .connect(
             output_device,
             resources.clone(),
-            engine_buffer_size,
-            io_requested_buffer_size,
-            48_000,
+            graph_state.get_sound_config().buffer_size,
+            1024,
+            graph_state.get_sound_config().sample_rate,
             midi_receiver,
             from_main,
             to_main,
         )
         .unwrap();
 
-    // set up state
-    global_state.sound_config = SoundConfig {
-        sample_rate: config.sample_rate.0,
-        buffer_size: engine_buffer_size,
-    };
-
-    let graph_state = GraphState::new(&global_state).unwrap();
-
     // send initial node engine instance to sound engine
     to_engine
         .send(vec![NodeEngineUpdate::NewNodeEngine(
-            graph_state
-                .get_engine(&global_state, &*resources.clone().read().unwrap())
-                .unwrap(),
+            graph_state.get_engine(&*resources.clone().read().unwrap()).unwrap(),
         )])
         .unwrap();
 
@@ -77,7 +64,8 @@ fn main() {
     let global_state = RefCell::new(global_state);
 
     // spawn all the async tasks
-    spawner
+    async_executor
+        .spawner()
         .spawn_local(async move {
             let client_communication = async {
                 let mut project_dir_sender = project_dir_sender.clone();
@@ -166,5 +154,5 @@ fn main() {
 
     let _fs_handle = start_file_server(project_dir_receiver);
 
-    executor.run();
+    async_executor.run();
 }

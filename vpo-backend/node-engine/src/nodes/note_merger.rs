@@ -1,7 +1,5 @@
 use std::borrow::Cow;
 
-use sound_engine::midi::messages::MidiData;
-
 use super::prelude::*;
 
 #[derive(Debug, Clone)]

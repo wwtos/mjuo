@@ -1,19 +1,24 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Primitive, Socket, SocketType, SocketValue},
     engine::NodeEngine,
     errors::{NodeError, WarningExt},
-    global_state::{GlobalState, Resources},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
+    io_routing::{DeviceDirection, DeviceType, IoRoutes, RouteRule},
     node::{NodeGetIoContext, NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
+    resources::Resources,
     traversal::buffered_traverser::BufferedTraverser,
 };
 
@@ -123,12 +128,14 @@ pub struct GraphState {
     graph_manager: GraphManager,
     root_graph_index: GraphIndex,
     io_nodes: IoNodes,
+    io_routing: IoRoutes,
+    sound_config: SoundConfig,
     default_channel_count: usize,
 }
 
 impl GraphState {
-    pub fn new(global_state: &GlobalState) -> Result<GraphState, NodeError> {
-        let default_channel_count = global_state.default_channel_count;
+    pub fn new(sound_config: SoundConfig) -> Result<GraphState, NodeError> {
+        let default_channel_count = 2;
 
         let history = Vec::new();
         let place_in_history = 0;
@@ -152,7 +159,7 @@ impl GraphState {
             );
             modified_output.set_property(
                 "socket_list".into(),
-                Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 1)]),
+                Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 2)]),
             );
 
             graph.update_node(input_node, modified_input)?;
@@ -160,6 +167,25 @@ impl GraphState {
 
             (output_node, input_node)
         };
+
+        let routing = vec![
+            RouteRule {
+                device_id: "default".into(),
+                device_type: DeviceType::Stream,
+                device_direction: DeviceDirection::Sink,
+                device_channels: 0..1,
+                node: output_node,
+                node_channels: 0..1,
+            },
+            RouteRule {
+                device_id: "default".into(),
+                device_type: DeviceType::Midi,
+                device_direction: DeviceDirection::Source,
+                device_channels: 0..0,
+                node: input_node,
+                node_channels: 0..0,
+            },
+        ];
 
         Ok(GraphState {
             history,
@@ -170,33 +196,31 @@ impl GraphState {
                 input: input_node,
                 output: output_node,
             },
-            default_channel_count: global_state.default_channel_count,
+            io_routing: IoRoutes { rules: routing },
+            default_channel_count,
+            sound_config,
         })
     }
 
-    pub fn get_traverser(
-        &self,
-        global_state: &GlobalState,
-        resources: &Resources,
-    ) -> Result<BufferedTraverser, NodeError> {
+    pub fn get_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
         let traverser = BufferedTraverser::new(
-            global_state.sound_config.clone(),
+            self.sound_config.clone(),
             &self.graph_manager,
             self.root_graph_index,
             &resources,
-            0,
+            Duration::ZERO,
         )?;
 
         Ok(traverser)
     }
 
-    pub fn get_engine(&self, global_state: &GlobalState, resources: &Resources) -> Result<NodeEngine, NodeError> {
+    pub fn get_engine(&self, resources: &Resources) -> Result<NodeEngine, NodeError> {
         let traverser = BufferedTraverser::new(
-            global_state.sound_config.clone(),
+            self.sound_config.clone(),
             &self.graph_manager,
             self.root_graph_index,
             &resources,
-            0,
+            Duration::ZERO,
         )?;
 
         Ok(NodeEngine::new(traverser, self.io_nodes.clone()))
@@ -241,6 +265,10 @@ impl GraphState {
     pub fn get_io_nodes(&self) -> IoNodes {
         self.io_nodes.clone()
     }
+
+    pub fn get_sound_config(&self) -> SoundConfig {
+        self.sound_config.clone()
+    }
 }
 
 impl GraphState {
@@ -251,7 +279,6 @@ impl GraphState {
     pub fn invalidations_to_engine_updates(
         &self,
         invalidations: Vec<ActionInvalidation>,
-        global_state: &GlobalState,
         resources: &Resources,
     ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
         let mut root_graph_reindex_needed = false;
@@ -284,9 +311,7 @@ impl GraphState {
         let mut updates = vec![];
 
         if root_graph_reindex_needed {
-            updates.push(NodeEngineUpdate::NewNodeEngine(
-                self.get_engine(global_state, resources)?,
-            ));
+            updates.push(NodeEngineUpdate::NewNodeEngine(self.get_engine(resources)?));
         }
 
         if !new_defaults.is_empty() {

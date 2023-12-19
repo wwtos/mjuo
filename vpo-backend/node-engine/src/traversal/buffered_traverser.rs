@@ -4,6 +4,7 @@ use std::{
     iter::{repeat, repeat_with},
     mem,
     ops::Range,
+    time::Duration,
 };
 
 use common::resource_manager::ResourceId;
@@ -16,7 +17,6 @@ use sound_engine::SoundConfig;
 use crate::{
     connection::{Primitive, Socket},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    global_state::{Resource, ResourceTypeAndIndex, Resources},
     graph_manager::{GraphIndex, GraphManager},
     midi_store::MidiStore,
     node::{
@@ -24,6 +24,7 @@ use crate::{
         StateInterface,
     },
     nodes::NodeVariant,
+    resources::{Resource, ResourceTypeAndIndex, Resources},
 };
 
 use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes};
@@ -179,7 +180,7 @@ pub struct BufferedTraverser {
     store: MidiStore,
     config: SoundConfig,
     engine: Engine,
-    time: i64,
+    time: Duration,
     resource_scratch: Vec<Resource<'static>>,
     value_input_scratch: Vec<UnsafeCell<Primitive>>,
     value_ref_scratch: Vec<&'static [UnsafeCell<Primitive>]>,
@@ -193,7 +194,7 @@ impl BufferedTraverser {
         manager: &GraphManager,
         graph_index: GraphIndex,
         resources: &Resources,
-        start_time: i64,
+        start_time: Duration,
     ) -> Result<BufferedTraverser, NodeError> {
         let mut io_spec = calc_io_spec(
             manager.get_graph(graph_index).unwrap(),
@@ -381,7 +382,9 @@ impl BufferedTraverser {
             }
         }
 
-        self.time += self.config.buffer_size as i64;
+        // TODO: make sure this won't drift over time
+        let advance_time = Duration::from_secs_f64(self.config.buffer_size as f64 / self.config.sample_rate as f64);
+        self.time += advance_time;
 
         self.resource_scratch = all_resources.recycle();
 
@@ -425,12 +428,14 @@ impl BufferedTraverser {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use sound_engine::SoundConfig;
 
     use crate::{
         connection::{Socket, SocketType},
-        global_state::Resources,
         graph_manager::GraphManager,
+        resources::Resources,
     };
 
     use super::BufferedTraverser;
@@ -468,8 +473,14 @@ mod tests {
             buffer_size: 4,
         };
 
-        let mut traverser =
-            BufferedTraverser::new(sound_config.clone(), &manager, graph_index, &Resources::default(), 0).unwrap();
+        let mut traverser = BufferedTraverser::new(
+            sound_config.clone(),
+            &manager,
+            graph_index,
+            &Resources::default(),
+            Duration::ZERO,
+        )
+        .unwrap();
         traverser.step(&Resources::default(), vec![], None);
         traverser.step(&Resources::default(), vec![], None);
     }

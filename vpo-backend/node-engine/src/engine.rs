@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
 
-use sound_engine::midi::messages::MidiMessage;
+use clocked::midi::MidiMessage;
 
 use crate::{
-    global_state::Resources,
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
+    resources::Resources,
     state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
     traversal::buffered_traverser::{BufferedTraverser, StepResult},
 };

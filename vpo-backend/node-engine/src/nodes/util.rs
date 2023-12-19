@@ -1,5 +1,7 @@
+use std::str::FromStr;
+
+use clocked::midi::{MidiData, SysCommon, SysRt, Timecode};
 use rhai::{Dynamic, Scope};
-use sound_engine::midi::messages::{MidiData, SystemCommonMessageData, SystemRealtimeMessageData};
 
 use crate::connection::Primitive;
 
@@ -103,7 +105,7 @@ pub fn add_message_to_scope(scope: &mut Scope, midi: &MidiData) {
 
             "program change"
         }
-        MidiData::ChannelAftertouch { channel, pressure } => {
+        MidiData::ChannelPressure { channel, pressure } => {
             scope.push("channel", Dynamic::from_int(*channel as i32));
             scope.push("pressure", Dynamic::from_float(*pressure as f32 / 127.0));
 
@@ -115,32 +117,56 @@ pub fn add_message_to_scope(scope: &mut Scope, midi: &MidiData) {
 
             "pitch bend"
         }
-        MidiData::SystemCommonMessage { data } => match data {
-            SystemCommonMessageData::SystemExclusive { id, message } => {
-                scope.push("message_id", *id);
-                scope.push(
-                    "message",
-                    Dynamic::from_array(message.into_iter().map(|x| Dynamic::from_int(*x as i32)).collect()),
-                );
+        MidiData::SysEx { id_and_data } => {
+            scope.push("message_id", id_and_data[0]);
+            scope.push(
+                "message",
+                Dynamic::from_array(
+                    id_and_data[1..]
+                        .into_iter()
+                        .map(|x| Dynamic::from_int(*x as i32))
+                        .collect(),
+                ),
+            );
 
-                "system exclusive"
-            }
-            SystemCommonMessageData::QuarterFrame { rate, time } => {
-                scope.push("rate", Dynamic::from_int(*rate as i32));
-                scope.push("hours", Dynamic::from_int(time.hours as i32));
-                scope.push("minutes", Dynamic::from_int(time.minutes as i32));
-                scope.push("seconds", Dynamic::from_int(time.seconds as i32));
+            "system exclusive"
+        }
+        MidiData::SysCommon(SysCommon::QuarterFrame { time_fragment }) => {
+            let (time_fragment_type, time_fragment) = match time_fragment {
+                Timecode::FrameLow(nibble) => ("frame low", nibble),
+                Timecode::FrameHigh(nibble) => ("frame high", nibble),
+                Timecode::SecondsLow(nibble) => ("seconds low", nibble),
+                Timecode::SecondsHigh(nibble) => ("seconds high", nibble),
+                Timecode::MinutesLow(nibble) => ("minutes low", nibble),
+                Timecode::MinutesHigh(nibble) => ("minutes high", nibble),
+                Timecode::HoursLow(nibble) => ("hours low", nibble),
+                Timecode::HoursHigh(nibble) => ("hours high", nibble),
+            };
 
-                "quarter frame"
-            }
-        },
-        MidiData::SystemRealtimeMessage { data } => match data {
-            SystemRealtimeMessageData::TimingClock => "timing clock",
-            SystemRealtimeMessageData::Start => "start",
-            SystemRealtimeMessageData::Continue => "continue",
-            SystemRealtimeMessageData::Stop => "stop",
-            SystemRealtimeMessageData::ActiveSensing => "active sensing",
-            SystemRealtimeMessageData::Reset => "reset",
+            scope.push("time_fragment_type", Dynamic::from_str(time_fragment_type));
+            scope.push("time_fragment", Dynamic::from_int(*time_fragment as i32));
+
+            "quarter frame"
+        }
+        MidiData::SysCommon(SysCommon::SongPositionPointer { position }) => {
+            scope.push("position", Dynamic::from_int(*position as i32));
+
+            "song position"
+        }
+        MidiData::SysCommon(SysCommon::SongSelect { song }) => {
+            scope.push("song", Dynamic::from_int(*song as i32));
+
+            "song select"
+        }
+        MidiData::SysCommon(SysCommon::TuneRequest) => "tune request",
+        MidiData::SysRt(message) => match message {
+            SysRt::MidiClock => "midi clock",
+            SysRt::Tick => "tick",
+            SysRt::Start => "start",
+            SysRt::Continue => "continue",
+            SysRt::Stop => "stop",
+            SysRt::ActiveSensing => "active sensing",
+            SysRt::Reset => "reset",
         },
         MidiData::MidiNone => "",
     };

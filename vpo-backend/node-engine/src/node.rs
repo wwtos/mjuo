@@ -5,22 +5,23 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
 use std::mem;
 use std::ops::{Index, IndexMut};
+use std::time::Duration;
 
+use clocked::midi::MidiMessage;
 use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
 use serde::{Deserialize, Serialize};
-use sound_engine::midi::messages::MidiMessage;
 use sound_engine::SoundConfig;
 
 use crate::connection::{Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
-use crate::global_state::{Resource, Resources};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::midi_store::MidiStore;
 use crate::property::{Property, PropertyType};
+use crate::resources::{Resource, Resources};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -147,7 +148,7 @@ pub struct StateInterface<'a> {
 }
 
 pub struct NodeProcessContext<'a> {
-    pub current_time: i64,
+    pub current_time: Duration,
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
     pub external_state: StateInterface<'a>,

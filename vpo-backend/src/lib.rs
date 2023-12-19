@@ -1,9 +1,11 @@
+pub mod engine;
 pub mod errors;
 #[cfg(any(windows, unix))]
 pub mod io;
 pub mod migrations;
 pub mod resource;
 pub mod routes;
+pub mod state;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod utils;
@@ -20,17 +22,20 @@ use std::sync::RwLock;
 use std::thread::JoinHandle;
 use std::{error::Error, io::Write};
 
+use serde_json::json;
+
 use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 
 use io::file_watcher::FileWatcher;
 use node_engine::{
-    global_state::{GlobalState, Resources},
+    resources::Resources,
     state::{GraphState, NodeEngineUpdate},
 };
 use routes::route;
-use serde_json::json;
+
+use state::GlobalState;
 
 #[cfg(any(unix, windows))]
 pub fn start_ipc(port: u32) -> (flume::Sender<IpcMessage>, flume::Receiver<IpcMessage>, JoinHandle<()>) {

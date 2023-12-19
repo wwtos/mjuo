@@ -1,5 +1,3 @@
-use sound_engine::midi::messages::MidiData;
-
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]

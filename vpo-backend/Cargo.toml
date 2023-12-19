@@ -30,9 +30,11 @@ snafu = "0.7"
 sound-engine = { path = "./sound-engine" }
 toml_edit = { version = "0.19.8", features = ["serde"] }
 petgraph = { version = "0.6.0", features = ["serde-1"] }
-clocked = "0.1.0"
+clocked = "0.3.0"
 rayon = "1.8.0"
 flume = "0.11.0"
+generational-arena = "0.2.9"
+rubato = "0.14.1"
 
 [lib]
 crate-type = ["cdylib", "lib"]

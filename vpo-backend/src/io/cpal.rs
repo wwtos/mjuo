@@ -2,20 +2,22 @@ use std::{
     collections::VecDeque,
     error,
     sync::{Arc, RwLock},
+    time::Duration,
 };
 
+use clocked::midi::MidiMessage;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Device, Host, SampleFormat, SampleRate, Stream, StreamConfig,
 };
 use node_engine::{
     engine::NodeEngine,
-    global_state::Resources,
+    resources::Resources,
     state::{FromNodeEngine, NodeEngineUpdate},
 };
 use rtrb::RingBuffer;
 use snafu::{OptionExt, ResultExt};
-use sound_engine::{midi::messages::MidiMessage, MidiChannel};
+use sound_engine::MidiChannel;
 
 use crate::errors::EngineError;
 
@@ -109,8 +111,8 @@ impl CpalBackend {
         let mut buffer = vec![0_f32; buffer_size];
         let mut midi_buffer: VecDeque<MidiMessage> = VecDeque::new();
 
-        let mut midi_time_offset: i64 = 0;
-        let mut playback_time = 0;
+        let mut midi_time_offset = Duration::ZERO;
+        let mut playback_time = Duration::ZERO;
 
         let stream = device
             .build_output_stream(
@@ -119,13 +121,12 @@ impl CpalBackend {
                 move |out: &mut [f32], _info| {
                     if let Ok(new_state) = state_update_in.try_recv() {
                         engine.apply_state_updates(new_state);
-                        playback_time = 0;
-                        midi_time_offset = 0;
+                        playback_time = Duration::ZERO;
+                        midi_time_offset = Duration::ZERO;
                     }
 
                     if engine.initialized() {
                         // timing stuff (not fun)
-                        let playback_time_micros = ((playback_time as f64 / sample_rate as f64) * 1_000_000f64) as i64;
                         let resources = resources.try_read();
 
                         if let Ok(resources) = resources {
@@ -135,22 +136,22 @@ impl CpalBackend {
                                     let midi = midi_in.try_recv().unwrap_or(vec![]);
 
                                     if let Some(message) = midi.first() {
-                                        if midi_time_offset == 0 || message.timestamp < playback_time_micros {
-                                            midi_time_offset = playback_time_micros - message.timestamp as i64;
-                                            println!("new offset: {}", midi_time_offset);
+                                        if midi_time_offset == Duration::ZERO || message.timestamp < playback_time {
+                                            midi_time_offset = playback_time - message.timestamp;
+                                            println!("new offset: {:?}", midi_time_offset);
                                         }
                                     }
 
                                     midi_buffer.extend(midi.into_iter().map(|message| MidiMessage {
                                         data: message.data,
-                                        timestamp: ((message.timestamp + midi_time_offset) * sample_rate as i64)
-                                            / 1_000_000,
+                                        timestamp: message.timestamp + midi_time_offset,
                                     }));
 
                                     // figure out how far before the midi messages exceed the current buffer time
+                                    let buffer_time = Duration::from_secs_f64(buffer_size as f64 / sample_rate as f64);
                                     let from_engine = match midi_buffer
                                         .iter()
-                                        .position(|message| message.timestamp > playback_time + buffer_size as i64)
+                                        .position(|message| message.timestamp > playback_time + buffer_time)
                                     {
                                         Some(stop_at) => {
                                             let midi_constrained: Vec<Vec<MidiMessage>> =
@@ -178,7 +179,7 @@ impl CpalBackend {
                                 *frame = consumer.pop().unwrap();
 
                                 if i % config.channels as usize == 0 {
-                                    playback_time += 1;
+                                    playback_time += Duration::from_secs_f64(1.0 / sample_rate as f64);
                                 }
                             }
                         } else {

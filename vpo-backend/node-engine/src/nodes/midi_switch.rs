@@ -1,5 +1,3 @@
-use sound_engine::midi::messages::{MidiData, MidiMessage};
-
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
