@@ -330,7 +330,7 @@ impl<'a> OutputMidiSocket<'a> {
         unsafe { &mut *midi.get() }
     }
 
-    pub fn iter_mut(&self) -> impl Iterator<Item = &mut Option<MidisIndex>> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Option<MidisIndex>> {
         self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
     }
 }
@@ -382,7 +382,7 @@ impl<'a> OutputStreamSocket<'a> {
         unsafe { &mut *mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(stream).get() }
     }
 
-    pub fn iter_mut(&self) -> impl Iterator<Item = &'a mut [f32]> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &'a mut [f32]> {
         self.streams
             .iter()
             .map(|stream| unsafe { &mut *mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(stream).get() })
@@ -435,15 +435,15 @@ impl<'a> Outs<'a> {
         }
     }
 
-    pub fn midis(&self) -> impl Iterator<Item = OutputMidiSocket<'a>> {
+    pub fn midis(&mut self) -> impl Iterator<Item = OutputMidiSocket<'a>> {
         self.midis.iter().map(|midi| OutputMidiSocket { midis: *midi })
     }
 
-    pub fn values(&self) -> impl Iterator<Item = OutputValueSocket<'a>> {
+    pub fn values(&mut self) -> impl Iterator<Item = OutputValueSocket<'a>> {
         self.values.iter().map(|value| OutputValueSocket { values: *value })
     }
 
-    pub fn streams(&self) -> impl Iterator<Item = OutputStreamSocket<'a>> {
+    pub fn streams(&mut self) -> impl Iterator<Item = OutputStreamSocket<'a>> {
         self.streams
             .iter()
             .map(|stream| OutputStreamSocket { streams: *stream })

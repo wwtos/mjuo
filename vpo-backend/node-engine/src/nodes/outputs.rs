@@ -32,12 +32,12 @@ impl NodeRuntime for OutputsNode {
         midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        for (socket_in, local_in) in ins.midis().zip(self.midis.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
-                local_channel_in.clear();
+        for (socket_in, socket) in ins.midis().zip(self.midis.iter_mut()) {
+            for (channel_in, channel) in socket_in.iter().zip(socket.iter_mut()) {
+                channel.clear();
 
                 if let Some(midi) = channel_in {
-                    local_channel_in.clone_from_slice(midi_store.borrow_midi(midi).unwrap());
+                    channel.clone_from_slice(midi_store.borrow_midi(midi).unwrap());
                 }
             }
         }

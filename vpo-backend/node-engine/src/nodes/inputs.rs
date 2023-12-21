@@ -1,9 +1,12 @@
+use std::iter::repeat_with;
+
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
     values: Vec<Primitive>,
     midis: Vec<MidiChannel>,
+    streams: Vec<Vec<Vec<f32>>>,
     sent: bool,
 }
 
@@ -17,9 +20,33 @@ impl InputsNode {
         self.midis = midis;
         self.sent = false;
     }
+    pub fn streams_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
+        &mut self.streams
+    }
 }
 
 impl NodeRuntime for InputsNode {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        if let Some(Property::SocketList(sockets)) = params.props.get("socket_list") {
+            self.streams = sockets
+                .iter()
+                .filter_map(|socket| {
+                    if socket.socket_type() == SocketType::Stream {
+                        Some(
+                            repeat_with(|| vec![0.0; params.sound_config.buffer_size])
+                                .take(socket.channels())
+                                .collect(),
+                        )
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        }
+
+        InitResult::nothing()
+    }
+
     fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
@@ -29,12 +56,18 @@ impl NodeRuntime for InputsNode {
         _resources: &[Resource],
     ) -> NodeResult<()> {
         if !self.sent {
-            for (message_out, message_in) in outs.midi(0).iter_mut().zip(self.midis.drain(..)) {
-                *message_out = midi_store.register_midis(message_in.into_iter());
+            for (mut midi_socket, message_in) in outs.midis().zip(self.midis.drain(..)) {
+                midi_socket[0] = midi_store.register_midis(message_in.into_iter());
             }
 
             for (mut values_out, value_to_output) in outs.values().zip(self.values.iter()) {
                 values_out[0] = *value_to_output;
+            }
+
+            for (mut socket_out, socket) in outs.streams().zip(self.streams.iter_mut()) {
+                for (channel_out, channel) in socket_out.iter_mut().zip(socket.iter_mut()) {
+                    channel_out.copy_from_slice(&channel[..]);
+                }
             }
 
             self.sent = true;
@@ -49,6 +82,7 @@ impl Node for InputsNode {
         InputsNode {
             values: vec![],
             midis: vec![],
+            streams: vec![],
             sent: false,
         }
     }

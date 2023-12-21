@@ -6,7 +6,7 @@ use crate::{
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
     resources::Resources,
-    state::{FromNodeEngine, IoNodes, NodeEngineUpdate},
+    state::{FromNodeEngine, IoNodes, ToNodeEngine},
     traversal::buffered_traverser::{BufferedTraverser, StepResult},
 };
 
@@ -44,30 +44,7 @@ impl NodeEngine {
         }
     }
 
-    pub fn apply_state_updates(&mut self, updates: Vec<NodeEngineUpdate>) {
-        for update in updates {
-            match update {
-                NodeEngineUpdate::NewNodeEngine(engine) => {
-                    self.traverser = engine.traverser;
-                    self.io_nodes = engine.io_nodes;
-                    self.current_time = engine.current_time;
-                }
-                NodeEngineUpdate::NewDefaults(defaults) => {
-                    if let Some(traverser) = &mut self.traverser {
-                        for (node_index, socket, value) in defaults {
-                            traverser.input_value_default(node_index, &socket, value).unwrap();
-                        }
-                    }
-                }
-                NodeEngineUpdate::NewNodeState(incoming) => {
-                    self.new_states.extend(incoming.into_iter());
-                }
-                NodeEngineUpdate::CurrentNodeStates(state) => {
-                    self.current_graph_state = Some(state);
-                }
-            }
-        }
-    }
+    pub fn apply_state_updates(&mut self, updates: Vec<ToNodeEngine>) {}
 
     pub fn step(
         &mut self,

@@ -28,10 +28,11 @@ use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 
+use engine::ToAudioThread;
 use io::file_watcher::FileWatcher;
 use node_engine::{
     resources::Resources,
-    state::{GraphState, NodeEngineUpdate},
+    state::{GraphState, ToNodeEngine},
 };
 use routes::route;
 
@@ -56,7 +57,7 @@ pub async fn handle_msg(
     state: &mut GraphState,
     global_state: &mut GlobalState,
     resources_lock: &RwLock<Resources>,
-    engine_sender: &flume::Sender<Vec<NodeEngineUpdate>>,
+    engine_sender: &flume::Sender<ToAudioThread>,
     file_watcher: &mut FileWatcher,
     project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
@@ -65,7 +66,9 @@ pub async fn handle_msg(
     match result {
         Ok(route_result) => {
             if !route_result.engine_updates.is_empty() {
-                engine_sender.send(route_result.engine_updates).unwrap();
+                for update in route_result.engine_updates {
+                    engine_sender.send(update).unwrap();
+                }
             }
 
             if route_result.new_project {

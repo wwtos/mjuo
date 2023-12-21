@@ -1,10 +1,11 @@
 use std::path::Path;
 
-use node_engine::state::NodeEngineUpdate;
+use node_engine::state::ToNodeEngine;
 use rfd::AsyncFileDialog;
 use snafu::ResultExt;
 
 use crate::{
+    engine::ToAudioThread,
     errors::EngineError,
     io::load,
     routes::{prelude::*, RouteReturn},
@@ -28,12 +29,12 @@ pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError
         send_resource_updates(resources, state.to_server)?;
 
         return Ok(RouteReturn {
-            engine_updates: vec![NodeEngineUpdate::NewNodeEngine(
+            engine_updates: vec![ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewTraverser(
                 state
                     .state
-                    .get_engine(resources)
+                    .get_traverser(resources)
                     .whatever_context("could not create traverser")?,
-            )],
+            ))],
             new_project: true,
         });
     }

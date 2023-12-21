@@ -7,16 +7,13 @@ pub mod io;
 use std::sync::RwLock;
 
 use ipc::ipc_message::IpcMessage;
-use node_engine::{
-    resources::Resources,
-    state::{GraphState, NodeEngineUpdate},
-};
+use node_engine::{resources::Resources, state::GraphState};
 use serde_json::Value;
 
-use crate::{errors::EngineError, state::GlobalState, Sender};
+use crate::{engine::ToAudioThread, errors::EngineError, state::GlobalState, Sender};
 #[derive(Default)]
 pub struct RouteReturn {
-    pub engine_updates: Vec<NodeEngineUpdate>,
+    pub engine_updates: Vec<ToAudioThread>,
     pub new_project: bool,
 }
 

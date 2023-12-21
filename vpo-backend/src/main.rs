@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
+use std::thread;
 
+use cpal::{SampleFormat, StreamConfig};
 use futures::executor::LocalPool;
 use futures::join;
 use futures::task::LocalSpawnExt;
@@ -8,10 +10,11 @@ use futures::StreamExt;
 use ipc::file_server::start_file_server;
 
 use node_engine::resources::Resources;
-use node_engine::state::{FromNodeEngine, GraphState, NodeEngineUpdate};
+use node_engine::state::{FromNodeEngine, GraphState, ToNodeEngine};
 use sound_engine::SoundConfig;
 
-use vpo_backend::io::cpal::CpalBackend;
+use thread_priority::{ThreadBuilderExt, ThreadPriority};
+use vpo_backend::engine::{start_sound_engine, ToAudioThread};
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::state::GlobalState;
@@ -20,48 +23,64 @@ use vpo_backend::{handle_msg, start_ipc};
 
 fn main() {
     let mut async_executor = LocalPool::new();
-
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
     let graph_state = GraphState::new(SoundConfig::default()).unwrap();
-    let global_state = GlobalState::new();
+    let mut global_state = GlobalState::new();
     let resources = Arc::new(RwLock::new(Resources::default()));
 
+    global_state.device_manager.rescan_devices();
+
     // start up midi and audio
-    let (midi_receiver, _midi_stream) = connect_midir_backend().unwrap();
-    let (to_engine, from_main) = flume::unbounded();
-    let (to_main, from_engine) = flume::unbounded();
+    let (to_realtime, from_main) = flume::unbounded();
+    let (to_main, from_realtime) = flume::unbounded();
     let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
-    let mut backend = CpalBackend::new();
-    let output_device = backend.get_default_output().unwrap();
+    to_realtime
+        .send(ToAudioThread::CreateCpalSink {
+            name: "default".into(),
+            config: StreamConfig {
+                channels: 2,
+                sample_rate: cpal::SampleRate(44_100),
+                buffer_size: cpal::BufferSize::Fixed(1024),
+            },
+            buffer_size: 1024,
+            periods: 2,
+        })
+        .unwrap();
+    to_realtime
+        .send(ToAudioThread::CreateCpalSource {
+            name: "default".into(),
+            config: StreamConfig {
+                channels: 2,
+                sample_rate: cpal::SampleRate(44_100),
+                buffer_size: cpal::BufferSize::Fixed(1024),
+            },
+            buffer_size: 1024,
+            periods: 2,
+        })
+        .unwrap();
 
     let (mut file_watcher, mut file_receiver) = FileWatcher::new().unwrap();
 
-    let (_stream, config) = backend
-        .connect(
-            output_device,
-            resources.clone(),
-            graph_state.get_sound_config().buffer_size,
-            1024,
-            graph_state.get_sound_config().sample_rate,
-            midi_receiver,
-            from_main,
-            to_main,
-        )
-        .unwrap();
-
     // send initial node engine instance to sound engine
-    to_engine
-        .send(vec![NodeEngineUpdate::NewNodeEngine(
-            graph_state.get_engine(&*resources.clone().read().unwrap()).unwrap(),
-        )])
+    to_realtime
+        .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewTraverser(
+            graph_state.get_traverser(&*resources.clone().read().unwrap()).unwrap(),
+        )))
         .unwrap();
-
-    println!("sample rate: {}", config.sample_rate.0);
 
     let graph_state = RefCell::new(graph_state);
     let global_state = RefCell::new(global_state);
+
+    let resources_clone = resources.clone();
+
+    thread::Builder::new()
+        .name("audio_thread".into())
+        .spawn_with_priority(ThreadPriority::Max, move |_| {
+            start_sound_engine(resources_clone, from_main, to_main);
+        })
+        .unwrap();
 
     // spawn all the async tasks
     async_executor
@@ -80,7 +99,7 @@ fn main() {
                         &mut *graph_state.borrow_mut(),
                         &mut *global_state.borrow_mut(),
                         &*resources.clone(),
-                        &to_engine,
+                        &to_realtime,
                         &mut file_watcher,
                         &mut project_dir_sender,
                     )
@@ -91,35 +110,35 @@ fn main() {
             let sound_engine_communication = async {
                 let to_server = to_server.clone();
 
-                while let Ok(engine_updates) = from_engine.recv_async().await {
-                    for engine_update in engine_updates {
-                        match engine_update {
-                            FromNodeEngine::NodeStateUpdates(updates) => {
-                                let root_index = graph_state.borrow().get_root_graph_index();
+                while let Ok(engine_update) = from_realtime.recv_async().await {
+                    match engine_update {
+                        FromNodeEngine::NodeStateUpdates(updates) => {
+                            let root_index = graph_state.borrow().get_root_graph_index();
 
-                                let mut graph_state = graph_state.borrow_mut();
-                                let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
+                            let mut graph_state = graph_state.borrow_mut();
+                            let graph = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
 
-                                for (node_index, new_state) in updates {
-                                    if let Ok(node) = graph.get_node_mut(node_index) {
-                                        node.set_state(new_state);
-                                    }
+                            for (node_index, new_state) in updates {
+                                if let Ok(node) = graph.get_node_mut(node_index) {
+                                    node.set_state(new_state);
                                 }
+                            }
 
-                                send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
-                            }
-                            FromNodeEngine::RequestedStateUpdates(updates) => {
-                                // TODO: don't unwrap here, instead recreate the engine if it fails
-                                to_engine.send(vec![NodeEngineUpdate::NewNodeState(updates)]).unwrap();
-                            }
-                            FromNodeEngine::GraphStateRequested => {
-                                // TODO: don't unwrap here, instead recreate the engine if it fails
-                                to_engine
-                                    .send(vec![NodeEngineUpdate::CurrentNodeStates(
-                                        graph_state.borrow().get_node_state(),
-                                    )])
-                                    .unwrap();
-                            }
+                            send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
+                        }
+                        FromNodeEngine::RequestedStateUpdates(updates) => {
+                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            to_realtime
+                                .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewNodeState(updates)))
+                                .unwrap();
+                        }
+                        FromNodeEngine::GraphStateRequested => {
+                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            to_realtime
+                                .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::CurrentNodeStates(
+                                    graph_state.borrow().get_node_state(),
+                                )))
+                                .unwrap();
                         }
                     }
                 }

@@ -19,9 +19,10 @@ pub struct RouteRule {
     pub device_id: String,
     pub device_type: DeviceType,
     pub device_direction: DeviceDirection,
-    pub device_channels: Range<usize>,
+    pub device_channel: usize,
     pub node: NodeIndex,
-    pub node_channels: Range<usize>,
+    pub node_socket: usize,
+    pub node_channel: usize,
 }
 
 #[derive(Debug)]

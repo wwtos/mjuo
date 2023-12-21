@@ -13,7 +13,7 @@ use cpal::{
 use node_engine::{
     engine::NodeEngine,
     resources::Resources,
-    state::{FromNodeEngine, NodeEngineUpdate},
+    state::{FromNodeEngine, ToNodeEngine},
 };
 use rtrb::RingBuffer;
 use snafu::{OptionExt, ResultExt};
@@ -55,7 +55,7 @@ impl CpalBackend {
         io_requested_buffer_size: usize,
         sample_rate: u32,
         midi_in: flume::Receiver<MidiChannel>,
-        state_update_in: flume::Receiver<Vec<NodeEngineUpdate>>,
+        state_update_in: flume::Receiver<Vec<ToNodeEngine>>,
         to_main: flume::Sender<Vec<FromNodeEngine>>,
     ) -> Result<(Stream, StreamConfig), EngineError> {
         let configs = device.supported_output_configs();
@@ -102,7 +102,7 @@ impl CpalBackend {
         buffer_size: usize,
         sample_rate: u32,
         midi_in: flume::Receiver<MidiChannel>,
-        state_update_in: flume::Receiver<Vec<NodeEngineUpdate>>,
+        state_update_in: flume::Receiver<Vec<ToNodeEngine>>,
         to_main: flume::Sender<Vec<FromNodeEngine>>,
     ) -> Result<Stream, EngineError> {
         let mut engine: NodeEngine = NodeEngine::uninitialized();

@@ -10,7 +10,6 @@ use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Primitive, Socket, SocketType, SocketValue},
-    engine::NodeEngine,
     errors::{NodeError, WarningExt},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     io_routing::{DeviceDirection, DeviceType, IoRoutes, RouteRule},
@@ -96,8 +95,8 @@ pub enum ActionCategory {
 }
 
 #[derive(Debug)]
-pub enum NodeEngineUpdate {
-    NewNodeEngine(NodeEngine),
+pub enum ToNodeEngine {
+    NewTraverser(BufferedTraverser),
     NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
     NewNodeState(Vec<(NodeIndex, serde_json::Value)>),
     CurrentNodeStates(BTreeMap<NodeIndex, NodeState>),
@@ -173,17 +172,28 @@ impl GraphState {
                 device_id: "default".into(),
                 device_type: DeviceType::Stream,
                 device_direction: DeviceDirection::Sink,
-                device_channels: 0..1,
+                device_channel: 0,
                 node: output_node,
-                node_channels: 0..1,
+                node_socket: 0,
+                node_channel: 0,
+            },
+            RouteRule {
+                device_id: "default".into(),
+                device_type: DeviceType::Stream,
+                device_direction: DeviceDirection::Sink,
+                device_channel: 1,
+                node: output_node,
+                node_socket: 0,
+                node_channel: 1,
             },
             RouteRule {
                 device_id: "default".into(),
                 device_type: DeviceType::Midi,
                 device_direction: DeviceDirection::Source,
-                device_channels: 0..0,
+                device_channel: 0,
                 node: input_node,
-                node_channels: 0..0,
+                node_socket: 0,
+                node_channel: 0,
             },
         ];
 
@@ -214,16 +224,14 @@ impl GraphState {
         Ok(traverser)
     }
 
-    pub fn get_engine(&self, resources: &Resources) -> Result<NodeEngine, NodeError> {
-        let traverser = BufferedTraverser::new(
+    pub fn create_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
+        BufferedTraverser::new(
             self.sound_config.clone(),
             &self.graph_manager,
             self.root_graph_index,
             &resources,
             Duration::ZERO,
-        )?;
-
-        Ok(NodeEngine::new(traverser, self.io_nodes.clone()))
+        )
     }
 
     pub fn get_node_state(&self) -> BTreeMap<NodeIndex, NodeState> {
@@ -280,7 +288,7 @@ impl GraphState {
         &self,
         invalidations: Vec<ActionInvalidation>,
         resources: &Resources,
-    ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
+    ) -> Result<Vec<ToNodeEngine>, NodeError> {
         let mut root_graph_reindex_needed = false;
         let mut new_defaults = vec![];
 
@@ -311,11 +319,11 @@ impl GraphState {
         let mut updates = vec![];
 
         if root_graph_reindex_needed {
-            updates.push(NodeEngineUpdate::NewNodeEngine(self.get_engine(resources)?));
+            updates.push(ToNodeEngine::NewTraverser(self.create_traverser(resources)?));
         }
 
         if !new_defaults.is_empty() {
-            updates.push(NodeEngineUpdate::NewDefaults(new_defaults));
+            updates.push(ToNodeEngine::NewDefaults(new_defaults));
         }
 
         Ok(updates)

@@ -5,19 +5,52 @@ use cpal::{
     Device, Host, HostId, SampleFormat, SupportedStreamConfigRange, SupportedStreamConfigsError,
 };
 use generational_arena::{Arena, Index};
+use midir::{MidiInput, MidiInputPort, MidiOutput, MidiOutputPort, PortInfoError};
+use node_engine::io_routing::DeviceDirection;
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum DeviceType {
-    Sink,
-    Source,
+pub enum MidiDevice {
+    Source(MidiInputPort),
+    Sink(MidiOutputPort),
 }
-pub struct DeviceWrapper {
+
+impl MidiDevice {
+    pub fn device_type(&self) -> DeviceDirection {
+        match self {
+            MidiDevice::Source(_) => DeviceDirection::Source,
+            MidiDevice::Sink(_) => DeviceDirection::Sink,
+        }
+    }
+}
+
+pub struct CpalDeviceWrapper {
     pub host_id: HostId,
     pub name: String,
     pub device: Device,
-    pub device_type: DeviceType,
+    pub device_dir: DeviceDirection,
     pub taken: bool,
 }
+
+impl Debug for CpalDeviceWrapper {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CpalDeviceWrapper")
+            .field("host_id", &self.host_id)
+            .field("name", &self.name)
+            .field("device", &"Device { .. }")
+            .field("device_type", &self.device_dir)
+            .field("taken", &self.taken)
+            .finish()
+    }
+}
+
+pub struct MidirDeviceWrapper {
+    pub name: String,
+    pub device: MidiDevice,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CpalIndex(pub Index);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MidirIndex(pub Index);
 
 #[derive(Debug, Clone)]
 pub struct StreamConfigOptions {
@@ -29,7 +62,17 @@ pub struct StreamConfigOptions {
 
 pub struct DeviceManager {
     cpal_hosts: Vec<Host>,
-    cpal_devices: Arena<DeviceWrapper>,
+    cpal_devices: Arena<CpalDeviceWrapper>,
+    midir_devices: Arena<MidirDeviceWrapper>,
+    midir_input_scan: MidiInput,
+    midir_output_scan: MidiOutput,
+}
+
+pub struct ScanResult {
+    pub cpal_added: Vec<CpalIndex>,
+    pub cpal_removed: Vec<CpalIndex>,
+    pub midir_added: Vec<MidirIndex>,
+    pub midir_removed: Vec<MidirIndex>,
 }
 
 impl Debug for DeviceManager {
@@ -45,9 +88,15 @@ impl DeviceManager {
             .filter_map(|host_id| cpal::host_from_id(host_id).ok())
             .collect();
 
+        let mut midi_in = MidiInput::new("midi inputs scanner").unwrap();
+        midi_in.ignore(midir::Ignore::None);
+
         let mut manager = DeviceManager {
             cpal_hosts: hosts,
             cpal_devices: Arena::new(),
+            midir_devices: Arena::new(),
+            midir_input_scan: midi_in,
+            midir_output_scan: MidiOutput::new("midi outputs scanner").unwrap(),
         };
 
         manager.rescan_devices();
@@ -56,8 +105,92 @@ impl DeviceManager {
     }
 
     /// Rescans and returns a list of indexes of the new devices
-    pub fn rescan_devices(&mut self) -> Vec<Index> {
-        let new_devices: Vec<DeviceWrapper> = self
+    pub fn rescan_devices(&mut self) -> ScanResult {
+        let (cpal_added, cpal_removed) = self.rescan_cpal_devices();
+        let (midir_added, midir_removed) = self.rescan_midir_devices();
+
+        ScanResult {
+            cpal_added,
+            cpal_removed,
+            midir_added,
+            midir_removed,
+        }
+    }
+
+    fn rescan_midir_devices(&mut self) -> (Vec<MidirIndex>, Vec<MidirIndex>) {
+        let mut midi_in = MidiInput::new("midi scan").unwrap();
+        midi_in.ignore(midir::Ignore::None);
+        let midi_out = MidiOutput::new("midi scan").unwrap();
+
+        let mut current_sources: Vec<MidirDeviceWrapper> = midi_in
+            .ports()
+            .into_iter()
+            .map(|port| MidirDeviceWrapper {
+                name: midi_in.port_name(&port).unwrap(),
+                device: MidiDevice::Source(port),
+            })
+            .collect();
+        let current_sinks: Vec<MidirDeviceWrapper> = midi_out
+            .ports()
+            .into_iter()
+            .map(|port| MidirDeviceWrapper {
+                name: midi_out.port_name(&port).unwrap(),
+                device: MidiDevice::Sink(port),
+            })
+            .collect();
+
+        current_sources.extend(current_sinks.into_iter());
+        let current_devices = current_sources;
+
+        // this is a bit of a hack, but if it errors out when asking the device's config,
+        // it's considered disconnected
+        let mut to_remove = vec![];
+        for (i, my_device) in self.midir_devices.iter() {
+            if !self
+                .midir_devices
+                .iter()
+                .any(|(_, x)| x.name == my_device.name && x.device.device_type() == my_device.device.device_type())
+            {
+                // couldn't find `my_device` in the new list, perhaps it's disconnected now?
+                match &my_device.device {
+                    MidiDevice::Source(source) => {
+                        if self.midir_input_scan.port_name(&source).is_err() {
+                            // definitely disconnected
+                            to_remove.push(MidirIndex(i));
+                        }
+                    }
+                    MidiDevice::Sink(sink) => {
+                        if self.midir_output_scan.port_name(&sink).is_err() {
+                            // definitely disconnected
+                            to_remove.push(MidirIndex(i));
+                        }
+                    }
+                }
+            }
+        }
+
+        for i in to_remove.iter() {
+            self.cpal_devices.remove(i.0);
+        }
+
+        let mut new_indexes = vec![];
+
+        for new_device in current_devices {
+            if !self
+                .midir_devices
+                .iter()
+                .any(|(_, x)| x.name == new_device.name && x.device.device_type() == new_device.device.device_type())
+            {
+                println!("adding: {:?}", new_device.name);
+                new_indexes.push(MidirIndex(self.midir_devices.insert(new_device)));
+            }
+        }
+
+        (new_indexes, to_remove)
+    }
+
+    fn rescan_cpal_devices(&mut self) -> (Vec<CpalIndex>, Vec<CpalIndex>) {
+        let current_device_list: Vec<CpalDeviceWrapper> = self
             .cpal_hosts
             .iter()
             .flat_map(|host| {
@@ -67,11 +200,11 @@ impl DeviceManager {
                     .input_devices()
                     .map(|devices| {
                         devices
-                            .map(|device| DeviceWrapper {
+                            .map(|device| CpalDeviceWrapper {
                                 host_id: id,
                                 name: device.name().unwrap(),
                                 device: device,
-                                device_type: DeviceType::Source,
+                                device_dir: DeviceDirection::Source,
                                 taken: false,
                             })
                             .collect()
@@ -81,11 +214,11 @@ impl DeviceManager {
                     .output_devices()
                     .map(|devices| {
                         devices
-                            .map(|device| DeviceWrapper {
+                            .map(|device| CpalDeviceWrapper {
                                 host_id: id,
                                 name: device.name().unwrap(),
                                 device: device,
-                                device_type: DeviceType::Sink,
+                                device_dir: DeviceDirection::Sink,
                                 taken: false,
                             })
                             .collect()
@@ -105,39 +238,46 @@ impl DeviceManager {
             if !self
                 .cpal_devices
                 .iter()
-                .any(|(_, x)| x.name == my_device.name && x.device_type == my_device.device_type)
+                .any(|(_, x)| x.name == my_device.name && x.device_dir == my_device.device_dir)
             {
-                // couldn't find `my_device in the new list, perhaps it's disconnected now?
+                // couldn't find `my_device` in the new list, perhaps it's disconnected now?
                 if let Err(SupportedStreamConfigsError::DeviceNotAvailable) = my_device.device.supported_input_configs()
                 {
                     // definitely disconnected
-                    to_remove.push(i);
+                    to_remove.push(CpalIndex(i));
                 }
             }
         }
 
-        for i in to_remove.into_iter().rev() {
-            self.cpal_devices.remove(i);
+        for i in to_remove.iter() {
+            self.cpal_devices.remove(i.0);
         }
 
         let mut new_indexes = vec![];
 
-        for new_device in new_devices {
+        for new_device in current_device_list {
             if !self
                 .cpal_devices
                 .iter()
-                .any(|(_, x)| x.name == new_device.name && x.device_type == new_device.device_type)
+                .any(|(_, x)| x.name == new_device.name && x.device_dir == new_device.device_dir)
             {
                 println!("adding: {:?}", new_device.name);
-                new_indexes.push(self.cpal_devices.insert(new_device));
+                new_indexes.push(CpalIndex(self.cpal_devices.insert(new_device)));
             }
         }
 
-        new_indexes
+        (new_indexes, to_remove)
     }
 
-    pub fn cpal_devices(&self) -> &Arena<DeviceWrapper> {
+    pub fn cpal_devices(&self) -> &Arena<CpalDeviceWrapper> {
         &self.cpal_devices
+    }
+
+    pub fn cpal_device_by_name(&self, name: &str, device_dir: DeviceDirection) -> Option<Index> {
+        self.cpal_devices
+            .iter()
+            .find(|(_, device)| &device.name == name && device.device_dir == device_dir)
+            .map(|x| x.0)
     }
 
     pub fn cpal_input_config_options(&self, index: Index) -> Option<StreamConfigOptions> {
@@ -203,10 +343,14 @@ impl DeviceManager {
     }
 
     pub fn take_device(&mut self, index: Index) -> Option<&Device> {
-        if !self.cpal_devices[index].taken {
-            self.cpal_devices[index].taken = true;
+        if let Some(device) = self.cpal_devices.get_mut(index) {
+            if !device.taken {
+                device.taken = true;
 
-            Some(&self.cpal_devices[index].device)
+                Some(&device.device)
+            } else {
+                None
+            }
         } else {
             None
         }
