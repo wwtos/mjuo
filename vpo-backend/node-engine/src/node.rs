@@ -195,15 +195,15 @@ pub struct Outs<'a> {
 
 // after this line is all of the IO api
 pub struct InputMidiSocket<'a> {
-    pub midis: &'a [UnsafeCell<Option<MidisIndex>>],
+    midis: &'a [UnsafeCell<Option<MidisIndex>>],
 }
 
 pub struct InputValueSocket<'a> {
-    pub values: &'a [UnsafeCell<Primitive>],
+    values: &'a [UnsafeCell<Primitive>],
 }
 
 pub struct InputStreamSocket<'a> {
-    pub streams: &'a [&'a [UnsafeCell<f32>]],
+    streams: &'a [&'a [UnsafeCell<f32>]],
 }
 
 impl<'a> InputMidiSocket<'a> {
@@ -215,6 +215,10 @@ impl<'a> InputMidiSocket<'a> {
 
     pub fn iter(&self) -> impl Iterator<Item = &Option<MidisIndex>> {
         self.midis.iter().map(|midi| unsafe { &*midi.get() })
+    }
+
+    pub fn len(&self) -> usize {
+        self.midis.len()
     }
 }
 
@@ -235,6 +239,10 @@ impl<'a> InputValueSocket<'a> {
 
     pub fn iter(&self) -> impl Iterator<Item = &Primitive> {
         self.values.iter().map(|value| unsafe { &*value.get() })
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
     }
 }
 
@@ -257,6 +265,10 @@ impl<'a> InputStreamSocket<'a> {
         self.streams
             .iter()
             .map(|stream| unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) })
+    }
+
+    pub fn len(&self) -> usize {
+        self.streams.len()
     }
 }
 
@@ -309,6 +321,18 @@ impl<'a> Ins<'a> {
     pub fn streams(&self) -> impl Iterator<Item = InputStreamSocket<'a>> {
         self.streams.iter().map(|stream| InputStreamSocket { streams: *stream })
     }
+
+    pub fn midis_len(&self) -> usize {
+        self.midis.len()
+    }
+
+    pub fn values_len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn streams_len(&self) -> usize {
+        self.streams.len()
+    }
 }
 
 pub struct OutputMidiSocket<'a> {
@@ -333,6 +357,10 @@ impl<'a> OutputMidiSocket<'a> {
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Option<MidisIndex>> {
         self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
     }
+
+    pub fn len(&self) -> usize {
+        self.midis.len()
+    }
 }
 
 impl<'a> Index<usize> for OutputMidiSocket<'a> {
@@ -356,6 +384,10 @@ impl<'a> OutputValueSocket<'a> {
         let value = &self.values[index];
 
         unsafe { &mut *value.get() }
+    }
+
+    pub fn len(&self) -> usize {
+        self.values.len()
     }
 }
 
@@ -386,6 +418,10 @@ impl<'a> OutputStreamSocket<'a> {
         self.streams
             .iter()
             .map(|stream| unsafe { &mut *mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(stream).get() })
+    }
+
+    pub fn len(&self) -> usize {
+        self.streams.len()
     }
 }
 
@@ -447,6 +483,18 @@ impl<'a> Outs<'a> {
         self.streams
             .iter()
             .map(|stream| OutputStreamSocket { streams: *stream })
+    }
+
+    pub fn midis_len(&self) -> usize {
+        self.midis.len()
+    }
+
+    pub fn values_len(&self) -> usize {
+        self.values.len()
+    }
+
+    pub fn streams_len(&self) -> usize {
+        self.streams.len()
     }
 }
 

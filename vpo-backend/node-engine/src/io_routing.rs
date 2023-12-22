@@ -1,20 +1,18 @@
-use std::ops::Range;
-
 use crate::node::NodeIndex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum DeviceType {
     Midi,
     Stream,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DeviceDirection {
     Source,
     Sink,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RouteRule {
     pub device_id: String,
     pub device_type: DeviceType,
@@ -25,7 +23,7 @@ pub struct RouteRule {
     pub node_channel: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct IoRoutes {
     pub rules: Vec<RouteRule>,
 }

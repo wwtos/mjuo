@@ -3,13 +3,12 @@ use std::thread;
 use std::time::Instant;
 use std::{collections::BTreeMap, time::Duration};
 
-use clocked::cpal::{start_cpal_sink, start_cpal_source};
 use clocked::midi::MidiMessage;
 use clocked::{
     cpal::{CpalSink, CpalSource},
     midir::{MidirSink, MidirSource},
 };
-use cpal::{SampleFormat, StreamConfig};
+use node_engine::connection::{Primitive, Socket};
 use node_engine::io_routing::{DeviceDirection, DeviceType};
 use node_engine::node::{NodeIndex, NodeState};
 use node_engine::nodes::NodeVariant;
@@ -21,28 +20,13 @@ use node_engine::{
 };
 use sound_engine::SoundConfig;
 
-use crate::io::clocked::DeviceManager;
-
 pub enum ToAudioThread {
     NodeEngineUpdate(ToNodeEngine),
-    CreateCpalSink {
-        name: String,
-        config: StreamConfig,
-        buffer_size: usize,
-        periods: usize,
-    },
-    CreateCpalSource {
-        name: String,
-        config: StreamConfig,
-        buffer_size: usize,
-        periods: usize,
-    },
-    NewMidirSink {
-        name: String,
-    },
-    NewMidirSource {
-        name: String,
-    },
+    NewCpalSink { name: String, sink: CpalSink },
+    NewCpalSource { name: String, source: CpalSource },
+    NewMidirSink { name: String },
+    NewMidirSource { name: String },
+    NewRouteRules { rules: IoRoutes },
 }
 
 /// start the sound engine (run in priority thread if possible)
@@ -51,8 +35,6 @@ pub fn start_sound_engine(
     msg_in: flume::Receiver<ToAudioThread>,
     msg_out: flume::Sender<FromNodeEngine>,
 ) {
-    let mut device_manager = DeviceManager::new();
-
     let mut sound_config = SoundConfig::default();
     let mut io_routing: IoRoutes = IoRoutes { rules: vec![] };
 
@@ -65,9 +47,13 @@ pub fn start_sound_engine(
 
     let mut new_states: Vec<(NodeIndex, serde_json::Value)> = vec![];
     let mut current_graph_state: Option<BTreeMap<NodeIndex, NodeState>> = None;
+    let mut new_defaults: Vec<(NodeIndex, Socket, Primitive)> = vec![];
 
     let start = Instant::now();
     let mut buffer_time = Duration::ZERO;
+
+    let mut debug_counter = 0;
+    let mut emitted_count = 0;
 
     loop {
         let sample_duration =
@@ -79,50 +65,16 @@ pub fn start_sound_engine(
                     ToNodeEngine::NewTraverser(new_traverser) => {
                         traverser = Some(new_traverser);
                     }
-                    ToNodeEngine::NewDefaults(_) => todo!(),
+                    ToNodeEngine::NewDefaults(defaults) => {}
                     ToNodeEngine::NewNodeState(_) => todo!(),
                     ToNodeEngine::CurrentNodeStates(_) => todo!(),
                 },
-                ToAudioThread::CreateCpalSink {
-                    name,
-                    config,
-                    buffer_size,
-                    periods,
-                } => {
-                    device_manager.rescan_devices();
-
-                    let device = device_manager
-                        .take_device(
-                            device_manager
-                                .cpal_device_by_name(&name, DeviceDirection::Sink)
-                                .unwrap(),
-                        )
-                        .unwrap();
-
-                    let sink = start_cpal_sink(device, &config, SampleFormat::F32, buffer_size, periods).unwrap();
-
-                    let channels = config.channels as usize;
-                    stream_sinks.insert(name, (sink, vec![0.0; buffer_size * channels]));
+                ToAudioThread::NewCpalSink { name, sink } => {
+                    let channels = sink.channels();
+                    stream_sinks.insert(name, (sink, vec![0.0; sound_config.buffer_size * channels]));
                 }
-                ToAudioThread::CreateCpalSource {
-                    name,
-                    config,
-                    buffer_size,
-                    periods,
-                } => {
-                    device_manager.rescan_devices();
-
-                    let device = device_manager
-                        .take_device(
-                            device_manager
-                                .cpal_device_by_name(&name, DeviceDirection::Source)
-                                .unwrap(),
-                        )
-                        .unwrap();
-
-                    let source = start_cpal_source(device, &config, SampleFormat::F32, buffer_size, periods).unwrap();
-
-                    let channels = config.channels as usize;
+                ToAudioThread::NewCpalSource { name, source } => {
+                    let channels = source.channels();
                     stream_sources.insert(name, (source, vec![0.0; sound_config.buffer_size * channels]));
                 }
                 ToAudioThread::NewMidirSink { name } => {
@@ -134,6 +86,9 @@ pub fn start_sound_engine(
                     // device_manager.rescan_devices();
 
                     // midi_sources.insert(name, (device, Vec::with_capacity(128)));
+                }
+                ToAudioThread::NewRouteRules { rules: new_rules } => {
+                    io_routing = new_rules;
                 }
             };
         }
@@ -159,12 +114,12 @@ pub fn start_sound_engine(
 
         if let Some(traverser) = &mut traverser {
             // handle routing
-            for route_rule in &io_routing.rules {
-                if route_rule.device_direction == DeviceDirection::Source {
-                    match route_rule.device_type {
+            for rule in &io_routing.rules {
+                if rule.device_direction == DeviceDirection::Source {
+                    match rule.device_type {
                         DeviceType::Midi => {
-                            if let Some((_, buffer)) = midi_sources.get(&route_rule.device_id) {
-                                let node = traverser.get_node_mut(route_rule.node).unwrap();
+                            if let Some((_, buffer)) = midi_sources.get(&rule.device_id) {
+                                let node = traverser.get_node_mut(rule.node).unwrap();
 
                                 match node {
                                     // TODO: make sure buffer cloning isn't too expensive
@@ -174,12 +129,20 @@ pub fn start_sound_engine(
                             }
                         }
                         DeviceType::Stream => {
-                            if let Some((_, buffer)) = stream_sources.get(&route_rule.device_id) {
-                                let node = traverser.get_node_mut(route_rule.node).unwrap();
+                            if let Some((source, buffer)) = stream_sources.get(&rule.device_id) {
+                                let node = traverser.get_node_mut(rule.node).unwrap();
 
                                 match node {
                                     NodeVariant::InputsNode(inputs_node) => {
-                                        inputs_node.streams_mut()[route_rule.node_socket][route_rule.node_channel]
+                                        for (sample, sample_in) in inputs_node.streams_mut()[rule.node_socket]
+                                            [rule.node_channel]
+                                            .iter_mut()
+                                            .zip(buffer.iter().skip(rule.device_channel).step_by(source.channels()))
+                                        {
+                                            *sample = *sample_in;
+                                        }
+
+                                        inputs_node.streams_mut()[rule.node_socket][rule.node_channel]
                                             .copy_from_slice(&buffer[..]);
                                     }
                                     _ => panic!("connected node is not input node"),
@@ -211,14 +174,14 @@ pub fn start_sound_engine(
                             }
                         }
                         DeviceType::Stream => {
-                            if let Some((_, buffer)) = stream_sinks.get_mut(&rule.device_id) {
+                            if let Some((sink, buffer)) = stream_sinks.get_mut(&rule.device_id) {
                                 let node = traverser.get_node_mut(rule.node).unwrap();
 
                                 match node {
                                     NodeVariant::OutputsNode(node) => {
                                         for (sample, out) in node.get_streams()[rule.node_socket][rule.node_channel]
                                             .iter()
-                                            .zip(buffer.iter_mut())
+                                            .zip(buffer.iter_mut().skip(rule.device_channel).step_by(sink.channels()))
                                         {
                                             *out += sample;
                                         }
@@ -232,9 +195,16 @@ pub fn start_sound_engine(
             }
         }
 
+        let mut xrun_count = 0;
+
         for (_, (sink, buffer)) in stream_sinks.iter_mut() {
+            emitted_count += buffer.len() / sink.channels();
+
             for sample in buffer.iter_mut() {
-                let _ = sink.interleaved_out.push(*sample);
+                if let Err(_) = sink.interleaved_out.push(*sample) {
+                    xrun_count += 1;
+                }
+
                 *sample = 0.0;
             }
         }
@@ -254,5 +224,9 @@ pub fn start_sound_engine(
         if buffer_time > now {
             thread::sleep(buffer_time - now);
         }
+
+        // println!("emitted/second: {}", emitted_count as f64 / buffer_time.as_secs_f64());
+
+        debug_counter += 1;
     }
 }

@@ -1,11 +1,12 @@
 use std::{collections::BTreeSet, fmt::Debug, ops::Range};
 
+use clocked::cpal::{start_cpal_sink, start_cpal_source, CpalSink, CpalSource};
 use cpal::{
     traits::{DeviceTrait, HostTrait},
-    Device, Host, HostId, SampleFormat, SupportedStreamConfigRange, SupportedStreamConfigsError,
+    Device, Host, HostId, SampleFormat, SampleRate, Stream, StreamConfig, SupportedStreamConfigRange,
 };
 use generational_arena::{Arena, Index};
-use midir::{MidiInput, MidiInputPort, MidiOutput, MidiOutputPort, PortInfoError};
+use midir::{MidiInput, MidiInputPort, MidiOutput, MidiOutputPort};
 use node_engine::io_routing::DeviceDirection;
 
 pub enum MidiDevice {
@@ -22,27 +23,17 @@ impl MidiDevice {
     }
 }
 
-pub struct CpalDeviceWrapper {
+#[derive(Debug)]
+pub struct CpalDeviceStatus {
     pub host_id: HostId,
     pub name: String,
-    pub device: Device,
-    pub device_dir: DeviceDirection,
-    pub taken: bool,
+    pub is_sink: bool,
+    pub is_source: bool,
+    pub sink_taken: bool,
+    pub source_taken: bool,
 }
 
-impl Debug for CpalDeviceWrapper {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CpalDeviceWrapper")
-            .field("host_id", &self.host_id)
-            .field("name", &self.name)
-            .field("device", &"Device { .. }")
-            .field("device_type", &self.device_dir)
-            .field("taken", &self.taken)
-            .finish()
-    }
-}
-
-pub struct MidirDeviceWrapper {
+pub struct MidirDeviceStatus {
     pub name: String,
     pub device: MidiDevice,
 }
@@ -62,8 +53,8 @@ pub struct StreamConfigOptions {
 
 pub struct DeviceManager {
     cpal_hosts: Vec<Host>,
-    cpal_devices: Arena<CpalDeviceWrapper>,
-    midir_devices: Arena<MidirDeviceWrapper>,
+    cpal_statuses: Arena<CpalDeviceStatus>,
+    midir_devices: Arena<MidirDeviceStatus>,
     midir_input_scan: MidiInput,
     midir_output_scan: MidiOutput,
 }
@@ -90,13 +81,14 @@ impl DeviceManager {
 
         let mut midi_in = MidiInput::new("midi inputs scanner").unwrap();
         midi_in.ignore(midir::Ignore::None);
+        let midi_out = MidiOutput::new("midi outputs scanner").unwrap();
 
         let mut manager = DeviceManager {
             cpal_hosts: hosts,
-            cpal_devices: Arena::new(),
+            cpal_statuses: Arena::new(),
             midir_devices: Arena::new(),
             midir_input_scan: midi_in,
-            midir_output_scan: MidiOutput::new("midi outputs scanner").unwrap(),
+            midir_output_scan: midi_out,
         };
 
         manager.rescan_devices();
@@ -122,18 +114,18 @@ impl DeviceManager {
         midi_in.ignore(midir::Ignore::None);
         let midi_out = MidiOutput::new("midi scan").unwrap();
 
-        let mut current_sources: Vec<MidirDeviceWrapper> = midi_in
+        let mut current_sources: Vec<MidirDeviceStatus> = midi_in
             .ports()
             .into_iter()
-            .map(|port| MidirDeviceWrapper {
+            .map(|port| MidirDeviceStatus {
                 name: midi_in.port_name(&port).unwrap(),
                 device: MidiDevice::Source(port),
             })
             .collect();
-        let current_sinks: Vec<MidirDeviceWrapper> = midi_out
+        let current_sinks: Vec<MidirDeviceStatus> = midi_out
             .ports()
             .into_iter()
-            .map(|port| MidirDeviceWrapper {
+            .map(|port| MidirDeviceStatus {
                 name: midi_out.port_name(&port).unwrap(),
                 device: MidiDevice::Sink(port),
             })
@@ -170,7 +162,7 @@ impl DeviceManager {
         }
 
         for i in to_remove.iter() {
-            self.cpal_devices.remove(i.0);
+            self.cpal_statuses.remove(i.0);
         }
 
         let mut new_indexes = vec![];
@@ -190,99 +182,78 @@ impl DeviceManager {
     }
 
     fn rescan_cpal_devices(&mut self) -> (Vec<CpalIndex>, Vec<CpalIndex>) {
-        let current_device_list: Vec<CpalDeviceWrapper> = self
+        let current_device_list: Vec<CpalDeviceStatus> = self
             .cpal_hosts
             .iter()
             .flat_map(|host| {
                 let id = host.id();
 
-                let mut sources = host
-                    .input_devices()
-                    .map(|devices| {
-                        devices
-                            .map(|device| CpalDeviceWrapper {
-                                host_id: id,
-                                name: device.name().unwrap(),
-                                device: device,
-                                device_dir: DeviceDirection::Source,
-                                taken: false,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or(vec![]);
-                let sinks = host
-                    .output_devices()
-                    .map(|devices| {
-                        devices
-                            .map(|device| CpalDeviceWrapper {
-                                host_id: id,
-                                name: device.name().unwrap(),
-                                device: device,
-                                device_dir: DeviceDirection::Sink,
-                                taken: false,
-                            })
-                            .collect()
-                    })
-                    .unwrap_or(vec![]);
+                let devices = host.devices().unwrap().map(move |device| {
+                    let is_source = device
+                        .supported_input_configs()
+                        .map(|mut x| x.any(|_| true))
+                        .unwrap_or(false);
+                    let is_sink = device
+                        .supported_output_configs()
+                        .map(|mut x| x.any(|_| true))
+                        .unwrap_or(false);
 
-                sources.extend(sinks.into_iter());
+                    CpalDeviceStatus {
+                        host_id: id,
+                        name: device.name().unwrap(),
+                        is_sink,
+                        is_source,
+                        sink_taken: false,
+                        source_taken: false,
+                    }
+                });
 
-                sources
+                devices
             })
             .collect();
-
-        // this is a bit of a hack, but if it errors out when asking the device's config,
-        // it's considered disconnected
-        let mut to_remove = vec![];
-        for (i, my_device) in self.cpal_devices.iter() {
-            if !self
-                .cpal_devices
-                .iter()
-                .any(|(_, x)| x.name == my_device.name && x.device_dir == my_device.device_dir)
-            {
-                // couldn't find `my_device` in the new list, perhaps it's disconnected now?
-                if let Err(SupportedStreamConfigsError::DeviceNotAvailable) = my_device.device.supported_input_configs()
-                {
-                    // definitely disconnected
-                    to_remove.push(CpalIndex(i));
-                }
-            }
-        }
-
-        for i in to_remove.iter() {
-            self.cpal_devices.remove(i.0);
-        }
 
         let mut new_indexes = vec![];
 
         for new_device in current_device_list {
-            if !self
-                .cpal_devices
-                .iter()
-                .any(|(_, x)| x.name == new_device.name && x.device_dir == new_device.device_dir)
-            {
+            if !self.cpal_statuses.iter().any(|(_, x)| {
+                x.name == new_device.name && x.is_sink == new_device.is_sink && x.is_source == new_device.is_source
+            }) {
                 println!("adding: {:?}", new_device.name);
-                new_indexes.push(CpalIndex(self.cpal_devices.insert(new_device)));
+                new_indexes.push(CpalIndex(self.cpal_statuses.insert(new_device)));
             }
         }
 
-        (new_indexes, to_remove)
+        (new_indexes, vec![])
     }
 
-    pub fn cpal_devices(&self) -> &Arena<CpalDeviceWrapper> {
-        &self.cpal_devices
+    pub fn cpal_devices(&self) -> &Arena<CpalDeviceStatus> {
+        &self.cpal_statuses
     }
 
-    pub fn cpal_device_by_name(&self, name: &str, device_dir: DeviceDirection) -> Option<Index> {
-        self.cpal_devices
+    pub fn cpal_status_by_name(&self, name: &str, device_dir: DeviceDirection) -> Option<CpalIndex> {
+        self.cpal_statuses
             .iter()
-            .find(|(_, device)| &device.name == name && device.device_dir == device_dir)
-            .map(|x| x.0)
+            .find(|(_, device)| {
+                &device.name == name
+                    && match device_dir {
+                        DeviceDirection::Sink => device.is_sink,
+                        DeviceDirection::Source => device.is_source,
+                    }
+            })
+            .map(|x| CpalIndex(x.0))
     }
 
-    pub fn cpal_input_config_options(&self, index: Index) -> Option<StreamConfigOptions> {
-        self.cpal_devices[index]
-            .device
+    pub fn cpal_get_device(&self, device: CpalIndex) -> Option<Device> {
+        let status = self.cpal_statuses.get(device.0)?;
+        let host = cpal::host_from_id(status.host_id).ok()?;
+
+        host.devices()
+            .ok()?
+            .find(|x| x.name().unwrap_or_default() == status.name)
+    }
+
+    pub fn cpal_input_config_options(&self, index: CpalIndex) -> Option<StreamConfigOptions> {
+        self.cpal_get_device(index)?
             .supported_input_configs()
             .ok()
             .map(|configs| {
@@ -292,9 +263,8 @@ impl DeviceManager {
             })
     }
 
-    pub fn cpal_output_config_options(&self, index: Index) -> Option<StreamConfigOptions> {
-        self.cpal_devices[index]
-            .device
+    pub fn cpal_output_config_options(&self, index: CpalIndex) -> Option<StreamConfigOptions> {
+        self.cpal_get_device(index)?
             .supported_output_configs()
             .ok()
             .map(|configs| {
@@ -342,15 +312,65 @@ impl DeviceManager {
         }
     }
 
-    pub fn take_device(&mut self, index: Index) -> Option<&Device> {
-        if let Some(device) = self.cpal_devices.get_mut(index) {
-            if !device.taken {
-                device.taken = true;
-
-                Some(&device.device)
-            } else {
-                None
+    pub fn cpal_start_sink(
+        &mut self,
+        index: CpalIndex,
+        channels: u16,
+        sample_rate: u32,
+        buffer_size: u32,
+        periods: usize,
+    ) -> Option<(Stream, CpalSink)> {
+        if let Some(device) = self.cpal_statuses.get_mut(index.0) {
+            if device.sink_taken {
+                return None;
             }
+
+            device.sink_taken = true;
+
+            start_cpal_sink(
+                &self.cpal_get_device(index)?,
+                &StreamConfig {
+                    channels: channels as u16,
+                    sample_rate: SampleRate(sample_rate),
+                    buffer_size: cpal::BufferSize::Fixed(buffer_size),
+                },
+                SampleFormat::F32,
+                buffer_size as usize,
+                periods,
+            )
+            .ok()
+        } else {
+            None
+        }
+    }
+
+    pub fn cpal_start_source(
+        &mut self,
+        index: CpalIndex,
+        channels: u16,
+        sample_rate: u32,
+        buffer_size: u32,
+        periods: usize,
+    ) -> Option<(Stream, CpalSource)> {
+        if let Some(device) = self.cpal_statuses.get_mut(index.0) {
+            if device.source_taken {
+                return None;
+            }
+
+            device.source_taken = true;
+
+            start_cpal_source(
+                &self.cpal_get_device(index)?,
+                &StreamConfig {
+                    channels: channels as u16,
+                    sample_rate: SampleRate(sample_rate),
+                    buffer_size: cpal::BufferSize::Fixed(buffer_size),
+                },
+                SampleFormat::F32,
+                buffer_size as usize,
+                periods,
+            )
+            .ok()
         } else {
             None
         }

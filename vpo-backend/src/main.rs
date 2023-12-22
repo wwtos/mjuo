@@ -2,19 +2,23 @@ use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use cpal::{SampleFormat, StreamConfig};
+use clocked::cpal::start_cpal_sink;
+use cpal::traits::{DeviceTrait, HostTrait};
+use cpal::{Host, SampleFormat, StreamConfig};
 use futures::executor::LocalPool;
 use futures::join;
 use futures::task::LocalSpawnExt;
 use futures::StreamExt;
 use ipc::file_server::start_file_server;
 
+use node_engine::io_routing::DeviceDirection;
 use node_engine::resources::Resources;
 use node_engine::state::{FromNodeEngine, GraphState, ToNodeEngine};
 use sound_engine::SoundConfig;
 
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
 use vpo_backend::engine::{start_sound_engine, ToAudioThread};
+use vpo_backend::io::clocked::DeviceManager;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::state::GlobalState;
@@ -29,35 +33,38 @@ fn main() {
     let mut global_state = GlobalState::new();
     let resources = Arc::new(RwLock::new(Resources::default()));
 
-    global_state.device_manager.rescan_devices();
-
     // start up midi and audio
     let (to_realtime, from_main) = flume::unbounded();
     let (to_main, from_realtime) = flume::unbounded();
     let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
+    let default_device = global_state
+        .device_manager
+        .cpal_status_by_name("default".into(), DeviceDirection::Sink)
+        .unwrap();
+    let device_name = global_state.device_manager.cpal_devices()[default_device.0]
+        .name
+        .clone();
+
+    let (_sink_handle, sink) = global_state
+        .device_manager
+        .cpal_start_sink(default_device, 2, 44_100, 512, 2)
+        .unwrap();
+    let (_source_handle, source) = global_state
+        .device_manager
+        .cpal_start_source(default_device, 2, 44_100, 512, 2)
+        .unwrap();
+
     to_realtime
-        .send(ToAudioThread::CreateCpalSink {
-            name: "default".into(),
-            config: StreamConfig {
-                channels: 2,
-                sample_rate: cpal::SampleRate(44_100),
-                buffer_size: cpal::BufferSize::Fixed(1024),
-            },
-            buffer_size: 1024,
-            periods: 2,
+        .send(ToAudioThread::NewCpalSink {
+            name: device_name.clone(),
+            sink,
         })
         .unwrap();
     to_realtime
-        .send(ToAudioThread::CreateCpalSource {
-            name: "default".into(),
-            config: StreamConfig {
-                channels: 2,
-                sample_rate: cpal::SampleRate(44_100),
-                buffer_size: cpal::BufferSize::Fixed(1024),
-            },
-            buffer_size: 1024,
-            periods: 2,
+        .send(ToAudioThread::NewCpalSource {
+            name: device_name.clone(),
+            source,
         })
         .unwrap();
 
@@ -68,6 +75,12 @@ fn main() {
         .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewTraverser(
             graph_state.get_traverser(&*resources.clone().read().unwrap()).unwrap(),
         )))
+        .unwrap();
+
+    to_realtime
+        .send(ToAudioThread::NewRouteRules {
+            rules: graph_state.get_route_rules(),
+        })
         .unwrap();
 
     let graph_state = RefCell::new(graph_state);

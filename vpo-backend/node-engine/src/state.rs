@@ -277,6 +277,10 @@ impl GraphState {
     pub fn get_sound_config(&self) -> SoundConfig {
         self.sound_config.clone()
     }
+
+    pub fn get_route_rules(&self) -> IoRoutes {
+        self.io_routing.clone()
+    }
 }
 
 impl GraphState {

@@ -53,9 +53,12 @@ node =
     .NoteMergerNode = Note Merger
     .MidiTransposeNode = Midi Transpose
     .WavetableSequencerNode = Wavetable Sequencer
+    .UpDownMixerNode = Up/down Mixer
 
 property =
     .channels = Channels
+    .input_channels = Input channels
+    .output_channels = Output channels
     .input_count = Input count
     .polyphony = Polyphony
     .rank = Rank
