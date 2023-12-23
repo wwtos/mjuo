@@ -79,7 +79,7 @@ impl ActionBundle {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ActionInvalidation {
     GraphReindexNeeded(GraphIndex),
     GraphModified(GraphIndex),
@@ -523,12 +523,21 @@ impl GraphState {
 
                 let diffs = graph.update_node(index.node_index, modified_node)?;
 
+                let new_defaults: Vec<_> = overrides
+                    .iter()
+                    .map(|row| {
+                        let (socket, val) = row.to_socket_and_value().unwrap();
+
+                        (socket.clone(), val)
+                    })
+                    .collect();
+
                 (
                     HistoryAction {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
+                    vec![ActionInvalidation::NewDefaults(index, new_defaults)],
                 )
             }
         };

@@ -36,7 +36,7 @@ pub fn start_sound_engine(
     msg_in: flume::Receiver<ToAudioThread>,
     msg_out: flume::Sender<FromNodeEngine>,
 ) {
-    let mut sound_config = SoundConfig::default();
+    let sound_config = SoundConfig::default();
     let mut io_routing: IoRoutes = IoRoutes { rules: vec![] };
 
     let mut stream_sinks: BTreeMap<String, (CpalSink, Vec<f32>)> = BTreeMap::new();
@@ -89,10 +89,8 @@ pub fn start_sound_engine(
                 }
                 ToAudioThread::NewMidirSource { name, source } => {
                     midi_sources.insert(name, (source, Vec::with_capacity(128)));
-                    dbg!(&midi_sources);
                 }
                 ToAudioThread::NewRouteRules { rules: new_rules } => {
-                    dbg!(&new_rules);
                     io_routing = new_rules;
                 }
             };
@@ -225,6 +223,7 @@ pub fn start_sound_engine(
             for (node_index, socket, value) in &new_defaults {
                 let _ = traverser.input_value_default(*node_index, socket, *value);
             }
+            new_defaults.clear();
 
             if result.request_for_graph_state {
                 let _ = msg_out.send(FromNodeEngine::GraphStateRequested);
@@ -239,15 +238,11 @@ pub fn start_sound_engine(
             }
         }
 
-        let mut xrun_count = 0;
-
         for (_, (sink, buffer)) in stream_sinks.iter_mut() {
             emitted_count += buffer.len() / sink.channels();
 
             for sample in buffer.iter_mut() {
-                if let Err(_) = sink.interleaved_out.push(*sample) {
-                    xrun_count += 1;
-                }
+                let _ = sink.interleaved_out.push(*sample);
 
                 *sample = 0.0;
             }

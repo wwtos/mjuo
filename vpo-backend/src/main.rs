@@ -148,10 +148,22 @@ fn main() {
                             send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
                         }
                         FromNodeEngine::RequestedStateUpdates(updates) => {
-                            // TODO: don't unwrap here, instead recreate the engine if it fails
+                            let mut graph_state = graph_state.borrow_mut();
+                            let root_index = graph_state.get_root_graph_index();
+
+                            let root = graph_state.get_graph_manager().get_graph_mut(root_index).unwrap();
+
+                            for (node_index, value) in &updates {
+                                if let Ok(node) = root.get_node_mut(*node_index) {
+                                    node.get_state_mut().value = value.clone();
+                                }
+                            }
+
                             to_realtime
                                 .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewNodeState(updates)))
                                 .unwrap();
+
+                            send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
                         }
                         FromNodeEngine::GraphStateRequested => {
                             // TODO: don't unwrap here, instead recreate the engine if it fails

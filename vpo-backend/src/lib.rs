@@ -57,7 +57,7 @@ pub async fn handle_msg(
     state: &mut GraphState,
     global_state: &mut GlobalState,
     resources_lock: &RwLock<Resources>,
-    engine_sender: &flume::Sender<ToAudioThread>,
+    to_audio_thread: &flume::Sender<ToAudioThread>,
     file_watcher: &mut FileWatcher,
     project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
@@ -67,7 +67,7 @@ pub async fn handle_msg(
         Ok(route_result) => {
             if !route_result.engine_updates.is_empty() {
                 for update in route_result.engine_updates {
-                    engine_sender.send(update).unwrap();
+                    to_audio_thread.send(update).unwrap();
                 }
             }
 

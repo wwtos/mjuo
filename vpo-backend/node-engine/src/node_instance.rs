@@ -97,6 +97,10 @@ impl NodeInstance {
         &self.state
     }
 
+    pub fn get_state_mut(&mut self) -> &mut NodeState {
+        &mut self.state
+    }
+
     pub fn set_state(&mut self, state: NodeState) -> NodeState {
         mem::replace(&mut self.state, state)
     }
