@@ -1,5 +1,4 @@
 pub mod clocked;
-pub mod cpal;
 pub mod file_watcher;
 pub mod scoped_pool;
 
