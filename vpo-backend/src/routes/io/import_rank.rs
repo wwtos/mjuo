@@ -58,7 +58,7 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
             .into_par_iter()
             .map(|file| {
                 let path = file.path();
-                let sample = load_sample(path);
+                let sample = load_sample(path, &state.state.get_sound_config());
 
                 if let Ok(sample) = sample {
                     let note_number = path

@@ -1,6 +1,9 @@
 use std::{collections::BTreeSet, fmt::Debug, ops::Range};
 
-use clocked::cpal::{start_cpal_sink, start_cpal_source, CpalSink, CpalSource};
+use clocked::{
+    cpal::{start_cpal_sink, start_cpal_source, CpalSink, CpalSource},
+    midir::{start_midir_sink, start_midir_source, MidirSink, MidirSource},
+};
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     Device, Host, HostId, SampleFormat, SampleRate, Stream, StreamConfig, SupportedStreamConfigRange,
@@ -374,6 +377,32 @@ impl DeviceManager {
         } else {
             None
         }
+    }
+
+    pub fn midir_devices(&self) -> &Arena<MidirDeviceStatus> {
+        &self.midir_devices
+    }
+
+    pub fn midir_start_sink(&mut self, sink_name: String, port_name: String) -> Option<MidirSink> {
+        let sink = MidiOutput::new(&sink_name).ok()?;
+
+        let ports = sink.ports();
+        let port = ports
+            .iter()
+            .find(|port| sink.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
+
+        start_midir_sink(sink, port, &sink_name).ok()
+    }
+
+    pub fn midir_start_source(&mut self, sink_name: String, port_name: String) -> Option<MidirSource> {
+        let source = MidiInput::new(&sink_name).ok()?;
+
+        let ports = source.ports();
+        let port = ports
+            .iter()
+            .find(|port| source.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
+
+        start_midir_source(source, port, &sink_name).ok()
     }
 }
 

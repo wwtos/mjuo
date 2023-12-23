@@ -13,12 +13,12 @@ use crate::{
     errors::{NodeError, WarningExt},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     io_routing::{DeviceDirection, DeviceType, IoRoutes, RouteRule},
+    node::buffered_traverser::BufferedTraverser,
     node::{NodeGetIoContext, NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
     resources::Resources,
-    traversal::buffered_traverser::BufferedTraverser,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,8 +146,8 @@ impl GraphState {
         let (output_node, input_node) = {
             let graph = graph_manager.get_graph_mut(root_graph_index)?;
 
-            let (output_node, _) = graph.add_node("OutputsNode".into())?.value;
             let (input_node, _) = graph.add_node("InputsNode".into())?.value;
+            let (output_node, _) = graph.add_node("OutputsNode".into())?.value;
 
             let mut modified_input = graph.get_node(input_node)?.clone();
             let mut modified_output = graph.get_node(output_node)?.clone();

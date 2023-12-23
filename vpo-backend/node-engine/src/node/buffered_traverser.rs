@@ -178,6 +178,7 @@ pub struct BufferedTraverser {
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
     store: MidiStore,
+    midi_tracking: Vec<Option<MidisIndex>>,
     config: SoundConfig,
     engine: Engine,
     time: Duration,
@@ -242,6 +243,14 @@ impl BufferedTraverser {
             });
         }
 
+        let midi_io = &io_and_refs.borrow_owner().midi_io;
+        let mut midi_tracking = Vec::with_capacity(midi_io.len());
+
+        for index in midi_io {
+            let index = index.get();
+            midi_tracking.push(unsafe { (*index).as_ref().map(|x| x.private_clone()) });
+        }
+
         // TODO: the midi store params should be adjustable
         let store = MidiStore::new(50_000_000, 0);
 
@@ -254,6 +263,7 @@ impl BufferedTraverser {
             resource_tracking: io_spec.resources_tracking,
             io_and_refs,
             store,
+            midi_tracking,
             config,
             engine,
             time: start_time,
@@ -379,6 +389,25 @@ impl BufferedTraverser {
         for (vec_index, node_index) in &self.nodes_with_state {
             if let Some(new_node_state) = self.nodes[*vec_index].node.get_state() {
                 state_changes.push((*node_index, new_node_state));
+            }
+        }
+
+        // # Midi garbage collection
+        //
+        // As each midi message is "owned" by only the node that outputted it,
+        // if the node is no longer outputting it it's good to be collected.
+        let midi_io = &self.io_and_refs.borrow_owner().midi_io;
+        for (last_midi_index, new_midi_index) in self.midi_tracking.iter_mut().zip(midi_io.iter()) {
+            // SAFETY: io_and_refs isn't being used by anything currently (since we're running in a
+            // single thread)
+            let new_midi_index = unsafe { &*new_midi_index.get() };
+
+            if last_midi_index != new_midi_index {
+                if let Some(some_index) = last_midi_index {
+                    self.store.remove_midi(some_index.0);
+                }
+
+                *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());
             }
         }
 

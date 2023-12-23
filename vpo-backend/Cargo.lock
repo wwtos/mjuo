@@ -306,7 +306,9 @@ dependencies = [
 
 [[package]]
 name = "clocked"
-version = "0.5.0"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1dc3df62fb275ce0deee3b40faf239a6d77f1a0787766d392beaca752c36a70b"
 dependencies = [
  "cpal",
  "dasp_sample",

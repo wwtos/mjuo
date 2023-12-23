@@ -230,31 +230,23 @@ impl RankPlayer {
                     while midi_position < messages.len() {
                         let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sample_rate as f64);
 
-                        if messages[midi_position].timestamp > time + loop_time_offset && out_len - i > 1 {
+                        let play_regardless = out_len == i + 1;
+                        if (!play_regardless) && messages[midi_position].timestamp > time + loop_time_offset {
                             break;
                         }
 
                         match messages[midi_position].data {
                             MidiData::NoteOn { note, .. } => {
-                                if voice.note != note {
-                                    midi_position += 1;
-                                    continue;
+                                if voice.note == note {
+                                    voice.player.play(pipe, sample);
                                 }
-
-                                voice.player.play(pipe, sample);
                             }
                             MidiData::NoteOff { note, .. } => {
-                                if voice.note != note {
-                                    midi_position += 1;
-                                    continue;
+                                if voice.note == note {
+                                    voice.player.release(pipe, sample);
                                 }
-
-                                voice.player.release(pipe, sample);
                             }
-                            _ => {
-                                midi_position += 1;
-                                continue;
-                            }
+                            _ => {}
                         }
 
                         midi_position += 1;

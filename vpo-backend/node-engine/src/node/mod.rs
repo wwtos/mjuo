@@ -1,5 +1,8 @@
 //! Node module
 
+pub mod buffered_traverser;
+pub mod calculate_traversal_order;
+
 use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
@@ -498,7 +501,14 @@ impl<'a> Outs<'a> {
     }
 }
 
-pub struct MidisIndex(generational_arena::Index);
+#[derive(Debug, PartialEq, Eq)]
+pub struct MidisIndex(pub(super) generational_arena::Index);
+
+impl MidisIndex {
+    pub(super) fn private_clone(&self) -> MidisIndex {
+        MidisIndex(self.0)
+    }
+}
 
 pub struct MidiStoreInterface<'a> {
     store: &'a mut MidiStore,

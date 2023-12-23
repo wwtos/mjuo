@@ -11,7 +11,6 @@ pub mod nodes;
 pub mod property;
 pub mod resources;
 pub mod state;
-pub mod traversal;
 pub mod ui;
 
 #[cfg(test)]

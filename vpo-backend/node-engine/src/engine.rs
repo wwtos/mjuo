@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use clocked::midi::MidiMessage;
 
 use crate::{
+    node::buffered_traverser::{BufferedTraverser, StepResult},
     node::{NodeIndex, NodeState},
     nodes::NodeVariant,
     resources::Resources,
     state::{FromNodeEngine, IoNodes, ToNodeEngine},
-    traversal::buffered_traverser::{BufferedTraverser, StepResult},
 };
 
 #[derive(Debug)]

@@ -2,9 +2,6 @@ use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
-use clocked::cpal::start_cpal_sink;
-use cpal::traits::{DeviceTrait, HostTrait};
-use cpal::{Host, SampleFormat, StreamConfig};
 use futures::executor::LocalPool;
 use futures::join;
 use futures::task::LocalSpawnExt;
@@ -18,7 +15,6 @@ use sound_engine::SoundConfig;
 
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
 use vpo_backend::engine::{start_sound_engine, ToAudioThread};
-use vpo_backend::io::clocked::DeviceManager;
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
 use vpo_backend::state::GlobalState;
@@ -48,11 +44,17 @@ fn main() {
 
     let (_sink_handle, sink) = global_state
         .device_manager
-        .cpal_start_sink(default_device, 2, 44_100, 512, 2)
+        .cpal_start_sink(default_device, 2, 44_100, 512, 3)
         .unwrap();
     let (_source_handle, source) = global_state
         .device_manager
-        .cpal_start_source(default_device, 2, 44_100, 512, 2)
+        .cpal_start_source(default_device, 2, 44_100, 512, 3)
+        .unwrap();
+
+    let default_midi = global_state.device_manager.midir_devices();
+    let midi_source = global_state
+        .device_manager
+        .midir_start_source("mjuo".into(), default_midi.iter().next().unwrap().1.name.clone())
         .unwrap();
 
     to_realtime
@@ -65,6 +67,12 @@ fn main() {
         .send(ToAudioThread::NewCpalSource {
             name: device_name.clone(),
             source,
+        })
+        .unwrap();
+    to_realtime
+        .send(ToAudioThread::NewMidirSource {
+            name: "default".into(),
+            source: midi_source,
         })
         .unwrap();
 
@@ -167,10 +175,16 @@ fn main() {
                             for e in event {
                                 // go through all the file events and reload those resources
                                 let global_state = global_state.borrow();
+                                let graph_state = graph_state.borrow();
                                 let mut resources_lock = resources.write().unwrap();
 
                                 let root_dir = global_state.active_project.as_ref().and_then(|x| x.parent()).unwrap();
-                                let _ = load_single(root_dir, &e.path, &mut *resources_lock);
+                                let _ = load_single(
+                                    root_dir,
+                                    &e.path,
+                                    &mut *resources_lock,
+                                    graph_state.get_sound_config(),
+                                );
 
                                 send_resource_updates(&*resources_lock, &to_server).unwrap();
                             }

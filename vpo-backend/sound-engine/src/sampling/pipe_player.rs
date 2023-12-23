@@ -55,6 +55,7 @@ pub struct PipePlayer {
 
     // basic player values
     audio_position: f32,
+    resample_ratio: f32,
 
     // voicing
     voicing_amp: f32,
@@ -82,6 +83,7 @@ impl PipePlayer {
             queued_action: QueuedAction::None,
 
             audio_position: 0.0,
+            resample_ratio: 0.0,
 
             voicing_amp: 1.0,
             voicing_comb: SimpleComb::default(),
@@ -109,6 +111,7 @@ impl PipePlayer {
             queued_action: QueuedAction::None,
 
             audio_position: 0.0,
+            resample_ratio: sample.sample_rate as f32 / sample_rate as f32,
 
             voicing_amp: 1.0,
             voicing_comb: SimpleComb::default(),
@@ -284,7 +287,7 @@ impl PipePlayer {
             self.audio_position,
         );
 
-        self.audio_position += self.detune;
+        self.audio_position += self.detune * self.resample_ratio;
 
         self.third_harm_filter.filter_sample(comb_pass) * self.gain * self.voicing_amp
     }
@@ -306,8 +309,8 @@ impl PipePlayer {
 
         let interpolated = old * (1.0 - crossfade_factor) + new * crossfade_factor;
 
-        self.audio_position += self.detune;
-        self.crossfade_position += self.detune;
+        self.audio_position += self.detune * self.resample_ratio;
+        self.crossfade_position += self.detune * self.resample_ratio;
 
         let out = self.third_harm_filter.filter_sample(interpolated) * self.gain * self.voicing_amp;
 

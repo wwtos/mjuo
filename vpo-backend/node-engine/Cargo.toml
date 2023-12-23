@@ -31,7 +31,7 @@ wasm-bindgen = "0.2.84"
 self_cell = "1.0.1"
 generational-arena = "0.2.9"
 recycle_vec = "1.0.4"
-clocked = { path = "../../../clocked" }
+clocked = "0.6.0"
 
 [target.'cfg(target_arch="wasm32")'.dependencies]
 web-sys = { version = "0.3.61", features = [] }

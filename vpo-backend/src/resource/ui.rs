@@ -1,7 +1,6 @@
 use crate::errors::{EngineError, IoSnafu};
 use std::path::Path;
 
-#[cfg(any(unix, windows))]
 pub fn load_ui_from_file(path: &Path) -> Result<String, EngineError> {
     use std::fs::read_to_string;
 

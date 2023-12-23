@@ -104,7 +104,12 @@ where
 }
 
 /// Make sure samples are loaded before ranks!
-pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Result<(), EngineError> {
+pub fn load_single(
+    root: &Path,
+    file: &Path,
+    resources: &mut Resources,
+    config: SoundConfig,
+) -> Result<(), EngineError> {
     let relative_file = file
         .strip_prefix(root)
         .whatever_context(format!("Could not strip \"{:?}\" of \"{:?}\"", file, root))?;
@@ -128,7 +133,7 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
                 resources.samples.remove_resource(resource.as_ref());
             }
 
-            let sample = load_sample(file)?;
+            let sample = load_sample(file, &config)?;
             resources.samples.add_resource(resource.into_owned(), sample);
         }
         "ui" => {
@@ -149,6 +154,7 @@ pub fn load(
     path: &Path,
     state: &mut GraphState,
     resources: &mut Resources,
+    config: SoundConfig,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
         .parent()
@@ -173,7 +179,9 @@ pub fn load(
     println!("Loading resources...");
     let time = Instant::now();
 
-    let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &load_sample)?;
+    let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &|path| {
+        load_sample(path, &config)
+    })?;
     let ranks = load_resources(&parent.join("ranks"), &["toml"], &|path| {
         load_rank_from_file(path, &samples)
     })?;

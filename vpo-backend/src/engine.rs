@@ -1,9 +1,10 @@
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::Instant;
 use std::{collections::BTreeMap, time::Duration};
+use std::{mem, thread};
 
-use clocked::midi::MidiMessage;
+use clocked::midi::{MidiData, MidiMessage};
+use clocked::TimedValue;
 use clocked::{
     cpal::{CpalSink, CpalSource},
     midir::{MidirSink, MidirSource},
@@ -15,8 +16,8 @@ use node_engine::nodes::NodeVariant;
 use node_engine::resources::Resources;
 use node_engine::{
     io_routing::IoRoutes,
+    node::buffered_traverser::BufferedTraverser,
     state::{FromNodeEngine, ToNodeEngine},
-    traversal::buffered_traverser::BufferedTraverser,
 };
 use sound_engine::SoundConfig;
 
@@ -24,8 +25,8 @@ pub enum ToAudioThread {
     NodeEngineUpdate(ToNodeEngine),
     NewCpalSink { name: String, sink: CpalSink },
     NewCpalSource { name: String, source: CpalSource },
-    NewMidirSink { name: String },
-    NewMidirSource { name: String },
+    NewMidirSink { name: String, sink: MidirSink },
+    NewMidirSource { name: String, source: MidirSource },
     NewRouteRules { rules: IoRoutes },
 }
 
@@ -65,9 +66,15 @@ pub fn start_sound_engine(
                     ToNodeEngine::NewTraverser(new_traverser) => {
                         traverser = Some(new_traverser);
                     }
-                    ToNodeEngine::NewDefaults(defaults) => {}
-                    ToNodeEngine::NewNodeState(_) => todo!(),
-                    ToNodeEngine::CurrentNodeStates(_) => todo!(),
+                    ToNodeEngine::NewDefaults(defaults) => {
+                        new_defaults = defaults;
+                    }
+                    ToNodeEngine::NewNodeState(new) => {
+                        new_states.extend(new.into_iter());
+                    }
+                    ToNodeEngine::CurrentNodeStates(current) => {
+                        current_graph_state = Some(current);
+                    }
                 },
                 ToAudioThread::NewCpalSink { name, sink } => {
                     let channels = sink.channels();
@@ -77,17 +84,15 @@ pub fn start_sound_engine(
                     let channels = source.channels();
                     stream_sources.insert(name, (source, vec![0.0; sound_config.buffer_size * channels]));
                 }
-                ToAudioThread::NewMidirSink { name } => {
-                    // device_manager.rescan_devices();
-
-                    // midi_sinks.insert(name, (device, Vec::with_capacity(128)));
+                ToAudioThread::NewMidirSink { name, sink } => {
+                    midi_sinks.insert(name, (sink, Vec::with_capacity(128)));
                 }
-                ToAudioThread::NewMidirSource { name } => {
-                    // device_manager.rescan_devices();
-
-                    // midi_sources.insert(name, (device, Vec::with_capacity(128)));
+                ToAudioThread::NewMidirSource { name, source } => {
+                    midi_sources.insert(name, (source, Vec::with_capacity(128)));
+                    dbg!(&midi_sources);
                 }
                 ToAudioThread::NewRouteRules { rules: new_rules } => {
+                    dbg!(&new_rules);
                     io_routing = new_rules;
                 }
             };
@@ -105,9 +110,25 @@ pub fn start_sound_engine(
             buffer.clear();
 
             while let Ok(data) = source.receiver.try_recv() {
+                let TimedValue { since_start, value } = data;
+
+                let data = match value {
+                    // why do people use note ons for note offs??
+                    MidiData::NoteOn {
+                        channel,
+                        note,
+                        velocity: 0,
+                    } => MidiData::NoteOff {
+                        channel,
+                        note,
+                        velocity: 0,
+                    },
+                    _ => value,
+                };
+
                 buffer.push(MidiMessage {
-                    data: data.value,
-                    timestamp: data.since_start,
+                    data: data,
+                    timestamp: since_start,
                 });
             }
         }
@@ -119,12 +140,16 @@ pub fn start_sound_engine(
                     match rule.device_type {
                         DeviceType::Midi => {
                             if let Some((_, buffer)) = midi_sources.get(&rule.device_id) {
-                                let node = traverser.get_node_mut(rule.node).unwrap();
+                                if !buffer.is_empty() {
+                                    let node = traverser.get_node_mut(rule.node).unwrap();
 
-                                match node {
-                                    // TODO: make sure buffer cloning isn't too expensive
-                                    NodeVariant::InputsNode(inputs_node) => inputs_node.set_midis(vec![buffer.clone()]),
-                                    _ => panic!("connected node is not input node"),
+                                    match node {
+                                        // TODO: make sure buffer cloning isn't too expensive
+                                        NodeVariant::InputsNode(inputs_node) => {
+                                            inputs_node.set_midis(vec![buffer.clone()])
+                                        }
+                                        _ => panic!("connected node is not input node"),
+                                    }
                                 }
                             }
                         }
@@ -154,7 +179,10 @@ pub fn start_sound_engine(
             }
 
             let resources = resource_lock.read().unwrap();
-            traverser.step(&*resources, new_states.clone(), current_graph_state.as_ref());
+            let updated_node_states = mem::replace(&mut new_states, vec![]);
+
+            let result = traverser.step(&*resources, updated_node_states, current_graph_state.as_ref());
+            current_graph_state = None;
 
             for rule in &io_routing.rules {
                 if rule.device_direction == DeviceDirection::Sink {
@@ -192,6 +220,22 @@ pub fn start_sound_engine(
                         }
                     }
                 }
+            }
+
+            for (node_index, socket, value) in &new_defaults {
+                let _ = traverser.input_value_default(*node_index, socket, *value);
+            }
+
+            if result.request_for_graph_state {
+                let _ = msg_out.send(FromNodeEngine::GraphStateRequested);
+            }
+
+            if !result.state_changes.is_empty() {
+                let _ = msg_out.send(FromNodeEngine::NodeStateUpdates(result.state_changes));
+            }
+
+            if !result.requested_state_updates.is_empty() {
+                let _ = msg_out.send(FromNodeEngine::RequestedStateUpdates(result.requested_state_updates));
             }
         }
 

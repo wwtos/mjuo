@@ -84,12 +84,14 @@ impl NodeRuntime for RankPlayerNode {
         }
 
         if let Some(Resource::Rank(rank)) = resources.get(0) {
+            let midi_in = ins.midi(0)[0]
+                .as_ref()
+                .and_then(|x| midi_store.borrow_midi(x))
+                .unwrap_or(&[]);
+
             self.player.next_buffered(
                 context.current_time,
-                ins.midi(0)[0]
-                    .as_ref()
-                    .and_then(|x| midi_store.borrow_midi(x))
-                    .unwrap_or(&[]),
+                midi_in,
                 rank,
                 &resources[1..],
                 &mut outs.stream(0)[0],

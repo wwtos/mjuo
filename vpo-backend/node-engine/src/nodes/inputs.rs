@@ -4,20 +4,20 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
-    values: Vec<Primitive>,
-    midis: Vec<MidiChannel>,
+    values: Option<Vec<Primitive>>,
+    midis: Option<Vec<MidiChannel>>,
     streams: Vec<Vec<Vec<f32>>>,
     sent: bool,
 }
 
 impl InputsNode {
     pub fn set_values(&mut self, values: Vec<Primitive>) {
-        self.values = values;
+        self.values = Some(values);
         self.sent = false;
     }
 
     pub fn set_midis(&mut self, midis: Vec<MidiChannel>) {
-        self.midis = midis;
+        self.midis = Some(midis);
         self.sent = false;
     }
     pub fn streams_mut(&mut self) -> &mut Vec<Vec<Vec<f32>>> {
@@ -55,22 +55,34 @@ impl NodeRuntime for InputsNode {
         midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        if !self.sent {
-            for (mut midi_socket, message_in) in outs.midis().zip(self.midis.drain(..)) {
+        if let Some(midis) = &mut self.midis {
+            for (mut midi_socket, message_in) in outs.midis().zip(midis.drain(..)) {
                 midi_socket[0] = midi_store.register_midis(message_in.into_iter());
             }
 
-            for (mut values_out, value_to_output) in outs.values().zip(self.values.iter()) {
+            self.midis = None;
+        } else {
+            for mut midi_socket in outs.midis() {
+                midi_socket[0] = None;
+            }
+        }
+
+        if let Some(values) = &mut self.values {
+            for (mut values_out, value_to_output) in outs.values().zip(values.iter()) {
                 values_out[0] = *value_to_output;
             }
 
-            for (mut socket_out, socket) in outs.streams().zip(self.streams.iter_mut()) {
-                for (channel_out, channel) in socket_out.iter_mut().zip(socket.iter_mut()) {
-                    channel_out.copy_from_slice(&channel[..]);
-                }
+            self.values = None;
+        } else {
+            for mut value_socket in outs.values() {
+                value_socket[0] = Primitive::None;
             }
+        }
 
-            self.sent = true;
+        for (mut socket_out, socket) in outs.streams().zip(self.streams.iter_mut()) {
+            for (channel_out, channel) in socket_out.iter_mut().zip(socket.iter_mut()) {
+                channel_out.copy_from_slice(&channel[..]);
+            }
         }
 
         NodeOk::no_warnings(())
@@ -80,8 +92,8 @@ impl NodeRuntime for InputsNode {
 impl Node for InputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         InputsNode {
-            values: vec![],
-            midis: vec![],
+            values: None,
+            midis: None,
             streams: vec![],
             sent: false,
         }
