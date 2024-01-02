@@ -159,7 +159,7 @@ struct TraverserNode {
     pub value_out: Range<usize>,
     pub resources: Range<usize>,
     pub node: NodeVariant,
-    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub values_to_input: SmallVec<[(usize, Primitive); 1]>,
     pub socket_lookup: BTreeMap<Socket, usize>,
 }
 

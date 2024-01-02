@@ -84,7 +84,7 @@ pub struct NodeIoCount {
     pub midi_index: usize,
     pub value_index: usize,
     pub stream_index: usize,
-    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub values_to_input: SmallVec<[(usize, Primitive); 1]>,
     pub socket_lookup: BTreeMap<Socket, usize>,
 }
 

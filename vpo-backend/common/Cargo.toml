@@ -13,4 +13,5 @@ ddgg = { git = "https://github.com/smj-edison/ddgg", features = [
     "serde",
     "serde_string_indexes",
 ] }
+seahash = "4.1.0"
 serde = { version = "1.0.133", features = ["derive"] }

@@ -10,7 +10,7 @@ impl Node for DummyNode {
         DummyNode
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         NodeIo::simple(vec![])
     }
 }

@@ -64,7 +64,7 @@ pub struct PipePlayer {
     // dynamic air values
     detune: f32,
     gain: f32,
-    third_harm_filter: NthBiquadFilter,
+    third_harm_filter: NthBiquadFilter<4>,
     third_db_gain: f32,
     third_spec: FilterSpec<f32>,
 
@@ -122,14 +122,11 @@ impl PipePlayer {
 
             detune: 1.0,
             gain: 1.0,
-            third_harm_filter: NthBiquadFilter::new(
-                FilterSpec {
-                    f0: sample_rate as f32 / 2.0,
-                    fs: sample_rate as f32,
-                    filter_type: FilterType::None,
-                },
-                4,
-            ),
+            third_harm_filter: NthBiquadFilter::new(FilterSpec {
+                f0: sample_rate as f32 / 2.0,
+                fs: sample_rate as f32,
+                filter_type: FilterType::None,
+            }),
             third_db_gain: 0.0,
             third_spec: FilterSpec::new(
                 pipe.freq,

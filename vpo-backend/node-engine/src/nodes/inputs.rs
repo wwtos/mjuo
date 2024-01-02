@@ -99,7 +99,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
             NodeIo::simple(
                 sockets

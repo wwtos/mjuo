@@ -166,7 +166,7 @@ impl NodeRuntime for MidiSwitchNode {
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),

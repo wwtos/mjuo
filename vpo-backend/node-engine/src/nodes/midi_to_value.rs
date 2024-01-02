@@ -82,7 +82,7 @@ impl NodeRuntime for MidiToValueNode {
 }
 
 impl Node for MidiToValueNode {
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
             midi_input("midi", 1),

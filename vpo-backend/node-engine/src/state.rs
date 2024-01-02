@@ -1,9 +1,11 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    hash::BuildHasherDefault,
     time::Duration,
 };
 
 use itertools::Itertools;
+use seahash::SeaHasher;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sound_engine::SoundConfig;
@@ -35,7 +37,7 @@ pub enum Action {
         #[serde(rename = "nodeType")]
         node_type: String,
         #[serde(rename = "uiData")]
-        ui_data: HashMap<String, Value>,
+        ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
     },
     ConnectNodes {
         graph: GraphIndex,
@@ -54,12 +56,12 @@ pub enum Action {
     },
     ChangeNodeProperties {
         index: GlobalNodeIndex,
-        props: HashMap<String, Property>,
+        props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
     },
     ChangeNodeUiData {
         index: GlobalNodeIndex,
         #[serde(rename = "uiData")]
-        ui_data: HashMap<String, Value>,
+        ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
     },
     ChangeNodeOverrides {
         index: GlobalNodeIndex,

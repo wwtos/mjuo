@@ -6,6 +6,7 @@ pub mod calculate_traversal_order;
 use std::cell::UnsafeCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt::Debug;
+use std::hash::BuildHasherDefault;
 use std::mem;
 use std::ops::{Index, IndexMut};
 use std::time::Duration;
@@ -15,6 +16,7 @@ use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
 use enum_dispatch::enum_dispatch;
 use rhai::Engine;
+use seahash::SeaHasher;
 use serde::{Deserialize, Serialize};
 use sound_engine::SoundConfig;
 
@@ -80,7 +82,7 @@ impl NodeIo {
 
 #[derive(Debug)]
 pub struct InitResult {
-    pub changed_properties: Option<HashMap<String, Property>>,
+    pub changed_properties: Option<HashMap<String, Property, BuildHasherDefault<SeaHasher>>>,
     pub needed_resources: Vec<ResourceId>,
 }
 
@@ -133,7 +135,7 @@ impl NodeGetIoContext {
 }
 
 pub struct NodeInitParams<'a> {
-    pub props: &'a HashMap<String, Property>,
+    pub props: &'a HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
     pub script_engine: &'a Engine,
     pub resources: &'a Resources,
     pub graph_manager: &'a GraphManager,
@@ -605,7 +607,7 @@ pub trait NodeRuntime: Debug + Clone {
 /// internal state
 pub trait Node: NodeRuntime {
     /// Called at least every time a property is changed
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo;
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo;
 
     /// Called when created
     fn new(sound_config: &SoundConfig) -> Self;

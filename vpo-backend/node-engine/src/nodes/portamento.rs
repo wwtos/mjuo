@@ -93,7 +93,7 @@ impl Node for PortamentoNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         NodeIo::simple(vec![
             multiple_choice("ramp_type", &["exponential", "linear"], "exponential"),
             value_input("gate", Primitive::Boolean(false), 1),

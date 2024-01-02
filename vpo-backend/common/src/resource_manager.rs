@@ -1,10 +1,12 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
+    hash::BuildHasherDefault,
     str::FromStr,
 };
 
 use ddgg::{GenVec, Index};
+use seahash::SeaHasher;
 use serde::{
     ser::{SerializeMap, SerializeSeq},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -100,14 +102,14 @@ where
 #[derive(Debug)]
 pub struct ResourceManager<A> {
     resources: GenVec<A>,
-    resource_mapping: HashMap<String, ResourceIndex>,
+    resource_mapping: HashMap<String, ResourceIndex, BuildHasherDefault<SeaHasher>>,
 }
 
 impl<A> Default for ResourceManager<A> {
     fn default() -> Self {
         ResourceManager {
             resources: GenVec::new(),
-            resource_mapping: HashMap::new(),
+            resource_mapping: HashMap::default(),
         }
     }
 }
@@ -152,7 +154,7 @@ impl<A> ResourceManager<A> {
     pub fn new() -> ResourceManager<A> {
         ResourceManager {
             resources: GenVec::new(),
-            resource_mapping: HashMap::new(),
+            resource_mapping: HashMap::default(),
         }
     }
 

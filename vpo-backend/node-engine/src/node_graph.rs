@@ -39,7 +39,7 @@ pub struct NodeGraph {
 }
 
 pub(crate) fn create_new_node(node_type: &str, ctx: &NodeGetIoContext) -> NodeResult<NodeInstance> {
-    let node_rows = variant_io(node_type, ctx, HashMap::new())?.node_rows;
+    let node_rows = variant_io(node_type, ctx, HashMap::default())?.node_rows;
 
     let new_node = NodeInstance::new(node_type.into(), node_rows)?;
 

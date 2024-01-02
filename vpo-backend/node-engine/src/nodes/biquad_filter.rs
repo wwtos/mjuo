@@ -100,7 +100,7 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         NodeIo {

@@ -1,5 +1,6 @@
-use std::{collections::HashMap, mem};
+use std::{collections::HashMap, hash::BuildHasherDefault, mem};
 
+use seahash::SeaHasher;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -17,8 +18,8 @@ pub struct NodeInstance {
     #[serde(skip_deserializing)]
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
-    properties: HashMap<String, Property>,
-    ui_data: HashMap<String, Value>,
+    properties: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
+    ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
     state: NodeState,
     child_graph: Option<NodeGraphAndIo>,
 }
@@ -33,7 +34,7 @@ impl NodeInstance {
                 NodeRow::Property(name, _, default) => Some((name, default)),
                 _ => None,
             })
-            .fold(HashMap::new(), |mut accum, (name, default)| {
+            .fold(HashMap::default(), |mut accum, (name, default)| {
                 accum.insert(name.clone(), default.clone());
                 accum
             });
@@ -43,7 +44,7 @@ impl NodeInstance {
             default_overrides: Vec::new(),
             node_rows,
             properties,
-            ui_data: HashMap::new(),
+            ui_data: HashMap::default(),
             state: NodeState::default(),
             child_graph: None,
         };
@@ -85,11 +86,14 @@ impl NodeInstance {
         self.properties.insert(name, value);
     }
 
-    pub fn get_properties(&self) -> &HashMap<String, Property> {
+    pub fn get_properties(&self) -> &HashMap<String, Property, BuildHasherDefault<SeaHasher>> {
         &self.properties
     }
 
-    pub fn set_properties(&mut self, properties: HashMap<String, Property>) -> HashMap<String, Property> {
+    pub fn set_properties(
+        &mut self,
+        properties: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
+    ) -> HashMap<String, Property, BuildHasherDefault<SeaHasher>> {
         mem::replace(&mut self.properties, properties)
     }
 
@@ -105,15 +109,18 @@ impl NodeInstance {
         mem::replace(&mut self.state, state)
     }
 
-    pub fn get_ui_data(&self) -> &HashMap<String, Value> {
+    pub fn get_ui_data(&self) -> &HashMap<String, Value, BuildHasherDefault<SeaHasher>> {
         &self.ui_data
     }
 
-    pub fn set_ui_data(&mut self, ui_data: HashMap<String, Value>) -> HashMap<String, Value> {
+    pub fn set_ui_data(
+        &mut self,
+        ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
+    ) -> HashMap<String, Value, BuildHasherDefault<SeaHasher>> {
         mem::replace(&mut self.ui_data, ui_data)
     }
 
-    pub fn extend_ui_data(&mut self, ui_data: HashMap<String, Value>) {
+    pub fn extend_ui_data(&mut self, ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>) {
         self.ui_data.extend(ui_data.into_iter());
     }
 

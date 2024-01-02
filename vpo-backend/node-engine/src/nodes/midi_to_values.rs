@@ -43,7 +43,7 @@ impl Node for MidiToValuesNode {
         MidiToValuesNode {}
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_output("frequency", 1),

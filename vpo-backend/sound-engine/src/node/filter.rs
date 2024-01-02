@@ -1,4 +1,9 @@
-use std::{f32::consts::PI, f64::consts::TAU, iter::Sum};
+use std::{
+    array::from_fn,
+    f32::consts::PI,
+    f64::consts::TAU,
+    iter::{repeat, repeat_with, Sum},
+};
 
 use num::Float;
 use smallvec::SmallVec;
@@ -320,59 +325,46 @@ pub type BiquadFilter = RecursiveFilter<3, f32>;
 
 // TODO: optimize, this is very sloppy
 #[derive(Debug, Clone)]
-pub struct NthBiquadFilter {
-    filters: SmallVec<[BiquadFilter; 4]>,
-    order_multiplier: usize,
+pub struct NthBiquadFilter<const N: usize> {
+    filters: [BiquadFilter; N],
     spec: FilterSpec<f32>,
 }
 
-impl NthBiquadFilter {
-    pub fn new(mut spec: FilterSpec<f32>, order_multiplier: usize) -> Self {
-        let mut filters = SmallVec::new();
-
+impl<const N: usize> NthBiquadFilter<N> {
+    pub fn new(mut spec: FilterSpec<f32>) -> Self {
         spec.filter_type = match spec.filter_type {
             FilterType::Peaking { bandwidth, db_gain } => FilterType::Peaking {
                 bandwidth,
-                db_gain: db_gain / order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             FilterType::LowShelf { slope, db_gain } => FilterType::LowShelf {
                 slope,
-                db_gain: db_gain / order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             FilterType::HighShelf { slope, db_gain } => FilterType::HighShelf {
                 slope,
-                db_gain: db_gain / order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             _ => spec.filter_type,
         };
 
         let coeffs = filter_coeffs(spec.clone());
 
-        for _ in 0..order_multiplier {
-            filters.push(BiquadFilter::from(coeffs.clone()));
-        }
+        let filters = from_fn(|_| BiquadFilter::from(coeffs.clone()));
 
-        NthBiquadFilter {
-            filters,
-            order_multiplier,
-            spec,
-        }
+        NthBiquadFilter { filters, spec }
     }
 
-    pub fn empty() -> NthBiquadFilter {
-        NthBiquadFilter {
-            filters: SmallVec::new(),
-            order_multiplier: 0,
-            spec: FilterSpec {
-                f0: 0.5,
-                fs: 1.0,
-                filter_type: FilterType::LowPass { q: 0.7 },
-            },
-        }
+    pub fn empty() -> NthBiquadFilter<N> {
+        Self::new(FilterSpec {
+            f0: 0.5,
+            fs: 1.0,
+            filter_type: FilterType::LowPass { q: 0.7 },
+        })
     }
 
     pub fn get_order_multiplier(&self) -> usize {
-        self.order_multiplier
+        N
     }
 
     pub fn get_spec(&self) -> &FilterSpec<f32> {
@@ -383,15 +375,15 @@ impl NthBiquadFilter {
         spec.filter_type = match spec.filter_type {
             FilterType::Peaking { bandwidth, db_gain } => FilterType::Peaking {
                 bandwidth,
-                db_gain: db_gain / self.order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             FilterType::LowShelf { slope, db_gain } => FilterType::LowShelf {
                 slope,
-                db_gain: db_gain / self.order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             FilterType::HighShelf { slope, db_gain } => FilterType::HighShelf {
                 slope,
-                db_gain: db_gain / self.order_multiplier as f32,
+                db_gain: db_gain / N as f32,
             },
             _ => spec.filter_type,
         };
