@@ -1,5 +1,5 @@
 pub mod graph;
-mod prelude;
+pub mod prelude;
 
 #[cfg(any(windows, unix))]
 pub mod io;

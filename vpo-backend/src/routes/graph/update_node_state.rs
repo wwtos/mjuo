@@ -1,4 +1,4 @@
-use node_engine::{node::NodeIndex, state::ToNodeEngine};
+use node_engine::node::NodeIndex;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use snafu::ResultExt;
@@ -19,9 +19,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
     Ok(RouteReturn {
-        engine_updates: vec![ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewNodeState(
-            payload.updated_states,
-        ))],
+        engine_updates: vec![ToAudioThread::NewNodeStates(payload.updated_states)],
         new_project: false,
     })
 }

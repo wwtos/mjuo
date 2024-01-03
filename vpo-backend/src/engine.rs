@@ -14,19 +14,23 @@ use node_engine::io_routing::{DeviceDirection, DeviceType};
 use node_engine::node::{NodeIndex, NodeState};
 use node_engine::nodes::NodeVariant;
 use node_engine::resources::Resources;
-use node_engine::{
-    io_routing::IoRoutes,
-    node::buffered_traverser::BufferedTraverser,
-    state::{FromNodeEngine, ToNodeEngine},
-};
+use node_engine::{io_routing::IoRoutes, node::buffered_traverser::BufferedTraverser, state::FromNodeEngine};
 use sound_engine::SoundConfig;
 
+#[derive(Debug)]
 pub enum ToAudioThread {
-    NodeEngineUpdate(ToNodeEngine),
+    NewTraverser(BufferedTraverser),
+    NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
+    NewNodeStates(Vec<(NodeIndex, serde_json::Value)>),
+    CurrentNodeStates(BTreeMap<NodeIndex, NodeState>),
     NewCpalSink { name: String, sink: CpalSink },
     NewCpalSource { name: String, source: CpalSource },
     NewMidirSink { name: String, sink: MidirSink },
     NewMidirSource { name: String, source: MidirSource },
+    RemoveCpalSink { name: String },
+    RemoveCpalSource { name: String },
+    RemoveMidirSink { name: String },
+    RemoveMidirSource { name: String },
     NewRouteRules { rules: IoRoutes },
 }
 
@@ -37,7 +41,10 @@ pub fn start_sound_engine(
     msg_out: flume::Sender<FromNodeEngine>,
 ) {
     let sound_config = SoundConfig::default();
-    let mut io_routing: IoRoutes = IoRoutes { rules: vec![] };
+    let mut io_routing: IoRoutes = IoRoutes {
+        rules: vec![],
+        devices: vec![],
+    };
 
     let mut stream_sinks: BTreeMap<String, (CpalSink, Vec<f32>)> = BTreeMap::new();
     let mut stream_sources: BTreeMap<String, (CpalSource, Vec<f32>)> = BTreeMap::new();
@@ -60,22 +67,20 @@ pub fn start_sound_engine(
         let sample_duration =
             Duration::from_secs_f64(sound_config.buffer_size as f64 / sound_config.sample_rate as f64);
 
-        if let Ok(msg) = msg_in.try_recv() {
+        while let Ok(msg) = msg_in.try_recv() {
             match msg {
-                ToAudioThread::NodeEngineUpdate(update) => match update {
-                    ToNodeEngine::NewTraverser(new_traverser) => {
-                        traverser = Some(new_traverser);
-                    }
-                    ToNodeEngine::NewDefaults(defaults) => {
-                        new_defaults = defaults;
-                    }
-                    ToNodeEngine::NewNodeState(new) => {
-                        new_states.extend(new.into_iter());
-                    }
-                    ToNodeEngine::CurrentNodeStates(current) => {
-                        current_graph_state = Some(current);
-                    }
-                },
+                ToAudioThread::NewTraverser(new_traverser) => {
+                    traverser = Some(new_traverser);
+                }
+                ToAudioThread::NewDefaults(defaults) => {
+                    new_defaults = defaults;
+                }
+                ToAudioThread::NewNodeStates(new) => {
+                    new_states.extend(new.into_iter());
+                }
+                ToAudioThread::CurrentNodeStates(current) => {
+                    current_graph_state = Some(current);
+                }
                 ToAudioThread::NewCpalSink { name, sink } => {
                     let channels = sink.channels();
                     stream_sinks.insert(name, (sink, vec![0.0; sound_config.buffer_size * channels]));
@@ -92,6 +97,18 @@ pub fn start_sound_engine(
                 }
                 ToAudioThread::NewRouteRules { rules: new_rules } => {
                     io_routing = new_rules;
+                }
+                ToAudioThread::RemoveCpalSink { name } => {
+                    midi_sinks.remove(&name);
+                }
+                ToAudioThread::RemoveCpalSource { name } => {
+                    midi_sources.remove(&name);
+                }
+                ToAudioThread::RemoveMidirSink { name } => {
+                    midi_sinks.remove(&name);
+                }
+                ToAudioThread::RemoveMidirSource { name } => {
+                    midi_sources.remove(&name);
                 }
             };
         }

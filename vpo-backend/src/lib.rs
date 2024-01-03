@@ -30,10 +30,7 @@ use ipc::send_buffer::SendBuffer;
 
 use engine::ToAudioThread;
 use io::file_watcher::FileWatcher;
-use node_engine::{
-    resources::Resources,
-    state::{GraphState, ToNodeEngine},
-};
+use node_engine::{resources::Resources, state::GraphState};
 use routes::route;
 
 use state::GlobalState;

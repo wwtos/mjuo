@@ -8,15 +8,16 @@ use futures::task::LocalSpawnExt;
 use futures::StreamExt;
 use ipc::file_server::start_file_server;
 
-use node_engine::io_routing::DeviceDirection;
+use node_engine::io_routing::{DeviceDirection, DeviceInfo, DeviceType, IoRoutes, RouteRule};
 use node_engine::resources::Resources;
-use node_engine::state::{FromNodeEngine, GraphState, ToNodeEngine};
+use node_engine::state::{ActionInvalidation, FromNodeEngine, GraphState};
 use sound_engine::SoundConfig;
 
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
 use vpo_backend::engine::{start_sound_engine, ToAudioThread};
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
+use vpo_backend::routes::prelude::state_invalidations;
 use vpo_backend::state::GlobalState;
 use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
@@ -25,65 +26,110 @@ fn main() {
     let mut async_executor = LocalPool::new();
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
-    let graph_state = GraphState::new(SoundConfig::default()).unwrap();
     let mut global_state = GlobalState::new();
     let resources = Arc::new(RwLock::new(Resources::default()));
+
+    let default_midi = global_state
+        .device_manager
+        .midir_devices()
+        .iter()
+        .next()
+        .unwrap()
+        .1
+        .name
+        .clone();
+    dbg!(&global_state.device_manager.midir_devices());
+
+    let mut graph_state = GraphState::new(SoundConfig::default()).unwrap();
+
+    let routing = vec![
+        RouteRule {
+            device_id: "default".into(),
+            device_type: DeviceType::Stream,
+            device_direction: DeviceDirection::Sink,
+            device_channel: 0,
+            node: graph_state.get_io_nodes().output,
+            node_socket: 0,
+            node_channel: 0,
+        },
+        RouteRule {
+            device_id: "default".into(),
+            device_type: DeviceType::Stream,
+            device_direction: DeviceDirection::Sink,
+            device_channel: 1,
+            node: graph_state.get_io_nodes().output,
+            node_socket: 0,
+            node_channel: 1,
+        },
+        RouteRule {
+            device_id: default_midi.clone(),
+            device_type: DeviceType::Midi,
+            device_direction: DeviceDirection::Source,
+            device_channel: 0,
+            node: graph_state.get_io_nodes().input,
+            node_socket: 0,
+            node_channel: 0,
+        },
+    ];
+
+    let devices = vec![
+        DeviceInfo {
+            name: "default".into(),
+            device_type: DeviceType::Stream,
+            device_direction: DeviceDirection::Sink,
+            channels: 2,
+            buffer_size: 1024,
+        },
+        DeviceInfo {
+            name: "default".into(),
+            device_type: DeviceType::Stream,
+            device_direction: DeviceDirection::Source,
+            channels: 1,
+            buffer_size: 1024,
+        },
+        DeviceInfo {
+            name: default_midi.clone(),
+            device_type: DeviceType::Midi,
+            device_direction: DeviceDirection::Source,
+            channels: 0,
+            buffer_size: 0,
+        },
+    ];
+
+    let io_routes = IoRoutes {
+        rules: routing,
+        devices,
+    };
+
+    graph_state.set_route_rules(io_routes.clone());
+    let invalidations = state_invalidations(
+        &mut graph_state,
+        vec![ActionInvalidation::NewRouteRules {
+            last_rules: IoRoutes::default(),
+            new_rules: io_routes,
+        }],
+        &mut global_state.device_manager,
+        &*resources.read().unwrap(),
+    )
+    .unwrap();
 
     // start up midi and audio
     let (to_realtime, from_main) = flume::unbounded();
     let (to_main, from_realtime) = flume::unbounded();
     let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
-    let default_device = global_state
-        .device_manager
-        .cpal_status_by_name("default".into(), DeviceDirection::Sink)
-        .unwrap();
-    let device_name = global_state.device_manager.cpal_devices()[default_device.0]
-        .name
-        .clone();
-
-    let (_sink_handle, sink) = global_state
-        .device_manager
-        .cpal_start_sink(default_device, 2, 44_100, 512, 3)
-        .unwrap();
-    let (_source_handle, source) = global_state
-        .device_manager
-        .cpal_start_source(default_device, 2, 44_100, 512, 3)
-        .unwrap();
-
-    let default_midi = global_state.device_manager.midir_devices();
-    let midi_source = global_state
-        .device_manager
-        .midir_start_source("mjuo".into(), default_midi.iter().next().unwrap().1.name.clone())
-        .unwrap();
-
-    to_realtime
-        .send(ToAudioThread::NewCpalSink {
-            name: device_name.clone(),
-            sink,
-        })
-        .unwrap();
-    to_realtime
-        .send(ToAudioThread::NewCpalSource {
-            name: device_name.clone(),
-            source,
-        })
-        .unwrap();
-    to_realtime
-        .send(ToAudioThread::NewMidirSource {
-            name: "default".into(),
-            source: midi_source,
-        })
-        .unwrap();
-
     let (mut file_watcher, mut file_receiver) = FileWatcher::new().unwrap();
 
     // send initial node engine instance to sound engine
     to_realtime
-        .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewTraverser(
+        .send(ToAudioThread::NewTraverser(
             graph_state.get_traverser(&*resources.clone().read().unwrap()).unwrap(),
-        )))
+        ))
         .unwrap();
+
+    for invalidation in invalidations {
+        to_realtime.send(invalidation).unwrap();
+    }
 
     to_realtime
         .send(ToAudioThread::NewRouteRules {
@@ -159,18 +205,14 @@ fn main() {
                                 }
                             }
 
-                            to_realtime
-                                .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::NewNodeState(updates)))
-                                .unwrap();
+                            to_realtime.send(ToAudioThread::NewNodeStates(updates)).unwrap();
 
                             send_graph_updates(&mut *graph_state, root_index, &to_server).unwrap();
                         }
                         FromNodeEngine::GraphStateRequested => {
                             // TODO: don't unwrap here, instead recreate the engine if it fails
                             to_realtime
-                                .send(ToAudioThread::NodeEngineUpdate(ToNodeEngine::CurrentNodeStates(
-                                    graph_state.borrow().get_node_state(),
-                                )))
+                                .send(ToAudioThread::CurrentNodeStates(graph_state.borrow().get_node_state()))
                                 .unwrap();
                         }
                     }

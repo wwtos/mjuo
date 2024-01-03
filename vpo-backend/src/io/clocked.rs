@@ -1,4 +1,10 @@
-use std::{collections::BTreeSet, fmt::Debug, ops::Range};
+use core::fmt;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+    ops::Range,
+    thread::JoinHandle,
+};
 
 use clocked::{
     cpal::{start_cpal_sink, start_cpal_source, CpalSink, CpalSource},
@@ -6,10 +12,10 @@ use clocked::{
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait},
-    Device, Host, HostId, SampleFormat, SampleRate, Stream, StreamConfig, SupportedStreamConfigRange,
+    Device, Host, HostId, SampleFormat, SampleRate, StreamConfig, SupportedStreamConfigRange,
 };
-use generational_arena::{Arena, Index};
-use midir::{MidiInput, MidiInputPort, MidiOutput, MidiOutputPort};
+use generational_arena::Index;
+use midir::{MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort};
 use node_engine::io_routing::DeviceDirection;
 
 pub enum MidiDevice {
@@ -26,19 +32,42 @@ impl MidiDevice {
     }
 }
 
-#[derive(Debug)]
 pub struct CpalDeviceStatus {
+    pub sink_handle: Option<cpal::Stream>,
+    pub source_handle: Option<cpal::Stream>,
     pub host_id: HostId,
     pub name: String,
     pub is_sink: bool,
     pub is_source: bool,
-    pub sink_taken: bool,
-    pub source_taken: bool,
+}
+
+impl fmt::Debug for CpalDeviceStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CpalDeviceStatus")
+            .field("sink_handle", &self.sink_handle.as_ref().map(|_| "Stream { .. }"))
+            .field("source_handle", &self.sink_handle.as_ref().map(|_| "Stream { .. }"))
+            .field("host_id", &format!("HostId({})", self.host_id.name()))
+            .field("name", &self.name)
+            .field("is_sink", &self.is_sink)
+            .field("is_source", &self.is_source)
+            .finish()
+    }
 }
 
 pub struct MidirDeviceStatus {
+    pub sink_handle: Option<JoinHandle<()>>,
+    pub source_handle: Option<MidiInputConnection<()>>,
     pub name: String,
     pub device: MidiDevice,
+}
+
+impl Debug for MidirDeviceStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MidirDeviceStatus")
+            .field("sink_handle", &self.sink_handle)
+            .field("name", &self.name)
+            .finish_non_exhaustive()
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -56,17 +85,17 @@ pub struct StreamConfigOptions {
 
 pub struct DeviceManager {
     cpal_hosts: Vec<Host>,
-    cpal_statuses: Arena<CpalDeviceStatus>,
-    midir_devices: Arena<MidirDeviceStatus>,
+    cpal_statuses: BTreeMap<String, CpalDeviceStatus>,
+    midir_statuses: BTreeMap<String, MidirDeviceStatus>,
     midir_input_scan: MidiInput,
     midir_output_scan: MidiOutput,
 }
 
 pub struct ScanResult {
-    pub cpal_added: Vec<CpalIndex>,
-    pub cpal_removed: Vec<CpalIndex>,
-    pub midir_added: Vec<MidirIndex>,
-    pub midir_removed: Vec<MidirIndex>,
+    pub cpal_added: Vec<String>,
+    pub cpal_removed: Vec<String>,
+    pub midir_added: Vec<String>,
+    pub midir_removed: Vec<String>,
 }
 
 impl Debug for DeviceManager {
@@ -88,8 +117,8 @@ impl DeviceManager {
 
         let mut manager = DeviceManager {
             cpal_hosts: hosts,
-            cpal_statuses: Arena::new(),
-            midir_devices: Arena::new(),
+            cpal_statuses: BTreeMap::new(),
+            midir_statuses: BTreeMap::new(),
             midir_input_scan: midi_in,
             midir_output_scan: midi_out,
         };
@@ -112,7 +141,7 @@ impl DeviceManager {
         }
     }
 
-    fn rescan_midir_devices(&mut self) -> (Vec<MidirIndex>, Vec<MidirIndex>) {
+    fn rescan_midir_devices(&mut self) -> (Vec<String>, Vec<String>) {
         let mut midi_in = MidiInput::new("midi scan").unwrap();
         midi_in.ignore(midir::Ignore::None);
         let midi_out = MidiOutput::new("midi scan").unwrap();
@@ -123,6 +152,8 @@ impl DeviceManager {
             .map(|port| MidirDeviceStatus {
                 name: midi_in.port_name(&port).unwrap(),
                 device: MidiDevice::Source(port),
+                sink_handle: None,
+                source_handle: None,
             })
             .collect();
         let current_sinks: Vec<MidirDeviceStatus> = midi_out
@@ -131,6 +162,8 @@ impl DeviceManager {
             .map(|port| MidirDeviceStatus {
                 name: midi_out.port_name(&port).unwrap(),
                 device: MidiDevice::Sink(port),
+                sink_handle: None,
+                source_handle: None,
             })
             .collect();
 
@@ -140,9 +173,9 @@ impl DeviceManager {
         // this is a bit of a hack, but if it errors out when asking the device's config,
         // it's considered disconnected
         let mut to_remove = vec![];
-        for (i, my_device) in self.midir_devices.iter() {
+        for (name, my_device) in self.midir_statuses.iter() {
             if !self
-                .midir_devices
+                .midir_statuses
                 .iter()
                 .any(|(_, x)| x.name == my_device.name && x.device.device_type() == my_device.device.device_type())
             {
@@ -151,40 +184,42 @@ impl DeviceManager {
                     MidiDevice::Source(source) => {
                         if self.midir_input_scan.port_name(&source).is_err() {
                             // definitely disconnected
-                            to_remove.push(MidirIndex(i));
+                            to_remove.push(name.clone());
                         }
                     }
                     MidiDevice::Sink(sink) => {
                         if self.midir_output_scan.port_name(&sink).is_err() {
                             // definitely disconnected
-                            to_remove.push(MidirIndex(i));
+                            to_remove.push(name.clone());
                         }
                     }
                 }
             }
         }
 
-        for i in to_remove.iter() {
-            self.cpal_statuses.remove(i.0);
+        for name in to_remove.iter() {
+            self.cpal_statuses.remove(name);
         }
 
         let mut new_indexes = vec![];
 
         for new_device in current_devices {
             if !self
-                .midir_devices
+                .midir_statuses
                 .iter()
                 .any(|(_, x)| x.name == new_device.name && x.device.device_type() == new_device.device.device_type())
             {
                 println!("adding: {:?}", new_device.name);
-                new_indexes.push(MidirIndex(self.midir_devices.insert(new_device)));
+
+                new_indexes.push(new_device.name.clone());
+                self.midir_statuses.insert(new_device.name.clone(), new_device);
             }
         }
 
         (new_indexes, to_remove)
     }
 
-    fn rescan_cpal_devices(&mut self) -> (Vec<CpalIndex>, Vec<CpalIndex>) {
+    fn rescan_cpal_devices(&mut self) -> (Vec<String>, Vec<String>) {
         let current_device_list: Vec<CpalDeviceStatus> = self
             .cpal_hosts
             .iter()
@@ -206,8 +241,8 @@ impl DeviceManager {
                         name: device.name().unwrap(),
                         is_sink,
                         is_source,
-                        sink_taken: false,
-                        source_taken: false,
+                        sink_handle: None,
+                        source_handle: None,
                     }
                 });
 
@@ -222,32 +257,21 @@ impl DeviceManager {
                 x.name == new_device.name && x.is_sink == new_device.is_sink && x.is_source == new_device.is_source
             }) {
                 println!("adding: {:?}", new_device.name);
-                new_indexes.push(CpalIndex(self.cpal_statuses.insert(new_device)));
+
+                new_indexes.push(new_device.name.clone());
+                self.cpal_statuses.insert(new_device.name.clone(), new_device);
             }
         }
 
         (new_indexes, vec![])
     }
 
-    pub fn cpal_devices(&self) -> &Arena<CpalDeviceStatus> {
+    pub fn cpal_devices(&self) -> &BTreeMap<String, CpalDeviceStatus> {
         &self.cpal_statuses
     }
 
-    pub fn cpal_status_by_name(&self, name: &str, device_dir: DeviceDirection) -> Option<CpalIndex> {
-        self.cpal_statuses
-            .iter()
-            .find(|(_, device)| {
-                &device.name == name
-                    && match device_dir {
-                        DeviceDirection::Sink => device.is_sink,
-                        DeviceDirection::Source => device.is_source,
-                    }
-            })
-            .map(|x| CpalIndex(x.0))
-    }
-
-    pub fn cpal_get_device(&self, device: CpalIndex) -> Option<Device> {
-        let status = self.cpal_statuses.get(device.0)?;
+    pub fn cpal_get_device(&self, device: &str) -> Option<Device> {
+        let status = self.cpal_statuses.get(device)?;
         let host = cpal::host_from_id(status.host_id).ok()?;
 
         host.devices()
@@ -255,7 +279,7 @@ impl DeviceManager {
             .find(|x| x.name().unwrap_or_default() == status.name)
     }
 
-    pub fn cpal_input_config_options(&self, index: CpalIndex) -> Option<StreamConfigOptions> {
+    pub fn cpal_input_config_options(&self, index: &str) -> Option<StreamConfigOptions> {
         self.cpal_get_device(index)?
             .supported_input_configs()
             .ok()
@@ -266,7 +290,7 @@ impl DeviceManager {
             })
     }
 
-    pub fn cpal_output_config_options(&self, index: CpalIndex) -> Option<StreamConfigOptions> {
+    pub fn cpal_output_config_options(&self, index: &str) -> Option<StreamConfigOptions> {
         self.cpal_get_device(index)?
             .supported_output_configs()
             .ok()
@@ -317,21 +341,19 @@ impl DeviceManager {
 
     pub fn cpal_start_sink(
         &mut self,
-        index: CpalIndex,
+        device_name: &str,
         channels: u16,
         sample_rate: u32,
         buffer_size: u32,
         periods: usize,
-    ) -> Option<(Stream, CpalSink)> {
-        if let Some(device) = self.cpal_statuses.get_mut(index.0) {
-            if device.sink_taken {
+    ) -> Option<CpalSink> {
+        if let Some(device) = self.cpal_statuses.get(device_name) {
+            if device.sink_handle.is_some() {
                 return None;
             }
 
-            device.sink_taken = true;
-
-            start_cpal_sink(
-                &self.cpal_get_device(index)?,
+            let (handle, instance) = start_cpal_sink(
+                &self.cpal_get_device(device_name)?,
                 &StreamConfig {
                     channels: channels as u16,
                     sample_rate: SampleRate(sample_rate),
@@ -341,7 +363,11 @@ impl DeviceManager {
                 buffer_size as usize,
                 periods,
             )
-            .ok()
+            .ok()?;
+
+            self.cpal_statuses.get_mut(device_name).unwrap().sink_handle = Some(handle);
+
+            Some(instance)
         } else {
             None
         }
@@ -349,21 +375,19 @@ impl DeviceManager {
 
     pub fn cpal_start_source(
         &mut self,
-        index: CpalIndex,
+        device_name: &str,
         channels: u16,
         sample_rate: u32,
         buffer_size: u32,
         periods: usize,
-    ) -> Option<(Stream, CpalSource)> {
-        if let Some(device) = self.cpal_statuses.get_mut(index.0) {
-            if device.source_taken {
+    ) -> Option<CpalSource> {
+        if let Some(device) = self.cpal_statuses.get(device_name) {
+            if device.source_handle.is_some() {
                 return None;
             }
 
-            device.source_taken = true;
-
-            start_cpal_source(
-                &self.cpal_get_device(index)?,
+            let (handle, instance) = start_cpal_source(
+                &self.cpal_get_device(device_name)?,
                 &StreamConfig {
                     channels: channels as u16,
                     sample_rate: SampleRate(sample_rate),
@@ -373,36 +397,70 @@ impl DeviceManager {
                 buffer_size as usize,
                 periods,
             )
-            .ok()
+            .ok()?;
+
+            self.cpal_statuses.get_mut(device_name).unwrap().source_handle = Some(handle);
+
+            Some(instance)
         } else {
             None
         }
     }
 
-    pub fn midir_devices(&self) -> &Arena<MidirDeviceStatus> {
-        &self.midir_devices
+    pub fn cpal_stop_device(&mut self, index: &str, freeing_sink: bool, freeing_source: bool) {
+        if let Some(device) = self.cpal_statuses.get_mut(index) {
+            if freeing_sink {
+                device.sink_handle = None; // drops sink handle
+            }
+
+            if freeing_source {
+                device.source_handle = None; // drops source handle
+            }
+        }
     }
 
-    pub fn midir_start_sink(&mut self, sink_name: String, port_name: String) -> Option<MidirSink> {
-        let sink = MidiOutput::new(&sink_name).ok()?;
-
-        let ports = sink.ports();
-        let port = ports
-            .iter()
-            .find(|port| sink.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
-
-        start_midir_sink(sink, port, &sink_name).ok()
+    pub fn midir_devices(&self) -> &BTreeMap<String, MidirDeviceStatus> {
+        &self.midir_statuses
     }
 
-    pub fn midir_start_source(&mut self, sink_name: String, port_name: String) -> Option<MidirSource> {
-        let source = MidiInput::new(&sink_name).ok()?;
+    pub fn midir_start_sink(&mut self, port_name: &str) -> Option<MidirSink> {
+        if self.midir_statuses.contains_key(port_name) {
+            let sink_name = format!("mjuo_output_{port_name}");
+            let sink = MidiOutput::new(&sink_name).ok()?;
 
-        let ports = source.ports();
-        let port = ports
-            .iter()
-            .find(|port| source.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
+            let ports = sink.ports();
+            let port = ports
+                .iter()
+                .find(|port| sink.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
 
-        start_midir_source(source, port, &sink_name).ok()
+            let (handle, sink) = start_midir_sink(sink, port, &sink_name).ok()?;
+
+            self.midir_statuses.get_mut(port_name).unwrap().sink_handle = Some(handle);
+
+            Some(sink)
+        } else {
+            None
+        }
+    }
+
+    pub fn midir_start_source(&mut self, port_name: &str) -> Option<MidirSource> {
+        if self.midir_statuses.contains_key(port_name) {
+            let sink_name = format!("mjuo_input_{port_name}");
+            let source = MidiInput::new(&sink_name).ok()?;
+
+            let ports = source.ports();
+            let port = ports
+                .iter()
+                .find(|port| source.port_name(port).map(|x| x == port_name).unwrap_or(false))?;
+
+            let (handle, source) = start_midir_source(source, port, &sink_name).ok()?;
+
+            self.midir_statuses.get_mut(port_name).unwrap().source_handle = Some(handle);
+
+            Some(source)
+        } else {
+            None
+        }
     }
 }
 

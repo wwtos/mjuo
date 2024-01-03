@@ -1,6 +1,7 @@
 use std::{
     cell::UnsafeCell,
     collections::BTreeMap,
+    fmt::Debug,
     iter::{repeat, repeat_with},
     mem,
     ops::Range,
@@ -170,7 +171,6 @@ pub struct StepResult {
     pub request_for_graph_state: bool,
 }
 
-#[derive(Debug)]
 pub struct BufferedTraverser {
     nodes: Vec<TraverserNode>,
     nodes_with_state: Vec<(usize, NodeIndex)>,
@@ -185,6 +185,12 @@ pub struct BufferedTraverser {
     resource_scratch: Vec<Resource<'static>>,
     value_input_scratch: Vec<UnsafeCell<Primitive>>,
     value_ref_scratch: Vec<&'static [UnsafeCell<Primitive>]>,
+}
+
+impl Debug for BufferedTraverser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BufferedTraverser").finish_non_exhaustive()
+    }
 }
 
 unsafe impl Send for BufferedTraverser {}
