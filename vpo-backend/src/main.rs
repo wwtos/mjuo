@@ -8,16 +8,14 @@ use futures::task::LocalSpawnExt;
 use futures::StreamExt;
 use ipc::file_server::start_file_server;
 
-use node_engine::io_routing::{DeviceDirection, DeviceInfo, DeviceType, IoRoutes, RouteRule};
 use node_engine::resources::Resources;
-use node_engine::state::{ActionInvalidation, FromNodeEngine, GraphState};
+use node_engine::state::{FromNodeEngine, GraphState};
 use sound_engine::SoundConfig;
 
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
 use vpo_backend::engine::{start_sound_engine, ToAudioThread};
 use vpo_backend::io::file_watcher::FileWatcher;
 use vpo_backend::io::load_single;
-use vpo_backend::routes::prelude::state_invalidations;
 use vpo_backend::state::GlobalState;
 use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
@@ -42,77 +40,6 @@ fn main() {
 
     let mut graph_state = GraphState::new(SoundConfig::default()).unwrap();
 
-    let routing = vec![
-        RouteRule {
-            device_id: "default".into(),
-            device_type: DeviceType::Stream,
-            device_direction: DeviceDirection::Sink,
-            device_channel: 0,
-            node: graph_state.get_io_nodes().output,
-            node_socket: 0,
-            node_channel: 0,
-        },
-        RouteRule {
-            device_id: "default".into(),
-            device_type: DeviceType::Stream,
-            device_direction: DeviceDirection::Sink,
-            device_channel: 1,
-            node: graph_state.get_io_nodes().output,
-            node_socket: 0,
-            node_channel: 1,
-        },
-        RouteRule {
-            device_id: default_midi.clone(),
-            device_type: DeviceType::Midi,
-            device_direction: DeviceDirection::Source,
-            device_channel: 0,
-            node: graph_state.get_io_nodes().input,
-            node_socket: 0,
-            node_channel: 0,
-        },
-    ];
-
-    let devices = vec![
-        DeviceInfo {
-            name: "default".into(),
-            device_type: DeviceType::Stream,
-            device_direction: DeviceDirection::Sink,
-            channels: 2,
-            buffer_size: 1024,
-        },
-        DeviceInfo {
-            name: "default".into(),
-            device_type: DeviceType::Stream,
-            device_direction: DeviceDirection::Source,
-            channels: 1,
-            buffer_size: 1024,
-        },
-        DeviceInfo {
-            name: default_midi.clone(),
-            device_type: DeviceType::Midi,
-            device_direction: DeviceDirection::Source,
-            channels: 0,
-            buffer_size: 0,
-        },
-    ];
-
-    let io_routes = IoRoutes {
-        rules: routing,
-        devices,
-    };
-
-    graph_state.set_route_rules(io_routes.clone());
-    let invalidations = state_invalidations(
-        &mut graph_state,
-        vec![ActionInvalidation::NewRouteRules {
-            last_rules: IoRoutes::default(),
-            new_rules: io_routes,
-        }],
-        &mut global_state.device_manager,
-        &*resources.read().unwrap(),
-    )
-    .unwrap();
-
     // start up midi and audio
     let (to_realtime, from_main) = flume::unbounded();
     let (to_main, from_realtime) = flume::unbounded();
@@ -126,10 +53,6 @@ fn main() {
             graph_state.get_traverser(&*resources.clone().read().unwrap()).unwrap(),
         ))
         .unwrap();
-
-    for invalidation in invalidations {
-        to_realtime.send(invalidation).unwrap();
-    }
 
     to_realtime
         .send(ToAudioThread::NewRouteRules {

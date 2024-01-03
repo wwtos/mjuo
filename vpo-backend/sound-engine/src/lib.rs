@@ -29,7 +29,7 @@ pub struct SoundConfig {
 impl Default for SoundConfig {
     fn default() -> Self {
         SoundConfig {
-            sample_rate: 44_100,
+            sample_rate: 48_000,
             buffer_size: 64,
         }
     }

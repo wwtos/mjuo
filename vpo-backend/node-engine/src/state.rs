@@ -12,7 +12,7 @@ use serde_json::{json, Value};
 use sound_engine::SoundConfig;
 
 use crate::{
-    connection::{Socket, SocketType, SocketValue},
+    connection::{Socket, SocketValue},
     errors::{NodeError, WarningExt},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     io_routing::IoRoutes,
@@ -140,7 +140,6 @@ pub struct GraphState {
     place_in_history: usize,
     graph_manager: GraphManager,
     root_graph_index: GraphIndex,
-    io_nodes: IoNodes,
     io_routing: IoRoutes,
     sound_config: SoundConfig,
     default_channel_count: usize,
@@ -153,43 +152,14 @@ impl GraphState {
         let history = Vec::new();
         let place_in_history = 0;
 
-        let mut graph_manager: GraphManager = GraphManager::new(default_channel_count);
-
+        let graph_manager: GraphManager = GraphManager::new(default_channel_count);
         let root_graph_index = graph_manager.root_index();
-
-        let (output_node, input_node) = {
-            let graph = graph_manager.get_graph_mut(root_graph_index)?;
-
-            let (input_node, _) = graph.add_node("InputsNode".into())?.value;
-            let (output_node, _) = graph.add_node("OutputsNode".into())?.value;
-
-            let mut modified_input = graph.get_node(input_node)?.clone();
-            let mut modified_output = graph.get_node(output_node)?.clone();
-
-            modified_input.set_property(
-                "socket_list".into(),
-                Property::SocketList(vec![Socket::Simple("midi".into(), SocketType::Midi, 1)]),
-            );
-            modified_output.set_property(
-                "socket_list".into(),
-                Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 2)]),
-            );
-
-            graph.update_node(input_node, modified_input)?;
-            graph.update_node(output_node, modified_output)?;
-
-            (output_node, input_node)
-        };
 
         Ok(GraphState {
             history,
             place_in_history,
             graph_manager,
             root_graph_index,
-            io_nodes: IoNodes {
-                input: input_node,
-                output: output_node,
-            },
             io_routing: IoRoutes::default(),
             default_channel_count,
             sound_config,
@@ -252,10 +222,6 @@ impl GraphState {
         self.graph_manager
             .get_graph(self.root_graph_index)
             .expect("root graph to exist")
-    }
-
-    pub fn get_io_nodes(&self) -> IoNodes {
-        self.io_nodes.clone()
     }
 
     pub fn get_sound_config(&self) -> SoundConfig {
@@ -407,12 +373,6 @@ impl GraphState {
                 )
             }
             Action::RemoveNode { index } => {
-                if index.graph_index == self.root_graph_index
-                    && (index.node_index == self.io_nodes.input || index.node_index == self.io_nodes.output)
-                {
-                    return Err(NodeError::CannotDeleteRootNode);
-                }
-
                 let (diff, invalidation) = self.graph_manager.remove_node(index)?;
 
                 (
@@ -546,17 +506,17 @@ impl GraphState {
         json!({
             "graphManager": self.graph_manager,
             "rootGraphIndex": self.root_graph_index,
-            "ioNodes": self.io_nodes,
             "defaultChannelCount": self.default_channel_count,
+            "routing": self.io_routing
         })
     }
 
-    pub fn load_state(&mut self, graph_manager: GraphManager, root_graph_index: GraphIndex, io_nodes: IoNodes) {
+    pub fn load_state(&mut self, graph_manager: GraphManager, root_graph_index: GraphIndex, routing: IoRoutes) {
         self.history.clear();
         self.place_in_history = 0;
         self.graph_manager = graph_manager;
         self.root_graph_index = root_graph_index;
-        self.io_nodes = io_nodes;
+        self.io_routing = routing;
 
         self.graph_manager.set_default_channel_count(self.default_channel_count);
 
