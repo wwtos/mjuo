@@ -60,9 +60,6 @@ pub fn start_sound_engine(
     let start = Instant::now();
     let mut buffer_time = Duration::ZERO;
 
-    let mut debug_counter = 0;
-    let mut emitted_count = 0;
-
     loop {
         let sample_duration =
             Duration::from_secs_f64(sound_config.buffer_size as f64 / sound_config.sample_rate as f64);
@@ -160,9 +157,7 @@ pub fn start_sound_engine(
 
                                     match node {
                                         // TODO: make sure buffer cloning isn't too expensive
-                                        NodeVariant::InputsNode(inputs_node) => {
-                                            inputs_node.set_midis(vec![buffer.clone()])
-                                        }
+                                        NodeVariant::InputsNode(inputs_node) => inputs_node.set_midis(buffer.clone()),
                                         _ => panic!("connected node is not input node"),
                                     }
                                 }
@@ -174,16 +169,14 @@ pub fn start_sound_engine(
 
                                 match node {
                                     NodeVariant::InputsNode(inputs_node) => {
-                                        for (sample, sample_in) in inputs_node.streams_mut()[rule.node_socket]
-                                            [rule.node_channel]
+                                        for (sample, sample_in) in inputs_node.streams_mut()[rule.node_channel]
                                             .iter_mut()
                                             .zip(buffer.iter().skip(rule.device_channel).step_by(source.channels()))
                                         {
                                             *sample = *sample_in;
                                         }
 
-                                        inputs_node.streams_mut()[rule.node_socket][rule.node_channel]
-                                            .copy_from_slice(&buffer[..]);
+                                        inputs_node.streams_mut()[rule.node_channel].copy_from_slice(&buffer[..]);
                                     }
                                     _ => panic!("connected node is not input node"),
                                 }
@@ -208,7 +201,7 @@ pub fn start_sound_engine(
 
                                 match node {
                                     NodeVariant::OutputsNode(node) => {
-                                        for message in &node.get_midis()[rule.node_socket][rule.node_channel] {
+                                        for message in &node.get_midis()[0][rule.node_channel] {
                                             buffer.push(message.clone());
                                         }
                                     }
@@ -222,7 +215,7 @@ pub fn start_sound_engine(
 
                                 match node {
                                     NodeVariant::OutputsNode(node) => {
-                                        for (sample, out) in node.get_streams()[rule.node_socket][rule.node_channel]
+                                        for (sample, out) in node.get_streams()[0][rule.node_channel]
                                             .iter()
                                             .zip(buffer.iter_mut().skip(rule.device_channel).step_by(sink.channels()))
                                         {
@@ -256,8 +249,6 @@ pub fn start_sound_engine(
         }
 
         for (_, (sink, buffer)) in stream_sinks.iter_mut() {
-            emitted_count += buffer.len() / sink.channels();
-
             for sample in buffer.iter_mut() {
                 let _ = sink.interleaved_out.push(*sample);
 
@@ -280,9 +271,5 @@ pub fn start_sound_engine(
         if buffer_time > now {
             thread::sleep(buffer_time - now);
         }
-
-        // println!("emitted/second: {}", emitted_count as f64 / buffer_time.as_secs_f64());
-
-        debug_counter += 1;
     }
 }

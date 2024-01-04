@@ -24,7 +24,6 @@ pub struct RouteRule {
     pub device_direction: DeviceDirection,
     pub device_channel: usize,
     pub node: NodeIndex,
-    pub node_socket: usize,
     pub node_channel: usize,
 }
 

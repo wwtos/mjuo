@@ -44,7 +44,7 @@ impl Node for UpDownMixerNode {
         UpDownMixerNode {}
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         let input_channels = props

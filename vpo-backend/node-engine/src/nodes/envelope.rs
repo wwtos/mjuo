@@ -60,7 +60,7 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("gate", Primitive::Boolean(false), 1),
             value_output("gain", 1),

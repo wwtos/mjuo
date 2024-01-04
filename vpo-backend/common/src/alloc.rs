@@ -80,7 +80,7 @@ impl BuddyArena {
 
         BuddyArena {
             _space: space,
-            heap: heap.into(),
+            heap: UnsafeCell::new(heap),
         }
     }
 

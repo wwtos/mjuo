@@ -38,8 +38,7 @@ pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
             invalidations,
             &mut state.global_state.device_manager,
             &*state.resources_lock.read().unwrap(),
-        )
-        .context(NodeSnafu)?,
+        )?,
         new_project: false,
     })
 }

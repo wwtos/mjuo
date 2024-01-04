@@ -114,7 +114,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
 pub fn variant_io(
     node_type: &str,
     ctx: &NodeGetIoContext,
-    props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
+    props: SeaHashMap<String, Property>,
 ) -> Result<NodeIo, NodeError> {
     match node_type {
         "GainNode" => Ok(GainNode::get_io(ctx, props)),

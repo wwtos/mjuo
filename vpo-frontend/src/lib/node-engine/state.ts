@@ -5,6 +5,16 @@ import type { GlobalNodeIndex } from "./graph_manager";
 import type { NodeRow } from "./node";
 import type { Property } from "./property";
 
+export type RouteRule = {
+    deviceId: string,
+
+};
+
+export type IoRoutes = {
+    rules: Array<RouteRule>,
+    devices: Array<DeviceInfo>,
+};
+
 export type Action = DiscriminatedUnion<"variant", {
     CreateNode: {
         data: {
@@ -62,6 +72,11 @@ export type Action = DiscriminatedUnion<"variant", {
         data: {
             index: GlobalNodeIndex,
             overrides: Array<NodeRow>
+        }
+    },
+    ChangeRouteRules: {
+        data: {
+            newRules: IoRoutes
         }
     }
 }>;

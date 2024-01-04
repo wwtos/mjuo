@@ -69,6 +69,7 @@ pub enum Action {
         overrides: Vec<NodeRow>,
     },
     ChangeRouteRules {
+        #[serde(rename = "newRules")]
         new_rules: IoRoutes,
     },
 }

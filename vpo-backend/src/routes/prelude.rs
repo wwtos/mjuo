@@ -6,9 +6,11 @@ use node_engine::io_routing::{DeviceDirection, DeviceType, IoRoutes};
 use node_engine::resources::Resources;
 pub(super) use node_engine::state::ActionBundle;
 use node_engine::state::{ActionInvalidation, GraphState};
+use snafu::ResultExt;
 
 pub(super) use crate::engine::ToAudioThread;
 pub(super) use crate::errors::EngineError;
+use crate::errors::NodeSnafu;
 use crate::io::clocked::{DeviceManager, StreamConfigOptions};
 pub(super) use crate::routes::{RouteReturn, RouteState};
 
@@ -17,7 +19,7 @@ pub fn state_invalidations(
     invalidations: Vec<ActionInvalidation>,
     device_manager: &mut DeviceManager,
     resources: &Resources,
-) -> Result<Vec<ToAudioThread>, NodeError> {
+) -> Result<Vec<ToAudioThread>, EngineError> {
     let mut new_engine_needed = false;
     let mut new_defaults = vec![];
     let mut updates = vec![];
@@ -168,14 +170,12 @@ pub fn state_invalidations(
                                         state.get_sound_config().sample_rate,
                                         device_config.buffer_size as u32,
                                         2,
-                                    );
+                                    )?;
 
-                                    if let Some(stream) = instance {
-                                        updates.push(ToAudioThread::NewCpalSink {
-                                            name: device.to_string(),
-                                            sink: stream,
-                                        });
-                                    }
+                                    updates.push(ToAudioThread::NewCpalSink {
+                                        name: device.to_string(),
+                                        sink: instance,
+                                    });
                                 }
                             }
                         },
@@ -186,7 +186,9 @@ pub fn state_invalidations(
     }
 
     if new_engine_needed {
-        updates.push(ToAudioThread::NewTraverser(state.create_traverser(resources)?));
+        updates.push(ToAudioThread::NewTraverser(
+            state.create_traverser(resources).context(NodeSnafu)?,
+        ));
     }
 
     if !new_defaults.is_empty() {

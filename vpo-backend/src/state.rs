@@ -30,6 +30,7 @@ impl GlobalState {
     pub fn to_json(&self) -> serde_json::Value {
         json!({
             "activeProject": self.active_project,
+            "devices": self.device_manager.devices_as_json(),
         })
     }
 }

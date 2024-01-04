@@ -112,16 +112,42 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
-        if let Some(Property::SocketList(sockets)) = props.get("socket_list") {
-            NodeIo::simple(
-                sockets
-                    .iter()
-                    .map(|socket_type| NodeRow::from_type_and_direction(socket_type.clone(), SocketDirection::Input))
-                    .collect::<Vec<NodeRow>>(),
-            )
-        } else {
-            NodeIo::simple(vec![])
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+        let channels = default_channels(&props, context.default_channel_count);
+
+        let mut node_rows = vec![
+            with_channels(context.default_channel_count),
+            property("name", PropertyType::String, Property::String("".into())),
+            property("audio_count", PropertyType::Integer, Property::Integer(1)),
+            property("midi_count", PropertyType::Integer, Property::Integer(1)),
+        ];
+
+        let streams = props
+            .get("audio_count")
+            .and_then(|x| x.as_integer())
+            .unwrap_or(1)
+            .max(1) as usize;
+        let midis = props.get("midi_count").and_then(|x| x.as_integer()).unwrap_or(1).max(1) as usize;
+
+        for i in 0..streams {
+            node_rows.push(NodeRow::Input(
+                Socket::WithData(
+                    "audio_out_numbered".into(),
+                    (i + 1).to_string(),
+                    SocketType::Stream,
+                    channels,
+                ),
+                SocketValue::None,
+            ));
         }
+
+        for i in 0..midis {
+            node_rows.push(NodeRow::Input(
+                Socket::WithData("midi_out_numbered".into(), (i + 1).to_string(), SocketType::Midi, 1),
+                SocketValue::None,
+            ));
+        }
+
+        NodeIo::simple(node_rows)
     }
 }

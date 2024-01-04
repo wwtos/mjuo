@@ -49,7 +49,7 @@ impl Node for WavetableNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             resource("wavetable", "samples"),
             value_input("frequency", Primitive::Float(440.0), 1),

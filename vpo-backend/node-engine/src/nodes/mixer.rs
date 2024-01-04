@@ -37,7 +37,7 @@ impl Node for MixerNode {
         MixerNode {}
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property, BuildHasherDefault<SeaHasher>>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         let mut node_rows = vec![

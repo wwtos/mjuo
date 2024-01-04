@@ -19,6 +19,8 @@ pub(super) use crate::{
     property::{Property, PropertyType},
 };
 
+pub(super) type SeaHashMap<K, V> = HashMap<K, V, BuildHasherDefault<SeaHasher>>;
+
 // TODO: implement all primitive types
 pub fn float(val: f32) -> Primitive {
     Primitive::Float(val)

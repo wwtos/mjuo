@@ -1,6 +1,6 @@
 use core::fmt;
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt::Debug,
     ops::Range,
     thread::JoinHandle,
@@ -17,6 +17,11 @@ use cpal::{
 use generational_arena::Index;
 use midir::{MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort};
 use node_engine::io_routing::DeviceDirection;
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use snafu::{OptionExt, ResultExt};
+
+use crate::errors::{DeviceNotInCpalListSnafu, DeviceStartSnafu, EngineError};
 
 pub enum MidiDevice {
     Source(MidiInputPort),
@@ -37,8 +42,22 @@ pub struct CpalDeviceStatus {
     pub source_handle: Option<cpal::Stream>,
     pub host_id: HostId,
     pub name: String,
-    pub is_sink: bool,
-    pub is_source: bool,
+    pub source_options: Option<StreamConfigOptions>,
+    pub sink_options: Option<StreamConfigOptions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CpalJsonDeviceStatus {
+    name: String,
+    source_options: Option<StreamConfigOptions>,
+    sink_options: Option<StreamConfigOptions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MidirJsonDeviceStatus {
+    name: String,
 }
 
 impl fmt::Debug for CpalDeviceStatus {
@@ -48,8 +67,8 @@ impl fmt::Debug for CpalDeviceStatus {
             .field("source_handle", &self.sink_handle.as_ref().map(|_| "Stream { .. }"))
             .field("host_id", &format!("HostId({})", self.host_id.name()))
             .field("name", &self.name)
-            .field("is_sink", &self.is_sink)
-            .field("is_source", &self.is_source)
+            .field("input_options", &self.source_options)
+            .field("output_options", &self.sink_options)
             .finish()
     }
 }
@@ -75,7 +94,7 @@ pub struct CpalIndex(pub Index);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MidirIndex(pub Index);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamConfigOptions {
     pub channels: Range<u32>,
     pub sample_rate: Range<u32>,
@@ -236,11 +255,27 @@ impl DeviceManager {
                         .map(|mut x| x.any(|_| true))
                         .unwrap_or(false);
 
+                    let source_options = if is_source {
+                        Some(DeviceManager::cpal_simplify_configs(
+                            device.supported_input_configs().map(|x| x.collect()).unwrap_or(vec![]),
+                        ))
+                    } else {
+                        None
+                    };
+
+                    let sink_options = if is_sink {
+                        Some(DeviceManager::cpal_simplify_configs(
+                            device.supported_output_configs().map(|x| x.collect()).unwrap_or(vec![]),
+                        ))
+                    } else {
+                        None
+                    };
+
                     CpalDeviceStatus {
                         host_id: id,
                         name: device.name().unwrap(),
-                        is_sink,
-                        is_source,
+                        source_options,
+                        sink_options,
                         sink_handle: None,
                         source_handle: None,
                     }
@@ -253,9 +288,7 @@ impl DeviceManager {
         let mut new_indexes = vec![];
 
         for new_device in current_device_list {
-            if !self.cpal_statuses.iter().any(|(_, x)| {
-                x.name == new_device.name && x.is_sink == new_device.is_sink && x.is_source == new_device.is_source
-            }) {
+            if !self.cpal_statuses.iter().any(|(_, x)| x.name == new_device.name) {
                 println!("adding: {:?}", new_device.name);
 
                 new_indexes.push(new_device.name.clone());
@@ -264,6 +297,41 @@ impl DeviceManager {
         }
 
         (new_indexes, vec![])
+    }
+
+    pub fn devices_as_json(&self) -> serde_json::Value {
+        let cpal: HashMap<String, CpalJsonDeviceStatus> = self
+            .cpal_statuses
+            .iter()
+            .map(|(key, value)| {
+                (
+                    key.clone(),
+                    CpalJsonDeviceStatus {
+                        name: value.name.clone(),
+                        source_options: value.source_options.clone(),
+                        sink_options: value.sink_options.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        let midir: HashMap<String, MidirJsonDeviceStatus> = self
+            .midir_statuses
+            .iter()
+            .map(|(key, value)| {
+                (
+                    key.clone(),
+                    MidirJsonDeviceStatus {
+                        name: value.name.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        json!({
+            "streams": cpal,
+            "midi": midir
+        })
     }
 
     pub fn cpal_devices(&self) -> &BTreeMap<String, CpalDeviceStatus> {
@@ -346,14 +414,22 @@ impl DeviceManager {
         sample_rate: u32,
         buffer_size: u32,
         periods: usize,
-    ) -> Option<CpalSink> {
+    ) -> Result<CpalSink, EngineError> {
         if let Some(device) = self.cpal_statuses.get(device_name) {
             if device.sink_handle.is_some() {
-                return None;
+                return Err(EngineError::DeviceAlreadyStarted {
+                    device_name: device_name.to_string(),
+                });
             }
 
+            let device = self
+                .cpal_get_device(device_name)
+                .with_context(|| DeviceNotInCpalListSnafu {
+                    device_name: device_name.to_string(),
+                })?;
+
             let (handle, instance) = start_cpal_sink(
-                &self.cpal_get_device(device_name)?,
+                &device,
                 &StreamConfig {
                     channels: channels as u16,
                     sample_rate: SampleRate(sample_rate),
@@ -363,13 +439,15 @@ impl DeviceManager {
                 buffer_size as usize,
                 periods,
             )
-            .ok()?;
+            .context(DeviceStartSnafu)?;
 
             self.cpal_statuses.get_mut(device_name).unwrap().sink_handle = Some(handle);
 
-            Some(instance)
+            Ok(instance)
         } else {
-            None
+            Err(EngineError::DeviceDoesNotExist {
+                device_name: device_name.into(),
+            })
         }
     }
 
@@ -466,7 +544,20 @@ impl DeviceManager {
 
 pub struct DeviceState {}
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+const SAMPLE_TYPE_PREFERENCE: [MySampleFormat; 10] = [
+    MySampleFormat::F32,
+    MySampleFormat::F64,
+    MySampleFormat::I64,
+    MySampleFormat::U64,
+    MySampleFormat::I32,
+    MySampleFormat::U32,
+    MySampleFormat::I16,
+    MySampleFormat::U16,
+    MySampleFormat::I8,
+    MySampleFormat::U8,
+];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum MySampleFormat {
     I8,
     I16,
