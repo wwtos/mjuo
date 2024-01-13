@@ -6,13 +6,11 @@ use crate::nodes::prelude::*;
 pub struct InputsNode {
     midis: Option<MidiChannel>,
     streams: Vec<Vec<f32>>,
-    sent: bool,
 }
 
 impl InputsNode {
     pub fn set_midis(&mut self, midis: MidiChannel) {
         self.midis = Some(midis);
-        self.sent = false;
     }
 
     pub fn streams_mut(&mut self) -> &mut Vec<Vec<f32>> {
@@ -56,15 +54,17 @@ impl NodeRuntime for InputsNode {
         midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        if let Some(midis) = &mut self.midis {
-            outs.midi(0)[0] = midi_store.register_midis(midis.drain(..));
+        if outs.midis_len() > 0 {
+            if let Some(midis) = &mut self.midis {
+                outs.midi(0)[0] = midi_store.register_midis(midis.drain(..));
 
-            self.midis = None;
-        } else {
-            outs.midi(0)[0] = None;
+                self.midis = None;
+            } else {
+                outs.midi(0)[0] = None;
+            }
         }
 
-        if !self.streams.is_empty() {
+        if outs.streams_len() > 0 {
             for (channel_out, channel) in outs.stream(0).iter_mut().zip(self.streams.iter()) {
                 channel_out.copy_from_slice(&channel[..]);
             }
@@ -79,7 +79,6 @@ impl Node for InputsNode {
         InputsNode {
             midis: None,
             streams: vec![],
-            sent: false,
         }
     }
 
@@ -104,7 +103,7 @@ impl Node for InputsNode {
                 node_rows.push(stream_output("audio", channels));
             }
             SocketType::Midi => {
-                node_rows.push(midi_output("audio", 1));
+                node_rows.push(midi_output("midi", 1));
             }
             _ => {}
         }

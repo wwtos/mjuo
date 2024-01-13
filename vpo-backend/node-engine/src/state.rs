@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     hash::BuildHasherDefault,
     mem,
     time::Duration,
@@ -445,6 +445,17 @@ impl GraphState {
                 )
             }
             Action::ChangeRouteRules { new_rules } => {
+                // ensure rules are all unique
+                let mut new_rules_set = BTreeSet::new();
+
+                for rule in new_rules.devices.iter() {
+                    let unique = new_rules_set.insert((&rule.name, rule.device_type, rule.device_direction));
+
+                    if !unique {
+                        return Err(NodeError::RouteRulesNotUnique { rules: new_rules });
+                    }
+                }
+
                 let old_rules = self.get_route_rules();
 
                 self.io_routing = new_rules.clone();
@@ -508,7 +519,7 @@ impl GraphState {
             "graphManager": self.graph_manager,
             "rootGraphIndex": self.root_graph_index,
             "defaultChannelCount": self.default_channel_count,
-            "routing": self.io_routing
+            "ioRouting": self.io_routing
         })
     }
 

@@ -15,6 +15,7 @@ use cpal::{
     Device, Host, HostId, SampleFormat, SampleRate, StreamConfig, SupportedStreamConfigRange,
 };
 use generational_arena::Index;
+use log::trace;
 use midir::{MidiInput, MidiInputConnection, MidiInputPort, MidiOutput, MidiOutputPort};
 use node_engine::io_routing::DeviceDirection;
 use serde::{Deserialize, Serialize};
@@ -52,12 +53,16 @@ struct CpalJsonDeviceStatus {
     name: String,
     source_options: Option<StreamConfigOptions>,
     sink_options: Option<StreamConfigOptions>,
+    source_taken: bool,
+    sink_taken: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MidirJsonDeviceStatus {
     name: String,
+    source_taken: bool,
+    sink_taken: bool,
 }
 
 impl fmt::Debug for CpalDeviceStatus {
@@ -96,7 +101,7 @@ pub struct MidirIndex(pub Index);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamConfigOptions {
-    pub channels: Range<u32>,
+    pub channels: Range<u16>,
     pub sample_rate: Range<u32>,
     pub buffer_size: Range<usize>,
     pub sample_formats: BTreeSet<MySampleFormat>,
@@ -228,7 +233,7 @@ impl DeviceManager {
                 .iter()
                 .any(|(_, x)| x.name == new_device.name && x.device.device_type() == new_device.device.device_type())
             {
-                println!("adding: {:?}", new_device.name);
+                trace!("tracking midi device: {:?}", new_device.name);
 
                 new_indexes.push(new_device.name.clone());
                 self.midir_statuses.insert(new_device.name.clone(), new_device);
@@ -289,7 +294,7 @@ impl DeviceManager {
 
         for new_device in current_device_list {
             if !self.cpal_statuses.iter().any(|(_, x)| x.name == new_device.name) {
-                println!("adding: {:?}", new_device.name);
+                trace!("tracking audio device: {:?}", new_device.name);
 
                 new_indexes.push(new_device.name.clone());
                 self.cpal_statuses.insert(new_device.name.clone(), new_device);
@@ -303,13 +308,15 @@ impl DeviceManager {
         let cpal: HashMap<String, CpalJsonDeviceStatus> = self
             .cpal_statuses
             .iter()
-            .map(|(key, value)| {
+            .map(|(key, status)| {
                 (
                     key.clone(),
                     CpalJsonDeviceStatus {
-                        name: value.name.clone(),
-                        source_options: value.source_options.clone(),
-                        sink_options: value.sink_options.clone(),
+                        name: status.name.clone(),
+                        source_options: status.source_options.clone(),
+                        sink_options: status.sink_options.clone(),
+                        source_taken: status.source_handle.is_some(),
+                        sink_taken: status.sink_handle.is_some(),
                     },
                 )
             })
@@ -318,11 +325,13 @@ impl DeviceManager {
         let midir: HashMap<String, MidirJsonDeviceStatus> = self
             .midir_statuses
             .iter()
-            .map(|(key, value)| {
+            .map(|(key, status)| {
                 (
                     key.clone(),
                     MidirJsonDeviceStatus {
-                        name: value.name.clone(),
+                        name: status.name.clone(),
+                        source_taken: status.source_handle.is_some(),
+                        sink_taken: status.sink_handle.is_some(),
                     },
                 )
             })
@@ -370,12 +379,12 @@ impl DeviceManager {
     }
 
     pub fn cpal_simplify_configs(configs: Vec<SupportedStreamConfigRange>) -> StreamConfigOptions {
-        let min_channels = configs.iter().map(|x| x.channels()).min().unwrap_or(0) as u32;
-        let mut max_channels = configs.iter().map(|x| x.channels()).max().unwrap_or(0) as u32;
+        let min_channels = configs.iter().map(|x| x.channels()).min().unwrap_or(0) as u16;
+        let mut max_channels = configs.iter().map(|x| x.channels()).max().unwrap_or(0) as u16;
 
-        if max_channels == 32 {
-            max_channels = u32::MAX; // silly cpal
-        }
+        // if max_channels == 32 {
+        //     max_channels = u16::MAX; // silly cpal
+        // }
 
         let min_sample_rate = configs.iter().map(|x| x.min_sample_rate().0).min().unwrap_or(0);
         let max_sample_rate = configs.iter().map(|x| x.max_sample_rate().0).max().unwrap_or(0);
@@ -497,6 +506,12 @@ impl DeviceManager {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.cpal_statuses.clear();
+        self.midir_statuses.clear();
+        self.rescan_devices();
+    }
+
     pub fn midir_devices(&self) -> &BTreeMap<String, MidirDeviceStatus> {
         &self.midir_statuses
     }
@@ -558,6 +573,7 @@ const SAMPLE_TYPE_PREFERENCE: [MySampleFormat; 10] = [
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(tag = "variant", content = "data")]
 pub enum MySampleFormat {
     I8,
     I16,

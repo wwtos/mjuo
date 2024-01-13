@@ -11,7 +11,7 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 
 use common::resource_manager::ResourceManager;
-use node_engine::io_routing::IoRoutes;
+use log::info;
 use node_engine::resources::Resources;
 use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -22,7 +22,7 @@ use snafu::{OptionExt, ResultExt};
 use sound_engine::SoundConfig;
 use walkdir::WalkDir;
 
-use crate::errors::{IoSnafu, JsonParserSnafu};
+use crate::errors::{IoSnafu, JsonParserInContextSnafu, JsonParserSnafu};
 
 use crate::errors::EngineError;
 use crate::migrations::migrate;
@@ -32,7 +32,7 @@ use crate::resource::ui::load_ui_from_file;
 
 const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
-    pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
+    pub static ref VERSION: Version = Version::parse("0.5.0").unwrap();
 }
 
 pub fn save(state: &GraphState, path: &Path) -> Result<(), EngineError> {
@@ -117,7 +117,7 @@ pub fn load_single(
     let resource_type = relative_file.iter().next().unwrap();
     let resource = relative_file.strip_prefix(resource_type).unwrap().to_string_lossy();
 
-    println!("type: {:?}, resource: {:?}", resource_type, resource);
+    info!("loading resource: `{:?}` of type {:?}", resource, resource_type);
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
@@ -150,11 +150,11 @@ pub fn load_single(
     Ok(())
 }
 
-pub fn load(
+pub fn load_state(
     path: &Path,
+    config: SoundConfig,
     state: &mut GraphState,
     resources: &mut Resources,
-    config: SoundConfig,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
         .parent()
@@ -163,20 +163,19 @@ pub fn load(
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    if let Some(version) = json["version"].as_str() {
-        if version != VERSION.to_string() {
-            migrate(PathBuf::from(path))?;
-        }
+    let file_version = json["version"]
+        .as_str()
+        .whatever_context("Version number missing in file".to_string())?;
+
+    if file_version != VERSION.to_string() {
+        migrate(PathBuf::from(path))?;
     }
 
     // read again after migrating (TODO: only do when necessary)
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = GraphState::new(SoundConfig::default()).unwrap();
-    resources.reset();
-
-    println!("Loading resources...");
+    info!("Loading resources...");
     let time = Instant::now();
 
     let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &|path| {
@@ -191,15 +190,17 @@ pub fn load(
     resources.ranks.extend(ranks);
     resources.ui.extend(ui);
 
-    println!("Loaded! Took {:?} seconds", time.elapsed());
+    info!("Loaded! Took {:?}", time.elapsed());
 
     let json_state = &mut json["state"];
 
     let graph_manager = serde_json::from_value(json_state["graphManager"].take()).context(JsonParserSnafu)?;
     let root_graph_index = serde_json::from_value(json_state["rootGraphIndex"].take()).context(JsonParserSnafu)?;
-    let io_nodes = serde_json::from_value(json_state["ioNodes"].take()).context(JsonParserSnafu)?;
+    let io_routing = serde_json::from_value(json_state["ioRouting"].take()).context(JsonParserInContextSnafu {
+        context: "state.ioRouting".to_string(),
+    })?;
 
-    state.load_state(graph_manager, root_graph_index, io_nodes);
+    state.load_state(graph_manager, root_graph_index, io_routing);
 
     let (tx, rx) = mpsc::channel();
     let mut watcher =

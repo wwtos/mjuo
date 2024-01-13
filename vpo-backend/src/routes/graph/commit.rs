@@ -7,7 +7,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{JsonParserSnafu, NodeSnafu},
     routes::prelude::*,
-    util::{send_global_state_updates, send_graph_updates},
+    util::{send_graph_updates, send_project_state_updates},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -48,7 +48,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     }
 
     if new_route_rules {
-        send_global_state_updates(state.global_state, state.to_server)?;
+        send_project_state_updates(state.state, state.global_state, state.to_server)?;
     }
 
     Ok(RouteReturn {

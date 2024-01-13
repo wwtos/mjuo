@@ -28,7 +28,7 @@ pub enum EngineError {
     #[snafu(display("Json parser error: `{source}`"))]
     JsonParserError { source: serde_json::error::Error },
     #[snafu(display("Json parser error: `{source}` ({context})"))]
-    JsonParserErrorInContext {
+    JsonParserInContextError {
         source: serde_json::error::Error,
         context: String,
     },

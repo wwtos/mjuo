@@ -1,25 +1,21 @@
-use std::iter::repeat;
+use std::iter::repeat_with;
 
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
-    values: Vec<Vec<Primitive>>,
-    midis: Vec<Vec<MidiChannel>>,
-    streams: Vec<Vec<Vec<f32>>>,
+    midis: Option<MidiChannel>,
+    midi_stale: bool,
+    streams: Vec<Vec<f32>>,
 }
 
 impl OutputsNode {
-    pub fn get_streams(&self) -> &Vec<Vec<Vec<f32>>> {
+    pub fn get_streams(&self) -> &Vec<Vec<f32>> {
         &self.streams
     }
 
-    pub fn get_midis(&self) -> &Vec<Vec<MidiChannel>> {
+    pub fn get_midis(&self) -> &Option<MidiChannel> {
         &self.midis
-    }
-
-    pub fn get_values(&self) -> &Vec<Vec<Primitive>> {
-        &self.values
     }
 }
 
@@ -32,23 +28,21 @@ impl NodeRuntime for OutputsNode {
         midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        for (socket_in, socket) in ins.midis().zip(self.midis.iter_mut()) {
-            for (channel_in, channel) in socket_in.iter().zip(socket.iter_mut()) {
-                channel.clear();
+        if self.midi_stale {
+            self.midis = None;
+        }
 
-                if let Some(midi) = channel_in {
-                    channel.clone_from_slice(midi_store.borrow_midi(midi).unwrap());
-                }
+        if ins.midis_len() > 0 {
+            if let Some(midi_index) = &ins.midi(0)[0] {
+                self.midis = midi_store.borrow_midi(midi_index).map(|midi| midi.to_vec());
+                self.midi_stale = false;
+            } else {
+                self.midi_stale = true;
             }
         }
 
-        for (socket_in, local_in) in ins.values().zip(self.values.iter_mut()) {
-            local_in.clear();
-            local_in.extend(socket_in.iter());
-        }
-
-        for (socket_in, local_in) in ins.streams().zip(self.streams.iter_mut()) {
-            for (channel_in, local_channel_in) in socket_in.iter().zip(local_in.iter_mut()) {
+        if ins.streams_len() > 0 {
+            for (channel_in, local_channel_in) in ins.stream(0).iter().zip(self.streams.iter_mut()) {
                 local_channel_in.clear();
 
                 local_channel_in.extend(channel_in.iter());
@@ -59,44 +53,27 @@ impl NodeRuntime for OutputsNode {
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let buffer_size = params.sound_config.buffer_size;
+        let channels = default_channels(&params.props, params.default_channel_count);
 
-        if let Some(Property::SocketList(sockets)) = params.props.get("socket_list") {
-            self.midis.clear();
-            self.values.clear();
-            self.streams.clear();
+        let type_str = params.props.get("type").and_then(|x| x.clone().as_multiple_choice());
+        let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
+            Some("stream") => SocketType::Stream,
+            Some("midi") => SocketType::Midi,
+            _ => SocketType::Stream,
+        };
 
-            for socket in sockets {
-                let socket_type = socket.socket_type();
-                let channels = socket.channels();
-
-                match socket_type {
-                    SocketType::Stream => {
-                        self.streams
-                            .push(repeat(vec![0.0; buffer_size]).take(channels).collect());
-                    }
-                    SocketType::Midi => {
-                        self.midis.push(repeat(vec![]).take(channels).collect());
-                    }
-                    SocketType::Value => {
-                        self.values.push(repeat(Primitive::None).take(channels).collect());
-                    }
-                    SocketType::NodeRef => {}
-                }
+        match socket_type {
+            SocketType::Stream => {
+                self.midis = None;
+                self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
+                    .take(channels)
+                    .collect();
             }
-
-            let midi_outputs = sockets
-                .iter()
-                .filter(|output| output.socket_type() == SocketType::Midi)
-                .count();
-
-            let value_outputs = sockets
-                .iter()
-                .filter(|output| output.socket_type() == SocketType::Value)
-                .count();
-
-            self.midis.resize_with(midi_outputs, || vec![vec![]]);
-            self.values.resize_with(value_outputs, || vec![Primitive::None]);
+            SocketType::Midi => {
+                self.midis = None;
+                self.streams = vec![];
+            }
+            _ => {}
         }
 
         InitResult::nothing()
@@ -106,8 +83,8 @@ impl NodeRuntime for OutputsNode {
 impl Node for OutputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         OutputsNode {
-            values: vec![],
-            midis: vec![],
+            midis: None,
+            midi_stale: true,
             streams: vec![],
         }
     }
@@ -115,37 +92,27 @@ impl Node for OutputsNode {
     fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
+        let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());
+        let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
+            Some("stream") => SocketType::Stream,
+            Some("midi") => SocketType::Midi,
+            _ => SocketType::Stream,
+        };
+
         let mut node_rows = vec![
-            with_channels(context.default_channel_count),
             property("name", PropertyType::String, Property::String("".into())),
-            property("audio_count", PropertyType::Integer, Property::Integer(1)),
-            property("midi_count", PropertyType::Integer, Property::Integer(1)),
+            multiple_choice("type", &["midi", "stream"], "stream"),
         ];
 
-        let streams = props
-            .get("audio_count")
-            .and_then(|x| x.as_integer())
-            .unwrap_or(1)
-            .max(1) as usize;
-        let midis = props.get("midi_count").and_then(|x| x.as_integer()).unwrap_or(1).max(1) as usize;
-
-        for i in 0..streams {
-            node_rows.push(NodeRow::Input(
-                Socket::WithData(
-                    "audio_out_numbered".into(),
-                    (i + 1).to_string(),
-                    SocketType::Stream,
-                    channels,
-                ),
-                SocketValue::None,
-            ));
-        }
-
-        for i in 0..midis {
-            node_rows.push(NodeRow::Input(
-                Socket::WithData("midi_out_numbered".into(), (i + 1).to_string(), SocketType::Midi, 1),
-                SocketValue::None,
-            ));
+        match socket_type {
+            SocketType::Stream => {
+                node_rows.push(with_channels(context.default_channel_count));
+                node_rows.push(stream_input("audio", channels));
+            }
+            SocketType::Midi => {
+                node_rows.push(midi_input("midi", 1));
+            }
+            _ => {}
         }
 
         NodeIo::simple(node_rows)

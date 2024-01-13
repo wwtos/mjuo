@@ -32,9 +32,10 @@ pub enum ToAudioThread {
     RemoveMidirSink { name: String },
     RemoveMidirSource { name: String },
     NewRouteRules { rules: IoRoutes },
+    Reset,
 }
 
-/// start the sound engine (run in priority thread if possible)
+/// start the sound engine, blocking (run in priority thread if possible)
 pub fn start_sound_engine(
     resource_lock: Arc<RwLock<Resources>>,
     msg_in: flume::Receiver<ToAudioThread>,
@@ -106,6 +107,12 @@ pub fn start_sound_engine(
                 }
                 ToAudioThread::RemoveMidirSource { name } => {
                     midi_sources.remove(&name);
+                }
+                ToAudioThread::Reset => {
+                    midi_sinks.clear();
+                    midi_sources.clear();
+                    stream_sinks.clear();
+                    stream_sources.clear();
                 }
             };
         }
@@ -201,8 +208,10 @@ pub fn start_sound_engine(
 
                                 match node {
                                     NodeVariant::OutputsNode(node) => {
-                                        for message in &node.get_midis()[0][rule.node_channel] {
-                                            buffer.push(message.clone());
+                                        if let Some(messages) = node.get_midis() {
+                                            for message in messages.iter() {
+                                                buffer.push(message.clone());
+                                            }
                                         }
                                     }
                                     _ => panic!("connected node is not output node"),
@@ -215,7 +224,7 @@ pub fn start_sound_engine(
 
                                 match node {
                                     NodeVariant::OutputsNode(node) => {
-                                        for (sample, out) in node.get_streams()[0][rule.node_channel]
+                                        for (sample, out) in node.get_streams()[rule.node_channel]
                                             .iter()
                                             .zip(buffer.iter_mut().skip(rule.device_channel).step_by(sink.channels()))
                                         {

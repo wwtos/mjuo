@@ -37,6 +37,8 @@ generational-arena = "0.2.9"
 rubato = "0.14.1"
 thread-priority = "0.15.1"
 seahash = "4.1.0"
+log = "0.4.20"
+env_logger = "0.10.1"
 
 [lib]
 crate-type = ["cdylib", "lib"]

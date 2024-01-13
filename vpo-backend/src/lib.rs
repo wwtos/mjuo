@@ -58,7 +58,9 @@ pub async fn handle_msg(
     file_watcher: &mut FileWatcher,
     project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
-    let result = route(msg, to_server, state, global_state, resources_lock).await;
+    use log::error;
+
+    let result = route(msg, to_server, to_audio_thread, state, global_state, resources_lock).await;
 
     match result {
         Ok(route_result) => {
@@ -85,6 +87,8 @@ pub async fn handle_msg(
         }
         Err(err) => {
             let err_str = err.to_string();
+
+            error!("route error: {}", err_str);
 
             to_server
                 .send(IpcMessage::Json(json! {{

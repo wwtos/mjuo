@@ -5,11 +5,14 @@ use snafu::Snafu;
 
 use crate::connection::{Socket, SocketType};
 use crate::graph_manager::{ConnectedThrough, GlobalNodeIndex, GraphIndex};
+use crate::io_routing::IoRoutes;
 use crate::node::NodeIndex;
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 pub enum NodeError {
+    #[snafu(display("Route rules contain duplicate devices"))]
+    RouteRulesNotUnique { rules: IoRoutes },
     #[snafu(display("Node `{from:?}` and `{to:?}` are on two different graphs"))]
     MismatchedNodeGraphs { from: GlobalNodeIndex, to: GlobalNodeIndex },
     #[snafu(display("The field `{missing_field}` was missing during an action rollback"))]

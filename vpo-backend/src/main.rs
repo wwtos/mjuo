@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
+use env_logger::Env;
 use futures::executor::LocalPool;
 use futures::join;
 use futures::task::LocalSpawnExt;
@@ -21,6 +22,8 @@ use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
 fn main() {
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
     let mut async_executor = LocalPool::new();
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
@@ -36,7 +39,6 @@ fn main() {
         .1
         .name
         .clone();
-    dbg!(&global_state.device_manager.midir_devices());
 
     let mut graph_state = GraphState::new(SoundConfig::default()).unwrap();
 

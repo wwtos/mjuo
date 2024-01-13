@@ -1,8 +1,8 @@
 use std::collections::BTreeSet;
 
 use cpal::traits::DeviceTrait;
-use node_engine::errors::NodeError;
-use node_engine::io_routing::{DeviceDirection, DeviceType, IoRoutes};
+use log::info;
+use node_engine::io_routing::{DeviceDirection, DeviceInfo, DeviceType, IoRoutes};
 use node_engine::resources::Resources;
 pub(super) use node_engine::state::ActionBundle;
 use node_engine::state::{ActionInvalidation, GraphState};
@@ -26,7 +26,7 @@ pub fn state_invalidations(
 
     for invalidation in invalidations {
         match invalidation {
-            ActionInvalidation::GraphReindexNeeded(index) => {
+            ActionInvalidation::GraphReindexNeeded(_) => {
                 new_engine_needed = true;
             }
             ActionInvalidation::NewDefaults(index, defaults) => {
@@ -60,7 +60,40 @@ pub fn state_invalidations(
                     .collect();
 
                 let removed = last_devices.difference(&new_devices);
-                let added: Vec<_> = new_devices.difference(&last_devices).collect();
+
+                // calculate `added` based on what devices aren't connected currently
+                let mut added: Vec<(&String, DeviceDirection, DeviceType)> = vec![];
+
+                for rule @ (name, direction, device_type) in &new_devices {
+                    match device_type {
+                        DeviceType::Midi => {
+                            let already_started = device_manager.midir_devices().iter().any(|(other_name, status)| {
+                                *name == other_name
+                                    && match direction {
+                                        DeviceDirection::Sink => status.sink_handle.is_some(),
+                                        DeviceDirection::Source => status.source_handle.is_some(),
+                                    }
+                            });
+
+                            if !already_started {
+                                added.push(rule.clone());
+                            }
+                        }
+                        DeviceType::Stream => {
+                            let already_started = device_manager.cpal_devices().iter().any(|(other_name, status)| {
+                                *name == other_name
+                                    && match direction {
+                                        DeviceDirection::Sink => status.sink_handle.is_some(),
+                                        DeviceDirection::Source => status.source_handle.is_some(),
+                                    }
+                            });
+
+                            if !already_started {
+                                added.push(rule.clone());
+                            }
+                        }
+                    }
+                }
 
                 for (device, direction, device_type) in removed {
                     match direction {
@@ -104,6 +137,10 @@ pub fn state_invalidations(
                                         name: device.to_string(),
                                         source: instance,
                                     })
+                                } else {
+                                    return Err(EngineError::DeviceDoesNotExist {
+                                        device_name: device.to_string(),
+                                    });
                                 }
                             }
                             DeviceType::Stream => {
@@ -136,6 +173,10 @@ pub fn state_invalidations(
                                             source: stream,
                                         });
                                     }
+                                } else {
+                                    return Err(EngineError::DeviceDoesNotExist {
+                                        device_name: device.to_string(),
+                                    });
                                 }
                             }
                         },
@@ -146,6 +187,10 @@ pub fn state_invalidations(
                                         name: device.to_string(),
                                         sink: instance,
                                     })
+                                } else {
+                                    return Err(EngineError::DeviceDoesNotExist {
+                                        device_name: device.to_string(),
+                                    });
                                 }
                             }
                             DeviceType::Stream => {
@@ -176,10 +221,16 @@ pub fn state_invalidations(
                                         name: device.to_string(),
                                         sink: instance,
                                     });
+                                } else {
+                                    return Err(EngineError::DeviceDoesNotExist {
+                                        device_name: device.to_string(),
+                                    });
                                 }
                             }
                         },
                     }
+
+                    info!("Connected to: {}", device);
                 }
             }
         }

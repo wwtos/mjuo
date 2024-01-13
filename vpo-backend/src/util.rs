@@ -32,14 +32,16 @@ pub fn send_graph_updates(
     Ok(())
 }
 
-pub fn send_global_state_updates(
+pub fn send_project_state_updates(
+    state: &GraphState,
     global_state: &GlobalState,
     to_server: &Sender<IpcMessage>,
 ) -> Result<(), EngineError> {
-    let json = global_state.to_json();
+    let mut json = global_state.to_json();
+    json["ioRoutes"] = json!(state.get_route_rules());
 
     let _ = to_server.send(IpcMessage::Json(json! {{
-        "action": "state/updateGlobalState",
+        "action": "state/updateState",
         "payload": json
     }}));
 
