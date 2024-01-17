@@ -38,6 +38,7 @@
         <UiEditor
             graphManager={data.graphManager}
             globalState={data.globalEngineState}
+            resources={data.globalResources}
             socket={data.socket}
             width={width - 48}
             {height}
@@ -45,6 +46,10 @@
     {:else if section === "fileEditor"}
         <FileEditor globalState={data.globalEngineState} socket={data.socket} />
     {:else if section === "settings"}
-        <SettingsEditor socket={data.socket} />
+        <SettingsEditor
+            socket={data.socket}
+            globalState={data.globalEngineState}
+            {activeGraph}
+        />
     {/if}
 </div>

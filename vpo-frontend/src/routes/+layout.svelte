@@ -69,13 +69,12 @@
 
             if (message.action === "graph/updateGraph") {
                 data.graphManager.applyJson(message.payload);
-            } else if (message.action === "state/updateGlobalState") {
+            } else if (message.action === "state/updateState") {
                 const newGlobalState = message.payload;
 
                 data.globalEngineState.set(newGlobalState);
             } else if (message.action === "state/updateResources") {
                 data.globalResources.set(JSON.parse(message.payload));
-                data.globalResources.subscribe((x) => console.log(x));
             } else if (message.action === "toast/error") {
                 toast.push({
                     msg: message.payload,

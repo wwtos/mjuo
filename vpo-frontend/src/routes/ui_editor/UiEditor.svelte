@@ -3,7 +3,7 @@
 
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
-    import type { GlobalState } from "$lib/node-engine/global_state";
+    import type { GlobalState, Resources } from "$lib/node-engine/global_state";
     import SplitView from "$lib/components/layout/SplitView.svelte";
     import { SplitDirection } from "$lib/components/layout/enums";
     import UiElement from "./UiElement.svelte";
@@ -13,6 +13,7 @@
     export let socket: IpcSocket;
     export let graphManager: GraphManager;
     export let globalState: Writable<GlobalState>;
+    export let resources: Writable<Resources>;
 
     export let width: number;
     export let height: number;
@@ -77,7 +78,7 @@
                 .filter((x) => x !== undefined);
 
             const node = uiNodes.find(
-                ({ index }) => index === currentlySelected?.nodeIndex
+                ({ index }) => index === currentlySelected?.nodeIndex,
             );
 
             if (node?.node.uiData.panelInstances) {
@@ -87,7 +88,7 @@
                     ];
 
                 element.properties = Object.fromEntries(
-                    pairs as Array<[string, string]>
+                    pairs as Array<[string, string]>,
                 );
 
                 graph.markNodeAsUpdated(currentlySelected?.nodeIndex, [
@@ -102,7 +103,7 @@
         if (!currentlySelected) return;
 
         const node = uiNodes.find(
-            ({ index }) => index === currentlySelected?.nodeIndex
+            ({ index }) => index === currentlySelected?.nodeIndex,
         );
 
         if (node?.node.uiData.panelInstances) {
@@ -135,7 +136,7 @@
         const y = ev.offsetY;
 
         const nodeIndex: VertexIndex = JSON.parse(
-            ev.dataTransfer?.getData("application/json") || "{}"
+            ev.dataTransfer?.getData("application/json") || "{}",
         );
 
         const node = graph.getNode(nodeIndex);
@@ -165,7 +166,7 @@
     function deselectAll() {
         for (let [index, node] of graph.getNodes()) {
             for (let instance of Object.values(
-                node.uiData.panelInstances || {}
+                node.uiData.panelInstances || {},
             )) {
                 for (let element of instance) {
                     if (element.selected) {
@@ -185,7 +186,7 @@
         nodeIndex: VertexIndex,
         elementIndex: number,
         x: number,
-        y: number
+        y: number,
     ) {
         const node = graph.getNode(nodeIndex);
 
@@ -294,7 +295,7 @@
                                             index,
                                             elementIndex,
                                             e.detail.x,
-                                            e.detail.y
+                                            e.detail.y,
                                         )}
                                     on:newstate={(e) =>
                                         socket.updateNodeState([
@@ -316,7 +317,7 @@
                 direction={SplitDirection.VERTICAL}
             >
                 <div slot="first" class="container">
-                    {#each Object.keys($globalState.resources.ui) as resource}
+                    {#each Object.keys($resources.ui) as resource}
                         <div style="display: inline-block; width: 80px">
                             <div style="position: relative; margin: 4px">
                                 <UiElement
