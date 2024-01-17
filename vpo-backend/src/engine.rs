@@ -125,6 +125,7 @@ pub fn start_sound_engine(
             }
         }
 
+        // receive all incoming midi and store it in buffers
         for (_, (source, buffer)) in midi_sources.iter_mut() {
             buffer.clear();
 
@@ -153,42 +154,44 @@ pub fn start_sound_engine(
         }
 
         if let Some(traverser) = &mut traverser {
-            // handle input routing
+            // handle source routing
             for rule in &io_routing.rules {
-                if rule.device_direction == DeviceDirection::Source {
-                    match rule.device_type {
-                        DeviceType::Midi => {
-                            if let Some((_, buffer)) = midi_sources.get(&rule.device_id) {
-                                if !buffer.is_empty() {
-                                    let node = traverser.get_node_mut(rule.node).unwrap();
-
-                                    match node {
-                                        // TODO: make sure buffer cloning isn't too expensive
-                                        NodeVariant::InputsNode(inputs_node) => inputs_node.set_midis(buffer.clone()),
-                                        _ => panic!("connected node is not input node"),
-                                    }
-                                }
-                            }
-                        }
-                        DeviceType::Stream => {
-                            if let Some((source, buffer)) = stream_sources.get(&rule.device_id) {
-                                let node = traverser.get_node_mut(rule.node).unwrap();
+                match (rule.device_type, rule.device_direction) {
+                    (DeviceType::Midi, DeviceDirection::Source) => {
+                        if let Some((_, buffer)) = midi_sources.get(&rule.device_id) {
+                            if !buffer.is_empty() {
+                                let node = traverser.get_node_mut(rule.node);
 
                                 match node {
-                                    NodeVariant::InputsNode(inputs_node) => {
-                                        for (sample, sample_in) in inputs_node.streams_mut()[rule.node_channel]
-                                            .iter_mut()
-                                            .zip(buffer.iter().skip(rule.device_channel).step_by(source.channels()))
-                                        {
-                                            *sample = *sample_in;
-                                        }
-
-                                        inputs_node.streams_mut()[rule.node_channel].copy_from_slice(&buffer[..]);
-                                    }
+                                    // TODO: make sure buffer cloning isn't too expensive
+                                    Some(NodeVariant::InputsNode(inputs_node)) => inputs_node.set_midis(buffer.clone()),
+                                    None => {}
                                     _ => panic!("connected node is not input node"),
                                 }
                             }
                         }
+                    }
+                    (DeviceType::Stream, DeviceDirection::Source) => {
+                        if let Some((source, buffer)) = stream_sources.get(&rule.device_id) {
+                            let node = traverser.get_node_mut(rule.node);
+                            match node {
+                                Some(NodeVariant::InputsNode(inputs_node)) => {
+                                    for (sample, sample_in) in inputs_node.streams_mut()[rule.node_channel]
+                                        .iter_mut()
+                                        .zip(buffer.iter().skip(rule.device_channel).step_by(source.channels()))
+                                    {
+                                        *sample = *sample_in;
+                                    }
+
+                                    inputs_node.streams_mut()[rule.node_channel].copy_from_slice(&buffer[..]);
+                                }
+                                None => {}
+                                _ => panic!("connected node is not input node"),
+                            }
+                        }
+                    }
+                    _ => {
+                        // sinks handled later
                     }
                 }
             }
@@ -199,43 +202,46 @@ pub fn start_sound_engine(
             let result = traverser.step(&*resources, updated_node_states, current_graph_state.as_ref());
             current_graph_state = None;
 
-            // handle output routing
+            // handle sink routing
             for rule in &io_routing.rules {
-                if rule.device_direction == DeviceDirection::Sink {
-                    match rule.device_type {
-                        DeviceType::Midi => {
-                            if let Some((_, buffer)) = midi_sinks.get_mut(&rule.device_id) {
-                                let node = traverser.get_node_mut(rule.node).unwrap();
+                match (rule.device_type, rule.device_direction) {
+                    (DeviceType::Midi, DeviceDirection::Sink) => {
+                        if let Some((_, buffer)) = midi_sinks.get_mut(&rule.device_id) {
+                            let node = traverser.get_node_mut(rule.node);
 
-                                match node {
-                                    NodeVariant::OutputsNode(node) => {
-                                        if let Some(messages) = node.get_midis() {
-                                            for message in messages.iter() {
-                                                buffer.push(message.clone());
-                                            }
+                            match node {
+                                Some(NodeVariant::OutputsNode(node)) => {
+                                    if let Some(messages) = node.get_midis() {
+                                        for message in messages.iter() {
+                                            buffer.push(message.clone());
                                         }
                                     }
-                                    _ => panic!("connected node is not output node"),
                                 }
+                                None => {}
+                                _ => panic!("connected node is not output node"),
                             }
                         }
-                        DeviceType::Stream => {
-                            if let Some((sink, buffer)) = stream_sinks.get_mut(&rule.device_id) {
-                                let node = traverser.get_node_mut(rule.node).unwrap();
+                    }
+                    (DeviceType::Stream, DeviceDirection::Sink) => {
+                        if let Some((sink, buffer)) = stream_sinks.get_mut(&rule.device_id) {
+                            let node = traverser.get_node_mut(rule.node);
 
-                                match node {
-                                    NodeVariant::OutputsNode(node) => {
-                                        for (sample, out) in node.get_streams()[rule.node_channel]
-                                            .iter()
-                                            .zip(buffer.iter_mut().skip(rule.device_channel).step_by(sink.channels()))
-                                        {
-                                            *out += sample;
-                                        }
+                            match node {
+                                Some(NodeVariant::OutputsNode(node)) => {
+                                    for (sample, out) in node.get_streams()[rule.node_channel]
+                                        .iter()
+                                        .zip(buffer.iter_mut().skip(rule.device_channel).step_by(sink.channels()))
+                                    {
+                                        *out += sample;
                                     }
-                                    _ => panic!("connected node is not output node"),
                                 }
+                                None => {}
+                                _ => panic!("connected node is not output node"),
                             }
                         }
+                    }
+                    _ => {
+                        // sources handled earlier
                     }
                 }
             }
