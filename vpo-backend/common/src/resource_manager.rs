@@ -1,16 +1,16 @@
 use std::{
     collections::HashMap,
     fmt::{Debug, Display},
-    hash::BuildHasherDefault,
     str::FromStr,
 };
 
 use ddgg::{GenVec, Index};
-use seahash::SeaHasher;
 use serde::{
     ser::{SerializeMap, SerializeSeq},
     Deserialize, Deserializer, Serialize, Serializer,
 };
+
+use crate::SeaHashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceIndex(Index);
@@ -102,7 +102,7 @@ where
 #[derive(Debug)]
 pub struct ResourceManager<A> {
     resources: GenVec<A>,
-    resource_mapping: HashMap<String, ResourceIndex, BuildHasherDefault<SeaHasher>>,
+    resource_mapping: SeaHashMap<String, ResourceIndex>,
 }
 
 impl<A> Default for ResourceManager<A> {

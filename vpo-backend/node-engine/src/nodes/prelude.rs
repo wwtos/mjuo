@@ -1,8 +1,4 @@
 use std::borrow::Cow;
-pub(super) use std::collections::HashMap;
-pub(super) use std::hash::BuildHasherDefault;
-
-pub(super) use seahash::SeaHasher;
 
 pub(super) use clocked::midi::{MidiData, MidiMessage};
 use common::resource_manager::ResourceId;
@@ -19,7 +15,7 @@ pub(super) use crate::{
     property::{Property, PropertyType},
 };
 
-pub(super) type SeaHashMap<K, V> = HashMap<K, V, BuildHasherDefault<SeaHasher>>;
+pub(super) use common::SeaHashMap;
 
 // TODO: implement all primitive types
 pub fn float(val: f32) -> Primitive {
@@ -98,7 +94,7 @@ pub fn with_channels(default_channel_count: usize) -> NodeRow {
     )
 }
 
-pub fn default_channels(props: &HashMap<String, Property, BuildHasherDefault<SeaHasher>>, default: usize) -> usize {
+pub fn default_channels(props: &SeaHashMap<String, Property>, default: usize) -> usize {
     match props.get("channels") {
         Some(prop) => prop.as_integer().map(|x| x.max(1) as usize).unwrap_or(default),
         None => default,

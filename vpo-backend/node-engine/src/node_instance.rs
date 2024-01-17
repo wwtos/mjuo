@@ -1,6 +1,6 @@
-use std::{collections::HashMap, hash::BuildHasherDefault, mem};
+use std::{collections::HashMap, mem};
 
-use seahash::SeaHasher;
+use common::SeaHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -18,8 +18,8 @@ pub struct NodeInstance {
     #[serde(skip_deserializing)]
     node_rows: Vec<NodeRow>,
     default_overrides: Vec<NodeRow>,
-    properties: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
-    ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
+    properties: SeaHashMap<String, Property>,
+    ui_data: SeaHashMap<String, Value>,
     state: NodeState,
     child_graph: Option<NodeGraphAndIo>,
 }
@@ -86,14 +86,11 @@ impl NodeInstance {
         self.properties.insert(name, value);
     }
 
-    pub fn get_properties(&self) -> &HashMap<String, Property, BuildHasherDefault<SeaHasher>> {
+    pub fn get_properties(&self) -> &SeaHashMap<String, Property> {
         &self.properties
     }
 
-    pub fn set_properties(
-        &mut self,
-        properties: HashMap<String, Property, BuildHasherDefault<SeaHasher>>,
-    ) -> HashMap<String, Property, BuildHasherDefault<SeaHasher>> {
+    pub fn set_properties(&mut self, properties: SeaHashMap<String, Property>) -> SeaHashMap<String, Property> {
         mem::replace(&mut self.properties, properties)
     }
 
@@ -109,18 +106,15 @@ impl NodeInstance {
         mem::replace(&mut self.state, state)
     }
 
-    pub fn get_ui_data(&self) -> &HashMap<String, Value, BuildHasherDefault<SeaHasher>> {
+    pub fn get_ui_data(&self) -> &SeaHashMap<String, Value> {
         &self.ui_data
     }
 
-    pub fn set_ui_data(
-        &mut self,
-        ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>,
-    ) -> HashMap<String, Value, BuildHasherDefault<SeaHasher>> {
+    pub fn set_ui_data(&mut self, ui_data: SeaHashMap<String, Value>) -> SeaHashMap<String, Value> {
         mem::replace(&mut self.ui_data, ui_data)
     }
 
-    pub fn extend_ui_data(&mut self, ui_data: HashMap<String, Value, BuildHasherDefault<SeaHasher>>) {
+    pub fn extend_ui_data(&mut self, ui_data: SeaHashMap<String, Value>) {
         self.ui_data.extend(ui_data.into_iter());
     }
 
