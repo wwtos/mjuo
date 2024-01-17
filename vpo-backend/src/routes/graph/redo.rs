@@ -7,7 +7,7 @@ use crate::{
     errors::{EngineError, NodeSnafu},
     routes::prelude::*,
     routes::RouteReturn,
-    util::send_graph_updates,
+    util::{send_graph_updates, send_project_state_updates},
 };
 
 pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
@@ -31,6 +31,8 @@ pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
     for graph_index in touched_graphs {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
     }
+
+    send_project_state_updates(state.state, state.global_state, state.to_server)?;
 
     Ok(RouteReturn {
         engine_updates: state_invalidations(

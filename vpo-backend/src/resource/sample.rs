@@ -26,6 +26,10 @@ pub fn load_sample(location: &Path, sound_config: &SoundConfig) -> Result<MonoSa
 
     let audio = first_channel_only(&audio, spec.channels.count());
 
+    // TODO: add lowpass on audio at current sample rate (don't
+    // resample though, as loop points are based on the file's
+    // original sample rate)
+
     Ok(MonoSample {
         audio_raw: audio,
         sample_rate: spec.rate,

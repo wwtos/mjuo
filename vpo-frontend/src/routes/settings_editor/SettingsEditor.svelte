@@ -297,10 +297,12 @@
                 <li>
                     "{rule.deviceId}",
                     {rule.deviceType.variant},
-                    {rule.deviceDirection.variant}, device channel {rule.deviceChannel}
-                    &lt;-&gt; node channel {rule.nodeChannel}, node "{graph.getNode(
-                        rule.node,
-                    )?.properties["name"].data}"
+                    {rule.deviceDirection.variant},
+                    {#if rule.deviceType.variant === "Stream"}
+                        device channel {rule.deviceChannel}
+                        &lt;-&gt; node channel {rule.nodeChannel},
+                    {/if}
+                    node "{graph.getNode(rule.node)?.properties["name"].data}"
                     <button on:click={() => removeRouteRule(rule)}>
                         delete
                     </button>
