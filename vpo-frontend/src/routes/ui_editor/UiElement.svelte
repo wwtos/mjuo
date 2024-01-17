@@ -1,6 +1,6 @@
 <script lang="ts">
     import type { VertexIndex } from "$lib/ddgg/graph";
-    import type { GlobalState } from "$lib/node-engine/global_state";
+    import type { GlobalState, Resources } from "$lib/node-engine/global_state";
     import type { NodeInstance } from "$lib/node-engine/node";
     import { createEventDispatcher, onMount } from "svelte";
     import type { Writable } from "svelte/store";
@@ -15,15 +15,13 @@
     export let nodeType: string;
     export let state: NodeInstance["state"];
     export let properties: { [key: string]: string };
-    export let globalState: Writable<GlobalState>;
+    export let resources: Writable<Resources>;
     export let locked = false;
 
     let resourceJson: any = {};
     $: if (resourceId.length > 0) {
         resourceJson =
-            $globalState.resources.ui[
-                resourceId.substring(resourceId.indexOf(":"))
-            ];
+            $resources.ui[resourceId.substring(resourceId.indexOf(":"))];
     }
 
     const dispatchEvent = createEventDispatcher();

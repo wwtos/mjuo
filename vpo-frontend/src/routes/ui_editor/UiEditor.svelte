@@ -3,7 +3,7 @@
 
     import type { IpcSocket } from "$lib/ipc/socket";
     import type { GraphManager } from "$lib/node-engine/graph_manager";
-    import type { GlobalState, Resources } from "$lib/node-engine/global_state";
+    import type { Resources } from "$lib/node-engine/global_state";
     import SplitView from "$lib/components/layout/SplitView.svelte";
     import { SplitDirection } from "$lib/components/layout/enums";
     import UiElement from "./UiElement.svelte";
@@ -12,7 +12,6 @@
 
     export let socket: IpcSocket;
     export let graphManager: GraphManager;
-    export let globalState: Writable<GlobalState>;
     export let resources: Writable<Resources>;
 
     export let width: number;
@@ -302,7 +301,7 @@
                                             [index, e.detail],
                                         ])}
                                     {uiName}
-                                    {globalState}
+                                    {resources}
                                 />
                             {/each}
                         {/if}
@@ -332,7 +331,7 @@
                                     locked={true}
                                     uiName="example"
                                     on:skinselected={onSkinSelected}
-                                    {globalState}
+                                    {resources}
                                 />
                             </div>
                         </div>

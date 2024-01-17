@@ -15,6 +15,14 @@ export const load = (() => {
         soundConfig: { sampleRate: 0 },
         resources: {
             ui: {}
+        },
+        ioRoutes: {
+            rules: [],
+            devices: []
+        },
+        devices: {
+            midi: {},
+            streams: {}
         }
     });
     const globalResources: Writable<Resources> = writable({

@@ -415,7 +415,7 @@ impl GraphState {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
+                    vec![],
                 )
             }
             Action::ChangeNodeOverrides { index, overrides } => {

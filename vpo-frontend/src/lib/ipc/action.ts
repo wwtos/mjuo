@@ -17,7 +17,7 @@ export type IpcAction = DiscriminatedUnion<
             payload: GlobalState;
         };
         "state/updateResources": {
-            payload: string
+            payload: Resources
         };
         "toast/error": {
             payload: string;

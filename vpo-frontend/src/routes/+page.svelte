@@ -37,7 +37,6 @@
     {:else if section === "uiEditor"}
         <UiEditor
             graphManager={data.graphManager}
-            globalState={data.globalEngineState}
             resources={data.globalResources}
             socket={data.socket}
             width={width - 48}

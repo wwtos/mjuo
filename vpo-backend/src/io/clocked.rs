@@ -506,6 +506,18 @@ impl DeviceManager {
         }
     }
 
+    pub fn midir_stop_device(&mut self, index: &str, freeing_sink: bool, freeing_source: bool) {
+        if let Some(device) = self.midir_statuses.get_mut(index) {
+            if freeing_sink {
+                device.sink_handle = None; // drops sink handle
+            }
+
+            if freeing_source {
+                device.source_handle = None; // drops source handle
+            }
+        }
+    }
+
     pub fn reset(&mut self) {
         self.cpal_statuses.clear();
         self.midir_statuses.clear();

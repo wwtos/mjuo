@@ -4,7 +4,7 @@ use serde_json::json;
 use snafu::ResultExt;
 
 use crate::{
-    errors::{EngineError, JsonParserSnafu, NodeSnafu},
+    errors::{EngineError, NodeSnafu},
     state::GlobalState,
     Sender,
 };
@@ -49,11 +49,9 @@ pub fn send_project_state_updates(
 }
 
 pub fn send_resource_updates(resources: &Resources, to_server: &Sender<IpcMessage>) -> Result<(), EngineError> {
-    let json = serde_json::to_string(resources).context(JsonParserSnafu)?;
-
     let _ = to_server.send(IpcMessage::Json(json! {{
         "action": "state/updateResources",
-        "payload": json
+        "payload": resources
     }}));
 
     Ok(())

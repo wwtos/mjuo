@@ -10,14 +10,11 @@ pub fn start_file_server(root_folder: flume::Receiver<PathBuf>) -> JoinHandle<()
     thread::spawn(move || {
         let rt = runtime::Builder::new_current_thread().enable_io().build().unwrap();
 
-        let updated_project_receiver = root_folder.clone();
-
         rt.block_on(async {
-            loop {
-                updated_project_receiver.recv_async().await.expect("not closed");
-                let project_dir = root_folder.recv_async().await.expect("not closed");
+            let mut project_dir = root_folder.recv_async().await.expect("not closed");
 
-                let service = ServeDir::new(project_dir);
+            loop {
+                let service = ServeDir::new(project_dir.clone());
 
                 let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 26643));
                 let server = async {
@@ -27,11 +24,15 @@ pub fn start_file_server(root_folder: flume::Receiver<PathBuf>) -> JoinHandle<()
                         .expect("server error")
                 };
 
+                // use select to terminate the server early
                 tokio::select! {
-                    _ = updated_project_receiver.recv_async() => {
+                    new_project_dir = root_folder.recv_async() => {
+                        project_dir = new_project_dir.expect("not closed");
                         // if a new project dir comes in, it'll drop the file server
                     }
-                    _ = server => {}
+                    _ = server => {
+                        unreachable!("server should never stop");
+                    }
                 }
             }
         });

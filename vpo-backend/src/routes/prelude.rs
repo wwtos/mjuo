@@ -104,6 +104,8 @@ pub fn state_invalidations(
                                 updates.push(ToAudioThread::RemoveMidirSource {
                                     name: device.to_string(),
                                 });
+
+                                device_manager.midir_stop_device(device, false, true);
                             }
                             DeviceType::Stream => {
                                 updates.push(ToAudioThread::RemoveCpalSource {
@@ -118,6 +120,8 @@ pub fn state_invalidations(
                                 updates.push(ToAudioThread::RemoveMidirSink {
                                     name: device.to_string(),
                                 });
+
+                                device_manager.midir_stop_device(device, true, false);
                             }
                             DeviceType::Stream => {
                                 updates.push(ToAudioThread::RemoveCpalSink {
