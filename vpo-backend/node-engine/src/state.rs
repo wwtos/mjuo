@@ -146,7 +146,7 @@ pub struct GraphState {
 }
 
 impl GraphState {
-    pub fn new(sound_config: SoundConfig) -> Result<GraphState, NodeError> {
+    pub fn new(sound_config: SoundConfig) -> GraphState {
         let default_channel_count = 2;
 
         let history = Vec::new();
@@ -155,7 +155,7 @@ impl GraphState {
         let graph_manager: GraphManager = GraphManager::new(default_channel_count);
         let root_graph_index = graph_manager.root_index();
 
-        Ok(GraphState {
+        GraphState {
             history,
             place_in_history,
             graph_manager,
@@ -163,7 +163,7 @@ impl GraphState {
             io_routing: IoRoutes::default(),
             default_channel_count,
             sound_config,
-        })
+        }
     }
 
     pub fn get_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {

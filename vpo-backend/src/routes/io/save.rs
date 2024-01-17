@@ -7,6 +7,8 @@ use crate::{
 };
 
 pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+    let mut new_project = false;
+
     if let Some(file_path) = &state.global_state.active_project {
         save(state.state, file_path)?;
     } else {
@@ -16,8 +18,12 @@ pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError
             save(state.state, file.path())?;
 
             state.global_state.active_project = Some(file.path().into());
+            new_project = true;
         }
     }
 
-    Ok(RouteReturn::default())
+    Ok(RouteReturn {
+        new_project,
+        engine_updates: vec![],
+    })
 }

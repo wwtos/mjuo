@@ -24,57 +24,30 @@ use vpo_backend::{handle_msg, start_ipc};
 fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let mut async_executor = LocalPool::new();
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
-    let mut global_state = GlobalState::new();
+    let global_state = RefCell::new(GlobalState::new());
+    let graph_state = RefCell::new(GraphState::new(SoundConfig::default()));
     let resources = Arc::new(RwLock::new(Resources::default()));
 
-    let default_midi = global_state
-        .device_manager
-        .midir_devices()
-        .iter()
-        .next()
-        .unwrap()
-        .1
-        .name
-        .clone();
-
-    let mut graph_state = GraphState::new(SoundConfig::default()).unwrap();
-
-    // start up midi and audio
     let (to_realtime, from_main) = flume::unbounded();
     let (to_main, from_realtime) = flume::unbounded();
     let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
-    let (mut file_watcher, mut file_receiver) = FileWatcher::new().unwrap();
+    let (mut file_watcher, mut from_file_watcher) = FileWatcher::new().unwrap();
+    let _file_server_handle = start_file_server(project_dir_receiver);
 
-    // send initial node engine instance to sound engine
-    to_realtime
-        .send(ToAudioThread::NewTraverser(
-            graph_state.get_traverser(&*resources.clone().read().unwrap()).unwrap(),
-        ))
-        .unwrap();
-
-    to_realtime
-        .send(ToAudioThread::NewRouteRules {
-            rules: graph_state.get_route_rules(),
-        })
-        .unwrap();
-
-    let graph_state = RefCell::new(graph_state);
-    let global_state = RefCell::new(global_state);
-
-    let resources_clone = resources.clone();
+    let resources_for_audio_thread = resources.clone();
 
     thread::Builder::new()
         .name("audio_thread".into())
         .spawn_with_priority(ThreadPriority::Max, move |_| {
-            start_sound_engine(resources_clone, from_main, to_main);
+            start_sound_engine(resources_for_audio_thread, from_main, to_main);
         })
         .unwrap();
 
     // spawn all the async tasks
+    let mut async_executor = LocalPool::new();
     async_executor
         .spawner()
         .spawn_local(async move {
@@ -148,7 +121,7 @@ fn main() {
                 let to_server = to_server.clone();
                 let resources = resources.clone();
 
-                while let Some(res) = file_receiver.next().await {
+                while let Some(res) = from_file_watcher.next().await {
                     match res {
                         Ok(event) => {
                             for e in event {
@@ -176,8 +149,6 @@ fn main() {
             join!(client_communication, sound_engine_communication, file_watcher);
         })
         .unwrap();
-
-    let _fs_handle = start_file_server(project_dir_receiver);
 
     async_executor.run();
 }

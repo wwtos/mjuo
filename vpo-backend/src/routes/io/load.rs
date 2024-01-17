@@ -28,7 +28,7 @@ pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineErr
 
         // reset everything
         ctx.to_audio_thread.send(ToAudioThread::Reset).unwrap();
-        *ctx.state = GraphState::new(SoundConfig::default()).unwrap();
+        *ctx.state = GraphState::new(SoundConfig::default());
         ctx.global_state.device_manager.reset();
         resources.reset();
 
