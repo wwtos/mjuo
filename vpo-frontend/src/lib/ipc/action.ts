@@ -13,7 +13,7 @@ export type IpcAction = DiscriminatedUnion<
                 nodes: Graph<NodeInstance, NodeConnection>;
             };
         };
-        "state/updateGlobalState": {
+        "state/updateState": {
             payload: GlobalState;
         };
         "state/updateResources": {
