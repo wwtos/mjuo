@@ -79,6 +79,9 @@ pub fn start_sound_engine(
                 ToAudioThread::CurrentNodeStates(current) => {
                     current_graph_state = Some(current);
                 }
+                ToAudioThread::NewRouteRules { rules: new_rules } => {
+                    io_routing = new_rules;
+                }
                 ToAudioThread::NewCpalSink { name, sink } => {
                     let channels = sink.channels();
                     stream_sinks.insert(name, (sink, vec![0.0; sound_config.buffer_size * channels]));
@@ -92,9 +95,6 @@ pub fn start_sound_engine(
                 }
                 ToAudioThread::NewMidirSource { name, source } => {
                     midi_sources.insert(name, (source, Vec::with_capacity(128)));
-                }
-                ToAudioThread::NewRouteRules { rules: new_rules } => {
-                    io_routing = new_rules;
                 }
                 ToAudioThread::RemoveCpalSink { name } => {
                     midi_sinks.remove(&name);
@@ -153,7 +153,7 @@ pub fn start_sound_engine(
         }
 
         if let Some(traverser) = &mut traverser {
-            // handle routing
+            // handle input routing
             for rule in &io_routing.rules {
                 if rule.device_direction == DeviceDirection::Source {
                     match rule.device_type {
@@ -199,6 +199,7 @@ pub fn start_sound_engine(
             let result = traverser.step(&*resources, updated_node_states, current_graph_state.as_ref());
             current_graph_state = None;
 
+            // handle output routing
             for rule in &io_routing.rules {
                 if rule.device_direction == DeviceDirection::Sink {
                     match rule.device_type {

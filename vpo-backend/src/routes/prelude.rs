@@ -61,7 +61,9 @@ pub fn state_invalidations(
 
                 let removed = last_devices.difference(&new_devices);
 
-                // calculate `added` based on what devices aren't connected currently
+                // Calculate `added` based on what devices aren't connected currently.
+                // That way if an error previously occurred, it'll reattempt to
+                // create the device
                 let mut added: Vec<(&String, DeviceDirection, DeviceType)> = vec![];
 
                 for rule @ (name, direction, device_type) in &new_devices {
@@ -232,6 +234,10 @@ pub fn state_invalidations(
 
                     info!("Connected to: {}", device);
                 }
+
+                updates.push(ToAudioThread::NewRouteRules {
+                    rules: new_rules.clone(),
+                });
             }
         }
     }
