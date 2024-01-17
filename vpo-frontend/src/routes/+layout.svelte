@@ -69,13 +69,16 @@
 
             if (message.action === "graph/updateGraph") {
                 data.graphManager.applyJson(message.payload);
-            } else if (message.action === "state/updateGlobalState") {
-                const newGlobalState = message.payload;
-
-                data.globalEngineState.set(newGlobalState);
+            } else if (message.action === "state/updateState") {
+                data.globalEngineState.set(message.payload);
             } else if (message.action === "state/updateResources") {
-                data.globalResources.set(JSON.parse(message.payload));
-                data.globalResources.subscribe((x) => console.log(x));
+                let parsedResources = message.payload;
+
+                for (let i in parsedResources.ui) {
+                    parsedResources.ui[i] = parse(parsedResources.ui[i]);
+                }
+
+                data.globalResources.set(parsedResources);
             } else if (message.action === "toast/error") {
                 toast.push({
                     msg: message.payload,

@@ -1,5 +1,5 @@
 pub mod graph;
-mod prelude;
+pub mod prelude;
 
 #[cfg(any(windows, unix))]
 pub mod io;
@@ -7,22 +7,20 @@ pub mod io;
 use std::sync::RwLock;
 
 use ipc::ipc_message::IpcMessage;
-use node_engine::{
-    global_state::{GlobalState, Resources},
-    state::{GraphState, NodeEngineUpdate},
-};
+use node_engine::{resources::Resources, state::GraphState};
 use serde_json::Value;
 
-use crate::{errors::EngineError, Sender};
+use crate::{engine::ToAudioThread, errors::EngineError, state::GlobalState, Sender};
 #[derive(Default)]
 pub struct RouteReturn {
-    pub engine_updates: Vec<NodeEngineUpdate>,
+    pub engine_updates: Vec<ToAudioThread>,
     pub new_project: bool,
 }
 
 pub struct RouteState<'a> {
     pub msg: Value,
     pub to_server: &'a Sender<IpcMessage>,
+    pub to_audio_thread: &'a Sender<ToAudioThread>,
     pub state: &'a mut GraphState,
     pub global_state: &'a mut GlobalState,
     pub resources_lock: &'a RwLock<Resources>,
@@ -31,6 +29,7 @@ pub struct RouteState<'a> {
 pub async fn route(
     msg: IpcMessage,
     to_server: &Sender<IpcMessage>,
+    to_audio_thread: &Sender<ToAudioThread>,
     state: &mut GraphState,
     global_state: &mut GlobalState,
     resources_lock: &RwLock<Resources>,
@@ -44,6 +43,7 @@ pub async fn route(
             let route_state = RouteState {
                 msg: json.clone(),
                 to_server,
+                to_audio_thread,
                 state,
                 global_state,
                 resources_lock,

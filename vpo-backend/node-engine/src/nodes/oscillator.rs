@@ -50,7 +50,7 @@ impl Node for OscillatorNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("frequency", Primitive::Float(440.0), 1),
             stream_output("audio", 1),

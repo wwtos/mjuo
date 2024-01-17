@@ -2,14 +2,16 @@ use std::path::Path;
 
 use regex::Regex;
 use sound_engine::MonoSample;
+use sound_engine::SoundConfig;
 
 use crate::errors::EngineError;
 
-#[cfg(any(unix, windows))]
-pub fn load_sample(location: &Path) -> Result<MonoSample, EngineError> {
+pub fn load_sample(location: &Path, sound_config: &SoundConfig) -> Result<MonoSample, EngineError> {
     use super::decode_audio::decode_audio;
     use crate::{errors::FileSnafu, resource::util::first_channel_only};
+    use rubato::{FftFixedInOut, Resampler};
     use snafu::ResultExt;
+
     use std::fs::File;
     use symphonia::core::probe::Hint;
 
@@ -23,7 +25,10 @@ pub fn load_sample(location: &Path) -> Result<MonoSample, EngineError> {
     let (audio, spec) = decode_audio(file, hint)?;
 
     let audio = first_channel_only(&audio, spec.channels.count());
-    // TODO: resample with rubato library
+
+    // TODO: add lowpass on audio at current sample rate (don't
+    // resample though, as loop points are based on the file's
+    // original sample rate)
 
     Ok(MonoSample {
         audio_raw: audio,

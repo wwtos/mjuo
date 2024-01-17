@@ -1,12 +1,9 @@
+use clocked::midi::{MidiData, MidiMessage};
 use common::traits::TryRef;
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::Duration};
 
-use crate::{
-    midi::messages::{MidiData, MidiMessage},
-    util::interpolate::lerp,
-    MonoSample,
-};
+use crate::{util::interpolate::lerp, MonoSample};
 
 use super::{pipe_player::PipePlayer, rank::Rank};
 use common::resource_manager::{ResourceId, ResourceManager};
@@ -191,7 +188,7 @@ impl RankPlayer {
 
     pub fn next_buffered<'a, E>(
         &mut self,
-        time: i64,
+        time: Duration,
         midi: &[MidiMessage],
         rank: &Rank,
         samples: &[impl TryRef<MonoSample, Error = E>],
@@ -231,31 +228,25 @@ impl RankPlayer {
                     let messages = midi;
 
                     while midi_position < messages.len() {
-                        if messages[midi_position].timestamp > time + i as i64 && out_len - i > 1 {
+                        let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sample_rate as f64);
+
+                        let play_regardless = out_len == i + 1;
+                        if (!play_regardless) && messages[midi_position].timestamp > time + loop_time_offset {
                             break;
                         }
 
                         match messages[midi_position].data {
                             MidiData::NoteOn { note, .. } => {
-                                if voice.note != note {
-                                    midi_position += 1;
-                                    continue;
+                                if voice.note == note {
+                                    voice.player.play(pipe, sample);
                                 }
-
-                                voice.player.play(pipe, sample);
                             }
                             MidiData::NoteOff { note, .. } => {
-                                if voice.note != note {
-                                    midi_position += 1;
-                                    continue;
+                                if voice.note == note {
+                                    voice.player.release(pipe, sample);
                                 }
-
-                                voice.player.release(pipe, sample);
                             }
-                            _ => {
-                                midi_position += 1;
-                                continue;
-                            }
+                            _ => {}
                         }
 
                         midi_position += 1;

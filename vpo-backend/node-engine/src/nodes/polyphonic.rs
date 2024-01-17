@@ -1,10 +1,4 @@
-use smallvec::smallvec;
-
-use sound_engine::midi::messages::{MidiData, MidiMessage};
-
 use crate::nodes::prelude::*;
-
-use super::NodeVariant;
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 
@@ -279,7 +273,7 @@ impl Node for PolyphonicNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         NodeIo {

@@ -87,5 +87,17 @@ export const variants: NodeVariant[] = [
     {
         internal: "MidiToValueNode",
         category: "scripting"
+    },
+    {
+        internal: "UpDownMixerNode",
+        category: "base"
+    },
+    {
+        internal: "InputsNode",
+        category: "base"
+    },
+    {
+        internal: "OutputsNode",
+        category: "base"
     }
 ];

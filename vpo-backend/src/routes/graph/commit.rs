@@ -7,7 +7,7 @@ use snafu::ResultExt;
 use crate::{
     errors::{JsonParserSnafu, NodeSnafu},
     routes::prelude::*,
-    util::send_graph_updates,
+    util::{send_graph_updates, send_project_state_updates},
 };
 
 #[derive(Serialize, Deserialize)]
@@ -26,6 +26,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         .context(NodeSnafu)?;
 
     let mut touched_graphs = HashSet::new();
+    let mut new_route_rules = false;
 
     for invalidation in &invalidations {
         match invalidation {
@@ -35,6 +36,9 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
             | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
                 touched_graphs.insert(index);
             }
+            ActionInvalidation::NewRouteRules { .. } => {
+                new_route_rules = true;
+            }
             ActionInvalidation::None => {}
         }
     }
@@ -43,15 +47,17 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
     }
 
+    if new_route_rules {
+        send_project_state_updates(state.state, state.global_state, state.to_server)?;
+    }
+
     Ok(RouteReturn {
-        engine_updates: state
-            .state
-            .invalidations_to_engine_updates(
-                invalidations,
-                state.global_state,
-                &*state.resources_lock.read().unwrap(),
-            )
-            .context(NodeSnafu)?,
+        engine_updates: state_invalidations(
+            state.state,
+            invalidations,
+            &mut state.global_state.device_manager,
+            &*state.resources_lock.read().unwrap(),
+        )?,
         new_project: false,
     })
 }

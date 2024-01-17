@@ -4,6 +4,14 @@ use snafu::Snafu;
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 pub enum EngineError {
+    #[snafu(display("Device {device_name} doesn't exist"))]
+    DeviceDoesNotExist { device_name: String },
+    #[snafu(display("Device {device_name} already started"))]
+    DeviceAlreadyStarted { device_name: String },
+    #[snafu(display("Device {device_name} is missing in cpal device list"))]
+    DeviceNotInCpalList { device_name: String },
+    #[snafu(display("Error starting device: {source}"))]
+    DeviceStartError { source: cpal::BuildStreamError },
     #[snafu(display("Audio parser error"))]
     AudioParserError,
     #[snafu(display("Node error: {source}"))]
@@ -20,7 +28,7 @@ pub enum EngineError {
     #[snafu(display("Json parser error: `{source}`"))]
     JsonParserError { source: serde_json::error::Error },
     #[snafu(display("Json parser error: `{source}` ({context})"))]
-    JsonParserErrorInContext {
+    JsonParserInContextError {
         source: serde_json::error::Error,
         context: String,
     },

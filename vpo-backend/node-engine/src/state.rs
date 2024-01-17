@@ -1,20 +1,26 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    mem,
+    time::Duration,
+};
 
+use common::SeaHashMap;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sound_engine::SoundConfig;
 
 use crate::{
-    connection::{Primitive, Socket, SocketType, SocketValue},
-    engine::NodeEngine,
+    connection::{Socket, SocketValue},
     errors::{NodeError, WarningExt},
-    global_state::{GlobalState, Resources},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
+    io_routing::IoRoutes,
+    node::buffered_traverser::BufferedTraverser,
     node::{NodeGetIoContext, NodeIndex, NodeRow, NodeState},
     node_graph::{NodeConnectionData, NodeGraph},
     nodes::variant_io,
     property::Property,
-    traversal::buffered_traverser::BufferedTraverser,
+    resources::Resources,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,7 +37,7 @@ pub enum Action {
         #[serde(rename = "nodeType")]
         node_type: String,
         #[serde(rename = "uiData")]
-        ui_data: HashMap<String, Value>,
+        ui_data: SeaHashMap<String, Value>,
     },
     ConnectNodes {
         graph: GraphIndex,
@@ -50,16 +56,20 @@ pub enum Action {
     },
     ChangeNodeProperties {
         index: GlobalNodeIndex,
-        props: HashMap<String, Property>,
+        props: SeaHashMap<String, Property>,
     },
     ChangeNodeUiData {
         index: GlobalNodeIndex,
         #[serde(rename = "uiData")]
-        ui_data: HashMap<String, Value>,
+        ui_data: SeaHashMap<String, Value>,
     },
     ChangeNodeOverrides {
         index: GlobalNodeIndex,
         overrides: Vec<NodeRow>,
+    },
+    ChangeRouteRules {
+        #[serde(rename = "newRules")]
+        new_rules: IoRoutes,
     },
 }
 
@@ -75,11 +85,12 @@ impl ActionBundle {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum ActionInvalidation {
     GraphReindexNeeded(GraphIndex),
     GraphModified(GraphIndex),
     NewDefaults(GlobalNodeIndex, Vec<(Socket, SocketValue)>),
+    NewRouteRules { last_rules: IoRoutes, new_rules: IoRoutes },
     NewNode(GlobalNodeIndex),
     None,
 }
@@ -90,14 +101,6 @@ pub enum ActionCategory {
     Mergable,
 }
 
-#[derive(Debug)]
-pub enum NodeEngineUpdate {
-    NewNodeEngine(NodeEngine),
-    NewDefaults(Vec<(NodeIndex, Socket, Primitive)>),
-    NewNodeState(Vec<(NodeIndex, serde_json::Value)>),
-    CurrentNodeStates(BTreeMap<NodeIndex, NodeState>),
-}
-
 #[derive(Debug, Clone)]
 pub enum FromNodeEngine {
     NodeStateUpdates(Vec<(NodeIndex, NodeState)>),
@@ -106,9 +109,24 @@ pub enum FromNodeEngine {
 }
 
 #[derive(Clone, Debug)]
-pub struct HistoryAction {
-    diff: GraphManagerDiff,
-    category: ActionCategory,
+pub enum HistoryAction {
+    GraphAction {
+        diff: GraphManagerDiff,
+        category: ActionCategory,
+    },
+    RoutesAction {
+        old: IoRoutes,
+        new: IoRoutes,
+    },
+}
+
+impl HistoryAction {
+    pub fn category(&self) -> ActionCategory {
+        match self {
+            HistoryAction::GraphAction { category, .. } => category.clone(),
+            HistoryAction::RoutesAction { .. } => ActionCategory::Separate,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -122,84 +140,52 @@ pub struct GraphState {
     place_in_history: usize,
     graph_manager: GraphManager,
     root_graph_index: GraphIndex,
-    io_nodes: IoNodes,
+    io_routing: IoRoutes,
+    sound_config: SoundConfig,
     default_channel_count: usize,
 }
 
 impl GraphState {
-    pub fn new(global_state: &GlobalState) -> Result<GraphState, NodeError> {
-        let default_channel_count = global_state.default_channel_count;
+    pub fn new(sound_config: SoundConfig) -> GraphState {
+        let default_channel_count = 2;
 
         let history = Vec::new();
         let place_in_history = 0;
 
-        let mut graph_manager: GraphManager = GraphManager::new(default_channel_count);
-
+        let graph_manager: GraphManager = GraphManager::new(default_channel_count);
         let root_graph_index = graph_manager.root_index();
 
-        let (output_node, input_node) = {
-            let graph = graph_manager.get_graph_mut(root_graph_index)?;
-
-            let (output_node, _) = graph.add_node("OutputsNode".into())?.value;
-            let (input_node, _) = graph.add_node("InputsNode".into())?.value;
-
-            let mut modified_input = graph.get_node(input_node)?.clone();
-            let mut modified_output = graph.get_node(output_node)?.clone();
-
-            modified_input.set_property(
-                "socket_list".into(),
-                Property::SocketList(vec![Socket::Simple("midi".into(), SocketType::Midi, 1)]),
-            );
-            modified_output.set_property(
-                "socket_list".into(),
-                Property::SocketList(vec![Socket::Simple("audio".into(), SocketType::Stream, 1)]),
-            );
-
-            graph.update_node(input_node, modified_input)?;
-            graph.update_node(output_node, modified_output)?;
-
-            (output_node, input_node)
-        };
-
-        Ok(GraphState {
+        GraphState {
             history,
             place_in_history,
             graph_manager,
             root_graph_index,
-            io_nodes: IoNodes {
-                input: input_node,
-                output: output_node,
-            },
-            default_channel_count: global_state.default_channel_count,
-        })
+            io_routing: IoRoutes::default(),
+            default_channel_count,
+            sound_config,
+        }
     }
 
-    pub fn get_traverser(
-        &self,
-        global_state: &GlobalState,
-        resources: &Resources,
-    ) -> Result<BufferedTraverser, NodeError> {
+    pub fn get_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
         let traverser = BufferedTraverser::new(
-            global_state.sound_config.clone(),
+            self.sound_config.clone(),
             &self.graph_manager,
             self.root_graph_index,
             &resources,
-            0,
+            Duration::ZERO,
         )?;
 
         Ok(traverser)
     }
 
-    pub fn get_engine(&self, global_state: &GlobalState, resources: &Resources) -> Result<NodeEngine, NodeError> {
-        let traverser = BufferedTraverser::new(
-            global_state.sound_config.clone(),
+    pub fn create_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
+        BufferedTraverser::new(
+            self.sound_config.clone(),
             &self.graph_manager,
             self.root_graph_index,
             &resources,
-            0,
-        )?;
-
-        Ok(NodeEngine::new(traverser, self.io_nodes.clone()))
+            Duration::ZERO,
+        )
     }
 
     pub fn get_node_state(&self) -> BTreeMap<NodeIndex, NodeState> {
@@ -238,62 +224,22 @@ impl GraphState {
             .expect("root graph to exist")
     }
 
-    pub fn get_io_nodes(&self) -> IoNodes {
-        self.io_nodes.clone()
+    pub fn get_sound_config(&self) -> SoundConfig {
+        self.sound_config.clone()
+    }
+
+    pub fn get_route_rules(&self) -> IoRoutes {
+        self.io_routing.clone()
+    }
+
+    pub fn set_route_rules(&mut self, routes: IoRoutes) {
+        self.io_routing = routes;
     }
 }
 
 impl GraphState {
     pub fn get_history(&self) -> &Vec<HistoryActionBundle> {
         &self.history
-    }
-
-    pub fn invalidations_to_engine_updates(
-        &self,
-        invalidations: Vec<ActionInvalidation>,
-        global_state: &GlobalState,
-        resources: &Resources,
-    ) -> Result<Vec<NodeEngineUpdate>, NodeError> {
-        let mut root_graph_reindex_needed = false;
-        let mut new_defaults = vec![];
-
-        for invalidation in invalidations {
-            match invalidation {
-                ActionInvalidation::GraphReindexNeeded(index) => {
-                    if index == self.root_graph_index {
-                        root_graph_reindex_needed = true;
-                    }
-                }
-                ActionInvalidation::NewDefaults(index, defaults) => {
-                    if index.graph_index == self.root_graph_index {
-                        new_defaults.extend(defaults.into_iter().filter_map(|(socket, value)| {
-                            if let Some(value) = value.as_value() {
-                                Some((index.node_index, socket, value))
-                            } else {
-                                None
-                            }
-                        }))
-                    }
-                }
-                ActionInvalidation::None => {}
-                ActionInvalidation::NewNode(_) => {}
-                ActionInvalidation::GraphModified(_) => {}
-            }
-        }
-
-        let mut updates = vec![];
-
-        if root_graph_reindex_needed {
-            updates.push(NodeEngineUpdate::NewNodeEngine(
-                self.get_engine(global_state, resources)?,
-            ));
-        }
-
-        if !new_defaults.is_empty() {
-            updates.push(NodeEngineUpdate::NewDefaults(new_defaults));
-        }
-
-        Ok(updates)
     }
 
     pub fn commit(&mut self, actions: ActionBundle, force_append: bool) -> Result<Vec<ActionInvalidation>, NodeError> {
@@ -312,11 +258,11 @@ impl GraphState {
         // determine whether to add a new action bundle, or to concatinate it to the current
         // action bundle
         if !self.history.is_empty() {
-            let is_new_bundle_mergable = new_actions.iter().all(|x| x.category == ActionCategory::Mergable);
+            let is_new_bundle_mergable = new_actions.iter().all(|x| x.category() == ActionCategory::Mergable);
             let is_current_bundle_mergable = self.history[self.place_in_history - 1]
                 .actions
                 .iter()
-                .all(|x| x.category == ActionCategory::Mergable);
+                .all(|x| x.category() == ActionCategory::Mergable);
 
             let should_append = force_append || (is_current_bundle_mergable && is_new_bundle_mergable);
 
@@ -393,7 +339,7 @@ impl GraphState {
                     .append_warnings(&mut warnings)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff,
                         category: ActionCategory::Separate,
                     },
@@ -406,7 +352,7 @@ impl GraphState {
                         .connect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff,
                         category: ActionCategory::Separate,
                     },
@@ -419,7 +365,7 @@ impl GraphState {
                         .disconnect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff,
                         category: ActionCategory::Separate,
                     },
@@ -427,16 +373,10 @@ impl GraphState {
                 )
             }
             Action::RemoveNode { index } => {
-                if index.graph_index == self.root_graph_index
-                    && (index.node_index == self.io_nodes.input || index.node_index == self.io_nodes.output)
-                {
-                    return Err(NodeError::CannotDeleteRootNode);
-                }
-
                 let (diff, invalidation) = self.graph_manager.remove_node(index)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff,
                         category: ActionCategory::Separate,
                     },
@@ -455,7 +395,7 @@ impl GraphState {
                 let diffs = graph.update_node(index.node_index, modified_node)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
@@ -471,11 +411,11 @@ impl GraphState {
                 let diffs = graph.update_node(index.node_index, modified_node)?;
 
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
+                    vec![],
                 )
             }
             Action::ChangeNodeOverrides { index, overrides } => {
@@ -486,12 +426,48 @@ impl GraphState {
 
                 let diffs = graph.update_node(index.node_index, modified_node)?;
 
+                let new_defaults: Vec<_> = overrides
+                    .iter()
+                    .map(|row| {
+                        let (socket, val) = row.to_socket_and_value().unwrap();
+
+                        (socket.clone(), val)
+                    })
+                    .collect();
+
                 (
-                    HistoryAction {
+                    HistoryAction::GraphAction {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
+                    vec![ActionInvalidation::NewDefaults(index, new_defaults)],
+                )
+            }
+            Action::ChangeRouteRules { new_rules } => {
+                // ensure rules are all unique
+                let mut new_rules_set = BTreeSet::new();
+
+                for rule in new_rules.devices.iter() {
+                    let unique = new_rules_set.insert((&rule.name, rule.device_type, rule.device_direction));
+
+                    if !unique {
+                        return Err(NodeError::RouteRulesNotUnique { rules: new_rules });
+                    }
+                }
+
+                let old_rules = self.get_route_rules();
+
+                self.io_routing = new_rules.clone();
+
+                (
+                    HistoryAction::RoutesAction {
+                        old: old_rules.clone(),
+                        new: new_rules.clone(),
+                    },
+                    vec![ActionInvalidation::NewRouteRules {
+                        last_rules: old_rules,
+                        new_rules,
+                    }],
                 )
             }
         };
@@ -500,15 +476,39 @@ impl GraphState {
     }
 
     fn reapply_action(&mut self, action: HistoryAction) -> Result<Vec<ActionInvalidation>, NodeError> {
-        let invalidations = self.graph_manager.reapply_action(action.diff)?;
+        match action {
+            HistoryAction::GraphAction { diff, .. } => {
+                let invalidations = self.graph_manager.reapply_action(diff)?;
 
-        Ok(invalidations)
+                Ok(invalidations)
+            }
+            HistoryAction::RoutesAction { new, .. } => {
+                let last_rules = mem::replace(&mut self.io_routing, new.clone());
+
+                Ok(vec![ActionInvalidation::NewRouteRules {
+                    last_rules,
+                    new_rules: new.clone(),
+                }])
+            }
+        }
     }
 
     fn rollback_action(&mut self, action: HistoryAction) -> Result<Vec<ActionInvalidation>, NodeError> {
-        let invalidations = self.graph_manager.rollback_action(action.diff)?;
+        match action {
+            HistoryAction::GraphAction { diff, .. } => {
+                let invalidations = self.graph_manager.rollback_action(diff)?;
 
-        Ok(invalidations)
+                Ok(invalidations)
+            }
+            HistoryAction::RoutesAction { old, .. } => {
+                let last_rules = mem::replace(&mut self.io_routing, old.clone());
+
+                Ok(vec![ActionInvalidation::NewRouteRules {
+                    last_rules,
+                    new_rules: old.clone(),
+                }])
+            }
+        }
     }
 }
 
@@ -517,17 +517,17 @@ impl GraphState {
         json!({
             "graphManager": self.graph_manager,
             "rootGraphIndex": self.root_graph_index,
-            "ioNodes": self.io_nodes,
             "defaultChannelCount": self.default_channel_count,
+            "ioRouting": self.io_routing
         })
     }
 
-    pub fn load_state(&mut self, graph_manager: GraphManager, root_graph_index: GraphIndex, io_nodes: IoNodes) {
+    pub fn load_state(&mut self, graph_manager: GraphManager, root_graph_index: GraphIndex, routing: IoRoutes) {
         self.history.clear();
         self.place_in_history = 0;
         self.graph_manager = graph_manager;
         self.root_graph_index = root_graph_index;
-        self.io_nodes = io_nodes;
+        self.io_routing = routing;
 
         self.graph_manager.set_default_channel_count(self.default_channel_count);
 

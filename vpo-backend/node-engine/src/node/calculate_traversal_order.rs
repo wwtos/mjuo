@@ -3,11 +3,11 @@ use std::ops::Range;
 
 use crate::connection::{Connection, Primitive, Socket, SocketType};
 use crate::errors::{NodeError, NodeWarning};
-use crate::global_state::{ResourceTypeAndIndex, Resources};
 use crate::graph_manager::{GraphIndex, GraphManager};
 use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
 use crate::nodes::{new_variant, NodeVariant};
+use crate::resources::{ResourceTypeAndIndex, Resources};
 
 use common::resource_manager::ResourceId;
 use ddgg::VertexIndex;
@@ -84,7 +84,7 @@ pub struct NodeIoCount {
     pub midi_index: usize,
     pub value_index: usize,
     pub stream_index: usize,
-    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub values_to_input: SmallVec<[(usize, Primitive); 1]>,
     pub socket_lookup: BTreeMap<Socket, usize>,
 }
 

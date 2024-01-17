@@ -7,7 +7,7 @@ use crate::{
     errors::{EngineError, NodeSnafu},
     routes::prelude::*,
     routes::RouteReturn,
-    util::send_graph_updates,
+    util::{send_graph_updates, send_project_state_updates},
 };
 
 pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
@@ -23,6 +23,7 @@ pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
             | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
                 touched_graphs.insert(index);
             }
+            ActionInvalidation::NewRouteRules { .. } => {}
             ActionInvalidation::None => {}
         }
     }
@@ -31,15 +32,15 @@ pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
     }
 
+    send_project_state_updates(state.state, state.global_state, state.to_server)?;
+
     Ok(RouteReturn {
-        engine_updates: state
-            .state
-            .invalidations_to_engine_updates(
-                invalidations,
-                state.global_state,
-                &*state.resources_lock.read().unwrap(),
-            )
-            .context(NodeSnafu)?,
+        engine_updates: state_invalidations(
+            state.state,
+            invalidations,
+            &mut state.global_state.device_manager,
+            &*state.resources_lock.read().unwrap(),
+        )?,
         new_project: false,
     })
 }

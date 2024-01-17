@@ -1,6 +1,5 @@
-pub mod cpal;
+pub mod clocked;
 pub mod file_watcher;
-pub mod midir;
 pub mod scoped_pool;
 
 use std::fmt::Debug;
@@ -12,16 +11,18 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 
 use common::resource_manager::ResourceManager;
-use node_engine::global_state::Resources;
-use node_engine::{global_state::GlobalState, state::GraphState};
+use log::info;
+use node_engine::resources::Resources;
+use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use semver::Version;
 use serde_json::{json, Value};
 use snafu::{OptionExt, ResultExt};
+use sound_engine::SoundConfig;
 use walkdir::WalkDir;
 
-use crate::errors::{IoSnafu, JsonParserSnafu};
+use crate::errors::{IoSnafu, JsonParserInContextSnafu, JsonParserSnafu};
 
 use crate::errors::EngineError;
 use crate::migrations::migrate;
@@ -29,11 +30,9 @@ use crate::resource::rank::load_rank_from_file;
 use crate::resource::sample::load_sample;
 use crate::resource::ui::load_ui_from_file;
 
-use self::scoped_pool::scoped_pool;
-
 const AUDIO_EXTENSIONS: &[&str] = &["ogg", "wav", "mp3", "flac"];
 lazy_static! {
-    pub static ref VERSION: Version = Version::parse("0.4.0").unwrap();
+    pub static ref VERSION: Version = Version::parse("0.5.0").unwrap();
 }
 
 pub fn save(state: &GraphState, path: &Path) -> Result<(), EngineError> {
@@ -105,7 +104,12 @@ where
 }
 
 /// Make sure samples are loaded before ranks!
-pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Result<(), EngineError> {
+pub fn load_single(
+    root: &Path,
+    file: &Path,
+    resources: &mut Resources,
+    config: SoundConfig,
+) -> Result<(), EngineError> {
     let relative_file = file
         .strip_prefix(root)
         .whatever_context(format!("Could not strip \"{:?}\" of \"{:?}\"", file, root))?;
@@ -113,7 +117,7 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
     let resource_type = relative_file.iter().next().unwrap();
     let resource = relative_file.strip_prefix(resource_type).unwrap().to_string_lossy();
 
-    println!("type: {:?}, resource: {:?}", resource_type, resource);
+    info!("loading resource: `{:?}` of type {:?}", resource, resource_type);
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
@@ -129,7 +133,7 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
                 resources.samples.remove_resource(resource.as_ref());
             }
 
-            let sample = load_sample(file)?;
+            let sample = load_sample(file, &config)?;
             resources.samples.add_resource(resource.into_owned(), sample);
         }
         "ui" => {
@@ -146,10 +150,10 @@ pub fn load_single(root: &Path, file: &Path, resources: &mut Resources) -> Resul
     Ok(())
 }
 
-pub fn load(
+pub fn load_state(
     path: &Path,
+    config: SoundConfig,
     state: &mut GraphState,
-    global_state: &mut GlobalState,
     resources: &mut Resources,
 ) -> Result<mpsc::Receiver<Result<Event, Error>>, EngineError> {
     let parent = path
@@ -159,23 +163,24 @@ pub fn load(
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    if let Some(version) = json["version"].as_str() {
-        if version != VERSION.to_string() {
-            migrate(PathBuf::from(path))?;
-        }
+    let file_version = json["version"]
+        .as_str()
+        .whatever_context("Version number missing in file".to_string())?;
+
+    if file_version != VERSION.to_string() {
+        migrate(PathBuf::from(path))?;
     }
 
     // read again after migrating (TODO: only do when necessary)
     let json_raw = fs::read_to_string(path).context(IoSnafu)?;
     let mut json: Value = serde_json::from_str(&json_raw).context(JsonParserSnafu)?;
 
-    *state = GraphState::new(global_state).unwrap();
-    resources.reset();
-
-    println!("Loading resources...");
+    info!("Loading resources...");
     let time = Instant::now();
 
-    let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &load_sample)?;
+    let samples = load_resources(&parent.join("samples"), AUDIO_EXTENSIONS, &|path| {
+        load_sample(path, &config)
+    })?;
     let ranks = load_resources(&parent.join("ranks"), &["toml"], &|path| {
         load_rank_from_file(path, &samples)
     })?;
@@ -185,15 +190,17 @@ pub fn load(
     resources.ranks.extend(ranks);
     resources.ui.extend(ui);
 
-    println!("Loaded! Took {:?} seconds", time.elapsed());
+    info!("Loaded! Took {:?}", time.elapsed());
 
     let json_state = &mut json["state"];
 
     let graph_manager = serde_json::from_value(json_state["graphManager"].take()).context(JsonParserSnafu)?;
     let root_graph_index = serde_json::from_value(json_state["rootGraphIndex"].take()).context(JsonParserSnafu)?;
-    let io_nodes = serde_json::from_value(json_state["ioNodes"].take()).context(JsonParserSnafu)?;
+    let io_routing = serde_json::from_value(json_state["ioRouting"].take()).context(JsonParserInContextSnafu {
+        context: "state.ioRouting".to_string(),
+    })?;
 
-    state.load_state(graph_manager, root_graph_index, io_nodes);
+    state.load_state(graph_manager, root_graph_index, io_routing);
 
     let (tx, rx) = mpsc::channel();
     let mut watcher =

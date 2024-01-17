@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-
+use common::SeaHashMap;
 use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,7 +16,7 @@ use crate::{node::NodeIndex, node_graph::NodeGraph};
 pub enum DiffElement {
     GraphManagerDiff(GraphDiff<NodeGraph, ConnectedThrough>),
     ChildGraphDiff(GraphIndex, NodeGraphDiff),
-    ExtendUiData(GlobalNodeIndex, HashMap<String, Value>),
+    ExtendUiData(GlobalNodeIndex, SeaHashMap<String, Value>),
 }
 
 #[derive(Debug, Clone)]
@@ -202,7 +201,7 @@ impl GraphManager {
         &mut self,
         node_type: &str,
         graph_index: GraphIndex,
-        ui_data: HashMap<String, Value>,
+        ui_data: SeaHashMap<String, Value>,
     ) -> NodeResult<(GraphManagerDiff, Vec<ActionInvalidation>)> {
         let mut diff: Vec<DiffElement> = vec![];
 

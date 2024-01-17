@@ -34,7 +34,7 @@ impl Node for TemplateNode {
         }
     }
 
-    fn init(&mut self, properties: &HashMap<String, Property>) -> (bool, Option<HashMap<String, Property>>) {
+    fn init(&mut self, properties: &SeaHashMap<String, Property>) -> (bool, Option<SeaHashMap<String, Property>>) {
         if let Some(some_prop) = params.props.get("some_prop") {
             if let Property::Float(some_extracted_prop) = some_prop {
                 self.some_prop = *some_extracted_prop;
@@ -52,7 +52,7 @@ impl Node for TemplateNode {
         vec![SocketType::Stream(StreamSocketType::Audio)]
     }
 
-    fn list_properties(&self) -> HashMap<String, PropertyType> {
+    fn list_properties(&self) -> SeaHashMap<String, PropertyType> {
         let mut props = HashMap::new();
 
         props.insert("some_prop".to_string(), PropertyType::Float);

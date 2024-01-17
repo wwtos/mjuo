@@ -10,6 +10,8 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
+use crate::SeaHashMap;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResourceIndex(Index);
 
@@ -100,14 +102,14 @@ where
 #[derive(Debug)]
 pub struct ResourceManager<A> {
     resources: GenVec<A>,
-    resource_mapping: HashMap<String, ResourceIndex>,
+    resource_mapping: SeaHashMap<String, ResourceIndex>,
 }
 
 impl<A> Default for ResourceManager<A> {
     fn default() -> Self {
         ResourceManager {
             resources: GenVec::new(),
-            resource_mapping: HashMap::new(),
+            resource_mapping: HashMap::default(),
         }
     }
 }
@@ -152,7 +154,7 @@ impl<A> ResourceManager<A> {
     pub fn new() -> ResourceManager<A> {
         ResourceManager {
             resources: GenVec::new(),
-            resource_mapping: HashMap::new(),
+            resource_mapping: HashMap::default(),
         }
     }
 

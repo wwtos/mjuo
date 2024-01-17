@@ -1,10 +1,7 @@
-use std::path::PathBuf;
-
 use common::resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use common::traits::TryRef;
 use serde::Serialize;
-use serde_json::json;
-use sound_engine::{sampling::rank::Rank, MonoSample, SoundConfig};
+use sound_engine::{sampling::rank::Rank, MonoSample};
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -91,38 +88,5 @@ impl Resources {
         self.ranks.clear();
         self.samples.clear();
         self.ui.clear();
-    }
-}
-
-#[derive(Debug)]
-pub struct GlobalState {
-    pub active_project: Option<PathBuf>,
-    pub import_folder: Option<PathBuf>,
-    pub sound_config: SoundConfig,
-    pub default_channel_count: usize,
-}
-
-impl GlobalState {
-    pub fn new(sound_config: SoundConfig) -> GlobalState {
-        GlobalState {
-            active_project: None,
-            import_folder: None,
-            sound_config,
-            default_channel_count: 2,
-        }
-    }
-
-    pub fn project_directory(&self) -> Option<PathBuf> {
-        self.active_project
-            .as_ref()
-            .and_then(|project| project.parent())
-            .map(|dir| dir.into())
-    }
-
-    pub fn to_json(&self) -> serde_json::Value {
-        json!({
-            "activeProject": self.active_project,
-            "soundConfig": self.sound_config,
-        })
     }
 }

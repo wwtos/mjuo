@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use itertools::multizip;
 use sound_engine::node::filter::{filter_coeffs, BiquadFilter, FilterSpec, FilterType};
 
@@ -77,6 +75,8 @@ impl NodeRuntime for BiquadFilterNode {
                 }
                 FilterType::None => {}
             }
+
+            self.recompute();
         }
 
         for (channel_in, channel_out, filter) in
@@ -100,8 +100,8 @@ impl Node for BiquadFilterNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
-        let polyphony = default_channels(&props, context.default_channel_count);
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+        let channels = default_channels(&props, context.default_channel_count);
 
         NodeIo {
             node_rows: vec![
@@ -111,10 +111,10 @@ impl Node for BiquadFilterNode {
                     &["lowpass", "highpass", "bandpass", "notch", "allpass"],
                     "lowpass",
                 ),
-                stream_input("audio", polyphony),
+                stream_input("audio", channels),
                 value_input("frequency", Primitive::Float(20000.0), 1),
                 value_input("resonance", Primitive::Float(0.707), 1),
-                stream_output("audio", polyphony),
+                stream_output("audio", channels),
             ],
             child_graph_io: None,
         }

@@ -140,7 +140,7 @@ impl NodeRuntime for MemoryNode {
 }
 
 impl Node for MemoryNode {
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("activate", Primitive::Boolean(false), 1),
             value_input("load_mode", Primitive::Boolean(false), 1),

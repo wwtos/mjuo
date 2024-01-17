@@ -121,6 +121,7 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
             | ActionInvalidation::NewNode(GlobalNodeIndex { graph_index: index, .. }) => {
                 touched_graphs.insert(index);
             }
+            ActionInvalidation::NewRouteRules { .. } => {}
             ActionInvalidation::None => {}
         }
     }
@@ -130,14 +131,12 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     }
 
     Ok(RouteReturn {
-        engine_updates: state
-            .state
-            .invalidations_to_engine_updates(
-                invalidations,
-                state.global_state,
-                &*state.resources_lock.read().unwrap(),
-            )
-            .context(NodeSnafu)?,
+        engine_updates: state_invalidations(
+            state.state,
+            invalidations,
+            &mut state.global_state.device_manager,
+            &*state.resources_lock.read().unwrap(),
+        )?,
         new_project: false,
     })
 }

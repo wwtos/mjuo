@@ -55,6 +55,7 @@ pub struct PipePlayer {
 
     // basic player values
     audio_position: f32,
+    resample_ratio: f32,
 
     // voicing
     voicing_amp: f32,
@@ -63,7 +64,7 @@ pub struct PipePlayer {
     // dynamic air values
     detune: f32,
     gain: f32,
-    third_harm_filter: NthBiquadFilter,
+    third_harm_filter: NthBiquadFilter<4>,
     third_db_gain: f32,
     third_spec: FilterSpec<f32>,
 
@@ -82,6 +83,7 @@ impl PipePlayer {
             queued_action: QueuedAction::None,
 
             audio_position: 0.0,
+            resample_ratio: 0.0,
 
             voicing_amp: 1.0,
             voicing_comb: SimpleComb::default(),
@@ -109,6 +111,7 @@ impl PipePlayer {
             queued_action: QueuedAction::None,
 
             audio_position: 0.0,
+            resample_ratio: sample.sample_rate as f32 / sample_rate as f32,
 
             voicing_amp: 1.0,
             voicing_comb: SimpleComb::default(),
@@ -119,14 +122,11 @@ impl PipePlayer {
 
             detune: 1.0,
             gain: 1.0,
-            third_harm_filter: NthBiquadFilter::new(
-                FilterSpec {
-                    f0: sample_rate as f32 / 2.0,
-                    fs: sample_rate as f32,
-                    filter_type: FilterType::None,
-                },
-                4,
-            ),
+            third_harm_filter: NthBiquadFilter::new(FilterSpec {
+                f0: sample_rate as f32 / 2.0,
+                fs: sample_rate as f32,
+                filter_type: FilterType::None,
+            }),
             third_db_gain: 0.0,
             third_spec: FilterSpec::new(
                 pipe.freq,
@@ -284,7 +284,7 @@ impl PipePlayer {
             self.audio_position,
         );
 
-        self.audio_position += self.detune;
+        self.audio_position += self.detune * self.resample_ratio;
 
         self.third_harm_filter.filter_sample(comb_pass) * self.gain * self.voicing_amp
     }
@@ -306,8 +306,8 @@ impl PipePlayer {
 
         let interpolated = old * (1.0 - crossfade_factor) + new * crossfade_factor;
 
-        self.audio_position += self.detune;
-        self.crossfade_position += self.detune;
+        self.audio_position += self.detune * self.resample_ratio;
+        self.crossfade_position += self.detune * self.resample_ratio;
 
         let out = self.third_harm_filter.filter_sample(interpolated) * self.gain * self.voicing_amp;
 

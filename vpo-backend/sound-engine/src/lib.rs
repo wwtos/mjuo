@@ -2,12 +2,11 @@
 
 use std::fmt::Debug;
 
+use clocked::midi::MidiMessage;
 use common::alloc::Alloc;
-use midi::messages::MidiMessage;
 use serde::Serialize;
 
 pub mod error;
-pub mod midi;
 pub mod node;
 pub mod openal;
 pub mod ringbuffer;
@@ -30,8 +29,8 @@ pub struct SoundConfig {
 impl Default for SoundConfig {
     fn default() -> Self {
         SoundConfig {
-            sample_rate: 200,
-            buffer_size: 1,
+            sample_rate: 48_000,
+            buffer_size: 64,
         }
     }
 }

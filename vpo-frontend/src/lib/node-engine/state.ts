@@ -2,8 +2,10 @@ import type { VertexIndex } from "$lib/ddgg/graph";
 import type { DiscriminatedUnion } from "$lib/util/discriminated-union";
 import type { Socket } from "./connection";
 import type { GlobalNodeIndex } from "./graph_manager";
+import type { IoRoutes } from "./io_routing";
 import type { NodeRow } from "./node";
 import type { Property } from "./property";
+
 
 export type Action = DiscriminatedUnion<"variant", {
     CreateNode: {
@@ -62,6 +64,11 @@ export type Action = DiscriminatedUnion<"variant", {
         data: {
             index: GlobalNodeIndex,
             overrides: Array<NodeRow>
+        }
+    },
+    ChangeRouteRules: {
+        data: {
+            newRules: IoRoutes
         }
     }
 }>;

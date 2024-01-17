@@ -114,7 +114,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(

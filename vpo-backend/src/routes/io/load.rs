@@ -1,39 +1,65 @@
 use std::path::Path;
 
-use node_engine::state::NodeEngineUpdate;
+use log::info;
+use node_engine::{
+    io_routing::IoRoutes,
+    state::{ActionInvalidation, GraphState},
+};
 use rfd::AsyncFileDialog;
 use snafu::ResultExt;
+use sound_engine::SoundConfig;
 
 use crate::{
+    engine::ToAudioThread,
     errors::EngineError,
-    io::load,
+    io::load_state,
     routes::{prelude::*, RouteReturn},
-    util::{send_global_state_updates, send_graph_updates, send_resource_updates},
+    util::{send_graph_updates, send_project_state_updates, send_resource_updates},
 };
 
-pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineError> {
     let file = AsyncFileDialog::new().pick_file().await;
-    let resources = &mut *state.resources_lock.write().unwrap();
+    let resources = &mut *ctx.resources_lock.write().unwrap();
 
     if let Some(file) = file {
         let path = file.path();
 
-        state.global_state.active_project = Some(path.into());
+        ctx.global_state.active_project = Some(path.into());
 
-        state.state.clear_history();
-        load(Path::new(path), state.state, state.global_state, resources)?;
+        // reset everything
+        ctx.to_audio_thread.send(ToAudioThread::Reset).unwrap();
+        *ctx.state = GraphState::new(SoundConfig::default());
+        ctx.global_state.device_manager.reset();
+        resources.reset();
 
-        send_global_state_updates(state.global_state, state.to_server)?;
-        send_graph_updates(state.state, state.state.get_root_graph_index(), state.to_server)?;
-        send_resource_updates(resources, state.to_server)?;
+        load_state(Path::new(path), ctx.state.get_sound_config(), &mut ctx.state, resources)?;
+
+        send_project_state_updates(&ctx.state, &ctx.global_state, ctx.to_server)?;
+        send_graph_updates(ctx.state, ctx.state.get_root_graph_index(), ctx.to_server)?;
+        send_resource_updates(resources, ctx.to_server)?;
+
+        // handle new audio devices
+        let new_rules = ctx.state.get_route_rules();
+
+        info!("Connecting devices...");
+        let mut to_audio_thread = state_invalidations(
+            &mut ctx.state,
+            vec![ActionInvalidation::NewRouteRules {
+                last_rules: IoRoutes::default(),
+                new_rules,
+            }],
+            &mut ctx.global_state.device_manager,
+            resources,
+        )?;
+
+        to_audio_thread.push(ToAudioThread::NewTraverser(
+            ctx.state
+                .get_traverser(resources)
+                .whatever_context("could not create traverser")?,
+        ));
 
         return Ok(RouteReturn {
-            engine_updates: vec![NodeEngineUpdate::NewNodeEngine(
-                state
-                    .state
-                    .get_engine(state.global_state, resources)
-                    .whatever_context("could not create traverser")?,
-            )],
+            engine_updates: to_audio_thread,
             new_project: true,
         });
     }

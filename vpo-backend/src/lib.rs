@@ -1,9 +1,11 @@
+pub mod engine;
 pub mod errors;
 #[cfg(any(windows, unix))]
 pub mod io;
 pub mod migrations;
 pub mod resource;
 pub mod routes;
+pub mod state;
 pub mod util;
 #[cfg(target_arch = "wasm32")]
 pub mod utils;
@@ -20,17 +22,18 @@ use std::sync::RwLock;
 use std::thread::JoinHandle;
 use std::{error::Error, io::Write};
 
+use serde_json::json;
+
 use ipc::ipc_message::IpcMessage;
 #[cfg(target_arch = "wasm32")]
 use ipc::send_buffer::SendBuffer;
 
+use engine::ToAudioThread;
 use io::file_watcher::FileWatcher;
-use node_engine::{
-    global_state::{GlobalState, Resources},
-    state::{GraphState, NodeEngineUpdate},
-};
+use node_engine::{resources::Resources, state::GraphState};
 use routes::route;
-use serde_json::json;
+
+use state::GlobalState;
 
 #[cfg(any(unix, windows))]
 pub fn start_ipc(port: u32) -> (flume::Sender<IpcMessage>, flume::Receiver<IpcMessage>, JoinHandle<()>) {
@@ -51,16 +54,20 @@ pub async fn handle_msg(
     state: &mut GraphState,
     global_state: &mut GlobalState,
     resources_lock: &RwLock<Resources>,
-    engine_sender: &flume::Sender<Vec<NodeEngineUpdate>>,
+    to_audio_thread: &flume::Sender<ToAudioThread>,
     file_watcher: &mut FileWatcher,
     project_dir_sender: &mut flume::Sender<PathBuf>,
 ) {
-    let result = route(msg, to_server, state, global_state, resources_lock).await;
+    use log::error;
+
+    let result = route(msg, to_server, to_audio_thread, state, global_state, resources_lock).await;
 
     match result {
         Ok(route_result) => {
             if !route_result.engine_updates.is_empty() {
-                engine_sender.send(route_result.engine_updates).unwrap();
+                for update in route_result.engine_updates {
+                    to_audio_thread.send(update).unwrap();
+                }
             }
 
             if route_result.new_project {
@@ -80,6 +87,8 @@ pub async fn handle_msg(
         }
         Err(err) => {
             let err_str = err.to_string();
+
+            error!("route error: {}", err_str);
 
             to_server
                 .send(IpcMessage::Json(json! {{

@@ -1,5 +1,7 @@
 # Node lifecycle
 
+_TODO: this whole document is mostly outdated._
+
 ### On creation
 
 1. `new_variant` called with node name as string (calls the node's `new` or `default` generally).

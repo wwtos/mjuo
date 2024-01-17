@@ -1,9 +1,11 @@
 use std::{
     cell::UnsafeCell,
     collections::BTreeMap,
+    fmt::Debug,
     iter::{repeat, repeat_with},
     mem,
     ops::Range,
+    time::Duration,
 };
 
 use common::resource_manager::ResourceId;
@@ -16,7 +18,6 @@ use sound_engine::SoundConfig;
 use crate::{
     connection::{Primitive, Socket},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
-    global_state::{Resource, ResourceTypeAndIndex, Resources},
     graph_manager::{GraphIndex, GraphManager},
     midi_store::MidiStore,
     node::{
@@ -24,6 +25,7 @@ use crate::{
         StateInterface,
     },
     nodes::NodeVariant,
+    resources::{Resource, ResourceTypeAndIndex, Resources},
 };
 
 use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes};
@@ -158,7 +160,7 @@ struct TraverserNode {
     pub value_out: Range<usize>,
     pub resources: Range<usize>,
     pub node: NodeVariant,
-    pub values_to_input: SmallVec<[(usize, Primitive); 4]>,
+    pub values_to_input: SmallVec<[(usize, Primitive); 1]>,
     pub socket_lookup: BTreeMap<Socket, usize>,
 }
 
@@ -169,7 +171,6 @@ pub struct StepResult {
     pub request_for_graph_state: bool,
 }
 
-#[derive(Debug)]
 pub struct BufferedTraverser {
     nodes: Vec<TraverserNode>,
     nodes_with_state: Vec<(usize, NodeIndex)>,
@@ -177,12 +178,19 @@ pub struct BufferedTraverser {
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
     store: MidiStore,
+    midi_tracking: Vec<Option<MidisIndex>>,
     config: SoundConfig,
     engine: Engine,
-    time: i64,
+    time: Duration,
     resource_scratch: Vec<Resource<'static>>,
     value_input_scratch: Vec<UnsafeCell<Primitive>>,
     value_ref_scratch: Vec<&'static [UnsafeCell<Primitive>]>,
+}
+
+impl Debug for BufferedTraverser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BufferedTraverser").finish_non_exhaustive()
+    }
 }
 
 unsafe impl Send for BufferedTraverser {}
@@ -193,7 +201,7 @@ impl BufferedTraverser {
         manager: &GraphManager,
         graph_index: GraphIndex,
         resources: &Resources,
-        start_time: i64,
+        start_time: Duration,
     ) -> Result<BufferedTraverser, NodeError> {
         let mut io_spec = calc_io_spec(
             manager.get_graph(graph_index).unwrap(),
@@ -241,6 +249,14 @@ impl BufferedTraverser {
             });
         }
 
+        let midi_io = &io_and_refs.borrow_owner().midi_io;
+        let mut midi_tracking = Vec::with_capacity(midi_io.len());
+
+        for index in midi_io {
+            let index = index.get();
+            midi_tracking.push(unsafe { (*index).as_ref().map(|x| x.private_clone()) });
+        }
+
         // TODO: the midi store params should be adjustable
         let store = MidiStore::new(50_000_000, 0);
 
@@ -253,6 +269,7 @@ impl BufferedTraverser {
             resource_tracking: io_spec.resources_tracking,
             io_and_refs,
             store,
+            midi_tracking,
             config,
             engine,
             time: start_time,
@@ -381,7 +398,28 @@ impl BufferedTraverser {
             }
         }
 
-        self.time += self.config.buffer_size as i64;
+        // # Midi garbage collection
+        //
+        // As each midi message is "owned" by only the node that outputted it,
+        // if the node is no longer outputting it it's good to be collected.
+        let midi_io = &self.io_and_refs.borrow_owner().midi_io;
+        for (last_midi_index, new_midi_index) in self.midi_tracking.iter_mut().zip(midi_io.iter()) {
+            // SAFETY: io_and_refs isn't being used by anything currently (since we're running in a
+            // single thread)
+            let new_midi_index = unsafe { &*new_midi_index.get() };
+
+            if last_midi_index != new_midi_index {
+                if let Some(some_index) = last_midi_index {
+                    self.store.remove_midi(some_index.0);
+                }
+
+                *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());
+            }
+        }
+
+        // TODO: make sure this won't drift over time
+        let advance_time = Duration::from_secs_f64(self.config.buffer_size as f64 / self.config.sample_rate as f64);
+        self.time += advance_time;
 
         self.resource_scratch = all_resources.recycle();
 
@@ -425,12 +463,14 @@ impl BufferedTraverser {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use sound_engine::SoundConfig;
 
     use crate::{
         connection::{Socket, SocketType},
-        global_state::Resources,
         graph_manager::GraphManager,
+        resources::Resources,
     };
 
     use super::BufferedTraverser;
@@ -468,8 +508,14 @@ mod tests {
             buffer_size: 4,
         };
 
-        let mut traverser =
-            BufferedTraverser::new(sound_config.clone(), &manager, graph_index, &Resources::default(), 0).unwrap();
+        let mut traverser = BufferedTraverser::new(
+            sound_config.clone(),
+            &manager,
+            graph_index,
+            &Resources::default(),
+            Duration::ZERO,
+        )
+        .unwrap();
         traverser.step(&Resources::default(), vec![], None);
         traverser.step(&Resources::default(), vec![], None);
     }

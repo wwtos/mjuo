@@ -1,5 +1,3 @@
-use sound_engine::midi::messages::{MidiData, MidiMessage};
-
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -78,7 +76,7 @@ impl NodeRuntime for MidiTransposeNode {
 }
 
 impl Node for MidiTransposeNode {
-    fn get_io(_context: &NodeGetIoContext, _props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("transpose", int(0), 1),

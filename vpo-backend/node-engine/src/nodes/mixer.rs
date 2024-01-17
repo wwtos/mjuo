@@ -12,7 +12,7 @@ impl NodeRuntime for MixerNode {
         _midi_store: &mut MidiStoreInterface,
         _resources: &[Resource],
     ) -> NodeResult<()> {
-        for stream_out in outs.streams() {
+        for mut stream_out in outs.streams() {
             for channel_out in stream_out.iter_mut() {
                 for frame_out in channel_out.iter_mut() {
                     *frame_out = 0.0;
@@ -37,7 +37,7 @@ impl Node for MixerNode {
         MixerNode {}
     }
 
-    fn get_io(context: &NodeGetIoContext, props: HashMap<String, Property>) -> NodeIo {
+    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
         let mut node_rows = vec![
