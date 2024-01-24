@@ -13,6 +13,10 @@ impl InputsNode {
         self.midis = Some(midis);
     }
 
+    pub fn midis_mut(&mut self) -> &mut Option<MidiChannel> {
+        &mut self.midis
+    }
+
     pub fn streams_mut(&mut self) -> &mut Vec<Vec<f32>> {
         &mut self.streams
     }
