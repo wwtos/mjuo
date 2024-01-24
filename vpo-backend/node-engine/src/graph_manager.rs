@@ -2,13 +2,14 @@ use common::SeaHashMap;
 use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 
-use crate::connection::Socket;
-use crate::errors::{GraphDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
-use crate::node::NodeGraphAndIo;
+use crate::connection::{Socket, SocketDirection};
+use crate::errors::{GraphDoesNotExistSnafu, NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult};
+use crate::node::NodeGetIoContext;
 use crate::node_graph::NodeGraphDiff;
 use crate::node_instance::NodeInstance;
+use crate::nodes::variant_io;
 use crate::state::ActionInvalidation;
 use crate::{node::NodeIndex, node_graph::NodeGraph};
 
@@ -194,6 +195,110 @@ impl GraphManager {
 
         Ok(mapped)
     }
+
+    pub fn update_node(&mut self, index: GlobalNodeIndex, new: NodeInstance) -> Result<Vec<NodeGraphDiff>, NodeError> {
+        let mut diffs = vec![];
+
+        diffs.push(
+            self.get_graph_mut(index.graph_index)?
+                .update_node_no_row_updates(index.node_index, new)?,
+        );
+        diffs.extend(self.update_node_rows(index)?);
+
+        Ok(diffs)
+    }
+
+    fn update_node_rows(&mut self, index: GlobalNodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
+        let graph = self.get_graph(index.graph_index)?;
+        let node = graph.get_node(index.node_index)?;
+
+        let ctx = self.create_get_io_context(index)?;
+        let new_rows = variant_io(&node.get_node_type(), &ctx, node.get_properties().clone())?.node_rows;
+
+        let mut diffs = vec![];
+
+        let graph = self.get_graph_mut(index.graph_index)?;
+        let node = graph.get_node(index.node_index)?;
+
+        // it would be pretty silly to do anything if the rows are exactly the same
+        if *graph[index.node_index].get_node_rows() != new_rows {
+            // Figure out what rows were removed.
+            let removed: Vec<(Socket, SocketDirection)> = node
+                .get_node_rows()
+                .iter()
+                .filter(|&old_row| !new_rows.iter().any(|new_row| new_row == old_row))
+                .filter_map(|row| row.to_socket_and_direction().map(|x| (x.0.clone(), x.1)))
+                .collect();
+
+            // For any row that was removed, it needs to be disconnected (note we do all the disconnections
+            // _before_ we set the new node rows, that way disconnecting doesn't error out and our invariants
+            // stay all warm and fuzzy).
+            for input_connection in graph.get_input_side_connections(index.node_index)? {
+                if removed.iter().any(|(socket, direction)| {
+                    socket == &input_connection.to_socket && direction == &SocketDirection::Input
+                }) {
+                    let (_, diff) = graph.disconnect(
+                        input_connection.from_node,
+                        &input_connection.from_socket,
+                        index.node_index,
+                        &input_connection.to_socket,
+                    )?;
+
+                    diffs.push(diff);
+                }
+            }
+
+            for output_connection in graph.get_output_side_connections(index.node_index)? {
+                if removed.iter().any(|(socket, direction)| {
+                    socket == &output_connection.to_socket && direction == &SocketDirection::Output
+                }) {
+                    let (_, diff) = graph.disconnect(
+                        index.node_index,
+                        &output_connection.from_socket,
+                        output_connection.to_node,
+                        &output_connection.to_socket,
+                    )?;
+
+                    diffs.push(diff);
+                }
+            }
+
+            let mut modified_node = graph.get_node(index.node_index)?.clone();
+            modified_node.set_node_rows(new_rows);
+
+            diffs.push(graph.update_node_no_row_updates(index.node_index, modified_node)?);
+        }
+
+        Ok(diffs)
+    }
+
+    fn create_get_io_context(&self, index: GlobalNodeIndex) -> Result<NodeGetIoContext, NodeError> {
+        let graph = self.get_graph(index.graph_index)?.get_graph();
+        let vertex = graph.get_vertex(index.node_index.0).context(NodeDoesNotExistSnafu {
+            node_index: index.node_index,
+        })?;
+
+        let connected_inputs: Vec<Socket> = vertex
+            .get_connections_from()
+            .iter()
+            .map(|(_, connection)| graph[*connection].data().to_socket.clone())
+            .collect();
+        let connected_outputs: Vec<Socket> = vertex
+            .get_connections_to()
+            .iter()
+            .map(|(_, connection)| graph[*connection].data().from_socket.clone())
+            .collect();
+
+        Ok(NodeGetIoContext {
+            default_channel_count: self.default_channel_count,
+            connected_inputs,
+            connected_outputs,
+            child_graph: vertex
+                .data()
+                .get_child_graph()
+                .map(|index| self.get_graph(index).unwrap()),
+        })
+    }
 }
 
 impl GraphManager {
@@ -231,19 +336,12 @@ impl GraphManager {
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, inputs_diff));
                 diff.push(DiffElement::ChildGraphDiff(new_graph_index, outputs_diff));
 
-                NodeGraphAndIo {
-                    graph_index: new_graph_index,
-                    input_index: inputs_index,
-                    output_index: outputs_index,
-                }
+                new_graph_index
             };
 
             // connect the two graphs together
-            let (_, connect_diff) = self.connect_graphs(
-                graph_index,
-                ConnectedThrough(new_node_index),
-                new_graph_index.graph_index,
-            )?;
+            let (_, connect_diff) =
+                self.connect_graphs(graph_index, ConnectedThrough(new_node_index), new_graph_index)?;
             diff.extend(connect_diff.0);
 
             Some(new_graph_index)

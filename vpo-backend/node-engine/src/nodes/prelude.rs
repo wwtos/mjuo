@@ -6,8 +6,8 @@ pub(super) use sound_engine::{MidiChannel, SoundConfig};
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
 pub(super) use crate::node::{
-    InitResult, Ins, MidiStoreInterface, Node, NodeGetIoContext, NodeIndex, NodeInitParams, NodeIo, NodeProcessContext,
-    NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
+    midi_store::MidiStore, InitResult, Ins, Node, NodeGetIoContext, NodeIndex, NodeInitParams, NodeIo,
+    NodeProcessContext, NodeRow, NodeRuntime, NodeState, Outs, ProcessResult,
 };
 pub(super) use crate::resources::Resource;
 pub(super) use crate::{

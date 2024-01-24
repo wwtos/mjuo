@@ -1,16 +1,20 @@
-use crate::nodes::prelude::*;
+use std::time::Duration;
+
+use crate::{node::buffered_traverser::BufferedTraverser, nodes::prelude::*};
+
+use super::NodeVariant;
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 
 #[derive(Debug, Clone)]
 struct PolyphonicInfo {
-    started_at: i64,
+    started_at: Duration,
     active: bool,
     note: u8,
 }
 
 impl PolyphonicInfo {
-    pub fn new(started_at: i64) -> PolyphonicInfo {
+    pub fn new(started_at: Duration) -> PolyphonicInfo {
         PolyphonicInfo {
             started_at,
             active: false,
@@ -19,55 +23,92 @@ impl PolyphonicInfo {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Voice {
-    // traverser: BufferedTraverser,
+    traverser: BufferedTraverser,
     info: PolyphonicInfo,
     is_first_time: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PolyphonicNode {
     voices: Vec<Voice>,
     polyphony: u8,
-    // traverser: BufferedTraverser,
-    child_io_nodes: Option<(NodeIndex, NodeIndex)>,
+    input_node: Option<NodeIndex>,
+    output_node: Option<NodeIndex>,
+}
+
+impl Clone for PolyphonicNode {
+    fn clone(&self) -> Self {
+        PolyphonicNode {
+            voices: vec![],
+            polyphony: self.polyphony,
+            input_node: self.input_node,
+            output_node: self.output_node,
+        }
+    }
 }
 
 impl NodeRuntime for PolyphonicNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warnings = vec![];
 
-        if let Some(Property::Integer(polyphony)) = params.props.get("polyphony") {
-            self.polyphony = (*polyphony).clamp(1, 255) as u8;
+        if let Some(polyphony) = params.props.get("polyphony").and_then(|x| x.as_integer()) {
+            self.polyphony = polyphony.clamp(1, 255) as u8;
         }
 
-        // if let Some(graph_and_io) = params.child_graph {
-        //     self.voices.truncate(self.polyphony as usize);
+        let child_graph_index = params.child_graph.expect("a child graph to be provided");
+        let child_graph = params
+            .graph_manager
+            .get_graph(child_graph_index)
+            .expect("the child graph to exist");
 
-        //     while self.polyphony as usize > self.voices.len() {
-        //         let (traverser, errors_and_warnings) = BufferedTraverser::new(
-        //             graph_and_io.graph_index,
-        //             params.graph_manager,
-        //             params.script_engine,
-        //             params.resources,
-        //             params.current_time,
-        //             params.sound_config.clone(),
-        //         )?;
+        self.voices.truncate(self.polyphony as usize);
+        while self.polyphony as usize > self.voices.len() {
+            let (errors_and_warnings, traverser) = BufferedTraverser::new(
+                params.sound_config.clone(),
+                params.graph_manager,
+                child_graph_index,
+                params.resources,
+                params.current_time,
+            )?;
 
-        //         if errors_and_warnings.any() {
-        //             warnings.push(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
-        //         }
+            if errors_and_warnings.any() {
+                warnings.push(NodeWarning::InternalErrorsAndWarnings { errors_and_warnings });
+            }
 
-        //         self.voices.push(Voice {
-        //             traverser,
-        //             info: PolyphonicInfo::new(params.current_time),
-        //             is_first_time: true,
-        //         });
-        //     }
+            self.voices.push(Voice {
+                traverser,
+                info: PolyphonicInfo::new(params.current_time),
+                is_first_time: true,
+            });
+        }
 
-        //     self.child_io_nodes = Some((graph_and_io.input_index, graph_and_io.output_index));
-        // }
+        // search for any midi input node
+        self.input_node = child_graph
+            .nodes_data_iter()
+            .find(|(_, node)| {
+                node.get_node_type() == "InputsNode"
+                    && node
+                        .get_property("type")
+                        .and_then(|x| x.as_multiple_choice())
+                        .map(|x| &x == "midi")
+                        .unwrap_or(false)
+            })
+            .map(|x| x.0);
+
+        // search for any stream output node
+        self.output_node = child_graph
+            .nodes_data_iter()
+            .find(|(_, node)| {
+                node.get_node_type() == "OutputsNode"
+                    && node
+                        .get_property("type")
+                        .and_then(|x| x.as_multiple_choice())
+                        .map(|x| &x == "stream")
+                        .unwrap_or(false)
+            })
+            .map(|x| x.0);
 
         Ok(NodeOk::new(
             InitResult {
@@ -83,55 +124,81 @@ impl NodeRuntime for PolyphonicNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
     ) -> NodeResult<()> {
-        // if !ins.midi(0)[0].is_empty() {
-        //     let (child_input_node, _) = self.child_io_nodes.expect("child graph to be supplied");
+        // if let (Some(message_id), Some(input_node), Some(output_node)) =
+        //     (ins.midi(0)[0], self.input_node, self.output_node)
+        // {
+        //     let messages = midi_store.borrow_midi(&message_id).unwrap();
 
-        //     // have we created any voices?
-        //     if !self.voices.is_empty() {
-        //         // go through all the messages and send them to all the appropriate locations
-        //         for message in ins.midi(0)[0] {
-        //             let message_to_pass_to_all = match message.data {
-        //                 MidiData::NoteOff { note, .. } => {
-        //                     // look to see if there's a note on for this one, send it a turn off
-        //                     // message if so
-        //                     for voice in self.voices.iter_mut() {
-        //                         if voice.info.active && voice.info.note == note {
-        //                             if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
-        //                                 voice.traverser.get_node_mut(child_input_node)
-        //                             {
-        //                                 inputs_node.set_midis(vec![smallvec![message.clone()]])
-        //                             }
-
-        //                             voice.info.active = true;
-        //                             voice.info.note = note;
-        //                             break;
+        //     // go through all the messages and send them to all the appropriate locations
+        //     for message in messages {
+        //         let message_to_pass_to_all = match message.data {
+        //             MidiData::NoteOff { note, .. } => {
+        //                 // look to see if there's a note on for this one, send it a turn off
+        //                 // message if so
+        //                 for voice in self.voices.iter_mut() {
+        //                     if voice.info.active && voice.info.note == note {
+        //                         if let NodeVariant::InputsNode(ref mut inputs_node) =
+        //                             voice.traverser.get_node_mut(input_node).unwrap()
+        //                         {
+        //                             inputs_node.set_midis(vec![message.clone()])
         //                         }
+
+        //                         voice.info.active = true;
+        //                         voice.info.note = note;
+        //                         break;
+        //                     }
+        //                 }
+
+        //                 None
+        //             }
+        //             MidiData::NoteOn { note, channel, .. } => {
+        //                 // search through for a open voice
+
+        //                 // first, check if there's already one on for this note
+        //                 let already_on = self
+        //                     .voices
+        //                     .iter_mut()
+        //                     .find(|voice| voice.info.active && voice.info.note == note);
+
+        //                 if let Some(already_on) = already_on {
+        //                     // be sure to send a note off message first
+        //                     if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
+        //                         already_on.traverser.get_node_mut(child_input_node)
+        //                     {
+        //                         inputs_node.set_midis(vec![smallvec![
+        //                             MidiMessage {
+        //                                 data: MidiData::NoteOff {
+        //                                     channel,
+        //                                     note,
+        //                                     velocity: 0,
+        //                                 },
+        //                                 timestamp: message.timestamp - 1
+        //                             },
+        //                             message.clone(),
+        //                         ]]);
         //                     }
 
-        //                     None
-        //                 }
-        //                 MidiData::NoteOn { note, channel, .. } => {
-        //                     // search through for a open voice
+        //                     already_on.info.active = true;
+        //                     already_on.info.note = note;
+        //                     already_on.info.started_at = ctx.current_time;
+        //                 } else {
+        //                     // if not, check if one is available
+        //                     let available = self.voices.iter_mut().find(|voice| !voice.info.active);
 
-        //                     // first, check if there's already one on for this note
-        //                     let already_on = self
-        //                         .voices
-        //                         .iter_mut()
-        //                         .find(|voice| voice.info.active && voice.info.note == note);
+        //                     if let Some(available) = available {
+        //                         // TODO: test code here VV
 
-        //                     if let Some(already_on) = already_on {
-        //                         // be sure to send a note off message first
         //                         if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
-        //                             already_on.traverser.get_node_mut(child_input_node)
+        //                             available.traverser.get_node_mut(child_input_node)
         //                         {
         //                             inputs_node.set_midis(vec![smallvec![
         //                                 MidiMessage {
         //                                     data: MidiData::NoteOff {
         //                                         channel,
-        //                                         note,
+        //                                         note: available.info.note,
         //                                         velocity: 0,
         //                                     },
         //                                     timestamp: message.timestamp - 1
@@ -140,81 +207,54 @@ impl NodeRuntime for PolyphonicNode {
         //                             ]]);
         //                         }
 
-        //                         already_on.info.active = true;
-        //                         already_on.info.note = note;
-        //                         already_on.info.started_at = ctx.current_time;
+        //                         available.info.active = true;
+        //                         available.info.note = note;
+        //                         available.info.started_at = ctx.current_time;
         //                     } else {
-        //                         // if not, check if one is available
-        //                         let available = self.voices.iter_mut().find(|voice| !voice.info.active);
+        //                         // just pick the oldest played note
+        //                         let oldest = self
+        //                             .voices
+        //                             .iter_mut()
+        //                             .min_by(|x, y| x.info.started_at.cmp(&y.info.started_at))
+        //                             .unwrap();
 
-        //                         if let Some(available) = available {
-        //                             // TODO: test code here VV
-
-        //                             if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
-        //                                 available.traverser.get_node_mut(child_input_node)
-        //                             {
-        //                                 inputs_node.set_midis(vec![smallvec![
-        //                                     MidiMessage {
-        //                                         data: MidiData::NoteOff {
-        //                                             channel,
-        //                                             note: available.info.note,
-        //                                             velocity: 0,
-        //                                         },
-        //                                         timestamp: message.timestamp - 1
-        //                                     },
-        //                                     message.clone(),
-        //                                 ]]);
-        //                             }
-
-        //                             available.info.active = true;
-        //                             available.info.note = note;
-        //                             available.info.started_at = ctx.current_time;
-        //                         } else {
-        //                             // just pick the oldest played note
-        //                             let oldest = self
-        //                                 .voices
-        //                                 .iter_mut()
-        //                                 .min_by(|x, y| x.info.started_at.cmp(&y.info.started_at))
-        //                                 .unwrap();
-
-        //                             // be sure to send a note off message first
-        //                             if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
-        //                                 oldest.traverser.get_node_mut(child_input_node)
-        //                             {
-        //                                 inputs_node.set_midis(vec![smallvec![
-        //                                     MidiMessage {
-        //                                         data: MidiData::NoteOff {
-        //                                             channel,
-        //                                             note: oldest.info.note,
-        //                                             velocity: 0,
-        //                                         },
-        //                                         timestamp: message.timestamp - 1
-        //                                     },
-        //                                     message.clone(),
-        //                                 ]]);
-        //                             }
-
-        //                             oldest.info.active = true;
-        //                             oldest.info.note = note;
-        //                             oldest.info.started_at = ctx.current_time;
-        //                         }
-        //                     }
-
-        //                     None
-        //                 }
-        //                 _ => Some(message),
-        //             };
-
-        //             // it wasn't note on or note off, so we better make sure all the voices get it
-        //             if let Some(message_to_pass_to_all) = message_to_pass_to_all {
-        //                 for voice in self.voices.iter_mut() {
-        //                     if voice.info.active {
+        //                         // be sure to send a note off message first
         //                         if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
-        //                             voice.traverser.get_node_mut(child_input_node)
+        //                             oldest.traverser.get_node_mut(child_input_node)
         //                         {
-        //                             // TODO: this `set_midis` will override previously sent messages
-        //                             inputs_node.set_midis(vec![smallvec![message_to_pass_to_all.clone()]]);
+        //                             inputs_node.set_midis(vec![smallvec![
+        //                                 MidiMessage {
+        //                                     data: MidiData::NoteOff {
+        //                                         channel,
+        //                                         note: oldest.info.note,
+        //                                         velocity: 0,
+        //                                     },
+        //                                     timestamp: message.timestamp - 1
+        //                                 },
+        //                                 message.clone(),
+        //                             ]]);
         //                         }
+
+        //                         oldest.info.active = true;
+        //                         oldest.info.note = note;
+        //                         oldest.info.started_at = ctx.current_time;
+        //                     }
+        //                 }
+
+        //                 None
+        //             }
+        //             _ => Some(message),
+        //         };
+
+        //         // it wasn't note on or note off, so we better make sure all the voices get it
+        //         if let Some(message_to_pass_to_all) = message_to_pass_to_all {
+        //             for voice in self.voices.iter_mut() {
+        //                 if voice.info.active {
+        //                     if let Some(NodeVariant::InputsNode(ref mut inputs_node)) =
+        //                         voice.traverser.get_node_mut(child_input_node)
+        //                     {
+        //                         // TODO: this `set_midis` will override previously sent messages
+        //                         inputs_node.set_midis(vec![smallvec![message_to_pass_to_all.clone()]]);
         //                     }
         //                 }
         //             }
@@ -267,9 +307,9 @@ impl Node for PolyphonicNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         PolyphonicNode {
             voices: vec![],
-            // traverser: BufferedTraverser::default(),
             polyphony: 1,
-            child_io_nodes: None,
+            input_node: None,
+            output_node: None,
         }
     }
 

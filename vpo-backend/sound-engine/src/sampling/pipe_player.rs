@@ -113,7 +113,7 @@ impl PipePlayer {
             audio_position: 0.0,
             resample_ratio: sample.sample_rate as f32 / sample_rate as f32,
 
-            voicing_amp: 1.0,
+            voicing_amp: pipe.amplitude,
             voicing_comb: SimpleComb::default(),
 
             crossfade_position: 0.0,

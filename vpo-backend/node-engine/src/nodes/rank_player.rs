@@ -62,7 +62,7 @@ impl NodeRuntime for RankPlayerNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
     ) -> NodeResult<()> {
         let _reset_needed = false;

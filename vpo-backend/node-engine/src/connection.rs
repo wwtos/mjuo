@@ -65,7 +65,7 @@ pub enum SocketType {
     NodeRef,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketDirection {
     Input,

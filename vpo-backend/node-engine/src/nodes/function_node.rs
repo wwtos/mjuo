@@ -1,4 +1,4 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::BTreeMap};
 
 use crate::nodes::prelude::*;
 
@@ -44,7 +44,7 @@ impl NodeRuntime for FunctionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
     ) -> NodeResult<()> {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
@@ -82,14 +82,49 @@ impl Node for FunctionNode {
     }
 
     fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
-        let polyphony = default_channels(&props, context.default_channel_count);
+        let channels = default_channels(&props, context.default_channel_count);
+
+        let mut internal_io: BTreeMap<(SocketType, SocketDirection, String), NodeIndex> = BTreeMap::new();
+
+        if let Some(child_graph) = context.child_graph {
+            for (index, node) in child_graph.nodes_data_iter() {
+                // TODO: make this less dependant on InputsNode and OutputsNode
+                if &node.get_node_type() == "InputsNode" || &node.get_node_type() == "OutputsNode" {
+                    let name = node
+                        .get_property("name")
+                        .and_then(|x| x.as_string())
+                        .unwrap_or("".to_owned());
+                    let io_type = node
+                        .get_property("type")
+                        .and_then(|x| x.as_multiple_choice())
+                        .unwrap_or("".to_owned());
+
+                    let io_type = match io_type.as_str() {
+                        "midi" => SocketType::Midi,
+                        "value" => SocketType::Value,
+                        "stream" => SocketType::Stream,
+                        _ => SocketType::Stream,
+                    };
+
+                    match node.get_node_type().as_str() {
+                        "InputsNode" => {
+                            internal_io.insert((io_type, SocketDirection::Input, name), index);
+                        }
+                        "OutputsNode" => {
+                            internal_io.insert((io_type, SocketDirection::Output, name), index);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
 
         NodeIo {
             node_rows: vec![
                 with_channels(context.default_channel_count),
-                stream_input("audio", polyphony),
+                stream_input("audio", channels),
                 NodeRow::InnerGraph,
-                stream_output("audio", polyphony),
+                stream_output("audio", channels),
             ],
             child_graph_io: Some(vec![
                 (

@@ -2,6 +2,7 @@
 
 pub mod buffered_traverser;
 pub mod calculate_traversal_order;
+pub mod midi_store;
 
 use std::cell::UnsafeCell;
 use std::collections::BTreeMap;
@@ -10,7 +11,6 @@ use std::mem;
 use std::ops::{Index, IndexMut};
 use std::time::Duration;
 
-use clocked::midi::MidiMessage;
 use common::resource_manager::ResourceId;
 use common::SeaHashMap;
 use ddgg::VertexIndex;
@@ -23,9 +23,11 @@ use crate::connection::{Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
 use crate::graph_manager::{GraphIndex, GraphManager};
-use crate::midi_store::MidiStore;
+use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::resources::{Resource, Resources};
+
+use self::midi_store::MidiStore;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -117,18 +119,20 @@ impl ProcessResult {
 }
 
 #[derive(Debug)]
-pub struct NodeGetIoContext {
+pub struct NodeGetIoContext<'a> {
     pub default_channel_count: usize,
     pub connected_inputs: Vec<Socket>,
     pub connected_outputs: Vec<Socket>,
+    pub child_graph: Option<&'a NodeGraph>,
 }
 
-impl NodeGetIoContext {
-    pub fn no_io_yet(default_channel_count: usize) -> NodeGetIoContext {
+impl<'a> NodeGetIoContext<'a> {
+    pub fn no_io_yet(default_channel_count: usize) -> NodeGetIoContext<'a> {
         NodeGetIoContext {
             default_channel_count,
             connected_inputs: vec![],
             connected_outputs: vec![],
+            child_graph: None,
         }
     }
 }
@@ -138,10 +142,10 @@ pub struct NodeInitParams<'a> {
     pub script_engine: &'a Engine,
     pub resources: &'a Resources,
     pub graph_manager: &'a GraphManager,
-    pub current_time: i64,
+    pub current_time: Duration,
     pub sound_config: &'a SoundConfig,
     pub node_state: &'a NodeState,
-    pub child_graph: Option<NodeGraphAndIo>,
+    pub child_graph: Option<GraphIndex>,
     pub default_channel_count: usize,
 }
 
@@ -156,13 +160,6 @@ pub struct NodeProcessContext<'a> {
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
     pub external_state: StateInterface<'a>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeGraphAndIo {
-    pub graph_index: GraphIndex,
-    pub input_index: NodeIndex,
-    pub output_index: NodeIndex,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -511,42 +508,6 @@ impl MidisIndex {
     }
 }
 
-pub struct MidiStoreInterface<'a> {
-    store: &'a mut MidiStore,
-}
-
-impl<'a> MidiStoreInterface<'a> {
-    pub fn new(store: &'a mut MidiStore) -> MidiStoreInterface<'a> {
-        MidiStoreInterface { store }
-    }
-
-    pub fn register_midis<I>(&mut self, messages: I) -> Option<MidisIndex>
-    where
-        I: IntoIterator<Item = MidiMessage>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        self.store.add_midi(messages).map(|x| MidisIndex(x))
-    }
-
-    pub fn register_midis_with<F>(&mut self, count: usize, midi: F) -> Option<MidisIndex>
-    where
-        F: FnMut(usize) -> MidiMessage,
-    {
-        self.store.add_midi_with(count, midi).map(|x| MidisIndex(x))
-    }
-
-    pub fn map_midis<F>(&mut self, index: &MidisIndex, new_count: usize, map: F) -> Option<MidisIndex>
-    where
-        F: FnMut(&[MidiMessage], usize) -> MidiMessage,
-    {
-        self.store.map_midis(index.0, new_count, map).map(|x| MidisIndex(x))
-    }
-
-    pub fn borrow_midi(&self, index: &MidisIndex) -> Option<&[MidiMessage]> {
-        self.store.borrow_midi(index.0)
-    }
-}
-
 /// NodeRuntime trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -595,7 +556,7 @@ pub trait NodeRuntime: Debug + Clone {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
     ) -> NodeResult<()> {
         ProcessResult::nothing()

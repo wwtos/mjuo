@@ -25,7 +25,7 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         if self.midi_stale {

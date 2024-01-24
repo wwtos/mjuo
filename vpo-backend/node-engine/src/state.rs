@@ -12,7 +12,7 @@ use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Socket, SocketValue},
-    errors::{NodeError, WarningExt},
+    errors::{ErrorsAndWarnings, NodeError, WarningExt},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     io_routing::IoRoutes,
     node::buffered_traverser::BufferedTraverser,
@@ -166,19 +166,7 @@ impl GraphState {
         }
     }
 
-    pub fn get_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
-        let traverser = BufferedTraverser::new(
-            self.sound_config.clone(),
-            &self.graph_manager,
-            self.root_graph_index,
-            &resources,
-            Duration::ZERO,
-        )?;
-
-        Ok(traverser)
-    }
-
-    pub fn create_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
+    pub fn create_traverser(&self, resources: &Resources) -> Result<(ErrorsAndWarnings, BufferedTraverser), NodeError> {
         BufferedTraverser::new(
             self.sound_config.clone(),
             &self.graph_manager,
@@ -392,7 +380,7 @@ impl GraphState {
 
                 modified_node.set_properties(new_props.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 (
                     HistoryAction::GraphAction {
@@ -408,14 +396,14 @@ impl GraphState {
 
                 modified_node.set_ui_data(data.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 (
                     HistoryAction::GraphAction {
                         diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
                         category: ActionCategory::Mergable,
                     },
-                    vec![],
+                    vec![ActionInvalidation::GraphModified(index.graph_index)],
                 )
             }
             Action::ChangeNodeOverrides { index, overrides } => {
@@ -424,7 +412,7 @@ impl GraphState {
 
                 modified_node.set_default_overrides(overrides.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 let new_defaults: Vec<_> = overrides
                     .iter()

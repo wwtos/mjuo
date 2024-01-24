@@ -49,7 +49,7 @@ impl NodeRuntime for MemoryNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         self.state_changed = false;

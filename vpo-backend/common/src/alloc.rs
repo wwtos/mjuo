@@ -12,7 +12,7 @@ use buddy_system_allocator::Heap;
 
 pub struct Alloc<'a, T> {
     pub value: &'a mut T,
-    buddy_ref: &'a BuddyArena,
+    buddy_ref: &'a BuddyAlloc,
     ptr: NonNull<u8>,
     layout: Layout,
 }
@@ -37,7 +37,7 @@ impl<'a, T> Drop for Alloc<'a, T> {
 
 pub struct SliceAlloc<'a, T> {
     pub value: &'a mut [T],
-    buddy_ref: &'a BuddyArena,
+    buddy_ref: &'a BuddyAlloc,
     ptr: NonNull<u8>,
     layout: Layout,
 }
@@ -58,17 +58,17 @@ impl<'a, T> Drop for SliceAlloc<'a, T> {
             }
         }
 
-        unsafe { &mut *self.buddy_ref.heap.get() }.dealloc(self.ptr, self.layout)
+        unsafe { &mut *self.buddy_ref.heap.get() }.dealloc(self.ptr, self.layout);
     }
 }
 
-pub struct BuddyArena {
+pub struct BuddyAlloc {
     _space: Vec<usize>,
     heap: UnsafeCell<Heap<32>>,
 }
 
-impl BuddyArena {
-    pub fn new(bytes: usize) -> BuddyArena {
+impl BuddyAlloc {
+    pub fn new(bytes: usize) -> BuddyAlloc {
         let size = bytes / size_of::<usize>();
 
         let mut heap = Heap::<32>::new();
@@ -78,13 +78,13 @@ impl BuddyArena {
             heap.init(space.as_slice().as_ptr() as usize, size * size_of::<usize>());
         }
 
-        BuddyArena {
+        BuddyAlloc {
             _space: space,
             heap: UnsafeCell::new(heap),
         }
     }
 
-    // most methods from here on out are taken from the fantastic `bumpalo` crate
+    // most methods from here on out are adapted from the fantastic `bumpalo` crate
 
     pub fn alloc_with<'a, T, F>(&'a self, f: F) -> Result<Alloc<'a, T>, AllocError>
     where
@@ -170,7 +170,7 @@ impl BuddyArena {
 
 #[test]
 fn test_alloc() {
-    let arena = BuddyArena::new(1_000_000);
+    let arena = BuddyAlloc::new(1_000_000);
 
     let hello = arena.alloc_with(|| "hello").unwrap();
     let world = arena.alloc_with(|| "world").unwrap();

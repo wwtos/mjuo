@@ -25,7 +25,7 @@ impl NodeRuntime for WavetableNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(frequency) = ins.value(0)[0].as_float() {

@@ -11,7 +11,7 @@ impl NodeRuntime for MidiTransposeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         if let Some(transpose) = ins.value(0)[0].as_int() {
@@ -68,7 +68,7 @@ impl NodeRuntime for MidiTransposeNode {
                 })
                 .collect();
 
-            outs.midi(0)[0] = midi_store.register_midis(output.into_iter());
+            outs.midi(0)[0] = midi_store.add_midi(output.into_iter());
         }
 
         ProcessResult::nothing()

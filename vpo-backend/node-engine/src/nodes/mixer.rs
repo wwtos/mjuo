@@ -9,7 +9,7 @@ impl NodeRuntime for MixerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         for mut stream_out in outs.streams() {

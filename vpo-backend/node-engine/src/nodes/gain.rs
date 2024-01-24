@@ -11,7 +11,7 @@ impl NodeRuntime for GainNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         if ins.value(0)[0].is_some() {

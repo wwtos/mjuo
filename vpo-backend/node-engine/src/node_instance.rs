@@ -7,7 +7,8 @@ use serde_json::{json, Value};
 use crate::{
     connection::{Socket, SocketDirection},
     errors::{NodeError, NodeOk},
-    node::{NodeGraphAndIo, NodeRow, NodeState},
+    graph_manager::GraphIndex,
+    node::{NodeRow, NodeState},
     property::Property,
 };
 
@@ -21,7 +22,7 @@ pub struct NodeInstance {
     properties: SeaHashMap<String, Property>,
     ui_data: SeaHashMap<String, Value>,
     state: NodeState,
-    child_graph: Option<NodeGraphAndIo>,
+    child_graph: Option<GraphIndex>,
 }
 
 impl NodeInstance {
@@ -62,11 +63,11 @@ impl NodeInstance {
         self.node_rows.iter().any(|row| matches!(row, NodeRow::InnerGraph))
     }
 
-    pub fn set_child_graph(&mut self, graph: NodeGraphAndIo) {
+    pub fn set_child_graph(&mut self, graph: GraphIndex) {
         self.child_graph = Some(graph);
     }
 
-    pub fn get_child_graph(&self) -> &Option<NodeGraphAndIo> {
+    pub fn get_child_graph(&self) -> &Option<GraphIndex> {
         &self.child_graph
     }
 

@@ -19,16 +19,15 @@ use crate::{
     connection::{Primitive, Socket},
     errors::{ErrorsAndWarnings, NodeError, NodeWarning},
     graph_manager::{GraphIndex, GraphManager},
-    midi_store::MidiStore,
-    node::{
-        Ins, MidiStoreInterface, MidisIndex, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, Outs,
-        StateInterface,
-    },
+    node::{Ins, MidisIndex, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, Outs, StateInterface},
     nodes::NodeVariant,
     resources::{Resource, ResourceTypeAndIndex, Resources},
 };
 
-use super::calculate_traversal_order::{calc_indexes, calc_io_spec, Indexes};
+use super::{
+    calculate_traversal_order::{calc_indexes, generate_io_spec, Indexes},
+    midi_store::MidiStore,
+};
 
 #[derive(Debug)]
 struct BufferChunks<'a>(Vec<&'a [UnsafeCell<f32>]>);
@@ -177,7 +176,6 @@ pub struct BufferedTraverser {
     node_to_index_mapping: BTreeMap<NodeIndex, usize>,
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
-    store: MidiStore,
     midi_tracking: Vec<Option<MidisIndex>>,
     config: SoundConfig,
     engine: Engine,
@@ -202,18 +200,20 @@ impl BufferedTraverser {
         graph_index: GraphIndex,
         resources: &Resources,
         start_time: Duration,
-    ) -> Result<BufferedTraverser, NodeError> {
-        let mut io_spec = calc_io_spec(
-            manager.get_graph(graph_index).unwrap(),
+    ) -> Result<(ErrorsAndWarnings, BufferedTraverser), NodeError> {
+        let graph = manager.get_graph(graph_index).unwrap();
+
+        let (errors_and_warnings, mut io_spec) = generate_io_spec(
+            graph,
             BTreeMap::new(),
             &config,
             &mut rhai::Engine::new(),
             resources,
-            0,
+            start_time,
             &manager,
             1,
         )?;
-        let indexes = calc_indexes(&io_spec, graph_index, &manager)?;
+        let indexes = calc_indexes(&io_spec, graph)?;
 
         let mut node_to_index_mapping = BTreeMap::new();
 
@@ -257,27 +257,26 @@ impl BufferedTraverser {
             midi_tracking.push(unsafe { (*index).as_ref().map(|x| x.private_clone()) });
         }
 
-        // TODO: the midi store params should be adjustable
-        let store = MidiStore::new(50_000_000, 0);
-
         let engine = rhai::Engine::new();
 
-        Ok(BufferedTraverser {
-            nodes,
-            nodes_with_state,
-            node_to_index_mapping,
-            resource_tracking: io_spec.resources_tracking,
-            io_and_refs,
-            store,
-            midi_tracking,
-            config,
-            engine,
-            time: start_time,
-            // TODO: initialize scratch with proper capacity
-            resource_scratch: vec![],
-            value_input_scratch: vec![],
-            value_ref_scratch: vec![],
-        })
+        Ok((
+            errors_and_warnings,
+            BufferedTraverser {
+                nodes,
+                nodes_with_state,
+                node_to_index_mapping,
+                resource_tracking: io_spec.resources_tracking,
+                io_and_refs,
+                midi_tracking,
+                config,
+                engine,
+                time: start_time,
+                // TODO: initialize scratch with proper capacity
+                resource_scratch: vec![],
+                value_input_scratch: vec![],
+                value_ref_scratch: vec![],
+            },
+        ))
     }
 
     pub fn step(
@@ -285,6 +284,7 @@ impl BufferedTraverser {
         resources: &Resources,
         updated_node_states: Vec<(NodeIndex, serde_json::Value)>,
         graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
+        midi_store: &mut MidiStore,
     ) -> StepResult {
         let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
         let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
@@ -383,7 +383,7 @@ impl BufferedTraverser {
                             &stream_sockets[node.stream_out.clone()],
                         )
                     },
-                    &mut MidiStoreInterface::new(&mut self.store),
+                    midi_store,
                     &all_resources[node.resources.clone()],
                 )
                 .unwrap();
@@ -410,7 +410,7 @@ impl BufferedTraverser {
 
             if last_midi_index != new_midi_index {
                 if let Some(some_index) = last_midi_index {
-                    self.store.remove_midi(some_index.0);
+                    midi_store.remove_midi(some_index.private_clone());
                 }
 
                 *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());
@@ -470,6 +470,7 @@ mod tests {
     use crate::{
         connection::{Socket, SocketType},
         graph_manager::GraphManager,
+        node::midi_store::MidiStore,
         resources::Resources,
     };
 
@@ -480,6 +481,7 @@ mod tests {
         let mut manager = GraphManager::new(1);
         let (graph_index, _) = manager.new_graph().unwrap();
         let graph = manager.get_graph_mut(graph_index).unwrap();
+        let mut midi_store = MidiStore::new(256, 0);
 
         let (gain, _) = graph.add_node("GainNode").unwrap().value;
         let (midi, _) = graph.add_node("MidiToValuesNode").unwrap().value;
@@ -508,7 +510,7 @@ mod tests {
             buffer_size: 4,
         };
 
-        let mut traverser = BufferedTraverser::new(
+        let (_, mut traverser) = BufferedTraverser::new(
             sound_config.clone(),
             &manager,
             graph_index,
@@ -516,7 +518,7 @@ mod tests {
             Duration::ZERO,
         )
         .unwrap();
-        traverser.step(&Resources::default(), vec![], None);
-        traverser.step(&Resources::default(), vec![], None);
+        traverser.step(&Resources::default(), vec![], None, &mut midi_store);
+        traverser.step(&Resources::default(), vec![], None, &mut midi_store);
     }
 }

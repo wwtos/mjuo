@@ -44,7 +44,7 @@ impl NodeRuntime for MidiSwitchNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) -> NodeResult<()> {
         let mut midi_out: MidiChannel = MidiChannel::new();
@@ -158,7 +158,7 @@ impl NodeRuntime for MidiSwitchNode {
         }
 
         if !midi_out.is_empty() {
-            outs.midi(0)[0] = midi_store.register_midis(midi_out.into_iter());
+            outs.midi(0)[0] = midi_store.add_midi(midi_out.into_iter());
         }
 
         ProcessResult::nothing()
