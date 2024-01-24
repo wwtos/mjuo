@@ -106,18 +106,6 @@ impl InitResult {
     }
 }
 
-pub struct ProcessResult {}
-
-impl ProcessResult {
-    pub fn nothing() -> NodeResult<()> {
-        NodeOk::no_warnings(())
-    }
-
-    pub fn warning(warning: Option<NodeWarning>) -> NodeResult<()> {
-        Ok(NodeOk::new((), warning.map(|x| vec![x]).unwrap_or(vec![])))
-    }
-}
-
 #[derive(Debug)]
 pub struct NodeGetIoContext<'a> {
     pub default_channel_count: usize,
@@ -558,8 +546,7 @@ pub trait NodeRuntime: Debug + Clone {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
-        ProcessResult::nothing()
+    ) {
     }
 }
 

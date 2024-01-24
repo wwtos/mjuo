@@ -35,7 +35,7 @@ impl NodeRuntime for PortamentoNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             if self.engaged && !gate {
                 outs.value(0)[0] = float(self.ramp.get_to());
@@ -78,8 +78,6 @@ impl NodeRuntime for PortamentoNode {
         } else if self.active {
             self.active = false;
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

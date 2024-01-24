@@ -40,9 +40,7 @@ impl NodeRuntime for MidiFilterNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
-        let mut warning: Option<NodeWarning> = None;
-
+    ) {
         if let Some(filter) = &self.filter {
             if let Some(midi) = &ins.midi(0)[0] {
                 let messages = midi_store.borrow_midi(midi).unwrap();
@@ -61,14 +59,7 @@ impl NodeRuntime for MidiFilterNode {
 
                     match result {
                         Ok(output) => output,
-                        Err(err) => {
-                            warning = Some(NodeWarning::RhaiExecutionFailure {
-                                err: *err,
-                                script: self.filter_raw.clone(),
-                            });
-
-                            false
-                        }
+                        Err(_) => false,
                     }
                 });
 
@@ -91,8 +82,6 @@ impl NodeRuntime for MidiFilterNode {
                 outs.midi(0)[0] = messages_out;
             }
         }
-
-        ProcessResult::warning(warning)
     }
 }
 

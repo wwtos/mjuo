@@ -57,7 +57,7 @@ impl NodeRuntime for InputsNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if outs.midis_len() > 0 {
             if let Some(midis) = &mut self.midis {
                 outs.midi(0)[0] = midi_store.add_midi(midis.drain(..));
@@ -73,8 +73,6 @@ impl NodeRuntime for InputsNode {
                 channel_out.copy_from_slice(&channel[..]);
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

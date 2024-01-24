@@ -126,7 +126,7 @@ impl NodeRuntime for PolyphonicNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let (Some(message_id), Some(input_node), Some(output_node)) =
             (&ins.midi(0)[0], self.input_node, self.output_node)
         {
@@ -320,8 +320,6 @@ impl NodeRuntime for PolyphonicNode {
                 }
             }
         }
-
-        ProcessResult::nothing()
     }
 }
 

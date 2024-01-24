@@ -27,7 +27,7 @@ impl NodeRuntime for OutputsNode {
         _outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if self.midi_stale {
             self.midis = None;
         }
@@ -48,8 +48,6 @@ impl NodeRuntime for OutputsNode {
                 local_channel_in.extend(channel_in.iter());
             }
         }
-
-        NodeOk::no_warnings(())
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {

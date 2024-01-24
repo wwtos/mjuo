@@ -21,7 +21,7 @@ impl NodeRuntime for EnvelopeNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             self.gate = gate;
         }
@@ -45,8 +45,6 @@ impl NodeRuntime for EnvelopeNode {
         if !self.envelope.is_done() || self.gate {
             outs.value(0)[0] = float(self.envelope.process(self.gate));
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

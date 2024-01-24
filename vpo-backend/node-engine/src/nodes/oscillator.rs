@@ -30,7 +30,7 @@ impl NodeRuntime for OscillatorNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
@@ -38,8 +38,6 @@ impl NodeRuntime for OscillatorNode {
         for frame in outs.stream(0)[0].iter_mut() {
             *frame = self.oscillator.process();
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

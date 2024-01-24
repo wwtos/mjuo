@@ -51,7 +51,7 @@ impl NodeRuntime for MemoryNode {
         _outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         self.state_changed = false;
 
         if let Some(true) = ins.value(0)[0].as_boolean() {
@@ -119,8 +119,6 @@ impl NodeRuntime for MemoryNode {
         }
 
         self.activated = false;
-
-        ProcessResult::nothing()
     }
 
     fn get_state(&self) -> Option<NodeState> {

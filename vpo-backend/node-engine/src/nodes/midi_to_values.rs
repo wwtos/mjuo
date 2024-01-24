@@ -11,7 +11,7 @@ impl NodeRuntime for MidiToValuesNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(midi) = &ins.midi(0)[0] {
             let messages = midi_store.borrow_midi(midi).unwrap();
 
@@ -33,8 +33,6 @@ impl NodeRuntime for MidiToValuesNode {
                 }
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

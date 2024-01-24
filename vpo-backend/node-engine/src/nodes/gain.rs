@@ -13,7 +13,7 @@ impl NodeRuntime for GainNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if ins.value(0)[0].is_some() {
             self.gain = ins.value(0)[0].as_float().unwrap_or(0.0);
         }
@@ -23,8 +23,6 @@ impl NodeRuntime for GainNode {
                 *sample_out = *sample_in * self.gain;
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

@@ -13,7 +13,7 @@ impl NodeRuntime for MidiTransposeNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(transpose) = ins.value(0)[0].as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
@@ -70,8 +70,6 @@ impl NodeRuntime for MidiTransposeNode {
 
             outs.midi(0)[0] = midi_store.add_midi(output.into_iter());
         }
-
-        ProcessResult::nothing()
     }
 }
 

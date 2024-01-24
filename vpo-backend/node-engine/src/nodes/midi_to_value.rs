@@ -44,7 +44,7 @@ impl NodeRuntime for MidiToValueNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let mut warnings = vec![];
 
         if let Some(ast) = self.ast.as_ref() {
@@ -76,8 +76,6 @@ impl NodeRuntime for MidiToValueNode {
                 }
             }
         }
-
-        Ok(NodeOk { value: (), warnings })
     }
 }
 

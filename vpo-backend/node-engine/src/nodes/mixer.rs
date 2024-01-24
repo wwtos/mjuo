@@ -11,7 +11,7 @@ impl NodeRuntime for MixerNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         for mut stream_out in outs.streams() {
             for channel_out in stream_out.iter_mut() {
                 for frame_out in channel_out.iter_mut() {
@@ -27,8 +27,6 @@ impl NodeRuntime for MixerNode {
                 }
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

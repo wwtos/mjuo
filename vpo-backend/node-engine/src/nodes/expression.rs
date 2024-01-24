@@ -17,8 +17,7 @@ impl NodeRuntime for ExpressionNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
-        let mut warning: Option<NodeWarning> = None;
+    ) {
         let mut have_values_changed = false;
 
         for (i, value_in) in ins.values().enumerate() {
@@ -52,10 +51,6 @@ impl NodeRuntime for ExpressionNode {
                                 // cleanup before erroring
                                 self.scope.rewind(0);
 
-                                warning = Some(NodeWarning::RhaiInvalidReturnType {
-                                    return_type: output.type_name().to_string(),
-                                });
-
                                 Primitive::None
                             }
                         };
@@ -64,15 +59,13 @@ impl NodeRuntime for ExpressionNode {
                         // cleanup before erroring
                         self.scope.rewind(0);
 
-                        return Err(NodeError::RhaiEvalError { result: *err });
+                        return;
                     }
                 }
 
                 self.scope.rewind(0);
             }
         }
-
-        ProcessResult::warning(warning)
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {

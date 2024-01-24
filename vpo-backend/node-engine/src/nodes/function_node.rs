@@ -46,7 +46,7 @@ impl NodeRuntime for FunctionNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
 
         // let subgraph_input_node = self.local_graph.get_node_mut(child_input_node).unwrap();
@@ -68,8 +68,6 @@ impl NodeRuntime for FunctionNode {
         // streams_out[0] = subgraph_output_node.get_stream_output(StreamSocketType::Audio);
 
         // self.is_first_time = false;
-
-        NodeOk::no_warnings(())
     }
 }
 

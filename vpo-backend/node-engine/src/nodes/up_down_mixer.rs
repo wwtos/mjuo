@@ -11,7 +11,7 @@ impl NodeRuntime for UpDownMixerNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if ins.streams_len() <= outs.streams_len() {
             for (i, frame_out) in outs.stream(0).iter_mut().enumerate() {
                 // rotate through the inputs to fill the outputs
@@ -34,8 +34,6 @@ impl NodeRuntime for UpDownMixerNode {
                 }
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

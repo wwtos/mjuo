@@ -35,7 +35,7 @@ impl NodeRuntime for NoteMergerNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let mut new_messages: MidiChannel = MidiChannel::new();
 
         for (i, messages) in ins.midis().enumerate() {
@@ -75,8 +75,6 @@ impl NodeRuntime for NoteMergerNode {
         }
 
         outs.midi(0)[0] = midi_store.add_midi(new_messages.into_iter());
-
-        ProcessResult::nothing()
     }
 }
 

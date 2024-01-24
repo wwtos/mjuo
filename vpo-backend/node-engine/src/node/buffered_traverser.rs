@@ -17,7 +17,7 @@ use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Primitive, Socket},
-    errors::{ErrorsAndWarnings, NodeError, NodeWarning},
+    errors::{ErrorsAndWarnings, NodeError},
     graph_manager::{GraphIndex, GraphManager},
     node::{Ins, MidisIndex, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, Outs, StateInterface},
     nodes::NodeVariant,
@@ -164,7 +164,6 @@ struct TraverserNode {
 }
 
 pub struct StepResult {
-    pub errors_and_warnings: ErrorsAndWarnings,
     pub state_changes: Vec<(NodeIndex, NodeState)>,
     pub requested_state_updates: Vec<(NodeIndex, serde_json::Value)>,
     pub request_for_graph_state: bool,
@@ -286,9 +285,6 @@ impl BufferedTraverser {
         graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
         midi_store: &mut MidiStore,
     ) -> StepResult {
-        let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
-        let mut warnings: Vec<(NodeIndex, NodeWarning)> = vec![];
-
         let mut state_changes: Vec<(NodeIndex, NodeState)> = vec![];
 
         let TraverserRefs {
@@ -357,36 +353,34 @@ impl BufferedTraverser {
                 &value_ref_scratch
             };
 
-            node.node
-                .process(
-                    NodeProcessContext {
-                        current_time: self.time,
-                        resources,
-                        script_engine: &self.engine,
-                        external_state: StateInterface {
-                            states: graph_state,
-                            request_node_states: &mut || requesting_graph_state = true,
-                            enqueue_state_updates: &mut |updates| requested_state_updates.extend(updates.into_iter()),
-                        },
+            node.node.process(
+                NodeProcessContext {
+                    current_time: self.time,
+                    resources,
+                    script_engine: &self.engine,
+                    external_state: StateInterface {
+                        states: graph_state,
+                        request_node_states: &mut || requesting_graph_state = true,
+                        enqueue_state_updates: &mut |updates| requested_state_updates.extend(updates.into_iter()),
                     },
-                    unsafe {
-                        Ins::new(
-                            &midi_sockets[node.midi_in.clone()],
-                            value_inputs,
-                            &stream_sockets[node.stream_in.clone()],
-                        )
-                    },
-                    unsafe {
-                        Outs::new(
-                            &midi_sockets[node.midi_out.clone()],
-                            &value_sockets[node.value_out.clone()],
-                            &stream_sockets[node.stream_out.clone()],
-                        )
-                    },
-                    midi_store,
-                    &all_resources[node.resources.clone()],
-                )
-                .unwrap();
+                },
+                unsafe {
+                    Ins::new(
+                        &midi_sockets[node.midi_in.clone()],
+                        value_inputs,
+                        &stream_sockets[node.stream_in.clone()],
+                    )
+                },
+                unsafe {
+                    Outs::new(
+                        &midi_sockets[node.midi_out.clone()],
+                        &value_sockets[node.value_out.clone()],
+                        &stream_sockets[node.stream_out.clone()],
+                    )
+                },
+                midi_store,
+                &all_resources[node.resources.clone()],
+            );
 
             self.value_ref_scratch = value_ref_scratch.recycle();
             self.value_input_scratch = value_input_scratch.recycle();
@@ -424,7 +418,6 @@ impl BufferedTraverser {
         self.resource_scratch = all_resources.recycle();
 
         StepResult {
-            errors_and_warnings: ErrorsAndWarnings { errors, warnings },
             state_changes,
             request_for_graph_state: requesting_graph_state,
             requested_state_updates: requested_state_updates,

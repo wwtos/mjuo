@@ -64,7 +64,7 @@ impl NodeRuntime for RankPlayerNode {
         mut outs: Outs<'a>,
         midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let _reset_needed = false;
 
         if let Some(cents) = ins.value(0)[0].as_float() {
@@ -97,8 +97,6 @@ impl NodeRuntime for RankPlayerNode {
                 &mut outs.stream(0)[0],
             );
         }
-
-        NodeOk::no_warnings(())
     }
 }
 

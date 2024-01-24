@@ -29,7 +29,7 @@ impl NodeRuntime for WavetableSequencerNode {
         mut outs: Outs<'a>,
         _midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.frequency = frequency;
         }
@@ -51,8 +51,6 @@ impl NodeRuntime for WavetableSequencerNode {
             self.phase += self.advance_by * self.frequency;
             self.phase = self.phase.fract();
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
