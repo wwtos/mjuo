@@ -408,7 +408,11 @@ pub struct SimpleComb {
 
 impl SimpleComb {
     pub fn new(f0: f32, fs: f32, α: f32) -> SimpleComb {
-        SimpleComb { M: fs / f0, α }
+        let M = fs / f0;
+
+        assert!(M > 1.0);
+
+        SimpleComb { M, α }
     }
 
     #[inline]

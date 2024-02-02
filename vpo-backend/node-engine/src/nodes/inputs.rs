@@ -84,7 +84,7 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         // NOTE: if you change any of the IO definitions here, MAKE SURE to update it in

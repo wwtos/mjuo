@@ -87,7 +87,7 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 value_input("set_state", Primitive::Boolean(false), 1),

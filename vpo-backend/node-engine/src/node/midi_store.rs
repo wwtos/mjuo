@@ -99,7 +99,11 @@ impl MidiStore {
             .with_dependent_mut(|_, arena| arena.remove(index.0).is_some())
     }
 
-    pub fn unchecked_clear(&mut self) {
-        self.store.with_dependent_mut(|_, arena| arena.clear())
+    /// Consumes `self` to block clearing without first destroying
+    /// all references
+    pub fn clear(mut self) -> Self {
+        self.store.with_dependent_mut(|_, arena| arena.clear());
+
+        self
     }
 }

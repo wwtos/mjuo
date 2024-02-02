@@ -87,7 +87,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());

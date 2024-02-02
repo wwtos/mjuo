@@ -10,7 +10,7 @@ impl Node for TestNode {
         TestNode
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             stream_input("audio", 1),
             stream_input("gain", 1),

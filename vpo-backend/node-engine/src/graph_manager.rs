@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 use common::SeaHashMap;
 use ddgg::{EdgeIndex, Graph, GraphDiff, VertexIndex};
 use serde::{Deserialize, Serialize};
@@ -196,24 +198,25 @@ impl GraphManager {
         Ok(mapped)
     }
 
-    pub fn update_node(&mut self, index: GlobalNodeIndex, new: NodeInstance) -> Result<Vec<NodeGraphDiff>, NodeError> {
+    pub fn update_node(&mut self, index: GlobalNodeIndex, new: NodeInstance) -> Result<GraphManagerDiff, NodeError> {
         let mut diffs = vec![];
 
-        diffs.push(
+        diffs.push(DiffElement::ChildGraphDiff(
+            index.graph_index,
             self.get_graph_mut(index.graph_index)?
                 .update_node_no_row_updates(index.node_index, new)?,
-        );
-        diffs.extend(self.update_node_rows(index)?);
+        ));
+        diffs.extend(self.update_node_rows(index)?.0);
 
-        Ok(diffs)
+        Ok(GraphManagerDiff(diffs))
     }
 
-    fn update_node_rows(&mut self, index: GlobalNodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
+    pub fn update_node_rows(&mut self, index: GlobalNodeIndex) -> Result<GraphManagerDiff, NodeError> {
         let graph = self.get_graph(index.graph_index)?;
         let node = graph.get_node(index.node_index)?;
 
         let ctx = self.create_get_io_context(index)?;
-        let new_rows = variant_io(&node.get_node_type(), &ctx, node.get_properties().clone())?.node_rows;
+        let new_rows = variant_io(&node.get_node_type(), ctx, node.get_properties().clone())?.node_rows;
 
         let mut diffs = vec![];
 
@@ -269,10 +272,10 @@ impl GraphManager {
             diffs.push(graph.update_node_no_row_updates(index.node_index, modified_node)?);
         }
 
-        Ok(diffs)
+        Ok(GraphManagerDiff::from_graph_diffs(index.graph_index, diffs))
     }
 
-    fn create_get_io_context(&self, index: GlobalNodeIndex) -> Result<NodeGetIoContext, NodeError> {
+    pub fn create_get_io_context(&self, index: GlobalNodeIndex) -> Result<NodeGetIoContext, NodeError> {
         let graph = self.get_graph(index.graph_index)?.get_graph();
         let vertex = graph.get_vertex(index.node_index.0).context(NodeDoesNotExistSnafu {
             node_index: index.node_index,
@@ -495,5 +498,33 @@ impl GraphManager {
         }
 
         Ok(invalidations)
+    }
+}
+
+impl Index<GraphIndex> for GraphManager {
+    type Output = NodeGraph;
+
+    fn index(&self, index: GraphIndex) -> &Self::Output {
+        self.get_graph(index).unwrap()
+    }
+}
+
+impl IndexMut<GraphIndex> for GraphManager {
+    fn index_mut(&mut self, index: GraphIndex) -> &mut Self::Output {
+        self.get_graph_mut(index).unwrap()
+    }
+}
+
+impl Index<GlobalNodeIndex> for GraphManager {
+    type Output = NodeInstance;
+
+    fn index(&self, index: GlobalNodeIndex) -> &Self::Output {
+        self.get_node(index).unwrap()
+    }
+}
+
+impl IndexMut<GlobalNodeIndex> for GraphManager {
+    fn index_mut(&mut self, index: GlobalNodeIndex) -> &mut Self::Output {
+        self.get_node_mut(index).unwrap()
     }
 }

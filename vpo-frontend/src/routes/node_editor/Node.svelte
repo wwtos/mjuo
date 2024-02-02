@@ -98,9 +98,9 @@
     }
 
     function openInnerGraph() {
-        if (wrapper.childGraphIndex !== null) {
+        if (wrapper.childGraph !== null) {
             dispatch("changeGraph", {
-                graphIndex: wrapper.childGraphIndex,
+                graphIndex: wrapper.childGraph,
                 nodeTitle:
                     title && title.length > 0
                         ? $localize("node." + title)

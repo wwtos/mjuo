@@ -113,7 +113,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
 
 pub fn variant_io(
     node_type: &str,
-    ctx: &NodeGetIoContext,
+    ctx: NodeGetIoContext,
     props: SeaHashMap<String, Property>,
 ) -> Result<NodeIo, NodeError> {
     match node_type {

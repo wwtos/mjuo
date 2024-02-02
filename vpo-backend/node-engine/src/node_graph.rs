@@ -38,7 +38,7 @@ pub struct NodeGraph {
     default_channel_count: usize,
 }
 
-pub(crate) fn create_new_node(node_type: &str, ctx: &NodeGetIoContext) -> NodeResult<NodeInstance> {
+pub(crate) fn create_new_node(node_type: &str, ctx: NodeGetIoContext) -> NodeResult<NodeInstance> {
     let node_rows = variant_io(node_type, ctx, HashMap::default())?.node_rows;
 
     let new_node = NodeInstance::new(node_type.into(), node_rows)?;
@@ -55,7 +55,7 @@ impl NodeGraph {
     }
 
     pub fn add_node(&mut self, node_type: &str) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type, &NodeGetIoContext::no_io_yet(self.default_channel_count))?;
+        let new_node = create_new_node(node_type, NodeGetIoContext::no_io_yet(self.default_channel_count))?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value);
 

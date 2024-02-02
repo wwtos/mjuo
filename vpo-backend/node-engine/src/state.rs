@@ -335,9 +335,31 @@ impl GraphState {
                 )
             }
             Action::ConnectNodes { graph, from, to, data } => {
-                let (diff, invalidations) =
+                let mut diff = GraphManagerDiff(vec![]);
+
+                let (connect_diff, invalidations) =
                     self.graph_manager
                         .connect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
+                diff.0.extend(connect_diff.0.into_iter());
+
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: from,
+                        })?
+                        .0
+                        .into_iter(),
+                );
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: to,
+                        })?
+                        .0
+                        .into_iter(),
+                );
 
                 (
                     HistoryAction::GraphAction {
@@ -348,9 +370,31 @@ impl GraphState {
                 )
             }
             Action::DisconnectNodes { graph, from, to, data } => {
-                let (diff, invalidations) =
+                let mut diff = GraphManagerDiff(vec![]);
+
+                let (disconnect_diff, invalidations) =
                     self.graph_manager
                         .disconnect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
+                diff.0.extend(disconnect_diff.0.into_iter());
+
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: from,
+                        })?
+                        .0
+                        .into_iter(),
+                );
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: to,
+                        })?
+                        .0
+                        .into_iter(),
+                );
 
                 (
                     HistoryAction::GraphAction {
@@ -384,7 +428,7 @@ impl GraphState {
 
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
                     vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
@@ -400,7 +444,7 @@ impl GraphState {
 
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
                     vec![ActionInvalidation::GraphModified(index.graph_index)],
@@ -425,7 +469,7 @@ impl GraphState {
 
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
                     vec![ActionInvalidation::NewDefaults(index, new_defaults)],
@@ -519,27 +563,28 @@ impl GraphState {
 
         self.graph_manager.set_default_channel_count(self.default_channel_count);
 
+        // after loading everything, rerun variant_io for each node in case the implementation changed
         let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
         for graph_index in graphs {
-            let graph = self
-                .graph_manager
-                .get_graph_mut(graph_index)
-                .expect("graph_index to exist");
-
-            let nodes: Vec<NodeIndex> = graph.node_indexes().collect();
+            let nodes: Vec<NodeIndex> = self.graph_manager[graph_index].node_indexes().collect();
 
             for node_index in nodes {
-                let node = graph.get_node_mut(node_index).expect("node_index to exist");
+                let node = GlobalNodeIndex {
+                    graph_index,
+                    node_index,
+                };
 
-                node.set_node_rows(
+                let new_io = self.graph_manager.create_get_io_context(node).and_then(|io_context| {
                     variant_io(
-                        &node.get_node_type(),
-                        &NodeGetIoContext::no_io_yet(self.default_channel_count),
-                        node.get_properties().clone(),
+                        &self.graph_manager[node].get_node_type(),
+                        io_context,
+                        self.graph_manager[node].get_properties().clone(),
                     )
-                    .unwrap()
-                    .node_rows,
-                );
+                });
+
+                if let Ok(new_io) = new_io {
+                    self.graph_manager[node].set_node_rows(new_io.node_rows);
+                }
             }
         }
     }
