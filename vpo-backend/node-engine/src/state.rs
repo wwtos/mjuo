@@ -467,12 +467,19 @@ impl GraphState {
                     })
                     .collect();
 
+                let mut invalidations = vec![ActionInvalidation::NewDefaults(index, new_defaults)];
+
+                // TODO: shouldn't need this in the future
+                if index.graph_index != self.root_graph_index {
+                    invalidations.push(ActionInvalidation::GraphReindexNeeded(self.root_graph_index));
+                }
+
                 (
                     HistoryAction::GraphAction {
                         diff: diffs,
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::NewDefaults(index, new_defaults)],
+                    invalidations,
                 )
             }
             Action::ChangeRouteRules { new_rules } => {

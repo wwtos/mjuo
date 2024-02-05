@@ -21,6 +21,7 @@ pub struct NodeInstance {
     default_overrides: Vec<NodeRow>,
     properties: SeaHashMap<String, Property>,
     ui_data: SeaHashMap<String, Value>,
+    #[serde(default)]
     state: NodeState,
     child_graph: Option<GraphIndex>,
 }

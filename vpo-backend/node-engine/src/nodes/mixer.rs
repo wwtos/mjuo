@@ -38,8 +38,6 @@ impl Node for MixerNode {
     fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let polyphony = default_channels(&props, context.default_channel_count);
 
-        dbg!(&context.connected_inputs);
-
         let mut node_rows = vec![
             with_channels(context.default_channel_count),
             stream_output("audio", polyphony),

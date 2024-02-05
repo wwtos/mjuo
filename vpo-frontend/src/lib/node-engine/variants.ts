@@ -99,5 +99,9 @@ export const variants: NodeVariant[] = [
     {
         internal: "OutputsNode",
         category: "base"
+    },
+    {
+        internal: "ReverbNode",
+        category: "audio"
     }
 ];

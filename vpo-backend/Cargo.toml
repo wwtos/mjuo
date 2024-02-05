@@ -39,6 +39,11 @@ thread-priority = "0.15.1"
 seahash = "4.1.0"
 log = "0.4.20"
 env_logger = "0.10.1"
+ddgg = { git = "https://github.com/smj-edison/ddgg", features = [
+  "js_names",
+  "serde",
+  "serde_string_indexes",
+] }
 
 [lib]
 crate-type = ["cdylib", "lib"]

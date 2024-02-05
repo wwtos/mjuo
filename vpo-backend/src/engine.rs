@@ -117,6 +117,7 @@ pub fn start_sound_engine(
                     stream_sinks.clear();
                     stream_sources.clear();
                     midi_store = midi_store.clear();
+                    traverser = None;
                 }
             };
         }

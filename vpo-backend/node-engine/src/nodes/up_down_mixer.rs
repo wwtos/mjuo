@@ -15,7 +15,7 @@ impl NodeRuntime for UpDownMixerNode {
         if ins.streams_len() <= outs.streams_len() {
             for (i, frame_out) in outs.stream(0).iter_mut().enumerate() {
                 // rotate through the inputs to fill the outputs
-                let frame_in = ins.stream(0).channel(i % ins.stream(0).len());
+                let frame_in = &ins.stream(0)[i % ins.stream(0).len()];
 
                 frame_out.copy_from_slice(frame_in);
             }
@@ -27,7 +27,9 @@ impl NodeRuntime for UpDownMixerNode {
 
             for (i, frame_in) in ins.stream(0).iter().enumerate() {
                 // rotate through the outputs
-                let frame_out = outs.stream(0).channel(i % outs.stream(0).len());
+
+                let channel_i = i % outs.stream(0).len();
+                let frame_out = &mut outs.stream(0)[channel_i];
 
                 for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter_mut()) {
                     *sample_out += *sample_in;

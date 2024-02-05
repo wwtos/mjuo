@@ -2,15 +2,20 @@ use std::time::Duration;
 
 use crate::{node::buffered_traverser::BufferedTraverser, nodes::prelude::*};
 
-use super::NodeVariant;
+use super::{
+    util::{is_message_reset, midi_channel},
+    NodeVariant,
+};
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
+const MIN_ON_TIME: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone)]
 struct PolyphonicInfo {
     started_at: Duration,
     active: bool,
     note: u8,
+    channel: u8,
 }
 
 impl PolyphonicInfo {
@@ -19,6 +24,7 @@ impl PolyphonicInfo {
             started_at,
             active: false,
             note: 255,
+            channel: 255,
         }
     }
 }
@@ -63,8 +69,9 @@ impl NodeRuntime for PolyphonicNode {
             .get_graph(child_graph_index)
             .expect("the child graph to exist");
 
-        self.voices.truncate(self.polyphony as usize);
-        while self.polyphony as usize > self.voices.len() {
+        // clear all the voices in case the graph has changed
+        self.voices.clear();
+        while self.voices.len() < self.polyphony as usize {
             let (errors_and_warnings, traverser) = BufferedTraverser::new(
                 params.sound_config.clone(),
                 params.graph_manager,
@@ -127,21 +134,23 @@ impl NodeRuntime for PolyphonicNode {
         midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
-        if let (Some(message_id), Some(input_node), Some(output_node)) =
-            (&ins.midi(0)[0], self.input_node, self.output_node)
-        {
-            let messages = midi_store.borrow_midi(&message_id).unwrap();
+        if let (Some(input_node), Some(output_node)) = (self.input_node, self.output_node) {
+            let messages = if let Some(messages_id) = &ins.midi(0)[0] {
+                midi_store.borrow_midi(messages_id).unwrap()
+            } else {
+                &[]
+            };
 
             // go through all the messages and send them to all the appropriate locations
             for message in messages {
                 let message_to_pass_to_all = match message.data {
-                    MidiData::NoteOff { note, .. } => {
+                    MidiData::NoteOff { note, channel, .. } => {
                         // look to see if there's a note on for this one, send it a turn off
                         // message if so
                         let inputs_node = self
                             .voices
                             .iter_mut()
-                            .find(|voice| voice.info.active && voice.info.note == note)
+                            .find(|voice| voice.info.active && voice.info.note == note && voice.info.channel == channel)
                             .and_then(|voice| voice.traverser.get_node_mut(input_node))
                             .and_then(|node| match node {
                                 NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
@@ -161,10 +170,9 @@ impl NodeRuntime for PolyphonicNode {
                         // search through for a open voice
 
                         // first, check if there's already one on for this note
-                        let already_on = self
-                            .voices
-                            .iter_mut()
-                            .find(|voice| voice.info.active && voice.info.note == note);
+                        let already_on = self.voices.iter_mut().find(|voice| {
+                            voice.info.active && voice.info.note == note && voice.info.channel == channel
+                        });
 
                         if let Some(already_on) = already_on {
                             let inputs_node =
@@ -201,7 +209,7 @@ impl NodeRuntime for PolyphonicNode {
                                 if let Some(inputs_node) = inputs_node {
                                     let note_off_message = MidiMessage {
                                         data: MidiData::NoteOff {
-                                            channel,
+                                            channel: available.info.channel,
                                             note: available.info.note,
                                             velocity: 0,
                                         },
@@ -216,6 +224,7 @@ impl NodeRuntime for PolyphonicNode {
 
                                 available.info.active = true;
                                 available.info.note = note;
+                                available.info.channel = channel;
                                 available.info.started_at = context.current_time;
                             } else {
                                 // just pick the oldest played note
@@ -250,6 +259,7 @@ impl NodeRuntime for PolyphonicNode {
 
                                 oldest.info.active = true;
                                 oldest.info.note = note;
+                                oldest.info.channel = channel;
                                 oldest.info.started_at = context.current_time;
                             }
                         }
@@ -262,7 +272,11 @@ impl NodeRuntime for PolyphonicNode {
                 // it wasn't note on or note off, so we better make sure all the voices get it
                 if let Some(message_to_pass_to_all) = message_to_pass_to_all {
                     for voice in self.voices.iter_mut() {
-                        if voice.info.active {
+                        if voice.info.active
+                            && midi_channel(&message_to_pass_to_all.data)
+                                .map(|channel| voice.info.channel == channel)
+                                .unwrap_or(true)
+                        {
                             let inputs_node = voice.traverser.get_node_mut(input_node).and_then(|node| match node {
                                 NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
                                 _ => None,
@@ -275,6 +289,12 @@ impl NodeRuntime for PolyphonicNode {
                                 }
                             }
                         }
+                    }
+                }
+
+                if is_message_reset(&message.data) {
+                    for voice in &mut self.voices {
+                        voice.info.active = false;
                     }
                 }
             }
@@ -308,9 +328,10 @@ impl NodeRuntime for PolyphonicNode {
                     }
 
                     // audio is all less than difference threshold?
-                    if child_output
-                        .iter()
-                        .all(|channel| channel.iter().all(|frame| frame.abs() < DIFFERENCE_THRESHOLD))
+                    if (context.current_time - voice.info.started_at) > MIN_ON_TIME
+                        && child_output
+                            .iter()
+                            .all(|channel| channel.iter().all(|frame| frame.abs() < DIFFERENCE_THRESHOLD))
                     {
                         // mark voice as inactive
                         voice.info.active = false;

@@ -172,7 +172,7 @@ pub fn generate_io_spec(
             resources,
             current_time,
             graph_manager,
-            sound_config: &sound_config,
+            sound_config: sound_config.clone(),
             node_state: node_instance.get_state(),
             child_graph: child_graph_info.clone(),
             default_channel_count,

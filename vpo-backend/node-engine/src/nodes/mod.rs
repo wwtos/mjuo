@@ -21,6 +21,7 @@ pub mod polyphonic;
 pub mod portamento;
 pub mod prelude;
 pub mod rank_player;
+pub mod reverb;
 pub mod stream_expression;
 pub mod test_node;
 pub mod toggle;
@@ -35,9 +36,9 @@ use self::{
     function_node::FunctionNode, gain::GainNode, inputs::InputsNode, memory::MemoryNode, midi_filter::MidiFilterNode,
     midi_switch::MidiSwitchNode, midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode,
     note_merger::NoteMergerNode, oscillator::OscillatorNode, outputs::OutputsNode, polyphonic::PolyphonicNode,
-    portamento::PortamentoNode, rank_player::RankPlayerNode, stream_expression::StreamExpressionNode,
-    test_node::TestNode, toggle::ToggleNode, up_down_mixer::UpDownMixerNode, wavetable::WavetableNode,
-    wavetable_sequencer::WavetableSequencerNode,
+    portamento::PortamentoNode, rank_player::RankPlayerNode, reverb::ReverbNode,
+    stream_expression::StreamExpressionNode, test_node::TestNode, toggle::ToggleNode, up_down_mixer::UpDownMixerNode,
+    wavetable::WavetableNode, wavetable_sequencer::WavetableSequencerNode,
 };
 
 use self::prelude::*;
@@ -71,6 +72,7 @@ pub enum NodeVariant {
     MidiToValueNode,
     UpDownMixerNode,
     TestNode,
+    ReverbNode,
 }
 
 impl Default for NodeVariant {
@@ -107,6 +109,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "MidiToValueNode" => Ok(MidiToValueNode::new(config).into()),
         "UpDownMixerNode" => Ok(UpDownMixerNode::new(config).into()),
         "TestNode" => Ok(TestNode::new(config).into()),
+        "ReverbNode" => Ok(ReverbNode::new(config).into()),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }
@@ -143,6 +146,7 @@ pub fn variant_io(
         "MidiToValueNode" => Ok(MidiToValueNode::get_io(ctx, props)),
         "UpDownMixerNode" => Ok(UpDownMixerNode::get_io(ctx, props)),
         "TestNode" => Ok(TestNode::get_io(ctx, props)),
+        "ReverbNode" => Ok(ReverbNode::get_io(ctx, props)),
         _ => Err(NodeError::NodeTypeDoesNotExist),
     }
 }

@@ -15,7 +15,6 @@ pub struct MemoryNode {
     tracking: Vec<NodeIndex>,
     memory: Vec<(NodeIndex, Value)>,
     mode: MemoryMode,
-    activated: bool,
     state_changed: bool,
 }
 
@@ -54,22 +53,17 @@ impl NodeRuntime for MemoryNode {
     ) {
         self.state_changed = false;
 
-        if let Some(true) = ins.value(0)[0].as_boolean() {
-            self.activated = true;
-        }
-
-        if let Some(true) = ins.value(1)[0].as_boolean() {
+        if let Some(()) = ins.value(1)[0].as_bang() {
             self.mode = MemoryMode::Loading;
-        } else if let Some(true) = ins.value(2)[0].as_boolean() {
+        } else if let Some(()) = ins.value(2)[0].as_bang() {
             self.mode = MemoryMode::Setting;
-        } else if let Some(true) = ins.value(3)[0].as_boolean() {
+        } else if let Some(()) = ins.value(3)[0].as_bang() {
             self.mode = MemoryMode::MapSetting;
         }
 
-        if self.activated {
+        if let Some(()) = ins.value(0)[0].as_bang() {
             match self.mode {
                 MemoryMode::Loading => {
-                    println!("loading");
                     (context.external_state.enqueue_state_updates)(self.memory.clone());
                 }
                 MemoryMode::Setting => {
@@ -117,8 +111,6 @@ impl NodeRuntime for MemoryNode {
                 self.state_changed = true;
             }
         }
-
-        self.activated = false;
     }
 
     fn get_state(&self) -> Option<NodeState> {
@@ -140,10 +132,10 @@ impl NodeRuntime for MemoryNode {
 impl Node for MemoryNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            value_input("activate", Primitive::Boolean(false), 1),
-            value_input("load_mode", Primitive::Boolean(false), 1),
-            value_input("set_mode", Primitive::Boolean(false), 1),
-            value_input("map_set_mode", Primitive::Boolean(false), 1),
+            value_input("activate", Primitive::Bang, 1),
+            value_input("load_mode", Primitive::Bang, 1),
+            value_input("set_mode", Primitive::Bang, 1),
+            value_input("map_set_mode", Primitive::Bang, 1),
         ])
     }
 
@@ -152,7 +144,6 @@ impl Node for MemoryNode {
             tracking: Vec::with_capacity(256),
             memory: Vec::with_capacity(256),
             mode: MemoryMode::Loading,
-            activated: false,
             state_changed: false,
         }
     }

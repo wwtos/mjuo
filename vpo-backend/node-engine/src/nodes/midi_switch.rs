@@ -111,12 +111,11 @@ impl NodeRuntime for MidiSwitchNode {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
-                let mut midi_out: MidiChannel = MidiChannel::new();
 
                 if engaged {
                     match self.mode {
                         SwitchMode::Normal => {
-                            // turn on all the notes that are pressed
+                            // send note on for all the notes that are already pressed
                             for i in 0..128 {
                                 if self.state & (1 << i) != 0 {
                                     midi_out.push(MidiMessage {
@@ -147,11 +146,10 @@ impl NodeRuntime for MidiSwitchNode {
                                     note: i,
                                     velocity: 0,
                                 },
-                            })
+                            });
                         }
                     }
 
-                    self.state = 0;
                     self.ignoring = 0;
                 }
             }

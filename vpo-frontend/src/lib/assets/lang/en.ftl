@@ -29,6 +29,18 @@ socket =
     .set_state = Set state
     .state = State
     .engage = Engage
+    .velocity = Velocity
+    .zita_delay = In Delay (ms)
+    .zita_crossover = LF X (Hz)
+    .zita_low_rt60 = Low RT60 (s)
+    .zita_mid_rt60 = Mid RT60 (s)
+    .zita_hf_damping = HF Damping (Hz)
+    .zita_eq1_freq = Eq1 Freq (Hz)
+    .zita_eq1_level = Eq1 Level (dB)
+    .zita_eq2_freq = Eq2 Freq (Hz)
+    .zita_eq2_level = Eq2 Level (dB)
+    .zita_dry_wet_mix = Dry/Wet Mix (-1 – 1)
+    .zita_level = Level (dB)    
 
 node =
     .BiquadFilterNode = Filter (12db/octave)
@@ -58,6 +70,7 @@ node =
     .MidiTransposeNode = Midi Transpose
     .WavetableSequencerNode = Wavetable Sequencer
     .UpDownMixerNode = Up/down Mixer
+    .ReverbNode = Reverb Node
 
 property =
     .name = Name

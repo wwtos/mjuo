@@ -1,7 +1,11 @@
 use crate::nodes::prelude::*;
 
+use super::util::is_message_reset;
+
 #[derive(Debug, Clone)]
-pub struct MidiToValuesNode {}
+pub struct MidiToValuesNode {
+    freq: f32,
+}
 
 impl NodeRuntime for MidiToValuesNode {
     fn process<'a>(
@@ -22,14 +26,32 @@ impl NodeRuntime for MidiToValuesNode {
                         note,
                         velocity,
                     } => {
-                        outs.value(0)[0] = float(440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0));
+                        self.freq = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
+
+                        outs.value(0)[0] = float(self.freq);
+
                         outs.value(1)[0] = bool(true);
                         outs.value(2)[0] = float((*velocity as f32) / 127.0);
+                    }
+                    MidiData::PitchBend { pitch_bend, .. } => {
+                        let bound_bend = (*pitch_bend as i16 - 8192) as f32 / 8192.0;
+                        let cents = bound_bend * 200.0;
+
+                        let freq = self.freq * f32::powf(2.0, cents / 1200.0);
+
+                        outs.value(0)[0] = float(freq);
                     }
                     MidiData::NoteOff { .. } => {
                         outs.value(1)[0] = bool(false);
                     }
                     _ => {}
+                }
+
+                if is_message_reset(&data.data) {
+                    outs.value(0)[0] = float(440.0);
+
+                    outs.value(1)[0] = bool(false);
+                    outs.value(2)[0] = float(0.0);
                 }
             }
         }
@@ -38,7 +60,7 @@ impl NodeRuntime for MidiToValuesNode {
 
 impl Node for MidiToValuesNode {
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiToValuesNode {}
+        MidiToValuesNode { freq: 440.0 }
     }
 
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {

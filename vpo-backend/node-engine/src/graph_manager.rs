@@ -429,7 +429,7 @@ impl GraphManager {
         let mut diff = vec![];
 
         // first, see if the node has a child graph
-        let children = self
+        let children_of_graph = self
             .node_graphs
             .get_vertex(graph_index.0)
             .with_context(|| GraphDoesNotExistSnafu {
@@ -437,10 +437,20 @@ impl GraphManager {
             })?
             .get_connections_to();
 
+        let child_graph = children_of_graph
+            .iter()
+            .find(|(_, connection)| {
+                self.node_graphs
+                    .get_edge_data(*connection)
+                    .map(|edge| edge.0 == node_index)
+                    .unwrap_or(false)
+            })
+            .map(|(connected_to, _)| *connected_to);
+
         // if it does have children, remove the connections
-        if !children.is_empty() {
+        if let Some(child_graph) = child_graph {
             let (_, remove_diff) =
-                self.disconnect_graphs(graph_index, ConnectedThrough(node_index), GraphIndex(children[0].0))?;
+                self.disconnect_graphs(graph_index, ConnectedThrough(node_index), GraphIndex(child_graph))?;
             diff.extend(remove_diff.0);
         }
 
