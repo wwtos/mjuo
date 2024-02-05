@@ -29,26 +29,26 @@ export class GraphManager {
     }) {
         if (!Graph.getVertex(this.nodeGraphs, json.graphIndex)) {
             this.nodeGraphs.verticies[Index.fromString(json.graphIndex).index] =
-                {
-                    variant: "Occupied",
-                    data: [
-                        {
-                            connectionsFrom: [],
-                            connectionsTo: [],
-                            data: new NodeGraph(
-                                this.ipcSocket,
-                                json.graphIndex
-                            ),
-                        },
-                        Index.fromString(json.graphIndex).generation,
-                    ],
-                };
+            {
+                variant: "Occupied",
+                data: [
+                    {
+                        connectionsFrom: [],
+                        connectionsTo: [],
+                        data: new NodeGraph(
+                            this.ipcSocket,
+                            json.graphIndex
+                        ),
+                    },
+                    Index.fromString(json.graphIndex).generation,
+                ],
+            };
         }
 
         Graph.getVertexData(this.nodeGraphs, json.graphIndex)?.applyJson(json);
     }
 
-    onMessage([message]: [any]) {
+    onMessage(message: any) {
         if (
             message.action === "graph/updateGraph" &&
             message.payload.graphIndex === this.graphWaitingFor &&

@@ -13,6 +13,10 @@ impl InputsNode {
         self.midis = Some(midis);
     }
 
+    pub fn midis_mut(&mut self) -> &mut Option<MidiChannel> {
+        &mut self.midis
+    }
+
     pub fn streams_mut(&mut self) -> &mut Vec<Vec<f32>> {
         &mut self.streams
     }
@@ -51,12 +55,12 @@ impl NodeRuntime for InputsNode {
         _context: NodeProcessContext,
         _ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if outs.midis_len() > 0 {
             if let Some(midis) = &mut self.midis {
-                outs.midi(0)[0] = midi_store.register_midis(midis.drain(..));
+                outs.midi(0)[0] = midi_store.add_midi(midis.drain(..));
 
                 self.midis = None;
             } else {
@@ -69,8 +73,6 @@ impl NodeRuntime for InputsNode {
                 channel_out.copy_from_slice(&channel[..]);
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -82,9 +84,11 @@ impl Node for InputsNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
+        // NOTE: if you change any of the IO definitions here, MAKE SURE to update it in
+        // nodes/polyphonic.rs
         let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());
         let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
             Some("stream") => SocketType::Stream,

@@ -50,6 +50,8 @@ pub struct RankConfig {
     #[serde(default = "crossfade_default")]
     crossfade: usize,
     #[serde(default)]
+    even_harm_atten: f32,
+    #[serde(default)]
     sample_format: Option<String>,
 }
 
@@ -83,6 +85,7 @@ impl RankConfig {
             attenuation: 0.0,
             crossfade: 0,
             sample_format: None,
+            even_harm_atten: 0.0,
         }
     }
 }
@@ -150,7 +153,7 @@ pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result
                     decay_index: entry.decay_index,
                     release_index: entry.release_index,
                     crossfade: entry.crossfade.unwrap_or(parsed.crossfade),
-                    comb_coeff: db_to_gain(entry.even_harm_atten),
+                    comb_coeff: 0.0,
                     amp_window_size,
                     phase_calculator,
                     attack_envelope: attack_envelope,

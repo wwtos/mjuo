@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ops::Range;
+use std::time::Duration;
 
 use crate::connection::{Connection, Primitive, Socket, SocketType};
-use crate::errors::{NodeError, NodeWarning};
-use crate::graph_manager::{GraphIndex, GraphManager};
+use crate::errors::{ErrorsAndWarnings, NodeError, NodeWarning};
+use crate::graph_manager::GraphManager;
 use crate::node::{NodeIndex, NodeInitParams, NodeRow, NodeRuntime};
 use crate::node_graph::{NodeConnectionData, NodeGraph};
 use crate::nodes::{new_variant, NodeVariant};
@@ -122,16 +123,16 @@ pub struct Indexes {
     pub resources_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
 }
 
-pub fn calc_io_spec(
+pub fn generate_io_spec(
     graph: &NodeGraph,
     mut old_nodes: BTreeMap<NodeIndex, NodeVariant>,
     sound_config: &SoundConfig,
     script_engine: &Engine,
     resources: &Resources,
-    current_time: i64,
+    current_time: Duration,
     graph_manager: &GraphManager,
     default_channel_count: usize,
-) -> Result<IoSpec, NodeError> {
+) -> Result<(ErrorsAndWarnings, IoSpec), NodeError> {
     let traversal_order = calculate_graph_traverse_order(&graph);
 
     let mut errors: Vec<(NodeIndex, NodeError)> = vec![];
@@ -171,7 +172,7 @@ pub fn calc_io_spec(
             resources,
             current_time,
             graph_manager,
-            sound_config: &sound_config,
+            sound_config: sound_config.clone(),
             node_state: node_instance.get_state(),
             child_graph: child_graph_info.clone(),
             default_channel_count,
@@ -285,24 +286,21 @@ pub fn calc_io_spec(
         stream_i += stream_output_sockets.iter().map(|x| x.channels()).sum::<usize>();
     }
 
-    Ok(IoSpec {
-        nodes,
-        resources_tracking,
-        nodes_linked_to_ui,
-        traversal_order,
-    })
+    Ok((
+        ErrorsAndWarnings { errors, warnings },
+        IoSpec {
+            nodes,
+            resources_tracking,
+            nodes_linked_to_ui,
+            traversal_order,
+        },
+    ))
 }
 
-pub fn calc_indexes(
-    io_needed: &IoSpec,
-    graph_index: GraphIndex,
-    graph_manager: &GraphManager,
-) -> Result<Indexes, NodeError> {
+pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, NodeError> {
     let IoSpec {
         nodes, traversal_order, ..
     } = io_needed;
-
-    let graph = graph_manager.get_graph(graph_index)?;
 
     // figure out how big our io array needs to be
     let stream_count = nodes

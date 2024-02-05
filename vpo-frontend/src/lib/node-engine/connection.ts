@@ -58,6 +58,7 @@ export type Primitive = DiscriminatedUnion<"variant", {
     Int: { data: number },
     Boolean: { data: boolean },
     String: { data: string },
+    Bang: {},
 }>;
 
 export type SocketValue = DiscriminatedUnion<"variant", {

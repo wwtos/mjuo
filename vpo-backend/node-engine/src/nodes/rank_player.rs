@@ -62,9 +62,9 @@ impl NodeRuntime for RankPlayerNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let _reset_needed = false;
 
         if let Some(cents) = ins.value(0)[0].as_float() {
@@ -97,8 +97,6 @@ impl NodeRuntime for RankPlayerNode {
                 &mut outs.stream(0)[0],
             );
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -110,7 +108,7 @@ impl Node for RankPlayerNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             NodeRow::Property(
                 "rank".into(),

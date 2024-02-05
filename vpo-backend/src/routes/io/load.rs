@@ -54,8 +54,9 @@ pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineErr
 
         to_audio_thread.push(ToAudioThread::NewTraverser(
             ctx.state
-                .get_traverser(resources)
-                .whatever_context("could not create traverser")?,
+                .create_traverser(resources)
+                .whatever_context("could not create traverser")?
+                .1,
         ));
 
         return Ok(RouteReturn {

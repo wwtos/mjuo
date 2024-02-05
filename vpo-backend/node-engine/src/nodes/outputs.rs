@@ -25,9 +25,9 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if self.midi_stale {
             self.midis = None;
         }
@@ -48,8 +48,6 @@ impl NodeRuntime for OutputsNode {
                 local_channel_in.extend(channel_in.iter());
             }
         }
-
-        NodeOk::no_warnings(())
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
@@ -89,7 +87,7 @@ impl Node for OutputsNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());

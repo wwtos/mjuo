@@ -38,7 +38,7 @@ pub struct NodeGraph {
     default_channel_count: usize,
 }
 
-pub(crate) fn create_new_node(node_type: &str, ctx: &NodeGetIoContext) -> NodeResult<NodeInstance> {
+pub(crate) fn create_new_node(node_type: &str, ctx: NodeGetIoContext) -> NodeResult<NodeInstance> {
     let node_rows = variant_io(node_type, ctx, HashMap::default())?.node_rows;
 
     let new_node = NodeInstance::new(node_type.into(), node_rows)?;
@@ -55,75 +55,19 @@ impl NodeGraph {
     }
 
     pub fn add_node(&mut self, node_type: &str) -> NodeResult<(NodeIndex, NodeGraphDiff)> {
-        let new_node = create_new_node(node_type, &NodeGetIoContext::no_io_yet(self.default_channel_count))?;
+        let new_node = create_new_node(node_type, NodeGetIoContext::no_io_yet(self.default_channel_count))?;
 
         let (index, diff) = self.nodes.add_vertex(new_node.value);
 
         Ok(NodeOk::new((NodeIndex(index), diff), new_node.warnings))
     }
 
-    pub fn update_node(&mut self, index: NodeIndex, node: NodeInstance) -> Result<Vec<NodeGraphDiff>, NodeError> {
-        let mut diffs = vec![];
-
-        diffs.push(self.nodes.update_vertex(index.0, node)?.1);
-        diffs.extend(self.update_node_rows(index)?.into_iter());
-
-        Ok(diffs)
-    }
-
-    fn update_node_rows(&mut self, node_index: NodeIndex) -> Result<Vec<NodeGraphDiff>, NodeError> {
-        let node = self.get_node(node_index)?;
-        let ctx = self.create_get_io_context(node_index)?;
-
-        let new_rows = variant_io(&node.get_node_type(), &ctx, node.get_properties().clone())?.node_rows;
-
-        let mut diffs = vec![];
-
-        let removed: Vec<(Socket, SocketDirection)> = node
-            .get_node_rows()
-            .iter()
-            .filter(|&old_row| !new_rows.iter().any(|new_row| new_row == old_row))
-            .filter_map(|row| row.to_socket_and_direction().map(|x| (x.0.clone(), x.1)))
-            .collect();
-
-        for input_connection in self.get_input_side_connections(node_index)? {
-            if removed.iter().any(|(socket, direction)| {
-                socket == &input_connection.to_socket && direction == &SocketDirection::Input
-            }) {
-                let (_, diff) = self.disconnect(
-                    input_connection.from_node,
-                    &input_connection.from_socket,
-                    node_index,
-                    &input_connection.to_socket,
-                )?;
-
-                diffs.push(diff);
-            }
-        }
-
-        for output_connection in self.get_output_side_connections(node_index)? {
-            if removed.iter().any(|(socket, direction)| {
-                socket == &output_connection.to_socket && direction == &SocketDirection::Output
-            }) {
-                let (_, diff) = self.disconnect(
-                    node_index,
-                    &output_connection.from_socket,
-                    output_connection.to_node,
-                    &output_connection.to_socket,
-                )?;
-
-                diffs.push(diff);
-            }
-        }
-
-        if *self[node_index].get_node_rows() != new_rows {
-            let mut modified_node = self.get_node(node_index)?.clone();
-            modified_node.set_node_rows(new_rows);
-
-            diffs.push(self.nodes.update_vertex(node_index.0, modified_node)?.1);
-        }
-
-        Ok(diffs)
+    pub(super) fn update_node_no_row_updates(
+        &mut self,
+        index: NodeIndex,
+        node: NodeInstance,
+    ) -> Result<NodeGraphDiff, NodeError> {
+        Ok(self.nodes.update_vertex(index.0, node)?.1)
     }
 
     pub fn connect(
@@ -411,30 +355,6 @@ impl NodeGraph {
         self.nodes.rollback_diff(diff)?;
 
         Ok(())
-    }
-
-    pub fn create_get_io_context(&self, index: NodeIndex) -> Result<NodeGetIoContext, NodeError> {
-        let vertex = self
-            .nodes
-            .get_vertex(index.0)
-            .context(NodeDoesNotExistSnafu { node_index: index })?;
-
-        let connected_inputs: Vec<Socket> = vertex
-            .get_connections_from()
-            .iter()
-            .map(|(_, connection)| self.nodes[*connection].data().to_socket.clone())
-            .collect();
-        let connected_outputs: Vec<Socket> = vertex
-            .get_connections_to()
-            .iter()
-            .map(|(_, connection)| self.nodes[*connection].data().from_socket.clone())
-            .collect();
-
-        Ok(NodeGetIoContext {
-            default_channel_count: self.default_channel_count,
-            connected_inputs,
-            connected_outputs,
-        })
     }
 
     pub fn set_default_channel_count(&mut self, default_channel_count: usize) {

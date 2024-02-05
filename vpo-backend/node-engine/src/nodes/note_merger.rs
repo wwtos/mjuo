@@ -33,9 +33,9 @@ impl NodeRuntime for NoteMergerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let mut new_messages: MidiChannel = MidiChannel::new();
 
         for (i, messages) in ins.midis().enumerate() {
@@ -74,9 +74,7 @@ impl NodeRuntime for NoteMergerNode {
             }
         }
 
-        outs.midi(0)[0] = midi_store.register_midis(new_messages.into_iter());
-
-        ProcessResult::nothing()
+        outs.midi(0)[0] = midi_store.add_midi(new_messages.into_iter());
     }
 }
 
@@ -88,7 +86,7 @@ impl Node for NoteMergerNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
             midi_output("midi", 1),

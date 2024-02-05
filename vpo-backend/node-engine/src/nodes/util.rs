@@ -21,6 +21,34 @@ impl<T> ProcessState<T> {
     }
 }
 
+pub fn midi_channel(message: &MidiData) -> Option<u8> {
+    match message {
+        MidiData::NoteOff { channel, .. }
+        | MidiData::NoteOn { channel, .. }
+        | MidiData::Aftertouch { channel, .. }
+        | MidiData::ControlChange { channel, .. }
+        | MidiData::ProgramChange { channel, .. }
+        | MidiData::ChannelPressure { channel, .. }
+        | MidiData::PitchBend { channel, .. } => Some(*channel),
+        _ => None,
+    }
+}
+
+pub fn is_message_reset(message: &MidiData) -> bool {
+    match message {
+        MidiData::SysRt(SysRt::Reset)
+        | MidiData::ControlChange { controller: 120, .. }
+        | MidiData::ControlChange { controller: 121, .. }
+        | MidiData::ControlChange {
+            controller: 122,
+            value: 0,
+            ..
+        }
+        | MidiData::ControlChange { controller: 123, .. } => true,
+        _ => false,
+    }
+}
+
 pub fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     match value {
         serde_json::Value::Null => Dynamic::from(()),

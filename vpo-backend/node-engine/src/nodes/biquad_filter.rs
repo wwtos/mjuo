@@ -8,6 +8,7 @@ pub struct BiquadFilterNode {
     filters: Vec<BiquadFilter>,
     filter_spec: FilterSpec<f32>,
     q: f32,
+    max_freq: f32,
 }
 
 impl BiquadFilterNode {
@@ -52,11 +53,11 @@ impl NodeRuntime for BiquadFilterNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
-            self.filter_spec.f0 = frequency.max(1.0);
+            self.filter_spec.f0 = frequency.max(1.0).min(self.max_freq);
             self.recompute();
         }
 
@@ -85,22 +86,27 @@ impl NodeRuntime for BiquadFilterNode {
             for (frame_in, frame_out) in channel_in.iter().zip(channel_out.iter_mut()) {
                 *frame_out = filter.filter_sample(*frame_in);
             }
-        }
 
-        NodeOk::no_warnings(())
+            // TODO: figure out a more reliable method to check for destabilization
+            if channel_out[0].abs() > 5.0 {
+                // reset the filter if we destabilized
+                filter.reset_history();
+            }
+        }
     }
 }
 
 impl Node for BiquadFilterNode {
-    fn new(_config: &SoundConfig) -> BiquadFilterNode {
+    fn new(config: &SoundConfig) -> BiquadFilterNode {
         BiquadFilterNode {
             filters: vec![],
             filter_spec: FilterSpec::none(),
             q: 0.7,
+            max_freq: config.sample_rate as f32 / 2.0,
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         NodeIo {

@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, HashSet};
 
+use ddgg::Graph;
 use node_engine::{
     graph_manager::{GlobalNodeIndex, GraphIndex},
     node_graph::NodeConnectionData,
     node_instance::NodeInstance,
     state::{Action, ActionInvalidation},
 };
-use petgraph::Graph;
 use serde::Deserialize;
 use snafu::ResultExt;
 
@@ -34,8 +34,8 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
 
     // create all the nodes
     let mut first_time = true;
-    for index in mini_graph.node_indices() {
-        let node = &mini_graph[index];
+    for (index, vertex) in mini_graph.vertex_iter() {
+        let node = vertex.data();
 
         // create the node and get its index
         let new_invalidations = state
@@ -89,9 +89,8 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     }
 
     // now connect all the nodes
-    for edge_index in mini_graph.edge_indices() {
-        let (from, to) = &mini_graph.edge_endpoints(edge_index).expect("edge to exist");
-        let data = &mini_graph[edge_index];
+    for (edge_index, edge) in mini_graph.edge_iter() {
+        let (from, to) = (edge.get_from(), edge.get_to());
 
         invalidations.extend(
             state
@@ -100,9 +99,9 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
                     ActionBundle {
                         actions: vec![Action::ConnectNodes {
                             graph: payload.graph_index,
-                            from: mapping[from].node_index,
-                            to: mapping[to].node_index,
-                            data: data.clone(),
+                            from: mapping[&from].node_index,
+                            to: mapping[&to].node_index,
+                            data: edge.data().clone(),
                         }],
                     },
                     true,

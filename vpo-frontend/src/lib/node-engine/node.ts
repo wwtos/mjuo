@@ -107,7 +107,7 @@ export interface NodeInstance {
     defaultOverrides: NodeRow[];
     properties: { [key: string]: Property };
     uiData: UiData;
-    childGraphIndex: Index | null;
+    childGraph: Index | null;
     state: {
         countedDuringMapset: boolean;
         value: any;

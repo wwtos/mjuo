@@ -11,9 +11,9 @@ impl NodeRuntime for MidiTransposeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(transpose) = ins.value(0)[0].as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }
@@ -68,15 +68,13 @@ impl NodeRuntime for MidiTransposeNode {
                 })
                 .collect();
 
-            outs.midi(0)[0] = midi_store.register_midis(output.into_iter());
+            outs.midi(0)[0] = midi_store.add_midi(output.into_iter());
         }
-
-        ProcessResult::nothing()
     }
 }
 
 impl Node for MidiTransposeNode {
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("transpose", int(0), 1),

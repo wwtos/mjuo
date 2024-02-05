@@ -44,9 +44,7 @@ pub fn state_invalidations(
             ActionInvalidation::NewNode(_) => {
                 new_engine_needed = true; // TODO: be less lazy
             }
-            ActionInvalidation::GraphModified(_) => {
-                new_engine_needed = true; // TODO: be less lazy
-            }
+            ActionInvalidation::GraphModified(_) => {}
             ActionInvalidation::NewRouteRules { last_rules, new_rules } => {
                 let last_devices: BTreeSet<(&String, DeviceDirection, DeviceType)> = last_rules
                     .devices
@@ -248,7 +246,7 @@ pub fn state_invalidations(
 
     if new_engine_needed {
         updates.push(ToAudioThread::NewTraverser(
-            state.create_traverser(resources).context(NodeSnafu)?,
+            state.create_traverser(resources).context(NodeSnafu)?.1,
         ));
     }
 

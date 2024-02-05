@@ -1,12 +1,6 @@
-use std::{
-    array::from_fn,
-    f32::consts::PI,
-    f64::consts::TAU,
-    iter::{repeat, repeat_with, Sum},
-};
+use std::{array::from_fn, f32::consts::PI, f64::consts::TAU, iter::Sum};
 
 use num::Float;
-use smallvec::SmallVec;
 
 use crate::util::interpolate::lerp;
 
@@ -323,7 +317,6 @@ impl Default for RecursiveFilter<3, f32> {
 
 pub type BiquadFilter = RecursiveFilter<3, f32>;
 
-// TODO: optimize, this is very sloppy
 #[derive(Debug, Clone)]
 pub struct NthBiquadFilter<const N: usize> {
     filters: [BiquadFilter; N],
@@ -415,7 +408,11 @@ pub struct SimpleComb {
 
 impl SimpleComb {
     pub fn new(f0: f32, fs: f32, α: f32) -> SimpleComb {
-        SimpleComb { M: fs / f0, α }
+        let M = fs / f0;
+
+        assert!(M > 1.0);
+
+        SimpleComb { M, α }
     }
 
     #[inline]
@@ -429,7 +426,6 @@ impl SimpleComb {
         }
     }
 
-    // TODO: very sloppy, I don't feel like working out the math though, lol
     pub fn response(&self, freq: f32, fs: f32) -> f32 {
         let ω = 2.0 * PI * (freq / fs);
 

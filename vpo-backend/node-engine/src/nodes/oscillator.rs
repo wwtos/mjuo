@@ -28,9 +28,9 @@ impl NodeRuntime for OscillatorNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency.clamp(1.0, 20_000.0));
         }
@@ -38,8 +38,6 @@ impl NodeRuntime for OscillatorNode {
         for frame in outs.stream(0)[0].iter_mut() {
             *frame = self.oscillator.process();
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -50,7 +48,7 @@ impl Node for OscillatorNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("frequency", Primitive::Float(440.0), 1),
             stream_output("audio", 1),

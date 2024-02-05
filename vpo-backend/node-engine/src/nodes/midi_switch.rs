@@ -44,9 +44,9 @@ impl NodeRuntime for MidiSwitchNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         let mut midi_out: MidiChannel = MidiChannel::new();
 
         if let Some(midi) = &ins.midi(0)[0] {
@@ -111,12 +111,11 @@ impl NodeRuntime for MidiSwitchNode {
             // if it's the same value as last time, ignore it
             if engaged != self.engaged {
                 self.engaged = engaged;
-                let mut midi_out: MidiChannel = MidiChannel::new();
 
                 if engaged {
                     match self.mode {
                         SwitchMode::Normal => {
-                            // turn on all the notes that are pressed
+                            // send note on for all the notes that are already pressed
                             for i in 0..128 {
                                 if self.state & (1 << i) != 0 {
                                     midi_out.push(MidiMessage {
@@ -147,26 +146,23 @@ impl NodeRuntime for MidiSwitchNode {
                                     note: i,
                                     velocity: 0,
                                 },
-                            })
+                            });
                         }
                     }
 
-                    self.state = 0;
                     self.ignoring = 0;
                 }
             }
         }
 
         if !midi_out.is_empty() {
-            outs.midi(0)[0] = midi_store.register_midis(midi_out.into_iter());
+            outs.midi(0)[0] = midi_store.add_midi(midi_out.into_iter());
         }
-
-        ProcessResult::nothing()
     }
 }
 
 impl Node for MidiSwitchNode {
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             midi_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),

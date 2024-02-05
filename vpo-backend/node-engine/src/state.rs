@@ -12,7 +12,7 @@ use sound_engine::SoundConfig;
 
 use crate::{
     connection::{Socket, SocketValue},
-    errors::{NodeError, WarningExt},
+    errors::{ErrorsAndWarnings, NodeError, WarningExt},
     graph_manager::{GlobalNodeIndex, GraphIndex, GraphManager, GraphManagerDiff},
     io_routing::IoRoutes,
     node::buffered_traverser::BufferedTraverser,
@@ -166,19 +166,7 @@ impl GraphState {
         }
     }
 
-    pub fn get_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
-        let traverser = BufferedTraverser::new(
-            self.sound_config.clone(),
-            &self.graph_manager,
-            self.root_graph_index,
-            &resources,
-            Duration::ZERO,
-        )?;
-
-        Ok(traverser)
-    }
-
-    pub fn create_traverser(&self, resources: &Resources) -> Result<BufferedTraverser, NodeError> {
+    pub fn create_traverser(&self, resources: &Resources) -> Result<(ErrorsAndWarnings, BufferedTraverser), NodeError> {
         BufferedTraverser::new(
             self.sound_config.clone(),
             &self.graph_manager,
@@ -347,9 +335,31 @@ impl GraphState {
                 )
             }
             Action::ConnectNodes { graph, from, to, data } => {
-                let (diff, invalidations) =
+                let mut diff = GraphManagerDiff(vec![]);
+
+                let (connect_diff, invalidations) =
                     self.graph_manager
                         .connect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
+                diff.0.extend(connect_diff.0.into_iter());
+
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: from,
+                        })?
+                        .0
+                        .into_iter(),
+                );
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: to,
+                        })?
+                        .0
+                        .into_iter(),
+                );
 
                 (
                     HistoryAction::GraphAction {
@@ -360,9 +370,31 @@ impl GraphState {
                 )
             }
             Action::DisconnectNodes { graph, from, to, data } => {
-                let (diff, invalidations) =
+                let mut diff = GraphManagerDiff(vec![]);
+
+                let (disconnect_diff, invalidations) =
                     self.graph_manager
                         .disconnect_nodes(graph, from, &data.from_socket, to, &data.to_socket)?;
+                diff.0.extend(disconnect_diff.0.into_iter());
+
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: from,
+                        })?
+                        .0
+                        .into_iter(),
+                );
+                diff.0.extend(
+                    self.graph_manager
+                        .update_node_rows(GlobalNodeIndex {
+                            graph_index: graph,
+                            node_index: to,
+                        })?
+                        .0
+                        .into_iter(),
+                );
 
                 (
                     HistoryAction::GraphAction {
@@ -392,11 +424,11 @@ impl GraphState {
 
                 modified_node.set_properties(new_props.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
                     vec![ActionInvalidation::GraphReindexNeeded(index.graph_index)],
@@ -408,14 +440,14 @@ impl GraphState {
 
                 modified_node.set_ui_data(data.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
-                    vec![],
+                    vec![ActionInvalidation::GraphModified(index.graph_index)],
                 )
             }
             Action::ChangeNodeOverrides { index, overrides } => {
@@ -424,7 +456,7 @@ impl GraphState {
 
                 modified_node.set_default_overrides(overrides.clone());
 
-                let diffs = graph.update_node(index.node_index, modified_node)?;
+                let diffs = self.graph_manager.update_node(index, modified_node)?;
 
                 let new_defaults: Vec<_> = overrides
                     .iter()
@@ -435,12 +467,19 @@ impl GraphState {
                     })
                     .collect();
 
+                let mut invalidations = vec![ActionInvalidation::NewDefaults(index, new_defaults)];
+
+                // TODO: shouldn't need this in the future
+                if index.graph_index != self.root_graph_index {
+                    invalidations.push(ActionInvalidation::GraphReindexNeeded(self.root_graph_index));
+                }
+
                 (
                     HistoryAction::GraphAction {
-                        diff: GraphManagerDiff::from_graph_diffs(index.graph_index, diffs),
+                        diff: diffs,
                         category: ActionCategory::Mergable,
                     },
-                    vec![ActionInvalidation::NewDefaults(index, new_defaults)],
+                    invalidations,
                 )
             }
             Action::ChangeRouteRules { new_rules } => {
@@ -531,27 +570,28 @@ impl GraphState {
 
         self.graph_manager.set_default_channel_count(self.default_channel_count);
 
+        // after loading everything, rerun variant_io for each node in case the implementation changed
         let graphs: Vec<GraphIndex> = self.graph_manager.graphs().collect();
         for graph_index in graphs {
-            let graph = self
-                .graph_manager
-                .get_graph_mut(graph_index)
-                .expect("graph_index to exist");
-
-            let nodes: Vec<NodeIndex> = graph.node_indexes().collect();
+            let nodes: Vec<NodeIndex> = self.graph_manager[graph_index].node_indexes().collect();
 
             for node_index in nodes {
-                let node = graph.get_node_mut(node_index).expect("node_index to exist");
+                let node = GlobalNodeIndex {
+                    graph_index,
+                    node_index,
+                };
 
-                node.set_node_rows(
+                let new_io = self.graph_manager.create_get_io_context(node).and_then(|io_context| {
                     variant_io(
-                        &node.get_node_type(),
-                        &NodeGetIoContext::no_io_yet(self.default_channel_count),
-                        node.get_properties().clone(),
+                        &self.graph_manager[node].get_node_type(),
+                        io_context,
+                        self.graph_manager[node].get_properties().clone(),
                     )
-                    .unwrap()
-                    .node_rows,
-                );
+                });
+
+                if let Ok(new_io) = new_io {
+                    self.graph_manager[node].set_node_rows(new_io.node_rows);
+                }
             }
         }
     }

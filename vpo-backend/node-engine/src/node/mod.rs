@@ -2,6 +2,7 @@
 
 pub mod buffered_traverser;
 pub mod calculate_traversal_order;
+pub mod midi_store;
 
 use std::cell::UnsafeCell;
 use std::collections::BTreeMap;
@@ -10,7 +11,6 @@ use std::mem;
 use std::ops::{Index, IndexMut};
 use std::time::Duration;
 
-use clocked::midi::MidiMessage;
 use common::resource_manager::ResourceId;
 use common::SeaHashMap;
 use ddgg::VertexIndex;
@@ -23,9 +23,11 @@ use crate::connection::{Primitive, Socket, SocketDirection, SocketValue};
 
 use crate::errors::{NodeOk, NodeResult, NodeWarning};
 use crate::graph_manager::{GraphIndex, GraphManager};
-use crate::midi_store::MidiStore;
+use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::resources::{Resource, Resources};
+
+use self::midi_store::MidiStore;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -104,31 +106,21 @@ impl InitResult {
     }
 }
 
-pub struct ProcessResult {}
-
-impl ProcessResult {
-    pub fn nothing() -> NodeResult<()> {
-        NodeOk::no_warnings(())
-    }
-
-    pub fn warning(warning: Option<NodeWarning>) -> NodeResult<()> {
-        Ok(NodeOk::new((), warning.map(|x| vec![x]).unwrap_or(vec![])))
-    }
-}
-
 #[derive(Debug)]
-pub struct NodeGetIoContext {
+pub struct NodeGetIoContext<'a> {
     pub default_channel_count: usize,
     pub connected_inputs: Vec<Socket>,
     pub connected_outputs: Vec<Socket>,
+    pub child_graph: Option<&'a NodeGraph>,
 }
 
-impl NodeGetIoContext {
-    pub fn no_io_yet(default_channel_count: usize) -> NodeGetIoContext {
+impl<'a> NodeGetIoContext<'a> {
+    pub fn no_io_yet(default_channel_count: usize) -> NodeGetIoContext<'a> {
         NodeGetIoContext {
             default_channel_count,
             connected_inputs: vec![],
             connected_outputs: vec![],
+            child_graph: None,
         }
     }
 }
@@ -138,10 +130,10 @@ pub struct NodeInitParams<'a> {
     pub script_engine: &'a Engine,
     pub resources: &'a Resources,
     pub graph_manager: &'a GraphManager,
-    pub current_time: i64,
-    pub sound_config: &'a SoundConfig,
+    pub current_time: Duration,
+    pub sound_config: SoundConfig,
     pub node_state: &'a NodeState,
-    pub child_graph: Option<NodeGraphAndIo>,
+    pub child_graph: Option<GraphIndex>,
     pub default_channel_count: usize,
 }
 
@@ -156,13 +148,6 @@ pub struct NodeProcessContext<'a> {
     pub resources: &'a Resources,
     pub script_engine: &'a Engine,
     pub external_state: StateInterface<'a>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeGraphAndIo {
-    pub graph_index: GraphIndex,
-    pub input_index: NodeIndex,
-    pub output_index: NodeIndex,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,13 +196,13 @@ pub struct InputStreamSocket<'a> {
 }
 
 impl<'a> InputMidiSocket<'a> {
-    pub fn channel(&self, index: usize) -> &Option<MidisIndex> {
+    pub fn channel<'b>(&'b self, index: usize) -> &'b Option<MidisIndex> {
         let midi = &self.midis[index];
 
         unsafe { &*midi.get() }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Option<MidisIndex>> {
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Option<MidisIndex>> {
         self.midis.iter().map(|midi| unsafe { &*midi.get() })
     }
 
@@ -235,13 +220,13 @@ impl<'a> Index<usize> for InputMidiSocket<'a> {
 }
 
 impl<'a> InputValueSocket<'a> {
-    pub fn channel(&self, index: usize) -> &'a Primitive {
+    pub fn channel<'b>(&'b self, index: usize) -> &'b Primitive {
         let value = &self.values[index];
 
         unsafe { &*value.get() }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Primitive> {
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Primitive> {
         self.values.iter().map(|value| unsafe { &*value.get() })
     }
 
@@ -259,13 +244,13 @@ impl<'a> Index<usize> for InputValueSocket<'a> {
 }
 
 impl<'a> InputStreamSocket<'a> {
-    pub fn channel(&self, index: usize) -> &'a [f32] {
+    pub fn channel<'b>(&'b self, index: usize) -> &'b [f32] {
         let stream = self.streams[index];
 
         unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &'a [f32]> {
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b [f32]> {
         self.streams
             .iter()
             .map(|stream| unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) })
@@ -294,35 +279,35 @@ impl<'a> Ins<'a> {
     }
 
     /// Get the midi socket at index `index`
-    pub fn midi(&self, index: usize) -> InputMidiSocket<'a> {
+    pub fn midi<'b>(&'b self, index: usize) -> InputMidiSocket<'b> {
         InputMidiSocket {
             midis: self.midis[index],
         }
     }
 
     /// Get the value socket at index `index`
-    pub fn value(&self, index: usize) -> InputValueSocket<'a> {
+    pub fn value<'b>(&'b self, index: usize) -> InputValueSocket<'b> {
         InputValueSocket {
             values: self.values[index],
         }
     }
 
     /// Get the stream socket at index `index`
-    pub fn stream(&self, index: usize) -> InputStreamSocket<'a> {
+    pub fn stream<'b>(&'b self, index: usize) -> InputStreamSocket<'b> {
         InputStreamSocket {
             streams: self.streams[index],
         }
     }
 
-    pub fn midis(&self) -> impl Iterator<Item = InputMidiSocket<'a>> {
+    pub fn midis<'b>(&'b self) -> impl Iterator<Item = InputMidiSocket<'b>> {
         self.midis.iter().map(|midi| InputMidiSocket { midis: *midi })
     }
 
-    pub fn values(&self) -> impl Iterator<Item = InputValueSocket<'a>> {
+    pub fn values<'b>(&'b self) -> impl Iterator<Item = InputValueSocket<'b>> {
         self.values.iter().map(|value| InputValueSocket { values: *value })
     }
 
-    pub fn streams(&self) -> impl Iterator<Item = InputStreamSocket<'a>> {
+    pub fn streams<'b>(&'b self) -> impl Iterator<Item = InputStreamSocket<'b>> {
         self.streams.iter().map(|stream| InputStreamSocket { streams: *stream })
     }
 
@@ -352,13 +337,13 @@ pub struct OutputStreamSocket<'a> {
 }
 
 impl<'a> OutputMidiSocket<'a> {
-    pub fn channel(&mut self, index: usize) -> &mut Option<MidisIndex> {
+    pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut Option<MidisIndex> {
         let midi = &self.midis[index];
 
         unsafe { &mut *midi.get() }
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Option<MidisIndex>> {
+    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Option<MidisIndex>> {
         self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
     }
 
@@ -370,7 +355,7 @@ impl<'a> OutputMidiSocket<'a> {
 impl<'a> Index<usize> for OutputMidiSocket<'a> {
     type Output = Option<MidisIndex>;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index<'b>(&'b self, index: usize) -> &'b Self::Output {
         let midi = &self.midis[index];
 
         unsafe { &*midi.get() }
@@ -384,10 +369,14 @@ impl<'a> IndexMut<usize> for OutputMidiSocket<'a> {
 }
 
 impl<'a> OutputValueSocket<'a> {
-    pub fn channel(&mut self, index: usize) -> &'a mut Primitive {
+    pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut Primitive {
         let value = &self.values[index];
 
         unsafe { &mut *value.get() }
+    }
+
+    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Primitive> {
+        self.values.iter().map(|value| unsafe { &mut *value.get() })
     }
 
     pub fn len(&self) -> usize {
@@ -398,7 +387,7 @@ impl<'a> OutputValueSocket<'a> {
 impl<'a> Index<usize> for OutputValueSocket<'a> {
     type Output = Primitive;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index<'b>(&'b self, index: usize) -> &'b Self::Output {
         let value = &self.values[index];
 
         unsafe { &*value.get() }
@@ -412,13 +401,13 @@ impl<'a> IndexMut<usize> for OutputValueSocket<'a> {
 }
 
 impl<'a> OutputStreamSocket<'a> {
-    pub fn channel(&mut self, index: usize) -> &'a mut [f32] {
+    pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut [f32] {
         let stream = self.streams[index];
 
         unsafe { &mut *mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(stream).get() }
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &'a mut [f32]> {
+    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut [f32]> {
         self.streams
             .iter()
             .map(|stream| unsafe { &mut *mem::transmute::<&[UnsafeCell<f32>], &UnsafeCell<[f32]>>(stream).get() })
@@ -432,7 +421,7 @@ impl<'a> OutputStreamSocket<'a> {
 impl<'a> Index<usize> for OutputStreamSocket<'a> {
     type Output = [f32];
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index<'b>(&'b self, index: usize) -> &'b Self::Output {
         let stream = self.streams[index];
 
         unsafe { mem::transmute::<&[UnsafeCell<f32>], &[f32]>(stream) }
@@ -455,35 +444,35 @@ impl<'a> Outs<'a> {
     }
 
     /// Get the midi socket at index `index`
-    pub fn midi(&mut self, index: usize) -> OutputMidiSocket<'a> {
+    pub fn midi<'b>(&'b mut self, index: usize) -> OutputMidiSocket<'b> {
         OutputMidiSocket {
             midis: self.midis[index],
         }
     }
 
     /// Get the value socket at index `index`
-    pub fn value(&mut self, index: usize) -> OutputValueSocket<'a> {
+    pub fn value<'b>(&'b mut self, index: usize) -> OutputValueSocket<'b> {
         OutputValueSocket {
             values: self.values[index],
         }
     }
 
     /// Get the stream socket at index `index`
-    pub fn stream(&mut self, index: usize) -> OutputStreamSocket<'a> {
+    pub fn stream<'b>(&'b mut self, index: usize) -> OutputStreamSocket<'b> {
         OutputStreamSocket {
             streams: self.streams[index],
         }
     }
 
-    pub fn midis(&mut self) -> impl Iterator<Item = OutputMidiSocket<'a>> {
+    pub fn midis<'b>(&'b mut self) -> impl Iterator<Item = OutputMidiSocket<'b>> {
         self.midis.iter().map(|midi| OutputMidiSocket { midis: *midi })
     }
 
-    pub fn values(&mut self) -> impl Iterator<Item = OutputValueSocket<'a>> {
+    pub fn values<'b>(&'b mut self) -> impl Iterator<Item = OutputValueSocket<'b>> {
         self.values.iter().map(|value| OutputValueSocket { values: *value })
     }
 
-    pub fn streams(&mut self) -> impl Iterator<Item = OutputStreamSocket<'a>> {
+    pub fn streams<'b>(&'b mut self) -> impl Iterator<Item = OutputStreamSocket<'b>> {
         self.streams
             .iter()
             .map(|stream| OutputStreamSocket { streams: *stream })
@@ -508,42 +497,6 @@ pub struct MidisIndex(pub(super) generational_arena::Index);
 impl MidisIndex {
     pub(super) fn private_clone(&self) -> MidisIndex {
         MidisIndex(self.0)
-    }
-}
-
-pub struct MidiStoreInterface<'a> {
-    store: &'a mut MidiStore,
-}
-
-impl<'a> MidiStoreInterface<'a> {
-    pub fn new(store: &'a mut MidiStore) -> MidiStoreInterface<'a> {
-        MidiStoreInterface { store }
-    }
-
-    pub fn register_midis<I>(&mut self, messages: I) -> Option<MidisIndex>
-    where
-        I: IntoIterator<Item = MidiMessage>,
-        I::IntoIter: ExactSizeIterator,
-    {
-        self.store.add_midi(messages).map(|x| MidisIndex(x))
-    }
-
-    pub fn register_midis_with<F>(&mut self, count: usize, midi: F) -> Option<MidisIndex>
-    where
-        F: FnMut(usize) -> MidiMessage,
-    {
-        self.store.add_midi_with(count, midi).map(|x| MidisIndex(x))
-    }
-
-    pub fn map_midis<F>(&mut self, index: &MidisIndex, new_count: usize, map: F) -> Option<MidisIndex>
-    where
-        F: FnMut(&[MidiMessage], usize) -> MidiMessage,
-    {
-        self.store.map_midis(index.0, new_count, map).map(|x| MidisIndex(x))
-    }
-
-    pub fn borrow_midi(&self, index: &MidisIndex) -> Option<&[MidiMessage]> {
-        self.store.borrow_midi(index.0)
     }
 }
 
@@ -595,10 +548,9 @@ pub trait NodeRuntime: Debug + Clone {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStoreInterface,
+        midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
-        ProcessResult::nothing()
+    ) {
     }
 }
 
@@ -606,7 +558,7 @@ pub trait NodeRuntime: Debug + Clone {
 /// internal state
 pub trait Node: NodeRuntime {
     /// Called at least every time a property is changed
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo;
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo;
 
     /// Called when created
     fn new(sound_config: &SoundConfig) -> Self;

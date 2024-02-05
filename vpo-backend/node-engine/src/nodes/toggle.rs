@@ -29,9 +29,9 @@ impl NodeRuntime for ToggleNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(new_state) = ins.value(0)[0].as_boolean() {
             if !self.first_time {
                 self.state = new_state;
@@ -50,8 +50,6 @@ impl NodeRuntime for ToggleNode {
         };
 
         self.first_time = false;
-
-        ProcessResult::nothing()
     }
 
     fn set_state(&mut self, state: serde_json::Value) {
@@ -89,7 +87,7 @@ impl Node for ToggleNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo {
             node_rows: vec![
                 value_input("set_state", Primitive::Boolean(false), 1),

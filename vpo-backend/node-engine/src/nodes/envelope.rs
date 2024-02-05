@@ -19,9 +19,9 @@ impl NodeRuntime for EnvelopeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             self.gate = gate;
         }
@@ -45,8 +45,6 @@ impl NodeRuntime for EnvelopeNode {
         if !self.envelope.is_done() || self.gate {
             outs.value(0)[0] = float(self.envelope.process(self.gate));
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -60,7 +58,7 @@ impl Node for EnvelopeNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             value_input("gate", Primitive::Boolean(false), 1),
             value_output("gain", 1),

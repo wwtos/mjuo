@@ -14,9 +14,9 @@ impl NodeRuntime for StreamExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(ast) = &self.ast {
             for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
                 for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
@@ -43,8 +43,6 @@ impl NodeRuntime for StreamExpressionNode {
 
             self.scope.rewind(0);
         }
-
-        NodeOk::no_warnings(())
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
@@ -87,7 +85,7 @@ impl Node for StreamExpressionNode {
         }
     }
 
-    fn get_io(context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let channels = default_channels(&props, context.default_channel_count);
 
         // these are the rows it always has

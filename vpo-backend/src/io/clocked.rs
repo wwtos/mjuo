@@ -445,8 +445,7 @@ impl DeviceManager {
                     buffer_size: cpal::BufferSize::Fixed(buffer_size),
                 },
                 SampleFormat::F32,
-                buffer_size as usize,
-                periods,
+                buffer_size as usize + 128,
             )
             .context(DeviceStartSnafu)?;
 
@@ -481,8 +480,7 @@ impl DeviceManager {
                     buffer_size: cpal::BufferSize::Fixed(buffer_size),
                 },
                 SampleFormat::F32,
-                buffer_size as usize,
-                periods,
+                buffer_size as usize + 128,
             )
             .ok()?;
 

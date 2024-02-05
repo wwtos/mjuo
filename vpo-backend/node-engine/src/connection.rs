@@ -65,7 +65,7 @@ pub enum SocketType {
     NodeRef,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(tag = "variant", content = "data")]
 pub enum SocketDirection {
     Input,
@@ -78,6 +78,7 @@ pub enum Primitive {
     Float(f32),
     Int(i32),
     Boolean(bool),
+    Bang,
     None,
 }
 
@@ -130,7 +131,8 @@ impl Primitive {
             Primitive::Float(float) => Some(*float),
             Primitive::Int(int) => Some(*int as f32),
             Primitive::Boolean(boolean) => Some(if *boolean { 1.0 } else { 0.0 }),
-            _ => None,
+            Primitive::Bang => Some(1.0),
+            Primitive::None => None,
         }
     }
 
@@ -140,7 +142,8 @@ impl Primitive {
             Primitive::Float(float) => Some(*float as i32),
             Primitive::Int(int) => Some(*int),
             Primitive::Boolean(boolean) => Some(i32::from(*boolean)),
-            _ => None,
+            Primitive::Bang => Some(1),
+            Primitive::None => None,
         }
     }
 
@@ -150,7 +153,16 @@ impl Primitive {
             Primitive::Float(float) => Some(*float > 0.01),
             Primitive::Int(int) => Some(*int > 0),
             Primitive::Boolean(boolean) => Some(*boolean),
-            _ => None,
+            Primitive::Bang => Some(true),
+            Primitive::None => None,
+        }
+    }
+
+    #[inline]
+    pub fn as_bang(&self) -> Option<()> {
+        match self {
+            Primitive::None => None,
+            _ => Some(()),
         }
     }
 
@@ -160,6 +172,7 @@ impl Primitive {
             Primitive::Float(float) => Dynamic::from(float),
             Primitive::Int(int) => Dynamic::from(int),
             Primitive::Boolean(boolean) => Dynamic::from(boolean),
+            Primitive::Bang => Dynamic::from("bang"),
             Primitive::None => Dynamic::from(()),
         }
     }

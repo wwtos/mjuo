@@ -27,9 +27,9 @@ impl NodeRuntime for WavetableSequencerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.frequency = frequency;
         }
@@ -51,8 +51,6 @@ impl NodeRuntime for WavetableSequencerNode {
             self.phase += self.advance_by * self.frequency;
             self.phase = self.phase.fract();
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -67,7 +65,7 @@ impl Node for WavetableSequencerNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property(
                 "wavetable",

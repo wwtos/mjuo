@@ -33,9 +33,9 @@ impl NodeRuntime for PortamentoNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(gate) = ins.value(0)[0].as_boolean() {
             if self.engaged && !gate {
                 outs.value(0)[0] = float(self.ramp.get_to());
@@ -78,8 +78,6 @@ impl NodeRuntime for PortamentoNode {
         } else if self.active {
             self.active = false;
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -93,7 +91,7 @@ impl Node for PortamentoNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             multiple_choice("ramp_type", &["exponential", "linear"], "exponential"),
             value_input("gate", Primitive::Boolean(false), 1),

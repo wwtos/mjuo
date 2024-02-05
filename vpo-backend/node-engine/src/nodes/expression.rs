@@ -15,10 +15,9 @@ impl NodeRuntime for ExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         _resources: &[Resource],
-    ) -> NodeResult<()> {
-        let mut warning: Option<NodeWarning> = None;
+    ) {
         let mut have_values_changed = false;
 
         for (i, value_in) in ins.values().enumerate() {
@@ -52,10 +51,6 @@ impl NodeRuntime for ExpressionNode {
                                 // cleanup before erroring
                                 self.scope.rewind(0);
 
-                                warning = Some(NodeWarning::RhaiInvalidReturnType {
-                                    return_type: output.type_name().to_string(),
-                                });
-
                                 Primitive::None
                             }
                         };
@@ -64,15 +59,13 @@ impl NodeRuntime for ExpressionNode {
                         // cleanup before erroring
                         self.scope.rewind(0);
 
-                        return Err(NodeError::RhaiEvalError { result: *err });
+                        return;
                     }
                 }
 
                 self.scope.rewind(0);
             }
         }
-
-        ProcessResult::warning(warning)
     }
 
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
@@ -114,7 +107,7 @@ impl Node for ExpressionNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         // these are the rows it always has
         let mut node_rows: Vec<NodeRow> = vec![
             NodeRow::Property(

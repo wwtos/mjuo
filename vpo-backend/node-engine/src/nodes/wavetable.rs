@@ -25,9 +25,9 @@ impl NodeRuntime for WavetableNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStoreInterface,
+        _midi_store: &mut MidiStore,
         resources: &[Resource],
-    ) -> NodeResult<()> {
+    ) {
         if let Some(frequency) = ins.value(0)[0].as_float() {
             self.oscillator.set_frequency(frequency);
         }
@@ -37,8 +37,6 @@ impl NodeRuntime for WavetableNode {
                 *frame = self.oscillator.get_next_sample(wavetable);
             }
         }
-
-        NodeOk::no_warnings(())
     }
 }
 
@@ -49,7 +47,7 @@ impl Node for WavetableNode {
         }
     }
 
-    fn get_io(_context: &NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
+    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             resource("wavetable", "samples"),
             value_input("frequency", Primitive::Float(440.0), 1),
