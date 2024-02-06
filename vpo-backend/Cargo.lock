@@ -336,6 +336,8 @@ dependencies = [
  "allocator-api2",
  "buddy_system_allocator",
  "ddgg",
+ "memchr",
+ "naughty-strings",
  "seahash",
  "serde",
 ]
@@ -1478,6 +1480,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "naughty-strings"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77f60b021f91344453a569296aced9b149bdf75ac182cfc4631f6b55a5aa590f"
+dependencies = [
+ "serde_json",
 ]
 
 [[package]]
