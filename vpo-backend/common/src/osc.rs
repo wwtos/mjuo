@@ -1,8 +1,7 @@
-use std::{
-    borrow::Cow,
-    ffi::{CStr, CString},
-    io::Write,
-};
+use std::{borrow::Cow, ffi::CStr, io::Write};
+
+#[cfg(test)]
+use std::ffi::CString;
 
 use memchr;
 
@@ -31,7 +30,7 @@ pub enum OscArg<'a> {
 }
 
 impl<'a> OscArg<'a> {
-    fn type_as_byte(&self) -> u8 {
+    pub fn type_as_byte(&self) -> u8 {
         match self {
             OscArg::Integer(_) => b'i',
             OscArg::Float(_) => b'f',
@@ -47,10 +46,18 @@ impl<'a> OscArg<'a> {
 
     fn write<W: Write>(&self, writer: &mut W) -> Result<usize, std::io::Error> {
         match self {
-            OscArg::Integer(int) => writer.write(&int.to_be_bytes()),
-            OscArg::Float(float) => writer.write(&float.to_be_bytes()),
+            OscArg::Integer(int) => {
+                writer.write_all(&int.to_be_bytes())?;
+                Ok(4)
+            }
+            OscArg::Float(float) => {
+                writer.write_all(&float.to_be_bytes())?;
+                Ok(4)
+            }
             OscArg::String(str) => {
-                let mut written = writer.write(str.to_bytes_with_nul())?;
+                writer.write_all(str.to_bytes_with_nul())?;
+
+                let mut written = str.to_bytes_with_nul().len();
                 written += write_padding_32(written, writer)?;
 
                 Ok(written)
@@ -58,20 +65,22 @@ impl<'a> OscArg<'a> {
             OscArg::Blob(blob) => {
                 let mut written = 0;
 
-                written += writer.write(&(blob.len() as u32).to_be_bytes())?;
-                written += writer.write(blob)?;
+                writer.write_all(&(blob.len() as u32).to_be_bytes())?;
+                written += 4;
+
+                writer.write_all(blob)?;
+                written += blob.len();
+
                 written += write_padding_32(written, writer)?;
 
                 Ok(written)
             }
             OscArg::True | OscArg::False | OscArg::Null | OscArg::Impulse => Ok(0),
             OscArg::Timetag(time) => {
-                let mut written = 0;
+                writer.write_all(&time.seconds.to_be_bytes())?;
+                writer.write_all(&time.fractional.to_be_bytes())?;
 
-                written += writer.write(&time.seconds.to_be_bytes())?;
-                written += writer.write(&time.fractional.to_be_bytes())?;
-
-                Ok(written)
+                Ok(8)
             }
         }
     }
@@ -81,12 +90,32 @@ fn padding_32(pos: usize) -> usize {
     3 - (pos % 4)
 }
 
+fn write_str_padded<W: Write>(str: &str, writer: &mut W) -> Result<usize, std::io::Error> {
+    let no_null = memchr::memchr(0, str.as_bytes()).is_none();
+
+    if no_null {
+        writer.write_all(str.as_bytes())?;
+        writer.write_all(&[b'\0'])?;
+
+        let mut written = str.len() + 1;
+        written += write_padding_32(written, writer)?;
+
+        Ok(written)
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "str contained null",
+        ))
+    }
+}
+
 fn write_padding_32<W: Write>(written_so_far: usize, writer: &mut W) -> Result<usize, std::io::Error> {
     let mut written = 0;
-    let needed_padding = padding_32(written_so_far - 1);
+    let needed_padding = padding_32(written_so_far + 3);
 
     for _ in 0..needed_padding {
-        written += writer.write(&[0])?;
+        writer.write_all(&[0])?;
+        written += 1;
     }
 
     Ok(written)
@@ -283,52 +312,25 @@ impl<'a> Iterator for ArgsIter<'a> {
     }
 }
 
-pub struct OscBuilder<'a> {
-    prev: Option<&'a OscBuilder<'a>>,
-    argument: OscArg<'a>,
+pub struct OscBuilder<'writer, W: Write> {
+    writer: &'writer mut W,
 }
 
-impl<'a> OscBuilder<'a> {
-    pub fn start(argument: OscArg<'a>) -> OscBuilder<'a> {
-        OscBuilder { prev: None, argument }
+impl<'writer, W: Write> OscBuilder<'writer, W> {
+    /// Make sure `arguments` contains `,` at the beginning (for example: `,fi`)
+    pub fn start(
+        writer: &'writer mut W,
+        address: &str,
+        arguments: &str,
+    ) -> Result<OscBuilder<'writer, W>, std::io::Error> {
+        write_str_padded(address, writer)?;
+        write_str_padded(arguments, writer)?;
+
+        Ok(OscBuilder { writer })
     }
 
-    pub fn add_arg_rev(&'a self, argument: OscArg<'a>, next_arg: impl FnOnce(&OscBuilder<'a>)) {
-        let link = OscBuilder {
-            prev: Some(self),
-            argument: argument,
-        };
-
-        next_arg(&link);
-    }
-
-    pub fn write<W: Write>(&self, address: &CStr, writer: &mut W) -> Result<usize, std::io::Error> {
-        let mut written = 0;
-
-        written += writer.write(address.to_bytes_with_nul())?;
-        written += write_padding_32(written, writer)?;
-
-        written += writer.write(&[b','])?;
-
-        let mut arg = Some(self);
-        while let Some(prev) = arg {
-            dbg!(prev.prev.map(|x| &x.argument));
-            written += writer.write(&[prev.argument.type_as_byte()])?;
-
-            arg = prev.prev;
-        }
-
-        written += writer.write(&[b'\0'])?;
-        write_padding_32(written, writer)?;
-
-        let mut arg = Some(self);
-        while let Some(prev) = arg {
-            written += prev.argument.write(writer)?;
-
-            arg = prev.prev;
-        }
-
-        Ok(written)
+    pub fn write_arg(&mut self, argument: OscArg) -> Result<usize, std::io::Error> {
+        argument.write(self.writer)
     }
 }
 
@@ -378,14 +380,12 @@ fn test_message_parsing() {
 fn test_message_generation() {
     let mut writer: Vec<u8> = vec![];
 
-    let builder = OscBuilder::start(OscArg::Float(5.678));
-    builder.add_arg_rev(OscArg::Float(1.234), |x| {
-        x.add_arg_rev(OscArg::String(CString::new("hello").unwrap().into()), |x| {
-            let str = CString::new("/foo").unwrap();
-
-            x.write(&str, &mut writer).unwrap();
-        })
-    });
+    let mut builder = OscBuilder::start(&mut writer, "/foo/bar", ",sff").unwrap();
+    builder
+        .write_arg(OscArg::String(CString::new("hello").unwrap().into()))
+        .unwrap();
+    builder.write_arg(OscArg::Float(1.234)).unwrap();
+    builder.write_arg(OscArg::Float(5.678)).unwrap();
 
     dbg!(String::from_utf8_lossy(&writer));
 }
