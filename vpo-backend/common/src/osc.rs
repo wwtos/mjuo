@@ -167,6 +167,9 @@ fn read_timetag(message: &[u8], cursor: &mut usize) -> OscTime {
 }
 
 impl<'a> OscView<'a> {
+    /// Create a view of an OSC message.
+    ///
+    /// Returns a bundle or message.
     pub fn new(message: &'a [u8]) -> Option<OscView> {
         // all osc messages must be aligned
         if message.len() % 4 != 0 || message.len() == 0 {
@@ -185,6 +188,7 @@ impl<'a> OscView<'a> {
     }
 }
 
+/// An OSC bundle. Iterate over the messages using `all_messages`.
 pub struct OscBundle<'a> {
     content: Cow<'a, [u8]>,
 }
@@ -312,21 +316,21 @@ impl<'a> Iterator for ArgsIter<'a> {
     }
 }
 
-pub struct OscBuilder<'writer, W: Write> {
+pub struct OscWriter<'writer, W: Write> {
     writer: &'writer mut W,
 }
 
-impl<'writer, W: Write> OscBuilder<'writer, W> {
+impl<'writer, W: Write> OscWriter<'writer, W> {
     /// Make sure `arguments` contains `,` at the beginning (for example: `,fi`)
     pub fn start(
         writer: &'writer mut W,
         address: &str,
         arguments: &str,
-    ) -> Result<OscBuilder<'writer, W>, std::io::Error> {
+    ) -> Result<OscWriter<'writer, W>, std::io::Error> {
         write_str_padded(address, writer)?;
         write_str_padded(arguments, writer)?;
 
-        Ok(OscBuilder { writer })
+        Ok(OscWriter { writer })
     }
 
     pub fn write_arg(&mut self, argument: OscArg) -> Result<usize, std::io::Error> {
@@ -380,12 +384,29 @@ fn test_message_parsing() {
 fn test_message_generation() {
     let mut writer: Vec<u8> = vec![];
 
-    let mut builder = OscBuilder::start(&mut writer, "/foo/bar", ",sff").unwrap();
+    let mut builder = OscWriter::start(&mut writer, "/foo/bar", ",sff").unwrap();
     builder
         .write_arg(OscArg::String(CString::new("hello").unwrap().into()))
         .unwrap();
     builder.write_arg(OscArg::Float(1.234)).unwrap();
     builder.write_arg(OscArg::Float(5.678)).unwrap();
 
-    dbg!(String::from_utf8_lossy(&writer));
+    let msg = writer;
+
+    let view = OscView::new(&msg[..]).unwrap();
+
+    match view {
+        OscView::Bundle(_) => panic!("wrong type of message"),
+        OscView::Message(message) => {
+            let mut iter = message.arg_iter();
+
+            assert_eq!(
+                iter.next(),
+                Some(OscArg::String(Cow::Owned(CString::new("hello").unwrap())))
+            );
+            assert_eq!(iter.next(), Some(OscArg::Float(1.234)));
+            assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
+            assert_eq!(iter.next(), None);
+        }
+    }
 }
