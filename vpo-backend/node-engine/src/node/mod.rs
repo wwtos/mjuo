@@ -526,7 +526,7 @@ impl MidisIndex {
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 #[enum_dispatch(NodeVariant)]
-pub trait NodeRuntime: Debug + Clone {
+pub trait NodeRuntime: Debug {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }

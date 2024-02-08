@@ -44,7 +44,7 @@ use self::{
 use self::prelude::*;
 
 #[enum_dispatch]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NodeVariant {
     GainNode,
     OscillatorNode,

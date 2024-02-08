@@ -1,24 +1,25 @@
 use clocked::midi::{MidiData, MidiMessage};
 use common::traits::TryRef;
 
+use std::fmt::Debug;
 use std::{collections::BTreeMap, time::Duration};
 
-use crate::{util::interpolate::lerp, MonoSample};
+use crate::{MonoSample, SoundConfig};
 
-use super::{pipe_player::PipePlayer, rank::Rank};
+use super::{rank::Rank, Resource, Voice};
 use common::resource_manager::{ResourceId, ResourceManager};
 
 #[derive(Debug, Clone)]
-struct Voice {
-    player: PipePlayer,
+struct VoiceInfo<V: Voice> {
+    player: V,
     active: bool,
     note: u8,
 }
 
-impl Default for Voice {
+impl<V: Voice> Default for VoiceInfo<V> {
     fn default() -> Self {
-        Voice {
-            player: PipePlayer::uninitialized(),
+        VoiceInfo {
+            player: V::default(),
             active: false,
             note: 255,
         }
@@ -26,25 +27,25 @@ impl Default for Voice {
 }
 
 #[derive(Debug, Clone)]
-pub struct RankPlayer {
+pub struct RankPlayer<V: Voice> {
     polyphony: usize,
-    voices: Vec<Voice>,
+    voices: Vec<VoiceInfo<V>>,
     note_to_sample_map: BTreeMap<u8, usize>,
-    air_detune: f32,
-    gain: f32,
-    shelf_db_gain: f32,
-    last_air_detune: f32,
-    last_air_amplitude: f32,
-    last_shelf_db_gain: f32,
-    sample_rate: u32,
+    param: V::Param,
+    sound_config: SoundConfig,
 }
 
-impl RankPlayer {
-    pub fn new(rank_id: ResourceId, rank: &Rank, polyphony: usize, sample_rate: u32) -> (RankPlayer, Vec<ResourceId>) {
+impl<V: Voice> RankPlayer<V> {
+    pub fn new(
+        rank_id: ResourceId,
+        rank: &Rank<V::Resource>,
+        polyphony: usize,
+        sound_config: SoundConfig,
+    ) -> (RankPlayer<V>, Vec<ResourceId>) {
         let mut needed_samples: Vec<(u8, ResourceId)> = rank
-            .pipes
+            .notes
             .iter()
-            .map(|(note, sample)| (*note, sample.resource.clone()))
+            .map(|(note, resource)| (*note, resource.resource_id().clone()))
             .collect();
 
         needed_samples.sort_by_key(|x| x.0);
@@ -63,13 +64,8 @@ impl RankPlayer {
                 polyphony,
                 voices: Vec::with_capacity(polyphony),
                 note_to_sample_map,
-                air_detune: 1.0,
-                gain: 1.0,
-                shelf_db_gain: 0.0,
-                last_air_detune: 1.0,
-                last_air_amplitude: 1.0,
-                last_shelf_db_gain: 0.0,
-                sample_rate,
+                param: V::Param::default(),
+                sound_config,
             },
             resource_list,
         )
@@ -82,20 +78,17 @@ impl RankPlayer {
         }
     }
 
-    pub fn handle_rank_updates(&mut self, rank: &Rank, samples: &ResourceManager<MonoSample>) {
+    pub fn handle_rank_updates(&mut self, rank: &Rank<V::Resource>, samples: &ResourceManager<MonoSample>) {
         let reset_necessary = self.voices.iter().any(|voice| {
             // only check active voices to see if they have broken invariants
             if voice.active {
-                if let Some(pipe) = rank.pipes.get(&voice.note) {
-                    if let Some(sample) = samples.borrow_resource_by_id(&pipe.resource.resource) {
-                        // reset is needed if a voice is at a position past the available buffer
-                        let greatest_current_position = voice
-                            .player
-                            .get_position()
-                            .max(voice.player.get_crossfade_position().unwrap_or(0.0))
-                            .ceil() as usize;
-
-                        greatest_current_position + 3 > sample.audio_raw.len()
+                if let Some(resource) = rank.notes.get(&voice.note) {
+                    if samples
+                        .borrow_resource_by_id(&resource.resource_id().resource)
+                        .is_some()
+                    {
+                        // the resource still exists
+                        false
                     } else {
                         // reset is needed if a sample was removed
                         true
@@ -127,7 +120,7 @@ impl RankPlayer {
 
         // else, see if we're at full capacity yet
         if self.voices.len() < self.polyphony {
-            self.voices.push(Voice::default());
+            self.voices.push(VoiceInfo::default());
 
             return self.voices.len() - 1;
         }
@@ -137,61 +130,46 @@ impl RankPlayer {
         0
     }
 
-    fn allocate_note<E>(&mut self, rank: &Rank, note: u8, samples: &[impl TryRef<MonoSample, Error = E>]) {
-        let pipe_and_sample = self
+    fn allocate_note<E>(&mut self, rank: &Rank<V::Resource>, note: u8, samples: &[impl TryRef<V::Sample, Error = E>]) {
+        let resource_and_sample = self
             .note_to_sample_map
             .get(&note)
             .and_then(|sample_index| samples[*sample_index].try_ref().ok())
-            .and_then(|sample| rank.pipes.get(&note).map(|pipe| (pipe, sample)));
+            .and_then(|sample| rank.notes.get(&note).map(|pipe| (pipe, sample)));
 
-        if let Some((pipe, sample)) = pipe_and_sample {
+        if let Some((pipe, sample)) = resource_and_sample {
             let open_voice_index = self.find_open_voice(note);
             let open_voice = &mut self.voices[open_voice_index];
 
             open_voice.active = true;
 
-            if open_voice.player.is_uninitialized() {
-                let mut player = PipePlayer::new(pipe, sample, self.sample_rate);
-
-                player.set_detune(self.air_detune);
-                player.set_gain(self.gain);
-                player.set_shelf_db_gain(self.shelf_db_gain);
+            if !open_voice.player.active() {
+                let mut player = V::new(pipe, sample, self.sound_config.clone());
+                player.set_param(&self.param);
 
                 open_voice.player = player;
                 open_voice.note = note;
             } else if note == open_voice.note {
+                // nothing to do
             } else {
-                // TODO: don't keep reconstructing PipePlayer, it's very expensive
-                // note about above TODO, I'm going to refactor the attack/release envelopes to
-                // be calculated when first loading the sample, so this behavior is fine
-                open_voice.player = PipePlayer::new(pipe, sample, self.sample_rate);
-                open_voice.player.set_detune(self.air_detune);
-                open_voice.player.set_gain(self.gain);
-                open_voice.player.set_shelf_db_gain(self.shelf_db_gain);
+                open_voice.player = V::new(pipe, sample, self.sound_config.clone());
+                open_voice.player.set_param(&self.param);
 
                 open_voice.note = note;
             }
         }
     }
 
-    pub fn set_detune(&mut self, rate: f32) {
-        self.air_detune = rate;
-    }
-
-    pub fn set_gain(&mut self, gain: f32) {
-        self.gain = gain;
-    }
-
-    pub fn set_shelf_db_gain(&mut self, db_gain: f32) {
-        self.shelf_db_gain = db_gain;
+    pub fn set_param(&mut self, param: V::Param) {
+        self.param = param;
     }
 
     pub fn next_buffered<'a, E>(
         &mut self,
         time: Duration,
         midi: &[MidiMessage],
-        rank: &Rank,
-        samples: &[impl TryRef<MonoSample, Error = E>],
+        rank: &Rank<V::Resource>,
+        samples: &[impl TryRef<V::Sample, Error = E>],
         out: &mut [f32],
     ) where
         E: std::fmt::Debug,
@@ -219,7 +197,7 @@ impl RankPlayer {
                 .note_to_sample_map
                 .get(&voice.note)
                 .and_then(|sample_index| samples[*sample_index].try_ref().ok())
-                .and_then(|sample| rank.pipes.get(&voice.note).map(|pipe| (pipe, sample)));
+                .and_then(|sample| rank.notes.get(&voice.note).map(|pipe| (pipe, sample)));
 
             let mut midi_position = 0;
 
@@ -228,7 +206,7 @@ impl RankPlayer {
                     let messages = midi;
 
                     while midi_position < messages.len() {
-                        let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sample_rate as f64);
+                        let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sound_config.sample_rate as f64);
 
                         let play_regardless = out_len == i + 1;
                         if (!play_regardless) && messages[midi_position].timestamp > time + loop_time_offset {
@@ -238,7 +216,7 @@ impl RankPlayer {
                         match messages[midi_position].data {
                             MidiData::NoteOn { note, .. } => {
                                 if voice.note == note {
-                                    voice.player.play(pipe, sample);
+                                    voice.player.attack(pipe, sample);
                                 }
                             }
                             MidiData::NoteOff { note, .. } => {
@@ -252,51 +230,30 @@ impl RankPlayer {
                         midi_position += 1;
                     }
 
-                    voice
-                        .player
-                        .set_detune(lerp(self.last_air_detune, self.air_detune, i as f32 / out_len as f32));
+                    voice.player.set_param(&self.param);
 
-                    voice
-                        .player
-                        .set_gain(lerp(self.last_air_amplitude, self.gain, i as f32 / out_len as f32));
+                    *output += voice.player.step(pipe, sample);
 
-                    voice.player.set_shelf_db_gain(lerp(
-                        self.last_shelf_db_gain,
-                        self.shelf_db_gain,
-                        i as f32 / out_len as f32,
-                    ));
-
-                    *output += voice.player.next_sample(pipe, sample);
-
-                    if voice.player.is_done() {
+                    if !voice.player.active() {
                         voice.active = false;
-                        voice.player.restart();
+                        voice.player.reset();
 
                         break;
                     }
                 }
             }
         }
-
-        self.last_air_detune = self.air_detune;
-        self.last_air_amplitude = self.gain;
-        self.last_shelf_db_gain = self.shelf_db_gain;
     }
 }
 
-impl Default for RankPlayer {
+impl<V: Voice> Default for RankPlayer<V> {
     fn default() -> Self {
         RankPlayer {
             polyphony: 0,
             voices: vec![],
             note_to_sample_map: BTreeMap::new(),
-            air_detune: 0.0,
-            gain: 0.0,
-            shelf_db_gain: 0.0,
-            last_air_detune: 0.0,
-            last_air_amplitude: 0.0,
-            last_shelf_db_gain: 0.0,
-            sample_rate: 0,
+            sound_config: SoundConfig::default(),
+            param: V::Param::default(),
         }
     }
 }

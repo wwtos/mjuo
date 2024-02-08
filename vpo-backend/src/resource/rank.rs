@@ -56,9 +56,9 @@ pub struct RankConfig {
 }
 
 impl RankConfig {
-    pub fn from_rank(rank: Rank, sample_location: ResourceId) -> Self {
+    pub fn from_rank(rank: Rank<Pipe>, sample_location: ResourceId) -> Self {
         let entries: BTreeMap<String, RankConfigEntry> = rank
-            .pipes
+            .notes
             .into_iter()
             .map(|(note, pipe)| {
                 (
@@ -97,7 +97,7 @@ pub fn expected_sample_location(note: u8, sample_format: &str) -> String {
 }
 
 /// Parses a `[rank].toml` file and converts it into a `Rank`
-pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result<Rank, EngineError> {
+pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result<Rank<Pipe>, EngineError> {
     let parsed: RankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
 
     let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
@@ -164,13 +164,13 @@ pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result
     }
 
     Ok(Rank {
-        pipes,
+        notes: pipes,
         name: parsed.name,
     })
 }
 
 #[cfg(any(unix, windows))]
-pub fn load_rank_from_file(path: &Path, samples: &ResourceManager<MonoSample>) -> Result<Rank, EngineError> {
+pub fn load_rank_from_file(path: &Path, samples: &ResourceManager<MonoSample>) -> Result<Rank<Pipe>, EngineError> {
     use crate::errors::IoSnafu;
 
     let file = read_to_string(path).context(IoSnafu)?;

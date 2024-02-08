@@ -150,7 +150,10 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
             pipes.insert(note, pipe);
         }
 
-        let rank = Rank { pipes, name: rank_name };
+        let rank = Rank {
+            notes: pipes,
+            name: rank_name,
+        };
         let config = RankConfig::from_rank(
             rank,
             ResourceId {

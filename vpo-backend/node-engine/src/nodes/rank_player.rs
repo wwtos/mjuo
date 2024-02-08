@@ -1,15 +1,18 @@
 use common::resource_manager::ResourceId;
 use lazy_static::lazy_static;
 use sound_engine::{
-    sampling::rank_player::RankPlayer,
+    sampling::{
+        pipe_player::{PipeParam, PipePlayer},
+        rank_player::RankPlayer,
+    },
     util::{cents_to_detune, db_to_gain},
 };
 
 use crate::nodes::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RankPlayerNode {
-    player: RankPlayer,
+    player: RankPlayer<PipePlayer>,
     polyphony: usize,
 }
 
@@ -38,7 +41,7 @@ impl NodeRuntime for RankPlayerNode {
         let needed_resources = if let Some(resource_id) = rank_resource_id {
             if let Some(rank) = rank {
                 let (player, needed_resources) =
-                    RankPlayer::new(resource_id, rank, self.polyphony, params.sound_config.sample_rate);
+                    RankPlayer::new(resource_id, rank, self.polyphony, params.sound_config.clone());
 
                 self.player = player;
 
@@ -69,16 +72,26 @@ impl NodeRuntime for RankPlayerNode {
     ) {
         let _reset_needed = false;
 
+        let mut dirty = false;
+        let mut param = PipeParam::default();
+
         if let Some(cents) = ins.value(0)[0].as_float() {
-            self.player.set_detune(cents_to_detune(cents));
+            param.detune = cents_to_detune(cents);
+            dirty = true;
         }
 
         if let Some(db_gain) = ins.value(1)[0].as_float() {
-            self.player.set_gain(db_to_gain(db_gain));
+            param.gain = db_to_gain(db_gain);
+            dirty = true;
         }
 
         if let Some(shelf_db_gain) = ins.value(2)[0].as_float() {
-            self.player.set_shelf_db_gain(shelf_db_gain);
+            param.third_db_gain = shelf_db_gain;
+            dirty = true;
+        }
+
+        if dirty {
+            self.player.set_param(param);
         }
 
         for frame in outs.stream(0)[0].iter_mut() {
