@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use sound_engine::{
     sampling::{
         pipe_player::{PipeParam, PipePlayer},
+        rank::RankType,
         rank_player::RankPlayer,
     },
     util::{cents_to_detune, db_to_gain},
@@ -39,7 +40,7 @@ impl NodeRuntime for RankPlayerNode {
             .and_then(|resource_id| params.resources.ranks.borrow_resource_by_id(&resource_id.resource));
 
         let needed_resources = if let Some(resource_id) = rank_resource_id {
-            if let Some(rank) = rank {
+            if let Some(rank) = rank.and_then(|x| x.as_pipes()) {
                 let (player, needed_resources) =
                     RankPlayer::new(resource_id, rank, self.polyphony, params.sound_config.clone());
 
@@ -98,7 +99,7 @@ impl NodeRuntime for RankPlayerNode {
             *frame = 0.0;
         }
 
-        if let Some(Resource::Rank(rank)) = resources.get(0) {
+        if let Some(Resource::Rank(RankType::Pipes(rank))) = resources.get(0) {
             let midi_in = ins.midi(0)[0]
                 .as_ref()
                 .and_then(|x| midi_store.borrow_midi(x))

@@ -36,8 +36,8 @@ pub enum EngineError {
     PropertyMissingOrMalformed { property_name: String },
     #[snafu(display("Version doesn't exist: {version}"))]
     VersionError { version: Version },
-    #[snafu(display("Parser error: {source}"))]
-    ParserError { source: serde_json::Error },
+    #[snafu(display("Parser error: {error}"))]
+    ParserError { error: String },
     #[snafu(display("TOML serialization error: {source}"))]
     TomlParserSerError { source: toml_edit::ser::Error },
     #[snafu(display("TOML deserialization error: {source}"))]
@@ -48,4 +48,6 @@ pub enum EngineError {
         #[snafu(source(from(Box<dyn std::error::Error>, Some)))]
         source: Option<Box<dyn std::error::Error>>,
     },
+    #[snafu(display("Multiple errors: {errors:?}"))]
+    MultipleErrors { errors: Vec<EngineError> },
 }

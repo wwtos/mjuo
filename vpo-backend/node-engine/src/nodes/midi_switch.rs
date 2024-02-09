@@ -49,6 +49,8 @@ impl NodeRuntime for MidiSwitchNode {
     ) {
         let mut midi_out: MidiChannel = MidiChannel::new();
 
+        outs.midi(0)[0] = None;
+
         if let Some(midi) = &ins.midi(0)[0] {
             let messages = midi_store.borrow_midi(midi).unwrap();
 

@@ -154,7 +154,7 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
             notes: pipes,
             name: rank_name,
         };
-        let config = RankConfig::from_rank(
+        let config = RankConfig::from_pipes_rank(
             rank,
             ResourceId {
                 namespace: "samples".into(),

@@ -47,7 +47,7 @@
             },
             () => {
                 throw new Error("unimplemened");
-            }
+            },
         );
 
         // only send updates if it's changed

@@ -38,6 +38,10 @@
     $: graph = graphManager.getRootGraph();
     $: nodeStore = graph.nodeStore;
 
+    $: if (locked) {
+        currentlySelected = null;
+    }
+
     $: {
         uiNodes = $nodeStore
             .filter(([node, _]) => node.data.state.value !== null)
@@ -48,6 +52,27 @@
             }));
 
         uiNodes.sort((a, b) => a.uiName.localeCompare(b.uiName));
+    }
+
+    function onKeydown(event: KeyboardEvent) {
+        switch (event.key) {
+            case "Delete":
+                if (currentlySelected) {
+                    const node = graph.getNode(currentlySelected.nodeIndex);
+
+                    if (node?.uiData.panelInstances) {
+                        node.uiData.panelInstances[
+                            currentlySelected.instance
+                        ].splice(currentlySelected.elementIndex, 1);
+                        graph.markNodeAsUpdated(currentlySelected.nodeIndex, [
+                            "uiData",
+                        ]);
+                        graph.writeChangedNodesToServer();
+                    }
+                }
+
+                break;
+        }
     }
 
     function textareaUpdate(e: any) {
@@ -235,6 +260,7 @@
     }
 </script>
 
+<svelte:window on:keydown={onKeydown} />
 <div>
     <div class="top-ui">
         Locked? <input type="checkbox" bind:checked={locked} />

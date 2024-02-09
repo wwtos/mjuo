@@ -29,6 +29,9 @@ pub struct Pipe {
     pub release_envelope: EnvelopeIndexes,
 }
 
+#[derive(Debug)]
+pub struct TunedPercussion {}
+
 impl Resource for Pipe {
     fn resource_id(&self) -> &ResourceId {
         &self.resource
@@ -39,4 +42,19 @@ impl Resource for Pipe {
 pub struct Rank<T: Debug> {
     pub notes: BTreeMap<u8, T>,
     pub name: String,
+}
+
+#[derive(Debug)]
+pub enum RankType {
+    Pipes(Rank<Pipe>),
+    TunedPercussion(Rank<TunedPercussion>),
+}
+
+impl RankType {
+    pub fn as_pipes(&self) -> Option<&Rank<Pipe>> {
+        match self {
+            RankType::Pipes(pipes) => Some(pipes),
+            _ => None,
+        }
+    }
 }

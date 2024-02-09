@@ -60,6 +60,8 @@ pub async fn handle_msg(
 ) {
     use log::error;
 
+    use crate::errors::EngineError;
+
     let result = route(msg, to_server, to_audio_thread, state, global_state, resources_lock).await;
 
     match result {
@@ -80,16 +82,21 @@ pub async fn handle_msg(
             }
         }
         Err(err) => {
-            let err_str = err.to_string();
+            if let EngineError::MultipleErrors { errors } = err {
+                for error in errors {
+                    let err_str = error.to_string();
 
-            error!("route error: {}", err_str);
+                    error!("route error: {}", err_str);
 
-            to_server
-                .send(IpcMessage::Json(json! {{
-                    "action": "toast/error",
-                    "payload": err_str
-                }}))
-                .unwrap();
+                    to_server
+                        .send(IpcMessage::Json(json! {{
+                            "action": "toast/error",
+                            "payload": err_str
+                        }}))
+                        .unwrap();
+                }
+            } else {
+            }
         }
     }
 }

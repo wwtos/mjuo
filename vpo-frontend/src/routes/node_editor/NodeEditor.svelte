@@ -275,12 +275,14 @@
             // mark this one as dragging
             const node = $activeGraph.getNode(keepSelected) as NodeInstance;
 
-            node.uiData = {
-                ...node.uiData,
-                selected: true,
-            };
+            if (!node.uiData.selected) {
+                node.uiData = {
+                    ...node.uiData,
+                    selected: true,
+                };
 
-            $activeGraph.markNodeAsUpdated(keepSelected, ["uiData"]);
+                $activeGraph.markNodeAsUpdated(keepSelected, ["uiData"]);
+            }
         }
 
         if (selection) {
@@ -584,6 +586,8 @@
 <svelte:window
     on:mousedown={onWindowMousedown}
     on:mousemove={onMousemove}
+    on:keydown={onKeydown}
+    on:keyup={onKeyup}
     on:mouseup={onMouseup}
     on:paste={onPaste}
 />
@@ -594,8 +598,6 @@
     class:selecting={shiftHeld}
     bind:this={editor}
     on:mousedown={onEditorMousedown}
-    on:keydown={onKeydown}
-    on:keyup={onKeyup}
     on:contextmenu|preventDefault={onContextMenu}
 >
     <div style="position: relative; height: 0px;" bind:this={nodeContainer}>

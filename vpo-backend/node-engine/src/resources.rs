@@ -1,14 +1,14 @@
 use common::resource_manager::{serialize_resource_content, ResourceId, ResourceIndex, ResourceManager};
 use common::traits::TryRef;
 use serde::Serialize;
-use sound_engine::sampling::rank::Pipe;
+use sound_engine::sampling::rank::{Pipe, RankType};
 use sound_engine::{sampling::rank::Rank, MonoSample};
 
 #[derive(Default, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resources {
     pub samples: ResourceManager<MonoSample>,
-    pub ranks: ResourceManager<Rank<Pipe>>,
+    pub ranks: ResourceManager<RankType>,
     #[serde(serialize_with = "serialize_resource_content")]
     pub ui: ResourceManager<String>,
 }
@@ -16,9 +16,32 @@ pub struct Resources {
 #[derive(Debug)]
 pub enum Resource<'a> {
     Sample(&'a MonoSample),
-    Rank(&'a Rank<Pipe>),
+    Rank(&'a RankType),
     Ui(&'a String),
     NotFound,
+}
+
+impl<'a> Resource<'a> {
+    pub fn as_sample(&self) -> Option<&'a MonoSample> {
+        match self {
+            Resource::Sample(sample) => Some(sample),
+            _ => None,
+        }
+    }
+
+    pub fn as_rank(&self) -> Option<&'a RankType> {
+        match self {
+            Resource::Rank(rank) => Some(rank),
+            _ => None,
+        }
+    }
+
+    pub fn as_ui(&self) -> Option<&'a String> {
+        match self {
+            Resource::Ui(ui) => Some(ui),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> TryRef<MonoSample> for Resource<'a> {

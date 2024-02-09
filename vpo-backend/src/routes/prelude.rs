@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use cpal::traits::DeviceTrait;
 use ipc::ipc_message::IpcMessage;
 use log::{info, warn};
-use node_engine::io_routing::{DeviceDirection, DeviceInfo, DeviceType, IoRoutes};
+use node_engine::io_routing::{DeviceDirection, DeviceType, IoRoutes};
 use node_engine::resources::Resources;
 pub(super) use node_engine::state::ActionBundle;
 use node_engine::state::{ActionInvalidation, GraphState};
@@ -28,6 +28,7 @@ pub fn state_invalidations(
     let mut new_engine_needed = false;
     let mut new_defaults = vec![];
     let mut updates = vec![];
+    let mut errors = vec![];
 
     for invalidation in invalidations {
         match invalidation {
@@ -147,7 +148,7 @@ pub fn state_invalidations(
                                         source: instance,
                                     })
                                 } else {
-                                    return Err(EngineError::DeviceDoesNotExist {
+                                    errors.push(EngineError::DeviceDoesNotExist {
                                         device_name: device.to_string(),
                                     });
                                 }
@@ -183,7 +184,7 @@ pub fn state_invalidations(
                                         });
                                     }
                                 } else {
-                                    return Err(EngineError::DeviceDoesNotExist {
+                                    errors.push(EngineError::DeviceDoesNotExist {
                                         device_name: device.to_string(),
                                     });
                                 }
@@ -197,7 +198,7 @@ pub fn state_invalidations(
                                         sink: instance,
                                     })
                                 } else {
-                                    return Err(EngineError::DeviceDoesNotExist {
+                                    errors.push(EngineError::DeviceDoesNotExist {
                                         device_name: device.to_string(),
                                     });
                                 }
@@ -231,7 +232,7 @@ pub fn state_invalidations(
                                         sink: instance,
                                     });
                                 } else {
-                                    return Err(EngineError::DeviceDoesNotExist {
+                                    errors.push(EngineError::DeviceDoesNotExist {
                                         device_name: device.to_string(),
                                     });
                                 }
@@ -276,7 +277,11 @@ pub fn state_invalidations(
         client_sender.send(message).unwrap();
     }
 
-    Ok(())
+    if !errors.is_empty() {
+        Err(EngineError::MultipleErrors { errors })
+    } else {
+        Ok(())
+    }
 }
 
 fn calculate_device_channels(
