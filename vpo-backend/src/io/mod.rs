@@ -15,6 +15,7 @@ use log::info;
 use node_engine::resources::Resources;
 use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+use path_slash::PathExt;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use semver::Version;
 use serde_json::{json, Value};
@@ -83,7 +84,11 @@ where
             None
         })
         .map(|asset| {
-            let asset_key = asset.path().strip_prefix(path).unwrap().to_string_lossy().to_string();
+            let asset_path = asset.path().strip_prefix(path).unwrap();
+            let asset_key = get_resource_key(asset_path);
+
+            println!("path: {asset_path:?}, key: {asset_key}");
+
             (asset_key, PathBuf::from(asset.path()))
         });
 
@@ -115,34 +120,34 @@ pub fn load_single(
         .whatever_context(format!("Could not strip \"{:?}\" of \"{:?}\"", file, root))?;
 
     let resource_type = relative_file.iter().next().unwrap();
-    let resource = relative_file.strip_prefix(resource_type).unwrap().to_string_lossy();
+    let resource_key = get_resource_key(relative_file.strip_prefix(resource_type).unwrap());
 
-    info!("loading resource: `{:?}` of type {:?}", resource, resource_type);
+    info!("loading resource: `{:?}` of type {:?}", resource_key, resource_type);
 
     match resource_type.to_string_lossy().as_ref() {
         "ranks" => {
-            if resources.ranks.get_index(resource.as_ref()).is_some() {
-                resources.ranks.remove_resource(resource.as_ref());
+            if resources.ranks.get_index(resource_key.as_ref()).is_some() {
+                resources.ranks.remove_resource(resource_key.as_ref());
             }
 
             let rank = load_rank_from_file(file, &resources.samples)?;
-            resources.ranks.add_resource(resource.into_owned(), rank);
+            resources.ranks.add_resource(resource_key, rank);
         }
         "samples" => {
-            if resources.samples.get_index(resource.as_ref()).is_some() {
-                resources.samples.remove_resource(resource.as_ref());
+            if resources.samples.get_index(resource_key.as_ref()).is_some() {
+                resources.samples.remove_resource(resource_key.as_ref());
             }
 
             let sample = load_sample(file, &config)?;
-            resources.samples.add_resource(resource.into_owned(), sample);
+            resources.samples.add_resource(resource_key, sample);
         }
         "ui" => {
-            if resources.ui.get_index(resource.as_ref()).is_some() {
-                resources.ui.remove_resource(resource.as_ref());
+            if resources.ui.get_index(resource_key.as_ref()).is_some() {
+                resources.ui.remove_resource(resource_key.as_ref());
             }
 
             let ui_element = load_ui_from_file(file)?;
-            resources.ui.add_resource(resource.into_owned(), ui_element);
+            resources.ui.add_resource(resource_key, ui_element);
         }
         _ => {}
     }
@@ -211,4 +216,14 @@ pub fn load_state(
         .whatever_context("Could not create file watcher")?;
 
     Ok(rx)
+}
+
+fn get_resource_key(path: &Path) -> String {
+    #[cfg(windows)]
+    let asset_key = path.to_slash_lossy().to_string();
+
+    #[cfg(unix)]
+    let asset_key = path.to_string_lossy().to_string();
+
+    asset_key
 }

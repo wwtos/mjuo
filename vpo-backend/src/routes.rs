@@ -13,7 +13,6 @@ use serde_json::Value;
 use crate::{engine::ToAudioThread, errors::EngineError, state::GlobalState, Sender};
 #[derive(Default)]
 pub struct RouteReturn {
-    pub engine_updates: Vec<ToAudioThread>,
     pub new_project: bool,
 }
 

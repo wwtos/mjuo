@@ -17,9 +17,10 @@ struct Payload {
 
 pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
+    state
+        .to_audio_thread
+        .send(ToAudioThread::NewNodeStates(payload.updated_states))
+        .unwrap();
 
-    Ok(RouteReturn {
-        engine_updates: vec![ToAudioThread::NewNodeStates(payload.updated_states)],
-        new_project: false,
-    })
+    Ok(RouteReturn { new_project: false })
 }

@@ -1,11 +1,2 @@
-[target.wasm32-unknown-unknown]
-rustflags = [
-  "-C",
-  "link-arg=--initial-memory=327680000",
-]
-
 [target.x86_64-unknown-linux-gnu]
-rustflags = [
-  "-C",
-  "link-arg=-fuse-ld=lld",
-]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

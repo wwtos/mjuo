@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
@@ -7,7 +8,7 @@ use futures::executor::LocalPool;
 use futures::join;
 use futures::task::LocalSpawnExt;
 use futures::StreamExt;
-use ipc::file_server::start_file_server;
+use ipc::file_server::{start_file_server, start_file_server_in};
 
 use node_engine::resources::Resources;
 use node_engine::state::{FromNodeEngine, GraphState};
@@ -22,7 +23,7 @@ use vpo_backend::util::{send_graph_updates, send_resource_updates};
 use vpo_backend::{handle_msg, start_ipc};
 
 fn main() {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("warn")).init();
 
     let (to_server, from_server, _ipc_handle) = start_ipc(26642);
 
@@ -35,7 +36,10 @@ fn main() {
     let (project_dir_sender, project_dir_receiver) = flume::unbounded();
 
     let (mut file_watcher, mut from_file_watcher) = FileWatcher::new().unwrap();
-    let _file_server_handle = start_file_server(project_dir_receiver);
+    let _project_files_handle = start_file_server(project_dir_receiver, 26643);
+    let _frontend_server_handle = start_file_server_in(PathBuf::from("./frontend"), 26644);
+
+    println!("Welcome to MJUO! Please go to http://localhost:26644 in your browser to see the UI");
 
     let resources_for_audio_thread = resources.clone();
 

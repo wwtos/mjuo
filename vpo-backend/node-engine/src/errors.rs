@@ -1,6 +1,7 @@
 use common::resource_manager::ResourceId;
 use ddgg::GraphError;
 use rhai::{EvalAltResult, ParseError};
+use serde::Serialize;
 use snafu::Snafu;
 
 use crate::connection::{Socket, SocketType};
@@ -74,6 +75,15 @@ impl From<GraphError> for NodeError {
     }
 }
 
+impl Serialize for NodeError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
 #[derive(Snafu, Debug)]
 pub enum NodeWarning {
     #[snafu(display("Value of type `{return_type}` was returned, ignoring"))]
@@ -84,11 +94,22 @@ pub enum NodeWarning {
     RhaiParserFailure { parser_error: ParseError },
     #[snafu(display("Internal node errors/warnings: {errors_and_warnings:?}"))]
     InternalErrorsAndWarnings { errors_and_warnings: ErrorsAndWarnings },
+    #[snafu(display("Resource missing: {resource:?}"))]
+    ResourceMissing { resource: ResourceId },
+}
+
+impl Serialize for NodeWarning {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
 }
 
 pub type NodeResult<T> = Result<NodeOk<T>, NodeError>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize)]
 pub struct ErrorsAndWarnings {
     pub errors: Vec<(NodeIndex, NodeError)>,
     pub warnings: Vec<(NodeIndex, NodeWarning)>,

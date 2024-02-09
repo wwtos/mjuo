@@ -22,8 +22,5 @@ pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError
         }
     }
 
-    Ok(RouteReturn {
-        new_project,
-        engine_updates: vec![],
-    })
+    Ok(RouteReturn { new_project })
 }

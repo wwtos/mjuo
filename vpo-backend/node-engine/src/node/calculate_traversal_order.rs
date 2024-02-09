@@ -198,6 +198,15 @@ pub fn generate_io_spec(
         for needed_resource in &needed_resources {
             let resource_index = resources.get_resource_index(needed_resource);
 
+            if resource_index.is_none() {
+                warnings.push((
+                    *node_index,
+                    NodeWarning::ResourceMissing {
+                        resource: needed_resource.clone(),
+                    },
+                ));
+            }
+
             resources_tracking.push((needed_resource.clone(), resource_index));
         }
 

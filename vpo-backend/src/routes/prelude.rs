@@ -1,11 +1,13 @@
 use std::collections::BTreeSet;
 
 use cpal::traits::DeviceTrait;
-use log::info;
+use ipc::ipc_message::IpcMessage;
+use log::{info, warn};
 use node_engine::io_routing::{DeviceDirection, DeviceInfo, DeviceType, IoRoutes};
 use node_engine::resources::Resources;
 pub(super) use node_engine::state::ActionBundle;
 use node_engine::state::{ActionInvalidation, GraphState};
+use serde_json::json;
 use snafu::ResultExt;
 
 pub(super) use crate::engine::ToAudioThread;
@@ -19,7 +21,10 @@ pub fn state_invalidations(
     invalidations: Vec<ActionInvalidation>,
     device_manager: &mut DeviceManager,
     resources: &Resources,
-) -> Result<Vec<ToAudioThread>, EngineError> {
+    to_audio_thread: &flume::Sender<ToAudioThread>,
+    client_sender: &flume::Sender<IpcMessage>,
+) -> Result<(), EngineError> {
+    let mut to_client = vec![];
     let mut new_engine_needed = false;
     let mut new_defaults = vec![];
     let mut updates = vec![];
@@ -245,16 +250,33 @@ pub fn state_invalidations(
     }
 
     if new_engine_needed {
-        updates.push(ToAudioThread::NewTraverser(
-            state.create_traverser(resources).context(NodeSnafu)?.1,
-        ));
+        let (errors_and_warnings, traverser) = state.create_traverser(resources).context(NodeSnafu)?;
+
+        if errors_and_warnings.any() {
+            warn!("Traverser warnings: {:?}", errors_and_warnings);
+
+            to_client.push(IpcMessage::Json(json!({
+                "action": "graph/errorsAndWarnings",
+                "payload": errors_and_warnings
+            })));
+        }
+
+        updates.push(ToAudioThread::NewTraverser(traverser));
     }
 
     if !new_defaults.is_empty() {
         updates.push(ToAudioThread::NewDefaults(new_defaults));
     }
 
-    Ok(updates)
+    for update in updates {
+        to_audio_thread.send(update).unwrap();
+    }
+
+    for message in to_client {
+        client_sender.send(message).unwrap();
+    }
+
+    Ok(())
 }
 
 fn calculate_device_channels(

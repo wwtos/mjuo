@@ -17,7 +17,7 @@ use crate::{
     util::{send_graph_updates, send_project_state_updates, send_resource_updates},
 };
 
-pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route(mut ctx: RouteState<'_>) -> Result<RouteReturn, EngineError> {
     let file = AsyncFileDialog::new().pick_file().await;
     let resources = &mut *ctx.resources_lock.write().unwrap();
 
@@ -42,7 +42,7 @@ pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineErr
         let new_rules = ctx.state.get_route_rules();
 
         info!("Connecting devices...");
-        let mut to_audio_thread = state_invalidations(
+        state_invalidations(
             &mut ctx.state,
             vec![ActionInvalidation::NewRouteRules {
                 last_rules: IoRoutes::default(),
@@ -50,19 +50,20 @@ pub async fn route<'a>(mut ctx: RouteState<'a>) -> Result<RouteReturn, EngineErr
             }],
             &mut ctx.global_state.device_manager,
             resources,
+            ctx.to_audio_thread,
+            ctx.to_server,
         )?;
 
-        to_audio_thread.push(ToAudioThread::NewTraverser(
-            ctx.state
-                .create_traverser(resources)
-                .whatever_context("could not create traverser")?
-                .1,
-        ));
+        ctx.to_audio_thread
+            .send(ToAudioThread::NewTraverser(
+                ctx.state
+                    .create_traverser(resources)
+                    .whatever_context("could not create traverser")?
+                    .1,
+            ))
+            .unwrap();
 
-        return Ok(RouteReturn {
-            engine_updates: to_audio_thread,
-            new_project: true,
-        });
+        return Ok(RouteReturn { new_project: true });
     }
 
     Ok(RouteReturn::default())

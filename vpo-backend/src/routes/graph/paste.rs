@@ -129,13 +129,14 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
         send_graph_updates(state.state, *graph_index, state.to_server)?;
     }
 
-    Ok(RouteReturn {
-        engine_updates: state_invalidations(
-            state.state,
-            invalidations,
-            &mut state.global_state.device_manager,
-            &*state.resources_lock.read().unwrap(),
-        )?,
-        new_project: false,
-    })
+    state_invalidations(
+        state.state,
+        invalidations,
+        &mut state.global_state.device_manager,
+        &*state.resources_lock.read().unwrap(),
+        state.to_audio_thread,
+        state.to_server,
+    )?;
+
+    Ok(RouteReturn { new_project: false })
 }

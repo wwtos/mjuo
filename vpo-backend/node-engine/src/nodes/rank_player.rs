@@ -29,24 +29,26 @@ impl NodeRuntime for RankPlayerNode {
             self.polyphony = polyphony as usize;
         }
 
-        let rank_resource = params
-            .props
-            .get("rank")
-            .and_then(|x| x.clone().as_resource())
-            .and_then(|resource_id| {
-                params
-                    .resources
-                    .ranks
-                    .borrow_resource_by_id(&resource_id.resource)
-                    .map(|resource| (resource_id.clone(), resource))
-            });
+        let rank_resource_id = params.props.get("rank").and_then(|x| x.clone().as_resource());
 
-        let needed_resources = if let Some((id, rank)) = rank_resource {
-            let (player, needed_resources) = RankPlayer::new(id, rank, self.polyphony, params.sound_config.sample_rate);
+        let rank = rank_resource_id
+            .as_ref()
+            .and_then(|resource_id| params.resources.ranks.borrow_resource_by_id(&resource_id.resource));
 
-            self.player = player;
+        let needed_resources = if let Some(resource_id) = rank_resource_id {
+            if let Some(rank) = rank {
+                let (player, needed_resources) =
+                    RankPlayer::new(resource_id, rank, self.polyphony, params.sound_config.sample_rate);
 
-            needed_resources
+                self.player = player;
+
+                needed_resources
+            } else {
+                return Ok(NodeOk {
+                    value: InitResult::default(),
+                    warnings: vec![NodeWarning::ResourceMissing { resource: resource_id }],
+                });
+            }
         } else {
             vec![]
         };

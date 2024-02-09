@@ -81,7 +81,7 @@ impl NodeIo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InitResult {
     pub changed_properties: Option<SeaHashMap<String, Property>>,
     pub needed_resources: Vec<ResourceId>,

@@ -64,12 +64,6 @@ pub async fn handle_msg(
 
     match result {
         Ok(route_result) => {
-            if !route_result.engine_updates.is_empty() {
-                for update in route_result.engine_updates {
-                    to_audio_thread.send(update).unwrap();
-                }
-            }
-
             if route_result.new_project {
                 let _ = project_dir_sender.send(
                     global_state
