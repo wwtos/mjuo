@@ -15,7 +15,7 @@ struct Payload {
     updated_states: Vec<(NodeIndex, Value)>,
 }
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
+pub fn route(mut state: RouteCtx) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
     state
         .to_audio_thread

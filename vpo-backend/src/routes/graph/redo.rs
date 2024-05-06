@@ -10,7 +10,7 @@ use crate::{
     util::{send_graph_updates, send_project_state_updates},
 };
 
-pub fn route(state: RouteState) -> Result<RouteReturn, EngineError> {
+pub fn route(state: RouteCtx) -> Result<RouteReturn, EngineError> {
     let invalidations = state.state.redo().context(NodeSnafu)?;
 
     let mut touched_graphs = HashSet::new();

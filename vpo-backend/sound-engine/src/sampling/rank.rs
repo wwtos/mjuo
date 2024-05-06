@@ -29,10 +29,21 @@ pub struct Pipe {
     pub release_envelope: EnvelopeIndexes,
 }
 
-#[derive(Debug)]
-pub struct TunedPercussion {}
-
 impl Resource for Pipe {
+    fn resource_id(&self) -> &ResourceId {
+        &self.resource
+    }
+}
+
+#[derive(Debug)]
+pub struct Percussion {
+    pub resource: ResourceId,
+    /// in seconds
+    pub release_duration: f32,
+    pub gain: f32,
+}
+
+impl Resource for Percussion {
     fn resource_id(&self) -> &ResourceId {
         &self.resource
     }
@@ -47,7 +58,7 @@ pub struct Rank<T: Debug> {
 #[derive(Debug)]
 pub enum RankType {
     Pipes(Rank<Pipe>),
-    TunedPercussion(Rank<TunedPercussion>),
+    Percussion(Rank<Percussion>),
 }
 
 impl RankType {

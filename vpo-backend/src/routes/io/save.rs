@@ -6,7 +6,7 @@ use crate::{
     routes::{prelude::*, RouteReturn},
 };
 
-pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route<'a>(state: RouteCtx<'a>) -> Result<RouteReturn, EngineError> {
     let mut new_project = false;
 
     if let Some(file_path) = &state.global_state.active_project {

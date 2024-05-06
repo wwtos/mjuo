@@ -23,7 +23,7 @@ struct Payload {
     clipboard: String,
 }
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
+pub fn route(mut state: RouteCtx) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
     let mini_graph: Graph<NodeInstance, NodeConnectionData> =
         serde_json::from_str(&payload.clipboard).context(JsonParserSnafu)?;

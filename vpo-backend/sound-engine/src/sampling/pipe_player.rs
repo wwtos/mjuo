@@ -41,9 +41,6 @@ pub struct EnvelopeIndexes {
 
 #[derive(Debug, Clone)]
 pub struct PipePlayer {
-    // calculated at the beginning
-    sample_length: usize,
-
     state: State,
     next_state: State,
     // in case an action is performed during a crossfade
@@ -94,11 +91,7 @@ impl Voice for PipePlayer {
     fn new(pipe: &Pipe, sample: &MonoSample, config: SoundConfig) -> PipePlayer {
         let fs = config.sample_rate as f32;
 
-        let sample_length = sample.audio_raw.len();
-
         let mut new_player = PipePlayer {
-            sample_length,
-
             state: State::Looping,
             next_state: State::Stopped,
             queued_action: QueuedAction::None,
@@ -217,10 +210,10 @@ impl Voice for PipePlayer {
 
 impl PipePlayer {
     pub fn next_sample(&mut self, pipe: &Pipe, sample: &MonoSample) -> f32 {
-        let out = match self.state {
+        match self.state {
             State::Uninitialized => 0.0,
             State::Crossfading => {
-                if self.audio_position < (self.sample_length - 3) as f32 {
+                if self.audio_position < sample.audio_raw.len() as f32 {
                     let (out, done) = self.next_sample_crossfade(sample);
 
                     if done {
@@ -258,7 +251,7 @@ impl PipePlayer {
                 out
             }
             State::Releasing => {
-                if self.audio_position < (self.sample_length - 3) as f32 {
+                if self.audio_position < sample.audio_raw.len() as f32 {
                     self.next_sample_normal(sample)
                 } else {
                     self.state = State::Stopped;
@@ -267,9 +260,7 @@ impl PipePlayer {
                 }
             }
             State::Stopped => 0.0,
-        };
-
-        out
+        }
     }
 
     fn next_sample_normal(&mut self, sample: &MonoSample) -> f32 {
@@ -279,9 +270,11 @@ impl PipePlayer {
             self.audio_position,
         );
 
+        let out = self.voice_filtering(comb_pass);
+
         self.audio_position += self.detune * self.resample_ratio;
 
-        self.third_harm_filter.filter_sample(comb_pass) * self.gain * self.voicing_amp
+        out
     }
 
     fn next_sample_crossfade(&mut self, sample: &MonoSample) -> (f32, bool) {
@@ -301,12 +294,16 @@ impl PipePlayer {
 
         let interpolated = old * (1.0 - crossfade_factor) + new * crossfade_factor;
 
+        let out = self.voice_filtering(interpolated);
+
         self.audio_position += self.detune * self.resample_ratio;
         self.crossfade_position += self.detune * self.resample_ratio;
 
-        let out = self.third_harm_filter.filter_sample(interpolated) * self.gain * self.voicing_amp;
-
         (out, crossfade_factor >= 1.0)
+    }
+
+    fn voice_filtering(&mut self, sample: f32) -> f32 {
+        self.third_harm_filter.filter_sample(sample) * self.gain * self.voicing_amp
     }
 
     fn jump_to_in_phase(
@@ -406,8 +403,6 @@ impl PipePlayer {
 impl Default for PipePlayer {
     fn default() -> Self {
         PipePlayer {
-            sample_length: 0,
-
             state: State::Uninitialized,
             next_state: State::Uninitialized,
             queued_action: QueuedAction::None,

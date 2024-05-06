@@ -17,7 +17,7 @@ use crate::{
     util::{send_graph_updates, send_project_state_updates, send_resource_updates},
 };
 
-pub async fn route(mut ctx: RouteState<'_>) -> Result<RouteReturn, EngineError> {
+pub async fn route(mut ctx: RouteCtx<'_>) -> Result<RouteReturn, EngineError> {
     let file = AsyncFileDialog::new().pick_file().await;
     let resources = &mut *ctx.resources_lock.write().unwrap();
 

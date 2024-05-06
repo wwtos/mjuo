@@ -7,24 +7,13 @@ use sound_engine::{
     sampling::{
         phase_calculator::PhaseCalculator,
         pipe_player::{envelope_indexes, EnvelopeType},
-        rank::{Pipe, Rank, RankType},
+        rank::{Percussion, Pipe, Rank, RankType},
     },
     util::db_to_gain,
     MonoSample,
 };
 
 use crate::errors::{EngineError, TomlParserDeSnafu};
-
-#[derive(Debug, Serialize, Deserialize)]
-struct TunedPercussionRankEntry {
-    cents: i16,
-
-    // optional parameters
-    #[serde(default)]
-    file: Option<String>,
-    #[serde(default)]
-    attenuation: f32,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PipesRankEntry {
@@ -50,7 +39,22 @@ fn crossfade_default() -> usize {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RankConfig {
+struct PercussionRankEntry {
+    // optional parameters
+    #[serde(default)]
+    file: Option<String>,
+    #[serde(default)]
+    attenuation: f32,
+    release: f32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct RankInfo {
+    rank_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PipeRankConfig {
     name: String,
     rank_type: String,
     sample_location: ResourceId,
@@ -67,7 +71,21 @@ pub struct RankConfig {
     sample_format: Option<String>,
 }
 
-impl RankConfig {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PercussionRankConfig {
+    name: String,
+    rank_type: String,
+    sample_location: ResourceId,
+    percussion: BTreeMap<String, PercussionRankEntry>,
+
+    // optional parameters
+    #[serde(default)]
+    attenuation: f32,
+    #[serde(default)]
+    sample_format: Option<String>,
+}
+
+impl PipeRankConfig {
     pub fn from_pipes_rank(rank: Rank<Pipe>, sample_location: ResourceId) -> Self {
         let entries: BTreeMap<String, PipesRankEntry> = rank
             .notes
@@ -90,7 +108,7 @@ impl RankConfig {
             })
             .collect();
 
-        RankConfig {
+        PipeRankConfig {
             name: rank.name,
             rank_type: "pipes".to_string(),
             sample_location,
@@ -111,10 +129,12 @@ pub fn expected_sample_location(note: u8, sample_format: &str) -> String {
 
 /// Parses a `[rank].toml` file and converts it into a `Rank`
 pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result<RankType, EngineError> {
-    let parsed: RankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
+    let info: RankInfo = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
 
-    match parsed.rank_type.as_ref() {
+    match info.rank_type.as_ref() {
         "pipes" => {
+            let parsed: PipeRankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
+
             let mut pipes: BTreeMap<u8, Pipe> = BTreeMap::new();
             let sample_format = parsed.sample_format.unwrap_or("wav".into());
 
@@ -132,10 +152,7 @@ pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result
                         .concat(&expected_sample_location(note, &sample_format))
                 };
 
-                if let Some(sample) = samples
-                    .get_index(&resource.resource)
-                    .and_then(|x| samples.borrow_resource(x))
-                {
+                if let Some(sample) = samples.borrow_resource_by_id(&resource.resource) {
                     let buffer_rate = sample.sample_rate;
                     let freq = (440.0 / 32.0) * 2_f32.powf((note - 9) as f32 / 12.0 + (entry.cents as f32 / 1200.0));
                     let amp_window_size = (buffer_rate as f32 / freq) as usize * 2;
@@ -183,11 +200,51 @@ pub fn parse_rank(config: &str, samples: &ResourceManager<MonoSample>) -> Result
                 name: parsed.name,
             }))
         }
-        "tuned percussion" => {
-            todo!()
+        "percussion" => {
+            let parsed: PercussionRankConfig = toml_edit::de::from_str(config).context(TomlParserDeSnafu)?;
+
+            let mut percussion: BTreeMap<u8, Percussion> = BTreeMap::new();
+            let sample_format = parsed.sample_format.unwrap_or("wav".into());
+
+            for (note_str, entry) in parsed.percussion {
+                let note: u8 = match note_str.parse() {
+                    Ok(note) => note,
+                    Err(_) => {
+                        return Err(EngineError::ParserError {
+                            error: format!("note '{note_str}' is not a number"),
+                        })
+                    }
+                };
+
+                // figure out what the sample id is
+                let sample_id = if let Some(sample_id) = entry.file {
+                    parsed.sample_location.concat(&sample_id)
+                } else {
+                    parsed
+                        .sample_location
+                        .concat(&expected_sample_location(note, &sample_format))
+                };
+
+                // make sure the sample exists
+                if let Some(_) = samples.borrow_resource_by_id(&sample_id.resource) {
+                    percussion.insert(
+                        note,
+                        Percussion {
+                            resource: sample_id,
+                            gain: db_to_gain(-(entry.attenuation + parsed.attenuation)),
+                            release_duration: entry.release,
+                        },
+                    );
+                }
+            }
+
+            Ok(RankType::Percussion(Rank {
+                notes: percussion,
+                name: parsed.name,
+            }))
         }
         _ => Err(EngineError::ParserError {
-            error: "rank must be of type 'pipes' or 'tuned percussion'".to_owned(),
+            error: "rank must be of type 'pipes' or 'percussion'".to_owned(),
         }),
     }
 }

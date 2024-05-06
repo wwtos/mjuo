@@ -20,7 +20,7 @@ struct Payload {
     graph_index: GraphIndex,
 }
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
+pub fn route(mut state: RouteCtx) -> Result<RouteReturn, EngineError> {
     let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
     let graph = state

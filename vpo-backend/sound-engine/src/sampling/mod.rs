@@ -6,6 +6,7 @@ use crate::SoundConfig;
 
 pub mod double_buffer;
 pub mod envelope;
+pub mod percussion_player;
 pub mod phase_calculator;
 pub mod pipe_player;
 pub mod rank;

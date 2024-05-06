@@ -14,7 +14,7 @@ pub(super) use crate::engine::ToAudioThread;
 pub(super) use crate::errors::EngineError;
 use crate::errors::NodeSnafu;
 use crate::io::clocked::{DeviceManager, StreamConfigOptions};
-pub(super) use crate::routes::{RouteReturn, RouteState};
+pub(super) use crate::routes::{RouteCtx, RouteReturn};
 
 pub fn state_invalidations(
     state: &mut GraphState,
