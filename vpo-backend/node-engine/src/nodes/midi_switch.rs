@@ -17,24 +17,24 @@ pub struct MidiSwitchNode {
 
 impl NodeRuntime for MidiSwitchNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        if let Some(Property::String(mode)) = params.props.get("mode") {
-            self.ignoring = 0;
+        let mode = params.props.get_string("mode")?;
 
-            match mode.as_str() {
-                "normal" => {
-                    self.mode = SwitchMode::Normal;
-                }
-                "sostenuto" => {
-                    self.mode = SwitchMode::Sostenuto;
-                }
-                "sustain" => {
-                    self.mode = SwitchMode::Sustain;
-                }
-                _ => {
-                    self.mode = SwitchMode::Normal;
-                }
-            };
-        }
+        self.ignoring = 0;
+
+        match mode.as_str() {
+            "normal" => {
+                self.mode = SwitchMode::Normal;
+            }
+            "sostenuto" => {
+                self.mode = SwitchMode::Sostenuto;
+            }
+            "sustain" => {
+                self.mode = SwitchMode::Sustain;
+            }
+            _ => {
+                self.mode = SwitchMode::Normal;
+            }
+        };
 
         InitResult::nothing()
     }
@@ -48,6 +48,8 @@ impl NodeRuntime for MidiSwitchNode {
         _resources: &[Resource],
     ) {
         let mut midi_out: MidiChannel = MidiChannel::new();
+
+        outs.midi(0)[0] = None;
 
         if let Some(midi) = &ins.midi(0)[0] {
             let messages = midi_store.borrow_midi(midi).unwrap();

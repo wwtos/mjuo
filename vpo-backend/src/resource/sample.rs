@@ -9,7 +9,6 @@ use crate::errors::EngineError;
 pub fn load_sample(location: &Path, sound_config: &SoundConfig) -> Result<MonoSample, EngineError> {
     use super::decode_audio::decode_audio;
     use crate::{errors::FileSnafu, resource::util::first_channel_only};
-    use rubato::{FftFixedInOut, Resampler};
     use snafu::ResultExt;
 
     use std::fs::File;

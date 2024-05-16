@@ -16,7 +16,7 @@ pub struct RouteReturn {
     pub new_project: bool,
 }
 
-pub struct RouteState<'a> {
+pub struct RouteCtx<'a> {
     pub msg: Value,
     pub to_server: &'a Sender<IpcMessage>,
     pub to_audio_thread: &'a Sender<ToAudioThread>,
@@ -39,7 +39,7 @@ pub async fn route(
         let action = &message["action"];
 
         if let Value::String(action_name) = action {
-            let route_state = RouteState {
+            let route_state = RouteCtx {
                 msg: json.clone(),
                 to_server,
                 to_audio_thread,
@@ -65,6 +65,8 @@ pub async fn route(
                 "io/create" => io::create::route(route_state).await,
                 #[cfg(any(unix, windows))]
                 "io/importRank" => io::import_rank::route(route_state).await,
+                #[cfg(any(unix, windows))]
+                "io/refresh" => io::refresh::route(route_state),
                 _ => Ok(RouteReturn::default()),
             };
         }

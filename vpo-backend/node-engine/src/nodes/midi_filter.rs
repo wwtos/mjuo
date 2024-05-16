@@ -16,17 +16,17 @@ impl NodeRuntime for MidiFilterNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning: Option<NodeWarning> = None;
 
-        if let Some(Property::String(expression)) = params.props.get("expression") {
-            let possible_ast = params.script_engine.compile(expression);
-            self.filter_raw = expression.clone();
+        let expression = params.props.get_string("expression")?;
 
-            match possible_ast {
-                Ok(ast) => {
-                    self.filter = Some(Box::new(ast));
-                }
-                Err(err) => {
-                    warning = Some(NodeWarning::RhaiParserFailure { parser_error: err });
-                }
+        let possible_ast = params.script_engine.compile(&expression);
+        self.filter_raw = expression;
+
+        match possible_ast {
+            Ok(ast) => {
+                self.filter = Some(Box::new(ast));
+            }
+            Err(err) => {
+                warning = Some(NodeWarning::RhaiParserFailure { parser_error: err });
             }
         }
 
@@ -41,47 +41,46 @@ impl NodeRuntime for MidiFilterNode {
         midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
-        if let Some(filter) = &self.filter {
-            if let Some(midi) = &ins.midi(0)[0] {
-                let messages = midi_store.borrow_midi(midi).unwrap();
+        let Some(filter) = &self.filter else { return };
+        let Some(midi) = &ins.midi(0)[0] else { return };
 
-                self.scratch.clear();
+        let messages = midi_store.borrow_midi(midi).unwrap();
 
-                // create a list of trues and falses of which messages should be passed on
-                let filtered = messages.iter().map(|msg| {
-                    add_message_to_scope(&mut self.scope, &msg.data);
+        self.scratch.clear();
 
-                    let result = context
-                        .script_engine
-                        .eval_ast_with_scope::<bool>(&mut self.scope, filter);
+        // create a list of trues and falses of which messages should be passed on
+        let filtered = messages.iter().map(|msg| {
+            add_message_to_scope(&mut self.scope, &msg.data);
 
-                    self.scope.rewind(0);
+            let result = context
+                .script_engine
+                .eval_ast_with_scope::<bool>(&mut self.scope, filter);
 
-                    match result {
-                        Ok(output) => output,
-                        Err(_) => false,
-                    }
-                });
+            self.scope.rewind(0);
 
-                self.scratch.extend(filtered);
-
-                let new_len = self.scratch.iter().filter(|x| **x).count();
-                let mut i = 0;
-
-                let messages_out = midi_store.map_midis(midi, new_len, |messages, _| {
-                    while self.scratch[i] == false {
-                        i += 1;
-                    }
-
-                    let out = i;
-                    i += 1;
-
-                    messages[out].clone()
-                });
-
-                outs.midi(0)[0] = messages_out;
+            match result {
+                Ok(output) => output,
+                Err(_) => false,
             }
-        }
+        });
+
+        self.scratch.extend(filtered);
+
+        let new_len = self.scratch.iter().filter(|x| **x).count();
+        let mut i = 0;
+
+        let messages_out = midi_store.map_midis(midi, new_len, |messages, _| {
+            while self.scratch[i] == false {
+                i += 1;
+            }
+
+            let out = i;
+            i += 1;
+
+            messages[out].clone()
+        });
+
+        outs.midi(0)[0] = messages_out;
     }
 }
 

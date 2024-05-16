@@ -33,6 +33,7 @@
     export let x: number;
     export let y: number;
     export let selected: boolean;
+    export let onMousedown = function (index: VertexIndex, e: MouseEvent) {};
 
     const dispatch = createEventDispatcher();
 
@@ -82,8 +83,6 @@
     );
 
     let node: HTMLDivElement;
-
-    export let onMousedown = function (index: VertexIndex, e: MouseEvent) {};
 
     function onMousedownRaw(e: MouseEvent) {
         onMousedown(nodeIndex, e);
@@ -203,9 +202,6 @@
             </div>
         {/if}
     {/each}
-    {#if wrapper.state.value !== null || wrapper.state.other !== null}
-        {JSON.stringify(wrapper.state)}
-    {/if}
 </div>
 
 <style>

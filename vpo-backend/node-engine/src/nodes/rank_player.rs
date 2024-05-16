@@ -1,62 +1,84 @@
-use common::resource_manager::ResourceId;
-use lazy_static::lazy_static;
 use sound_engine::{
-    sampling::rank_player::RankPlayer,
+    sampling::{
+        percussion_player::{PercussionParam, PercussionPlayer},
+        pipe_player::{PipeParam, PipePlayer},
+        rank::{Pipe, RankType},
+        rank_player::RankPlayer,
+    },
     util::{cents_to_detune, db_to_gain},
 };
 
 use crate::nodes::prelude::*;
 
-#[derive(Debug, Clone)]
-pub struct RankPlayerNode {
-    player: RankPlayer,
-    polyphony: usize,
+#[derive(Debug)]
+enum PlayerType {
+    Pipe(RankPlayer<PipePlayer>, PipeParam),
+    Percussion(RankPlayer<PercussionPlayer>, PercussionParam),
 }
 
-lazy_static! {
-    pub static ref EMPTY_MIDI: MidiChannel = Vec::new();
+#[derive(Debug)]
+pub struct RankPlayerNode {
+    player: Option<PlayerType>,
+    polyphony: usize,
 }
 
 impl NodeRuntime for RankPlayerNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        if let Some(polyphony) = params
-            .props
-            .get("polyphony")
-            .and_then(|polyphony| polyphony.clone().as_integer())
-        {
-            let polyphony = polyphony.max(1);
+        let NodeInitParams { props, resources, .. } = params;
 
-            self.polyphony = polyphony as usize;
-        }
+        self.player = None;
 
-        let rank_resource_id = params.props.get("rank").and_then(|x| x.clone().as_resource());
+        self.polyphony = props.get_int("polyphony")?.clamp(1, 255) as usize;
 
-        let rank = rank_resource_id
-            .as_ref()
-            .and_then(|resource_id| params.resources.ranks.borrow_resource_by_id(&resource_id.resource));
+        let rank_id = props.get_resource("rank")?;
+        let rank_type = props.get_multiple_choice("rank_type")?;
 
-        let needed_resources = if let Some(resource_id) = rank_resource_id {
-            if let Some(rank) = rank {
+        let rank = resources.ranks.borrow_resource_by_id(&rank_id.resource);
+
+        let player_and_resources = rank.and_then(|rank| match rank {
+            RankType::Pipes(pipe_rank) => {
+                // TODO: figure if there's a more elegant way to do this
+                if rank_type != "pipe" {
+                    return None;
+                }
+
                 let (player, needed_resources) =
-                    RankPlayer::new(resource_id, rank, self.polyphony, params.sound_config.sample_rate);
+                    RankPlayer::new(rank_id.clone(), pipe_rank, self.polyphony, params.sound_config.clone());
 
-                self.player = player;
-
-                needed_resources
-            } else {
-                return Ok(NodeOk {
-                    value: InitResult::default(),
-                    warnings: vec![NodeWarning::ResourceMissing { resource: resource_id }],
-                });
+                Some((PlayerType::Pipe(player, PipeParam::default()), needed_resources))
             }
-        } else {
-            vec![]
-        };
+            RankType::Percussion(percussion_rank) => {
+                if rank_type != "percussion" {
+                    return None;
+                }
 
-        NodeOk::no_warnings(InitResult {
-            changed_properties: None,
-            needed_resources,
-        })
+                let (player, needed_resources) = RankPlayer::new(
+                    rank_id.clone(),
+                    percussion_rank,
+                    self.polyphony,
+                    params.sound_config.clone(),
+                );
+
+                Some((
+                    PlayerType::Percussion(player, PercussionParam::default()),
+                    needed_resources,
+                ))
+            }
+        });
+
+        if let Some((player, needed_resources)) = player_and_resources {
+            self.player = Some(player);
+
+            NodeOk::no_warnings(InitResult {
+                changed_properties: None,
+                needed_resources,
+            })
+        } else {
+            Ok(NodeOk {
+                value: InitResult::default(),
+                warnings: vec![NodeWarning::ResourceMissing { resource: rank_id }],
+            })
+        }
     }
 
     fn process<'a>(
@@ -67,37 +89,76 @@ impl NodeRuntime for RankPlayerNode {
         midi_store: &mut MidiStore,
         resources: &[Resource],
     ) {
-        let _reset_needed = false;
-
-        if let Some(cents) = ins.value(0)[0].as_float() {
-            self.player.set_detune(cents_to_detune(cents));
-        }
-
-        if let Some(db_gain) = ins.value(1)[0].as_float() {
-            self.player.set_gain(db_to_gain(db_gain));
-        }
-
-        if let Some(shelf_db_gain) = ins.value(2)[0].as_float() {
-            self.player.set_shelf_db_gain(shelf_db_gain);
-        }
+        let midi_in = ins.midi(0)[0]
+            .as_ref()
+            .and_then(|x| midi_store.borrow_midi(x))
+            .unwrap_or(&[]);
 
         for frame in outs.stream(0)[0].iter_mut() {
             *frame = 0.0;
         }
 
-        if let Some(Resource::Rank(rank)) = resources.get(0) {
-            let midi_in = ins.midi(0)[0]
-                .as_ref()
-                .and_then(|x| midi_store.borrow_midi(x))
-                .unwrap_or(&[]);
+        match &mut self.player {
+            Some(PlayerType::Pipe(player, param)) => {
+                let mut dirty = false;
 
-            self.player.next_buffered(
-                context.current_time,
-                midi_in,
-                rank,
-                &resources[1..],
-                &mut outs.stream(0)[0],
-            );
+                if let Some(cents) = ins.value(0)[0].as_float() {
+                    param.detune = cents_to_detune(cents);
+                    dirty = true;
+                }
+
+                if let Some(db_gain) = ins.value(1)[0].as_float() {
+                    param.gain = db_to_gain(db_gain);
+                    dirty = true;
+                }
+
+                if let Some(shelf_db_gain) = ins.value(2)[0].as_float() {
+                    param.third_db_gain = shelf_db_gain;
+                    dirty = true;
+                }
+
+                if dirty {
+                    player.set_param(param.clone());
+                }
+
+                if let Some(Resource::Rank(RankType::Pipes(rank))) = resources.get(0) {
+                    player.next_buffered(
+                        context.current_time,
+                        midi_in,
+                        rank,
+                        &resources[1..],
+                        &mut outs.stream(0)[0],
+                    );
+                }
+            }
+            Some(PlayerType::Percussion(player, param)) => {
+                if let Some(Resource::Rank(RankType::Percussion(rank))) = resources.get(0) {
+                    let mut dirty = false;
+
+                    if let Some(cents) = ins.value(0)[0].as_float() {
+                        param.detune = cents_to_detune(cents);
+                        dirty = true;
+                    }
+
+                    if let Some(db_gain) = ins.value(1)[0].as_float() {
+                        param.gain = db_to_gain(db_gain);
+                        dirty = true;
+                    }
+
+                    if dirty {
+                        player.set_param(param.clone());
+                    }
+
+                    player.next_buffered(
+                        context.current_time,
+                        midi_in,
+                        rank,
+                        &resources[1..],
+                        &mut outs.stream(0)[0],
+                    );
+                }
+            }
+            None => {}
         }
     }
 }
@@ -105,27 +166,32 @@ impl NodeRuntime for RankPlayerNode {
 impl Node for RankPlayerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         RankPlayerNode {
-            player: RankPlayer::default(),
+            player: None,
             polyphony: 16,
         }
     }
 
-    fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
-        NodeIo::simple(vec![
-            NodeRow::Property(
-                "rank".into(),
-                PropertyType::Resource("ranks".into()),
-                Property::Resource(ResourceId {
-                    namespace: "ranks".into(),
-                    resource: "".into(),
-                }),
-            ),
-            NodeRow::Property("polyphony".into(), PropertyType::Integer, Property::Integer(16)),
+    fn get_io(_context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
+        let mut rows = vec![
+            multiple_choice("rank_type", &["pipe", "percussion"], "pipe"),
+            resource("rank", "ranks"),
+            property("polyphony", PropertyType::Integer, Property::Integer(16)),
             midi_input("midi", 1),
             value_input("detune", Primitive::Float(0.0), 1),
             value_input("db_gain", Primitive::Float(0.0), 1),
-            value_input("shelf_db_gain", Primitive::Float(0.0), 1),
-            stream_output("audio", 1),
-        ])
+        ];
+
+        match props
+            .get_multiple_choice("rank_type")
+            .unwrap_or("pipe".to_string())
+            .as_str()
+        {
+            "percussion" => {}
+            _ => rows.push(value_input("shelf_db_gain", Primitive::Float(0.0), 1)),
+        };
+
+        rows.push(stream_output("audio", 1));
+
+        NodeIo::simple(rows)
     }
 }

@@ -10,15 +10,15 @@ pub struct OscillatorNode {
 
 impl NodeRuntime for OscillatorNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        if let Some(waveform) = params.props.get("waveform") {
-            let last_phase = self.oscillator.get_phase();
+        let waveform = params.props.get_multiple_choice("waveform")?;
 
-            self.oscillator = Oscillator::new(
-                Waveform::from_string(&waveform.to_owned().as_multiple_choice().unwrap()).unwrap(),
-                params.sound_config.sample_rate,
-            );
-            self.oscillator.set_phase(last_phase);
-        }
+        let last_phase = self.oscillator.get_phase();
+
+        self.oscillator = Oscillator::new(
+            Waveform::from_string(&waveform).unwrap(),
+            params.sound_config.sample_rate,
+        );
+        self.oscillator.set_phase(last_phase);
 
         InitResult::nothing()
     }

@@ -1,15 +1,11 @@
 use crate::{
-    node::filter::{
-        FilterSpec,
-        FilterType::{self},
-        NthBiquadFilter, SimpleComb,
-    },
+    node::filter::{FilterSpec, FilterType, NthBiquadFilter, SimpleComb},
     sampling::util::rms32,
     util::interpolate::hermite_lookup,
-    MonoSample,
+    MonoSample, SoundConfig,
 };
 
-use super::rank::Pipe;
+use super::{rank::Pipe, Voice};
 
 const PHASE_DEBUGGING: bool = false;
 
@@ -45,9 +41,6 @@ pub struct EnvelopeIndexes {
 
 #[derive(Debug, Clone)]
 pub struct PipePlayer {
-    // calculated at the beginning
-    sample_length: usize,
-
     state: State,
     next_state: State,
     // in case an action is performed during a crossfade
@@ -73,45 +66,38 @@ pub struct PipePlayer {
     crossfade_length: f32,
 }
 
-impl PipePlayer {
-    pub fn uninitialized() -> PipePlayer {
-        PipePlayer {
-            sample_length: 0,
+#[derive(Debug, Clone)]
+pub struct PipeParam {
+    pub gain: f32,
+    pub detune: f32,
+    pub third_db_gain: f32,
+}
 
-            state: State::Uninitialized,
-            next_state: State::Uninitialized,
-            queued_action: QueuedAction::None,
-
-            audio_position: 0.0,
-            resample_ratio: 0.0,
-
-            voicing_amp: 1.0,
-            voicing_comb: SimpleComb::default(),
-
-            detune: 1.0,
+impl Default for PipeParam {
+    fn default() -> Self {
+        PipeParam {
             gain: 1.0,
-            third_harm_filter: NthBiquadFilter::empty(),
+            detune: 1.0,
             third_db_gain: 0.0,
-            third_spec: FilterSpec::default(),
-
-            crossfade_position: 0.0,
-            crossfade_start: 0.0,
-            crossfade_length: 0.0,
         }
     }
+}
 
-    pub fn new(pipe: &Pipe, sample: &MonoSample, sample_rate: u32) -> PipePlayer {
-        let sample_length = sample.audio_raw.len();
+impl Voice for PipePlayer {
+    type Resource = Pipe;
+    type Sample = MonoSample;
+    type Param = PipeParam;
+
+    fn new(pipe: &Pipe, sample: &MonoSample, config: SoundConfig) -> PipePlayer {
+        let fs = config.sample_rate as f32;
 
         let mut new_player = PipePlayer {
-            sample_length,
-
             state: State::Looping,
             next_state: State::Stopped,
             queued_action: QueuedAction::None,
 
             audio_position: 0.0,
-            resample_ratio: sample.sample_rate as f32 / sample_rate as f32,
+            resample_ratio: sample.sample_rate as f32 / fs,
 
             voicing_amp: pipe.amplitude,
             voicing_comb: SimpleComb::default(),
@@ -123,14 +109,14 @@ impl PipePlayer {
             detune: 1.0,
             gain: 1.0,
             third_harm_filter: NthBiquadFilter::new(FilterSpec {
-                f0: sample_rate as f32 / 2.0,
-                fs: sample_rate as f32,
+                f0: fs / 2.0,
+                fs,
                 filter_type: FilterType::None,
             }),
             third_db_gain: 0.0,
             third_spec: FilterSpec::new(
                 pipe.freq,
-                sample_rate as f32,
+                fs,
                 FilterType::HighShelf {
                     slope: 1.0,
                     db_gain: 0.0,
@@ -143,7 +129,7 @@ impl PipePlayer {
         new_player
     }
 
-    pub fn play(&mut self, pipe: &Pipe, sample: &MonoSample) {
+    fn attack(&mut self, pipe: &Pipe, sample: &MonoSample) {
         let current_location = self.audio_position as usize;
 
         match self.state {
@@ -165,16 +151,7 @@ impl PipePlayer {
                 // Find place in attack section of equal strength
                 let new_location = envelope_lookup(&pipe.attack_envelope, current_amp);
 
-                // next, get out target in phase
-                let attack_shift = pipe
-                    .phase_calculator
-                    .calc_phase_shift(current_location, new_location, audio);
-
-                self.crossfade_to(
-                    State::Looping,
-                    pipe.crossfade as f32,
-                    (new_location as f32) + attack_shift,
-                );
+                self.jump_to_in_phase(pipe, sample, State::Looping, pipe.crossfade as f32, new_location);
             }
             State::Crossfading => {
                 self.queued_action = QueuedAction::Play;
@@ -189,7 +166,7 @@ impl PipePlayer {
         }
     }
 
-    pub fn release(&mut self, pipe: &Pipe, sample: &MonoSample) {
+    fn release(&mut self, pipe: &Pipe, sample: &MonoSample) {
         match self.state {
             State::Uninitialized => {}
             State::Crossfading => {
@@ -206,33 +183,44 @@ impl PipePlayer {
                 // Find place in release section of equal strength
                 let new_location = envelope_lookup(&pipe.release_envelope, current_amp);
 
-                // next, get out target in phase
-                let release_shift = pipe
-                    .phase_calculator
-                    .calc_phase_shift(current_location, new_location, audio);
-
-                self.crossfade_to(
-                    State::Releasing,
-                    pipe.crossfade as f32,
-                    new_location as f32 + release_shift,
-                );
+                self.jump_to_in_phase(pipe, sample, State::Releasing, pipe.crossfade as f32, new_location);
             }
             State::Releasing | State::Stopped => {}
         }
     }
 
+    fn step(&mut self, resource: &Pipe, sample: &MonoSample) -> f32 {
+        self.next_sample(resource, sample)
+    }
+
+    fn active(&self) -> bool {
+        !matches!(self.state, State::Stopped | State::Uninitialized)
+    }
+
+    fn reset(&mut self) {
+        self.restart();
+    }
+
+    fn set_param(&mut self, param: &Self::Param) {
+        self.gain = param.gain;
+        self.detune = param.detune;
+        self.third_db_gain = param.third_db_gain;
+    }
+}
+
+impl PipePlayer {
     pub fn next_sample(&mut self, pipe: &Pipe, sample: &MonoSample) -> f32 {
-        let out = match self.state {
+        match self.state {
             State::Uninitialized => 0.0,
             State::Crossfading => {
-                if self.audio_position < (self.sample_length - 3) as f32 {
+                if self.audio_position < sample.audio_raw.len() as f32 {
                     let (out, done) = self.next_sample_crossfade(sample);
 
                     if done {
                         self.state = self.next_state.clone();
 
                         match self.queued_action {
-                            QueuedAction::Play => self.play(pipe, sample),
+                            QueuedAction::Play => self.attack(pipe, sample),
                             QueuedAction::Release => self.release(pipe, sample),
                             QueuedAction::None => {}
                         }
@@ -263,7 +251,7 @@ impl PipePlayer {
                 out
             }
             State::Releasing => {
-                if self.audio_position < (self.sample_length - 3) as f32 {
+                if self.audio_position < sample.audio_raw.len() as f32 {
                     self.next_sample_normal(sample)
                 } else {
                     self.state = State::Stopped;
@@ -272,49 +260,69 @@ impl PipePlayer {
                 }
             }
             State::Stopped => 0.0,
-        };
-
-        out
+        }
     }
 
     fn next_sample_normal(&mut self, sample: &MonoSample) -> f32 {
         let comb_pass = self.voicing_comb.filter(
-            audio_lookup(&sample.audio_raw, self.audio_position),
+            hermite_lookup(&sample.audio_raw, self.audio_position),
             &sample.audio_raw,
             self.audio_position,
         );
 
+        let out = self.voice_filtering(comb_pass);
+
         self.audio_position += self.detune * self.resample_ratio;
 
-        self.third_harm_filter.filter_sample(comb_pass) * self.gain * self.voicing_amp
+        out
     }
 
     fn next_sample_crossfade(&mut self, sample: &MonoSample) -> (f32, bool) {
         let crossfade_factor = (self.crossfade_position - self.crossfade_start) / self.crossfade_length;
 
         let old = self.voicing_comb.filter(
-            audio_lookup(&sample.audio_raw, self.crossfade_position),
+            hermite_lookup(&sample.audio_raw, self.crossfade_position),
             &sample.audio_raw,
             self.crossfade_position,
         );
 
         let new = self.voicing_comb.filter(
-            audio_lookup(&sample.audio_raw, self.audio_position),
+            hermite_lookup(&sample.audio_raw, self.audio_position),
             &sample.audio_raw,
             self.audio_position,
         );
 
         let interpolated = old * (1.0 - crossfade_factor) + new * crossfade_factor;
 
+        let out = self.voice_filtering(interpolated);
+
         self.audio_position += self.detune * self.resample_ratio;
         self.crossfade_position += self.detune * self.resample_ratio;
-
-        let out = self.third_harm_filter.filter_sample(interpolated) * self.gain * self.voicing_amp;
 
         (out, crossfade_factor >= 1.0)
     }
 
+    fn voice_filtering(&mut self, sample: f32) -> f32 {
+        self.third_harm_filter.filter_sample(sample) * self.gain * self.voicing_amp
+    }
+
+    fn jump_to_in_phase(
+        &mut self,
+        pipe: &Pipe,
+        sample: &MonoSample,
+        next_state: State,
+        crossfade_length: f32,
+        new_location: usize,
+    ) {
+        let release_shift =
+            pipe.phase_calculator
+                .calc_phase_shift(self.audio_position as usize, new_location, &sample.audio_raw);
+
+        self.crossfade_to(next_state, crossfade_length, (new_location as f32) + release_shift);
+    }
+
     fn crossfade_to(&mut self, next_state: State, crossfade_length: f32, new_location: f32) {
+        // PHASE_DEBUGGING effectively disables crossfading to make phase issues more prominent
         if PHASE_DEBUGGING {
             self.state = next_state;
             self.audio_position = new_location;
@@ -329,10 +337,6 @@ impl PipePlayer {
             self.crossfade_length = crossfade_length;
             self.audio_position = new_location;
         }
-    }
-
-    pub fn is_done(&self) -> bool {
-        matches!(self.state, State::Stopped | State::Uninitialized)
     }
 
     pub fn get_detune(&self) -> f32 {
@@ -396,14 +400,29 @@ impl PipePlayer {
     }
 }
 
-#[inline]
-fn audio_lookup(sample: &[f32], position: f32) -> f32 {
-    let sample_index = position as usize;
+impl Default for PipePlayer {
+    fn default() -> Self {
+        PipePlayer {
+            state: State::Uninitialized,
+            next_state: State::Uninitialized,
+            queued_action: QueuedAction::None,
 
-    if sample_index > sample.len() - 4 {
-        0.0
-    } else {
-        hermite_lookup(position, sample)
+            audio_position: 0.0,
+            resample_ratio: 0.0,
+
+            voicing_amp: 1.0,
+            voicing_comb: SimpleComb::default(),
+
+            detune: 1.0,
+            gain: 1.0,
+            third_harm_filter: NthBiquadFilter::empty(),
+            third_db_gain: 0.0,
+            third_spec: FilterSpec::default(),
+
+            crossfade_position: 0.0,
+            crossfade_start: 0.0,
+            crossfade_length: 0.0,
+        }
     }
 }
 

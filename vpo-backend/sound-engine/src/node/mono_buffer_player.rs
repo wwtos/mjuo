@@ -49,7 +49,7 @@ impl MonoBufferPlayer {
             return 0.0; // out of interpolation bounds
         }
 
-        let out = hermite_lookup(self.audio_position, &buffer.audio_raw);
+        let out = hermite_lookup(&buffer.audio_raw, self.audio_position);
 
         self.audio_position += self.adjusted_playback_rate;
 

@@ -14,9 +14,7 @@ impl NodeRuntime for GainNode {
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
-        if ins.value(0)[0].is_some() {
-            self.gain = ins.value(0)[0].as_float().unwrap_or(0.0);
-        }
+        ins.value(0)[0].as_float().map(|gain| self.gain = gain);
 
         for (frame_in, frame_out) in ins.stream(0).iter().zip(outs.stream(0).iter_mut()) {
             for (sample_in, sample_out) in frame_in.iter().zip(frame_out.iter_mut()) {

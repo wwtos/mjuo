@@ -14,9 +14,7 @@ impl NodeRuntime for MixerNode {
     ) {
         for mut stream_out in outs.streams() {
             for channel_out in stream_out.iter_mut() {
-                for frame_out in channel_out.iter_mut() {
-                    *frame_out = 0.0;
-                }
+                channel_out.fill(0.0);
             }
         }
 

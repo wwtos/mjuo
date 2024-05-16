@@ -8,7 +8,7 @@ use crate::{
     util::{send_graph_updates, send_project_state_updates, send_resource_updates},
 };
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
+pub fn route(mut state: RouteCtx) -> Result<RouteReturn, EngineError> {
     let graph_index: GraphIndex =
         serde_json::from_value(state.msg["payload"]["graphIndex"].take()).context(JsonParserSnafu)?;
     let resources = &*state.resources_lock.read().unwrap();

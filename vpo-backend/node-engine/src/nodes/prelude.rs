@@ -100,3 +100,88 @@ pub fn default_channels(props: &SeaHashMap<String, Property>, default: usize) ->
         None => default,
     }
 }
+
+pub trait HashMapExt {
+    fn get_string(&self, k: &str) -> Result<String, NodeError>;
+
+    fn get_bool(&self, k: &str) -> Result<bool, NodeError>;
+
+    fn get_int(&self, k: &str) -> Result<i32, NodeError>;
+
+    fn get_float(&self, k: &str) -> Result<f32, NodeError>;
+
+    fn get_resource(&self, k: &str) -> Result<ResourceId, NodeError>;
+
+    fn get_multiple_choice(&self, k: &str) -> Result<String, NodeError>;
+}
+
+impl HashMapExt for SeaHashMap<String, Property> {
+    fn get_string(&self, k: &str) -> Result<String, NodeError> {
+        self.get(k)
+            .cloned()
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_string()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+
+    fn get_bool(&self, k: &str) -> Result<bool, NodeError> {
+        self.get(k)
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_bool()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+
+    fn get_int(&self, k: &str) -> Result<i32, NodeError> {
+        self.get(k)
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_integer()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+
+    fn get_float(&self, k: &str) -> Result<f32, NodeError> {
+        self.get(k)
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_float()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+
+    fn get_resource(&self, k: &str) -> Result<ResourceId, NodeError> {
+        self.get(k)
+            .cloned()
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_resource()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+
+    fn get_multiple_choice(&self, k: &str) -> Result<String, NodeError> {
+        self.get(k)
+            .cloned()
+            .ok_or(NodeError::MissingProperty {
+                property: k.to_string(),
+            })?
+            .as_multiple_choice()
+            .ok_or(NodeError::WrongPropertyType {
+                property: k.to_string(),
+            })
+    }
+}

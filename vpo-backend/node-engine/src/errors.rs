@@ -67,6 +67,10 @@ pub enum NodeError {
     IncorrectNodeType { expected: String, actual: String },
     #[snafu(display("Can't delete root node"))]
     CannotDeleteRootNode,
+    #[snafu(display("Property {property} was missing during node initialization"))]
+    MissingProperty { property: String },
+    #[snafu(display("Property {property} was incorrect type during node initialization"))]
+    WrongPropertyType { property: String },
 }
 
 impl From<GraphError> for NodeError {

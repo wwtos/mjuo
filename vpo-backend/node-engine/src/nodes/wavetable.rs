@@ -10,13 +10,13 @@ pub struct WavetableNode {
 
 impl NodeRuntime for WavetableNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let needed_resource = params.props.get("wavetable").and_then(|x| x.clone().as_resource());
+        let needed_resource = params.props.get_resource("wavetable")?;
 
         self.oscillator = WavetableOscillator::new(params.sound_config.clone());
 
         NodeOk::no_warnings(InitResult {
             changed_properties: None,
-            needed_resources: needed_resource.map(|x| vec![x]).unwrap_or(vec![]),
+            needed_resources: vec![needed_resource],
         })
     }
 

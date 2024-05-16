@@ -24,12 +24,12 @@ impl InputsNode {
 
 impl NodeRuntime for InputsNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let channels = default_channels(&params.props, params.default_channel_count);
+        let channels = params.get_channel_count();
 
-        let type_str = params.props.get("type").and_then(|x| x.clone().as_multiple_choice());
-        let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
-            Some("stream") => SocketType::Stream,
-            Some("midi") => SocketType::Midi,
+        let type_str = params.props.get_multiple_choice("type")?;
+        let socket_type = match type_str.as_str() {
+            "stream" => SocketType::Stream,
+            "midi" => SocketType::Midi,
             _ => SocketType::Stream,
         };
 

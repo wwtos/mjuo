@@ -59,11 +59,9 @@ impl NodeRuntime for PolyphonicNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warnings = vec![];
 
-        if let Some(polyphony) = params.props.get("polyphony").and_then(|x| x.as_integer()) {
-            self.polyphony = polyphony.clamp(1, 255) as u8;
-        }
+        self.polyphony = params.props.get_int("polyphony")?.clamp(1, 255) as u8;
 
-        let child_graph_index = params.child_graph.expect("a child graph to be provided");
+        let child_graph_index = params.child_graph.expect("a child graph index to be provided");
         let child_graph = params
             .graph_manager
             .get_graph(child_graph_index)

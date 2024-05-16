@@ -15,6 +15,7 @@ use log::info;
 use node_engine::resources::Resources;
 use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
+#[cfg(windows)]
 use path_slash::PathExt;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use semver::Version;
@@ -95,14 +96,16 @@ where
     // spawn threads to load everything
     let new_resources: Vec<_> = asset_list
         .map(|(key, location)| {
-            let new_resource = load_resource(&location).unwrap();
+            let new_resource = load_resource(&location).ok();
 
             (key, new_resource)
         })
         .collect();
 
     for (key, resource) in new_resources.into_iter() {
-        resources.add_resource(key, resource);
+        if let Some(resource) = resource {
+            resources.add_resource(key, resource);
+        }
     }
 
     Ok(resources)

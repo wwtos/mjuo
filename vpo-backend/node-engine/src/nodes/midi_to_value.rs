@@ -14,9 +14,8 @@ pub struct MidiToValueNode {
 
 impl NodeRuntime for MidiToValueNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        if let Some(Property::String(expression)) = params.props.get("expression") {
-            self.expression_raw = expression.clone();
-        }
+        let expression = params.props.get_string("expression")?;
+        self.expression_raw = expression.clone();
 
         // compile the expression and collect any errors
         let possible_ast = params.script_engine.compile(&self.expression_raw);
@@ -45,36 +44,28 @@ impl NodeRuntime for MidiToValueNode {
         midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
-        let mut warnings = vec![];
+        let Some(ast) = self.ast.as_ref() else { return };
+        let Some(midi) = &ins.midi(0)[0] else { return };
 
-        if let Some(ast) = self.ast.as_ref() {
-            if let Some(midi) = &ins.midi(0)[0] {
-                let messages = midi_store.borrow_midi(midi).unwrap();
+        let messages = midi_store.borrow_midi(midi).unwrap();
 
-                for message in messages.iter() {
-                    self.scope.push("timestamp", message.timestamp);
+        for message in messages.iter() {
+            self.scope.push("timestamp", message.timestamp);
 
-                    add_message_to_scope(&mut self.scope, &message.data);
+            add_message_to_scope(&mut self.scope, &message.data);
 
-                    let result = context
-                        .script_engine
-                        .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
+            let result = context
+                .script_engine
+                .eval_ast_with_scope::<Dynamic>(&mut self.scope, ast);
 
-                    match result {
-                        Ok(dynamic) => {
-                            outs.value(0)[0] = dynamic_to_primitive(dynamic);
-                        }
-                        Err(err) => {
-                            warnings.push(NodeWarning::RhaiExecutionFailure {
-                                err: *err,
-                                script: self.expression_raw.clone(),
-                            });
-                        }
-                    }
-
-                    self.scope.rewind(0);
+            match result {
+                Ok(dynamic) => {
+                    outs.value(0)[0] = dynamic_to_primitive(dynamic);
                 }
+                Err(_) => {}
             }
+
+            self.scope.rewind(0);
         }
     }
 }

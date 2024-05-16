@@ -26,6 +26,7 @@ impl NodeRuntime for MidiToValuesNode {
                         note,
                         velocity,
                     } => {
+                        // FIXME: this should account for the current pitch bend
                         self.freq = 440.0 * f32::powf(2.0, (*note as f32 - 69.0) / 12.0);
 
                         outs.value(0)[0] = float(self.freq);

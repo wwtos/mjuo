@@ -9,7 +9,7 @@ use crate::{
     errors::{NodeError, NodeOk},
     graph_manager::GraphIndex,
     node::{NodeRow, NodeState},
-    property::Property,
+    property::{Property, PropertyDiscriminants},
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -77,7 +77,23 @@ impl NodeInstance {
     }
 
     pub fn set_node_rows(&mut self, rows: Vec<NodeRow>) -> Vec<NodeRow> {
-        mem::replace(&mut self.node_rows, rows)
+        let old = mem::replace(&mut self.node_rows, rows);
+
+        for row in self.node_rows.iter() {
+            if let NodeRow::Property(name, _row_type, value) = row {
+                if !self.properties.contains_key(name) {
+                    // if there's a new property present, insert it
+                    self.properties.insert(name.clone(), value.clone());
+                } else if let Some(property) = self.properties.get(name) {
+                    // if the property by the same name is of a different type, replace it
+                    if Into::<PropertyDiscriminants>::into(property) != value.into() {
+                        self.properties.insert(name.clone(), value.clone());
+                    }
+                }
+            }
+        }
+
+        old
     }
 
     pub fn get_property(&self, name: &str) -> Option<Property> {

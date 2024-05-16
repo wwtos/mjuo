@@ -143,6 +143,7 @@ pub struct GraphState {
     io_routing: IoRoutes,
     sound_config: SoundConfig,
     default_channel_count: usize,
+    ui_data: serde_json::Value,
 }
 
 impl GraphState {
@@ -163,6 +164,7 @@ impl GraphState {
             io_routing: IoRoutes::default(),
             default_channel_count,
             sound_config,
+            ui_data: Value::Null,
         }
     }
 

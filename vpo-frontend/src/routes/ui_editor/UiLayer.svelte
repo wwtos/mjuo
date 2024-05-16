@@ -44,17 +44,19 @@
         return string.replace(/\$/g, "$$$$");
     }
 
-    function interpolateTemplate(template: string) {
-        let replaced = template;
+    let text = "";
 
-        for (var prop in properties) {
+    $: if (layer.type === "text") {
+        let replaced = layer.template;
+
+        for (let prop in properties) {
             replaced = replaced.replace(
                 new RegExp(escapeRegExp(`{${prop}}`)),
-                escapeReplacement(properties[prop])
+                escapeReplacement(properties[prop]),
             );
         }
 
-        return replaced;
+        text = replaced;
     }
 </script>
 
@@ -66,9 +68,7 @@
         style="position: absolute; left: 0px; top: 0px; z-index: {layerIndex}"
     />
 {:else if layer.type === "text"}
-    <span style={layerStyle} class="text"
-        >{interpolateTemplate(layer.template)}</span
-    >
+    <span style={layerStyle} class="text">{text}</span>
 {/if}
 
 <style>

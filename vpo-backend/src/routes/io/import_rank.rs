@@ -18,7 +18,7 @@ use sound_engine::sampling::{
 use crate::{
     errors::{EngineError, IoSnafu, JsonParserSnafu},
     resource::{
-        rank::{expected_sample_location, RankConfig},
+        rank::{expected_sample_location, PipeRankConfig},
         sample::{check_for_note_number, load_sample},
     },
     routes::{prelude::*, RouteReturn},
@@ -31,7 +31,7 @@ struct Payload {
     rank_name: String,
 }
 
-pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route<'a>(mut state: RouteCtx<'a>) -> Result<RouteReturn, EngineError> {
     let Payload { file_name, rank_name } =
         serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
 
@@ -150,8 +150,11 @@ pub async fn route<'a>(mut state: RouteState<'a>) -> Result<RouteReturn, EngineE
             pipes.insert(note, pipe);
         }
 
-        let rank = Rank { pipes, name: rank_name };
-        let config = RankConfig::from_rank(
+        let rank = Rank {
+            notes: pipes,
+            name: rank_name,
+        };
+        let config = PipeRankConfig::from_pipes_rank(
             rank,
             ResourceId {
                 namespace: "samples".into(),

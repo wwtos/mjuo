@@ -17,10 +17,10 @@ struct Payload {
     force_append: bool,
 }
 
-pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
-    let payload: Payload = serde_json::from_value(state.msg["payload"].take()).context(JsonParserSnafu)?;
+pub fn route(mut ctx: RouteCtx) -> Result<RouteReturn, EngineError> {
+    let payload: Payload = serde_json::from_value(ctx.msg["payload"].take()).context(JsonParserSnafu)?;
 
-    let invalidations = state
+    let invalidations = ctx
         .state
         .commit(payload.actions, payload.force_append)
         .context(NodeSnafu)?;
@@ -44,20 +44,20 @@ pub fn route(mut state: RouteState) -> Result<RouteReturn, EngineError> {
     }
 
     for graph_index in touched_graphs {
-        send_graph_updates(state.state, *graph_index, state.to_server)?;
+        send_graph_updates(ctx.state, *graph_index, ctx.to_server)?;
     }
 
     if new_route_rules {
-        send_project_state_updates(state.state, state.global_state, state.to_server)?;
+        send_project_state_updates(ctx.state, ctx.global_state, ctx.to_server)?;
     }
 
     state_invalidations(
-        state.state,
+        ctx.state,
         invalidations,
-        &mut state.global_state.device_manager,
-        &*state.resources_lock.read().unwrap(),
-        state.to_audio_thread,
-        state.to_server,
+        &mut ctx.global_state.device_manager,
+        &*ctx.resources_lock.read().unwrap(),
+        ctx.to_audio_thread,
+        ctx.to_server,
     )?;
 
     Ok(RouteReturn { new_project: false })

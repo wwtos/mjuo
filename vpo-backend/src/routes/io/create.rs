@@ -6,7 +6,7 @@ use crate::{
     routes::{prelude::*, RouteReturn},
 };
 
-pub async fn route<'a>(state: RouteState<'a>) -> Result<RouteReturn, EngineError> {
+pub async fn route<'a>(state: RouteCtx<'a>) -> Result<RouteReturn, EngineError> {
     let file = AsyncFileDialog::new().set_file_name("untitled.mjuo").save_file().await;
 
     if let Some(file) = file {

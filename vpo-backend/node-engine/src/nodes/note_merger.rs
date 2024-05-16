@@ -22,7 +22,7 @@ impl NoteMergerNode {
 
 impl NodeRuntime for NoteMergerNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let input_count = params.props.get("input_count").unwrap().as_integer().unwrap();
+        let input_count = params.props.get_int("input_count")?;
         self.states.resize(input_count.max(2) as usize, 0);
 
         InitResult::nothing()
@@ -39,36 +39,36 @@ impl NodeRuntime for NoteMergerNode {
         let mut new_messages: MidiChannel = MidiChannel::new();
 
         for (i, messages) in ins.midis().enumerate() {
-            if let Some(midi) = &messages[0] {
-                let messages = midi_store.borrow_midi(midi).unwrap();
+            let Some(midi) = &messages[0] else { continue };
 
-                for message in messages.iter() {
-                    match message.data {
-                        MidiData::NoteOn { note, .. } => {
-                            let before = self.combined;
+            let messages = midi_store.borrow_midi(midi).unwrap();
 
-                            self.states[i] |= 1_u128 << note;
-                            self.combine();
+            for message in messages.iter() {
+                match message.data {
+                    MidiData::NoteOn { note, .. } => {
+                        let before = self.combined;
 
-                            // the state changed, so we should pass this message through
-                            if self.combined != before {
-                                new_messages.push(message.clone());
-                            }
-                        }
-                        MidiData::NoteOff { note, .. } => {
-                            let before = self.combined;
+                        self.states[i] |= 1_u128 << note;
+                        self.combine();
 
-                            self.states[i] &= !(1_u128 << note);
-                            self.combine();
-
-                            // the state changed, so we should pass this message through
-                            if self.combined != before {
-                                new_messages.push(message.clone());
-                            }
-                        }
-                        _ => {
+                        // the state changed, so we should pass this message through
+                        if self.combined != before {
                             new_messages.push(message.clone());
                         }
+                    }
+                    MidiData::NoteOff { note, .. } => {
+                        let before = self.combined;
+
+                        self.states[i] &= !(1_u128 << note);
+                        self.combine();
+
+                        // the state changed, so we should pass this message through
+                        if self.combined != before {
+                            new_messages.push(message.clone());
+                        }
+                    }
+                    _ => {
+                        new_messages.push(message.clone());
                     }
                 }
             }

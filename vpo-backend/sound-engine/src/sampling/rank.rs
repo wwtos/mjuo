@@ -1,11 +1,11 @@
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 
 use common::resource_manager::ResourceId;
-use serde::Serialize;
 
-use super::{phase_calculator::PhaseCalculator, pipe_player::EnvelopeIndexes};
+use super::{phase_calculator::PhaseCalculator, pipe_player::EnvelopeIndexes, Resource};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Pipe {
     pub resource: ResourceId,
 
@@ -23,18 +23,49 @@ pub struct Pipe {
 
     pub crossfade: usize,
 
-    #[serde(skip)]
     pub phase_calculator: PhaseCalculator,
-    #[serde(skip)]
     pub amp_window_size: usize,
-    #[serde(skip)]
     pub attack_envelope: EnvelopeIndexes,
-    #[serde(skip)]
     pub release_envelope: EnvelopeIndexes,
 }
 
-#[derive(Debug, Serialize)]
-pub struct Rank {
-    pub pipes: BTreeMap<u8, Pipe>,
+impl Resource for Pipe {
+    fn resource_id(&self) -> &ResourceId {
+        &self.resource
+    }
+}
+
+#[derive(Debug)]
+pub struct Percussion {
+    pub resource: ResourceId,
+    /// in seconds
+    pub release_duration: f32,
+    pub gain: f32,
+}
+
+impl Resource for Percussion {
+    fn resource_id(&self) -> &ResourceId {
+        &self.resource
+    }
+}
+
+#[derive(Debug)]
+pub struct Rank<T: Debug> {
+    pub notes: BTreeMap<u8, T>,
     pub name: String,
+}
+
+#[derive(Debug)]
+pub enum RankType {
+    Pipes(Rank<Pipe>),
+    Percussion(Rank<Percussion>),
+}
+
+impl RankType {
+    pub fn as_pipes(&self) -> Option<&Rank<Pipe>> {
+        match self {
+            RankType::Pipes(pipes) => Some(pipes),
+            _ => None,
+        }
+    }
 }

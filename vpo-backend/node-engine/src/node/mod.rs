@@ -137,6 +137,20 @@ pub struct NodeInitParams<'a> {
     pub default_channel_count: usize,
 }
 
+impl<'a> NodeInitParams<'a> {
+    /// This gets the channel count based on a property called `channels` that should be provided.
+    /// If not, it defaults to the global default channel count
+    pub fn get_channel_count(&self) -> usize {
+        match self.props.get("channels") {
+            Some(prop) => prop
+                .as_integer()
+                .map(|x| x.max(1) as usize)
+                .unwrap_or(self.default_channel_count),
+            None => self.default_channel_count,
+        }
+    }
+}
+
 pub struct StateInterface<'a> {
     pub request_node_states: &'a mut dyn FnMut(),
     pub enqueue_state_updates: &'a mut dyn FnMut(Vec<(NodeIndex, serde_json::Value)>),
@@ -526,7 +540,7 @@ impl MidisIndex {
 #[allow(unused_variables)]
 #[allow(unused_mut)]
 #[enum_dispatch(NodeVariant)]
-pub trait NodeRuntime: Debug + Clone {
+pub trait NodeRuntime: Debug {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }

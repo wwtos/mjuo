@@ -22,25 +22,15 @@ impl NodeRuntime for EnvelopeNode {
         _midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
-        if let Some(gate) = ins.value(0)[0].as_boolean() {
-            self.gate = gate;
-        }
-
-        if let Some(attack) = ins.value(1)[0].as_float() {
-            self.envelope.attack = attack;
-        }
-
-        if let Some(decay) = ins.value(2)[0].as_float() {
-            self.envelope.decay = decay;
-        }
-
-        if let Some(sustain) = ins.value(3)[0].as_float() {
-            self.envelope.sustain = sustain;
-        }
-
-        if let Some(release) = ins.value(4)[0].as_float() {
-            self.envelope.release = release;
-        }
+        ins.value(0)[0].as_boolean().map(|gate| self.gate = gate);
+        ins.value(1)[0].as_float().map(|attack| self.envelope.attack = attack);
+        ins.value(2)[0].as_float().map(|decay| self.envelope.decay = decay);
+        ins.value(3)[0]
+            .as_float()
+            .map(|sustain| self.envelope.sustain = sustain);
+        ins.value(4)[0]
+            .as_float()
+            .map(|release| self.envelope.release = release);
 
         if !self.envelope.is_done() || self.gate {
             outs.value(0)[0] = float(self.envelope.process(self.gate));
