@@ -1,8 +1,5 @@
 use std::{borrow::Cow, ffi::CStr, io::Write};
 
-#[cfg(test)]
-use std::ffi::CString;
-
 use memchr;
 
 pub enum OscView<'a> {
@@ -90,23 +87,15 @@ fn padding_32(pos: usize) -> usize {
     3 - (pos % 4)
 }
 
-fn write_str_padded<W: Write>(str: &str, writer: &mut W) -> Result<usize, std::io::Error> {
-    let no_null = memchr::memchr(0, str.as_bytes()).is_none();
+fn write_str_padded<W: Write>(str: &CStr, writer: &mut W) -> Result<usize, std::io::Error> {
+    let bytes = str.to_bytes_with_nul();
 
-    if no_null {
-        writer.write_all(str.as_bytes())?;
-        writer.write_all(&[b'\0'])?;
+    writer.write_all(bytes)?;
 
-        let mut written = str.len() + 1;
-        written += write_padding_32(written, writer)?;
+    let mut written = bytes.len();
+    written += write_padding_32(written, writer)?;
 
-        Ok(written)
-    } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "str contained null",
-        ))
-    }
+    Ok(written)
 }
 
 fn write_padding_32<W: Write>(written_so_far: usize, writer: &mut W) -> Result<usize, std::io::Error> {
@@ -324,8 +313,8 @@ impl<'writer, W: Write> OscWriter<'writer, W> {
     /// Make sure `arguments` contains `,` at the beginning (for example: `,fi`)
     pub fn start(
         writer: &'writer mut W,
-        address: &str,
-        arguments: &str,
+        address: &CStr,
+        arguments: &CStr,
     ) -> Result<OscWriter<'writer, W>, std::io::Error> {
         write_str_padded(address, writer)?;
         write_str_padded(arguments, writer)?;
@@ -364,10 +353,7 @@ fn test_message_parsing() {
 
             assert_eq!(iter.next(), Some(OscArg::Integer(1000)));
             assert_eq!(iter.next(), Some(OscArg::Integer(-1)));
-            assert_eq!(
-                iter.next(),
-                Some(OscArg::String(Cow::Owned(CString::new("hello").unwrap())))
-            );
+            assert_eq!(iter.next(), Some(OscArg::String(cstr("hello\0").into())));
             assert_eq!(iter.next(), Some(OscArg::Float(1.234)));
             assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
             assert_eq!(iter.next(), None);
@@ -380,14 +366,17 @@ fn test_message_parsing() {
     }
 }
 
+#[cfg(test)]
+fn cstr(x: &str) -> &CStr {
+    CStr::from_bytes_with_nul(x.as_bytes()).unwrap()
+}
+
 #[test]
 fn test_message_generation() {
     let mut writer: Vec<u8> = vec![];
 
-    let mut builder = OscWriter::start(&mut writer, "/foo/bar", ",sff").unwrap();
-    builder
-        .write_arg(OscArg::String(CString::new("hello").unwrap().into()))
-        .unwrap();
+    let mut builder = OscWriter::start(&mut writer, cstr("/foo/bar\0"), cstr(",sff\0")).unwrap();
+    builder.write_arg(OscArg::String(cstr("hello\0").into())).unwrap();
     builder.write_arg(OscArg::Float(1.234)).unwrap();
     builder.write_arg(OscArg::Float(5.678)).unwrap();
 
@@ -400,10 +389,7 @@ fn test_message_generation() {
         OscView::Message(message) => {
             let mut iter = message.arg_iter();
 
-            assert_eq!(
-                iter.next(),
-                Some(OscArg::String(Cow::Owned(CString::new("hello").unwrap())))
-            );
+            assert_eq!(iter.next(), Some(OscArg::String(cstr("hello\0").into())));
             assert_eq!(iter.next(), Some(OscArg::Float(1.234)));
             assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
             assert_eq!(iter.next(), None);
