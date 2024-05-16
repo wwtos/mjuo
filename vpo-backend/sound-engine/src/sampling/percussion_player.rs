@@ -20,7 +20,19 @@ enum QueuedAction {
     None,
 }
 
-#[derive(Default)]
+#[derive(Debug, Clone)]
+pub struct PercussionParam {
+    pub gain: f32,
+    pub detune: f32,
+}
+
+impl Default for PercussionParam {
+    fn default() -> Self {
+        PercussionParam { gain: 1.0, detune: 1.0 }
+    }
+}
+
+#[derive(Default, Debug)]
 pub struct PercussionPlayer {
     state: State,
     next_state: State,
@@ -35,19 +47,22 @@ pub struct PercussionPlayer {
     fade_out_length: f32,
 
     gain: f32,
+    detune: f32,
+
+    voicing_gain: f32,
     release_gain: f32,
 }
 
 impl Voice for PercussionPlayer {
     type Sample = MonoSample;
     type Resource = Percussion;
-    type Param = ();
+    type Param = PercussionParam;
 
     fn new(resource: &Self::Resource, sample: &Self::Sample, sound_config: SoundConfig) -> Self {
         let fs = sound_config.sample_rate as f32;
 
         PercussionPlayer {
-            state: State::Stopped,
+            state: State::Playing,
             next_state: State::Stopped,
             queued_action: QueuedAction::None,
 
@@ -55,22 +70,24 @@ impl Voice for PercussionPlayer {
             resample_ratio: sample.sample_rate as f32 / fs,
             fs,
 
+            gain: 1.0,
+            detune: 1.0,
+
             fade_out_position: 0.0,
             fade_out_start: 0.0,
             fade_out_length: resource.release_duration * sound_config.sample_rate as f32,
 
-            gain: resource.gain,
+            voicing_gain: resource.gain,
             release_gain: 1.0,
         }
     }
 
     fn attack(&mut self, _resource: &Self::Resource, _sample: &Self::Sample) {
+        self.release_gain = 1.0;
+
         match self.state {
-            State::Playing => {
+            State::Playing | State::FadingOut => {
                 // nothing, as we're already playing
-            }
-            State::FadingOut => {
-                self.queued_action = QueuedAction::Play;
             }
             State::Releasing => {
                 // reattack
@@ -80,8 +97,6 @@ impl Voice for PercussionPlayer {
                 // attack
                 self.state = State::Playing;
                 self.audio_position = 0.0;
-
-                self.release_gain = 1.0;
             }
             State::Uninitialized => {}
         }
@@ -106,7 +121,10 @@ impl Voice for PercussionPlayer {
         matches!(self.state, State::Playing | State::FadingOut | State::Releasing)
     }
 
-    fn set_param(&mut self, _param: &Self::Param) {}
+    fn set_param(&mut self, param: &Self::Param) {
+        self.gain = param.gain;
+        self.detune = param.detune;
+    }
 
     fn reset(&mut self) {
         self.state = State::Stopped;
@@ -119,7 +137,7 @@ impl Voice for PercussionPlayer {
                     self.state = State::Stopped;
                 }
 
-                self.next_sample_normal(sample) * self.gain
+                self.next_sample_normal(sample) * self.voicing_gain
             }
             State::FadingOut => {
                 let (out, done) = self.next_sample_fade_out(sample);
@@ -136,7 +154,7 @@ impl Voice for PercussionPlayer {
                     self.queued_action = QueuedAction::None;
                 }
 
-                out * self.gain
+                out * self.voicing_gain * self.gain
             }
             State::Releasing => {
                 self.release_gain -= 1.0 / (self.fs * resource.release_duration);
@@ -148,7 +166,7 @@ impl Voice for PercussionPlayer {
                     self.state = State::Stopped;
                 }
 
-                out * self.gain
+                out * self.voicing_gain * self.gain
             }
             State::Stopped => 0.0,
             State::Uninitialized => 0.0,
@@ -160,7 +178,7 @@ impl PercussionPlayer {
     fn next_sample_normal(&mut self, sample: &MonoSample) -> f32 {
         let out = hermite_lookup(&sample.audio_raw, self.audio_position);
 
-        self.audio_position += self.resample_ratio;
+        self.audio_position += self.resample_ratio * self.detune;
 
         if self.audio_position >= sample.audio_raw.len() as f32 {
             self.state = State::Stopped;
@@ -169,6 +187,8 @@ impl PercussionPlayer {
         out
     }
 
+    /// This is for when it's reattacking, and simultainously playing the start of the new sample while
+    /// finishing up the release
     fn next_sample_fade_out(&mut self, sample: &MonoSample) -> (f32, bool) {
         let crossfade_factor = ((self.fade_out_position - self.fade_out_start) / self.fade_out_length).min(1.0);
 
@@ -177,8 +197,8 @@ impl PercussionPlayer {
 
         let interpolated = old * (1.0 - crossfade_factor) + new;
 
-        self.audio_position += self.resample_ratio;
-        self.fade_out_position += self.resample_ratio;
+        self.audio_position += self.resample_ratio * self.detune;
+        self.fade_out_position += self.resample_ratio * self.detune;
 
         (interpolated, crossfade_factor >= 1.0)
     }

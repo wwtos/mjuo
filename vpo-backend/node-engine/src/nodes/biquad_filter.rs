@@ -23,26 +23,24 @@ impl BiquadFilterNode {
 
 impl NodeRuntime for BiquadFilterNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        if let Some(Property::MultipleChoice(filter_type)) = params.props.get("filter_type") {
-            self.filter_spec = FilterSpec {
-                f0: self.filter_spec.f0,
-                fs: params.sound_config.sample_rate as f32,
-                filter_type: match filter_type.as_str() {
-                    "lowpass" => FilterType::LowPass { q: self.q },
-                    "highpass" => FilterType::HighPass { q: self.q },
-                    "bandpass" => FilterType::BandPass { bandwidth: self.q },
-                    "notch" => FilterType::Notch { bandwidth: self.q },
-                    "allpass" => FilterType::AllPass { q: self.q },
-                    _ => unimplemented!("Type passed in was not a multiple choice option!"),
-                },
-            };
-        }
+        let NodeInitParams { props, .. } = params;
 
-        self.filters.resize(
-            default_channels(&params.props, params.default_channel_count),
-            BiquadFilter::default(),
-        );
+        let filter_type = props.get_multiple_choice("filter_type")?;
 
+        self.filter_spec = FilterSpec {
+            f0: self.filter_spec.f0,
+            fs: params.sound_config.sample_rate as f32,
+            filter_type: match filter_type.as_str() {
+                "lowpass" => FilterType::LowPass { q: self.q },
+                "highpass" => FilterType::HighPass { q: self.q },
+                "bandpass" => FilterType::BandPass { bandwidth: self.q },
+                "notch" => FilterType::Notch { bandwidth: self.q },
+                "allpass" => FilterType::AllPass { q: self.q },
+                _ => unreachable!("Type passed in was not a multiple choice option!"),
+            },
+        };
+
+        self.filters.resize(params.get_channel_count(), BiquadFilter::default());
         self.recompute();
 
         InitResult::nothing()

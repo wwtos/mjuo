@@ -10,6 +10,30 @@ pub struct ExpressionNode {
 }
 
 impl NodeRuntime for ExpressionNode {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let mut warnings = Vec::new();
+
+        let expression = params.props.get_string("expression")?;
+
+        let values_in_count = params.props.get_int("values_in_count")?;
+        self.values_in
+            .resize(values_in_count.max(1) as usize, Primitive::Float(0.0));
+
+        // compile the expression and collect any errors
+        let possible_ast = params.script_engine.compile(expression);
+
+        match possible_ast {
+            Ok(ast) => {
+                self.ast = Some(Box::new(ast));
+            }
+            Err(parser_error) => {
+                warnings.push(NodeWarning::RhaiParserFailure { parser_error });
+            }
+        }
+
+        InitResult::nothing()
+    }
+
     fn process<'a>(
         &mut self,
         context: NodeProcessContext,
@@ -66,35 +90,6 @@ impl NodeRuntime for ExpressionNode {
                 self.scope.rewind(0);
             }
         }
-    }
-
-    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let mut warnings = Vec::new();
-
-        let mut expression = "";
-        if let Some(Property::String(new_expression)) = params.props.get("expression") {
-            expression = new_expression;
-        }
-
-        if let Some(Property::Integer(values_in_count)) = params.props.get("values_in_count") {
-            self.values_in.resize(*values_in_count as usize, Primitive::Float(0.0));
-        } else {
-            self.values_in.clear();
-        }
-
-        // compile the expression and collect any errors
-        let possible_ast = params.script_engine.compile(expression);
-
-        match possible_ast {
-            Ok(ast) => {
-                self.ast = Some(Box::new(ast));
-            }
-            Err(parser_error) => {
-                warnings.push(NodeWarning::RhaiParserFailure { parser_error });
-            }
-        }
-
-        InitResult::nothing()
     }
 }
 

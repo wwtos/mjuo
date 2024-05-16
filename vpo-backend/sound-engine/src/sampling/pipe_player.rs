@@ -66,7 +66,7 @@ pub struct PipePlayer {
     crossfade_length: f32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PipeParam {
     pub gain: f32,
     pub detune: f32,

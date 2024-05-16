@@ -20,6 +20,32 @@ impl OutputsNode {
 }
 
 impl NodeRuntime for OutputsNode {
+    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
+        let channels = params.get_channel_count();
+
+        let socket_type = match params.props.get_multiple_choice("type")?.as_str() {
+            "stream" => SocketType::Stream,
+            "midi" => SocketType::Midi,
+            _ => SocketType::Stream,
+        };
+
+        match socket_type {
+            SocketType::Stream => {
+                self.midis = None;
+                self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
+                    .take(channels)
+                    .collect();
+            }
+            SocketType::Midi => {
+                self.midis = None;
+                self.streams = vec![];
+            }
+            _ => {}
+        }
+
+        InitResult::nothing()
+    }
+
     fn process<'a>(
         &mut self,
         _context: NodeProcessContext,
@@ -48,33 +74,6 @@ impl NodeRuntime for OutputsNode {
                 local_channel_in.extend(channel_in.iter());
             }
         }
-    }
-
-    fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
-        let channels = default_channels(&params.props, params.default_channel_count);
-
-        let type_str = params.props.get("type").and_then(|x| x.clone().as_multiple_choice());
-        let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
-            Some("stream") => SocketType::Stream,
-            Some("midi") => SocketType::Midi,
-            _ => SocketType::Stream,
-        };
-
-        match socket_type {
-            SocketType::Stream => {
-                self.midis = None;
-                self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
-                    .take(channels)
-                    .collect();
-            }
-            SocketType::Midi => {
-                self.midis = None;
-                self.streams = vec![];
-            }
-            _ => {}
-        }
-
-        InitResult::nothing()
     }
 }
 

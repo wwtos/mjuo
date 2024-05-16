@@ -14,6 +14,8 @@ impl NodeRuntime for MidiTransposeNode {
         midi_store: &mut MidiStore,
         _resources: &[Resource],
     ) {
+        // FIXME: if transpose changes during processing, it should note off and note on
+        // all the changes (u128 + bit funness)
         if let Some(transpose) = ins.value(0)[0].as_int() {
             self.transpose_by = transpose.clamp(-127, 127) as i16;
         }

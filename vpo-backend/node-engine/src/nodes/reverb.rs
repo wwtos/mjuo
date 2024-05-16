@@ -70,7 +70,7 @@ impl Node for ReverbNode {
             value_input("zita_eq2_freq", Primitive::Float(1500.0), 1),
             value_input("zita_eq2_level", Primitive::Float(0.0), 1),
             value_input("zita_dry_wet_mix", Primitive::Float(0.0), 1),
-            value_input("zita_level", Primitive::Float(-20.0), 1),
+            value_input("zita_level", Primitive::Float(0.0), 1),
         ])
     }
 }

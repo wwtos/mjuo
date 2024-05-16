@@ -1,5 +1,6 @@
 use common::resource_manager::ResourceId;
 use serde::{Deserialize, Serialize};
+use strum::EnumDiscriminants;
 
 use crate::connection::Socket;
 
@@ -14,7 +15,7 @@ pub enum PropertyType {
     Resource(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, EnumDiscriminants)]
 #[serde(tag = "variant", content = "data")]
 pub enum Property {
     String(String),
@@ -34,7 +35,7 @@ impl Property {
         }
     }
 
-    pub fn as_boolean(&self) -> Option<bool> {
+    pub fn as_bool(&self) -> Option<bool> {
         match self {
             Property::Bool(value) => Some(*value),
             _ => None,

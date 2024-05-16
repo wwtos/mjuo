@@ -199,47 +199,49 @@ impl<V: Voice> RankPlayer<V> {
                 .and_then(|sample_index| samples[*sample_index].try_ref().ok())
                 .and_then(|sample| rank.notes.get(&voice.note).map(|pipe| (pipe, sample)));
 
+            let Some((pipe, sample)) = pipe_and_sample else {
+                continue;
+            };
+
             let mut midi_position = 0;
 
-            if let Some((pipe, sample)) = pipe_and_sample {
-                for (i, output) in out.iter_mut().enumerate() {
-                    let messages = midi;
+            for (i, output) in out.iter_mut().enumerate() {
+                while midi_position < midi.len() {
+                    let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sound_config.sample_rate as f64);
 
-                    while midi_position < messages.len() {
-                        let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sound_config.sample_rate as f64);
-
-                        let play_regardless = out_len == i + 1;
-                        if (!play_regardless) && messages[midi_position].timestamp > time + loop_time_offset {
-                            break;
-                        }
-
-                        match messages[midi_position].data {
-                            MidiData::NoteOn { note, .. } => {
-                                if voice.note == note {
-                                    voice.player.attack(pipe, sample);
-                                }
-                            }
-                            MidiData::NoteOff { note, .. } => {
-                                if voice.note == note {
-                                    voice.player.release(pipe, sample);
-                                }
-                            }
-                            _ => {}
-                        }
-
-                        midi_position += 1;
+                    // use all midi regardless of timing if we're on the last frame of output audio
+                    // (this way midi messages are never missed even if timing is botched)
+                    let play_regardless = i + 1 == out_len;
+                    if (!play_regardless) && midi[midi_position].timestamp > time + loop_time_offset {
+                        break; // break inner loop
                     }
 
-                    voice.player.set_param(&self.param);
-
-                    *output += voice.player.step(pipe, sample);
-
-                    if !voice.player.active() {
-                        voice.active = false;
-                        voice.player.reset();
-
-                        break;
+                    match midi[midi_position].data {
+                        MidiData::NoteOn { note, .. } => {
+                            if voice.note == note {
+                                voice.player.attack(pipe, sample);
+                            }
+                        }
+                        MidiData::NoteOff { note, .. } => {
+                            if voice.note == note {
+                                voice.player.release(pipe, sample);
+                            }
+                        }
+                        _ => {}
                     }
+
+                    midi_position += 1;
+                }
+
+                voice.player.set_param(&self.param);
+
+                *output += voice.player.step(pipe, sample);
+
+                if !voice.player.active() {
+                    voice.active = false;
+                    voice.player.reset();
+
+                    break;
                 }
             }
         }

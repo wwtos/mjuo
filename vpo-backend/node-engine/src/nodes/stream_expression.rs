@@ -9,50 +9,10 @@ pub struct StreamExpressionNode {
 }
 
 impl NodeRuntime for StreamExpressionNode {
-    fn process<'a>(
-        &mut self,
-        context: NodeProcessContext,
-        ins: Ins<'a>,
-        mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
-        _resources: &[Resource],
-    ) {
-        if let Some(ast) = &self.ast {
-            for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
-                for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
-                    // start by rewinding the scope
-                    self.scope.rewind(0);
-
-                    // add inputs to scope
-                    for (j, val) in ins.streams().enumerate() {
-                        self.scope.push(format!("x{}", j + 1), val[frame_i][channel_i]);
-                    }
-
-                    // now we run the expression!
-                    let result = context.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
-
-                    // convert the output to a usuable form
-                    match result {
-                        Ok(output) => {
-                            *frame_out = output;
-                        }
-                        Err(_) => break,
-                    }
-                }
-            }
-
-            self.scope.rewind(0);
-        }
-    }
-
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning: Option<NodeWarning> = None;
 
-        let expression = params
-            .props
-            .get("expression")
-            .and_then(|x| x.clone().as_string())
-            .unwrap_or("".into());
+        let expression = params.props.get_string("expression")?;
 
         if expression.is_empty() {
             // if it's empty, don't compile it
@@ -74,6 +34,42 @@ impl NodeRuntime for StreamExpressionNode {
         }
 
         InitResult::warning(warning)
+    }
+
+    fn process<'a>(
+        &mut self,
+        context: NodeProcessContext,
+        ins: Ins<'a>,
+        mut outs: Outs<'a>,
+        _midi_store: &mut MidiStore,
+        _resources: &[Resource],
+    ) {
+        let Some(ast) = &self.ast else { return };
+
+        for (channel_i, channel_out) in outs.stream(0).iter_mut().enumerate() {
+            for (frame_i, frame_out) in channel_out.iter_mut().enumerate() {
+                // start by rewinding the scope
+                self.scope.rewind(0);
+
+                // add inputs to scope
+                for (j, val) in ins.streams().enumerate() {
+                    self.scope.push(format!("x{}", j + 1), val[frame_i][channel_i]);
+                }
+
+                // now we run the expression!
+                let result = context.script_engine.eval_ast_with_scope::<f32>(&mut self.scope, ast);
+
+                // convert the output to a usuable form
+                match result {
+                    Ok(output) => {
+                        *frame_out = output;
+                    }
+                    Err(_) => break,
+                }
+            }
+        }
+
+        self.scope.rewind(0);
     }
 }
 
