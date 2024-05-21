@@ -3,8 +3,8 @@ use std::{borrow::Cow, ffi::CStr, io::Write};
 use memchr;
 
 pub enum OscView<'a> {
-    Message(OscMessage<'a>),
-    Bundle(OscBundle<'a>),
+    Message(OscMessageView<'a>),
+    Bundle(OscBundleView<'a>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -166,11 +166,11 @@ impl<'a> OscView<'a> {
         }
 
         if message.len() > 8 && &message[0..8] == b"#bundle\0" {
-            Some(OscView::Bundle(OscBundle {
+            Some(OscView::Bundle(OscBundleView {
                 content: (&message[8..]).into(),
             }))
         } else if message[0] == b'/' {
-            Some(OscView::Message(OscMessage::new(message)?))
+            Some(OscView::Message(OscMessageView::new(message)?))
         } else {
             None
         }
@@ -178,13 +178,13 @@ impl<'a> OscView<'a> {
 }
 
 /// An OSC bundle. Iterate over the messages using `all_messages`.
-pub struct OscBundle<'a> {
+pub struct OscBundleView<'a> {
     content: Cow<'a, [u8]>,
 }
 
 fn handle_element<'a, F>(bytes: &'a [u8], f: &mut F)
 where
-    F: FnMut(OscTime, OscMessage<'a>),
+    F: FnMut(OscTime, OscMessageView<'a>),
 {
     let mut cursor = 0;
 
@@ -194,7 +194,7 @@ where
         let elem_len = read_u32(bytes, &mut cursor) as usize;
         let elem = &bytes[cursor..(cursor + elem_len)];
 
-        if let Some(message) = OscMessage::new(elem) {
+        if let Some(message) = OscMessageView::new(elem) {
             (f)(timetag.clone(), message);
         } else if elem.len() >= 8 && &elem[0..8] == b"#bundle\0" {
             handle_element(&elem[8..], f);
@@ -204,10 +204,10 @@ where
     }
 }
 
-impl<'a> OscBundle<'a> {
+impl<'a> OscBundleView<'a> {
     pub fn all_messages<F>(&'a self, mut f: F)
     where
-        F: FnMut(OscTime, OscMessage<'a>),
+        F: FnMut(OscTime, OscMessageView<'a>),
     {
         let bytes = self.content.as_ref();
 
@@ -215,14 +215,14 @@ impl<'a> OscBundle<'a> {
     }
 }
 
-pub struct OscMessage<'a> {
-    address: Cow<'a, CStr>,
-    type_tag: Cow<'a, CStr>,
-    arguments: Cow<'a, [u8]>,
+pub struct OscMessageView<'a> {
+    address: &'a CStr,
+    type_tag: &'a CStr,
+    arguments: &'a [u8],
 }
 
-impl<'a> OscMessage<'a> {
-    fn new(message: &'a [u8]) -> Option<OscMessage<'a>> {
+impl<'a> OscMessageView<'a> {
+    fn new(message: &'a [u8]) -> Option<OscMessageView<'a>> {
         let mut cursor = 0;
 
         let address = read_string(message, &mut cursor)?;
@@ -232,10 +232,10 @@ impl<'a> OscMessage<'a> {
             return None;
         }
 
-        Some(OscMessage {
-            address: address.into(),
-            type_tag: type_tag.into(),
-            arguments: (&message[cursor..]).into(),
+        Some(OscMessageView {
+            address: address,
+            type_tag: type_tag,
+            arguments: &message[cursor..],
         })
     }
 
@@ -247,21 +247,21 @@ impl<'a> OscMessage<'a> {
         }
     }
 
-    pub fn address(&self) -> &Cow<'a, CStr> {
+    pub fn address(&self) -> &CStr {
         &self.address
     }
 
-    pub fn type_tag(&self) -> &Cow<'a, CStr> {
+    pub fn type_tag(&self) -> &CStr {
         &self.type_tag
     }
 
-    pub fn arguments(&self) -> &Cow<'a, [u8]> {
+    pub fn arguments(&self) -> &[u8] {
         &self.arguments
     }
 }
 
 pub struct ArgsIter<'a> {
-    message: &'a OscMessage<'a>,
+    message: &'a OscMessageView<'a>,
     type_tag_cursor: usize,
     arg_cursor: usize,
 }
@@ -305,25 +305,84 @@ impl<'a> Iterator for ArgsIter<'a> {
     }
 }
 
-pub struct OscWriter<'writer, W: Write> {
-    writer: &'writer mut W,
+pub enum OscWriterMode {
+    DryRun,
+    ActualRun,
 }
 
-impl<'writer, W: Write> OscWriter<'writer, W> {
-    /// Make sure `arguments` contains `,` at the beginning (for example: `,fi`)
-    pub fn start(
-        writer: &'writer mut W,
-        address: &CStr,
-        arguments: &CStr,
-    ) -> Result<OscWriter<'writer, W>, std::io::Error> {
-        write_str_padded(address, writer)?;
-        write_str_padded(arguments, writer)?;
+fn write_osc_message<W: Write>(writer: &mut W, address: &CStr, args: &[OscArg]) -> Result<usize, std::io::Error> {
+    let mut cursor = 0;
 
-        Ok(OscWriter { writer })
+    cursor += write_str_padded(address, writer)?;
+    writer.write_all(&[b','])?;
+    cursor += 1;
+
+    for arg in args {
+        writer.write_all(&[arg.type_as_byte()])?;
+        cursor += 1;
     }
 
-    pub fn write_arg(&mut self, argument: OscArg) -> Result<usize, std::io::Error> {
-        argument.write(self.writer)
+    writer.write_all(&[b'\0'])?;
+    cursor += 1;
+
+    cursor += write_padding_32(cursor, writer)?;
+
+    for arg in args {
+        cursor += arg.write(writer)?;
+    }
+
+    Ok(cursor)
+}
+
+pub struct NoopWriter {}
+
+impl Write for NoopWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+pub struct BundleWriter<'writer, W: Write> {
+    writer: Option<&'writer mut W>,
+    written: usize,
+}
+
+impl<'writer, W: Write> BundleWriter<'writer, W> {
+    pub fn start(mut writer: Option<&'writer mut W>, timetag: OscTime) -> std::io::Result<BundleWriter<'writer, W>> {
+        if let Some(writer) = writer.as_mut() {
+            writer.write_all(b"#bundle\0")?;
+            OscArg::Timetag(timetag).write(writer)?;
+        };
+
+        Ok(BundleWriter {
+            writer: writer,
+            written: 16, // b"#bundle\0" + 8 byte timetag
+        })
+    }
+
+    pub fn write_message(&mut self, address: &CStr, args: &[OscArg]) -> std::io::Result<()> {
+        let mut noop_writer = NoopWriter {};
+
+        let message_len = write_osc_message(&mut noop_writer, address, args)?;
+
+        if let Some(writer) = self.writer.as_mut() {
+            writer.write_all(&(message_len as u32).to_be_bytes())?;
+
+            write_osc_message(writer, address, args)?;
+        }
+
+        self.written += 4;
+        self.written += message_len;
+
+        Ok(())
+    }
+
+    pub fn get_written(&self) -> usize {
+        self.written
     }
 }
 
@@ -375,10 +434,16 @@ fn cstr(x: &str) -> &CStr {
 fn test_message_generation() {
     let mut writer: Vec<u8> = vec![];
 
-    let mut builder = OscWriter::start(&mut writer, cstr("/foo/bar\0"), cstr(",sff\0")).unwrap();
-    builder.write_arg(OscArg::String(cstr("hello\0").into())).unwrap();
-    builder.write_arg(OscArg::Float(1.234)).unwrap();
-    builder.write_arg(OscArg::Float(5.678)).unwrap();
+    write_osc_message(
+        &mut writer,
+        cstr("/foo/bar\0"),
+        &[
+            OscArg::String(cstr("hello\0").into()),
+            OscArg::Float(1.234),
+            OscArg::Float(5.678),
+        ],
+    )
+    .unwrap();
 
     let msg = writer;
 
@@ -394,5 +459,92 @@ fn test_message_generation() {
             assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
             assert_eq!(iter.next(), None);
         }
+    }
+}
+
+#[test]
+fn test_bundle_generation() {
+    let mut writer = vec![];
+
+    let mut bundle_writer = BundleWriter::start(
+        Some(&mut writer),
+        OscTime {
+            seconds: 10,
+            fractional: 23,
+        },
+    )
+    .unwrap();
+
+    bundle_writer
+        .write_message(
+            cstr("/foo/bar\0"),
+            &[
+                OscArg::String(cstr("hello\0").into()),
+                OscArg::Float(1.234),
+                OscArg::Float(5.678),
+            ],
+        )
+        .unwrap();
+
+    bundle_writer
+        .write_message(
+            cstr("/baz/quxley\0"),
+            &[
+                OscArg::Integer(123),
+                OscArg::Float(1.234),
+                OscArg::Float(5.678),
+                OscArg::False,
+                OscArg::True,
+                OscArg::Impulse,
+            ],
+        )
+        .unwrap();
+
+    let msg = writer;
+
+    let view = OscView::new(&msg[..]).unwrap();
+
+    match view {
+        OscView::Bundle(bundle) => {
+            let mut i = 0;
+
+            bundle.all_messages(|time, message| {
+                assert_eq!(
+                    time,
+                    OscTime {
+                        seconds: 10,
+                        fractional: 23,
+                    },
+                );
+
+                let mut iter = message.arg_iter();
+
+                match i {
+                    0 => {
+                        assert_eq!(message.address, cstr("/foo/bar\0"));
+
+                        assert_eq!(iter.next(), Some(OscArg::String(cstr("hello\0").into())));
+                        assert_eq!(iter.next(), Some(OscArg::Float(1.234)));
+                        assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
+                        assert_eq!(iter.next(), None);
+                    }
+                    1 => {
+                        assert_eq!(message.address, cstr("/baz/quxley\0"));
+
+                        assert_eq!(iter.next(), Some(OscArg::Integer(123)));
+                        assert_eq!(iter.next(), Some(OscArg::Float(1.234)));
+                        assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
+                        assert_eq!(iter.next(), Some(OscArg::False));
+                        assert_eq!(iter.next(), Some(OscArg::True));
+                        assert_eq!(iter.next(), Some(OscArg::Impulse));
+                        assert_eq!(iter.next(), None);
+                    }
+                    _ => panic!("only two messages"),
+                }
+
+                i += 1;
+            });
+        }
+        OscView::Message(_) => unreachable!("should be a bundle"),
     }
 }
