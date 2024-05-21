@@ -33,7 +33,7 @@ impl NodeRuntime for NoteMergerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let mut new_messages: MidiChannel = MidiChannel::new();
@@ -41,7 +41,7 @@ impl NodeRuntime for NoteMergerNode {
         for (i, messages) in ins.midis().enumerate() {
             let Some(midi) = &messages[0] else { continue };
 
-            let messages = midi_store.borrow_midi(midi).unwrap();
+            let messages = midi_store.borrow_osc(midi).unwrap();
 
             for message in messages.iter() {
                 match message.data {

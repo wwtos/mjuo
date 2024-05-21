@@ -38,13 +38,13 @@ impl NodeRuntime for MidiFilterNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let Some(filter) = &self.filter else { return };
         let Some(midi) = &ins.midi(0)[0] else { return };
 
-        let messages = midi_store.borrow_midi(midi).unwrap();
+        let messages = midi_store.borrow_osc(midi).unwrap();
 
         self.scratch.clear();
 

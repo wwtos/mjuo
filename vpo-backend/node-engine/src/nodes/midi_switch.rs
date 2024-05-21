@@ -44,7 +44,7 @@ impl NodeRuntime for MidiSwitchNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let mut midi_out: MidiChannel = MidiChannel::new();
@@ -52,7 +52,7 @@ impl NodeRuntime for MidiSwitchNode {
         outs.midi(0)[0] = None;
 
         if let Some(midi) = &ins.midi(0)[0] {
-            let messages = midi_store.borrow_midi(midi).unwrap();
+            let messages = midi_store.borrow_osc(midi).unwrap();
 
             for message in messages.iter() {
                 match message.data {

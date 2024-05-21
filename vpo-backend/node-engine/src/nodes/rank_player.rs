@@ -86,12 +86,12 @@ impl NodeRuntime for RankPlayerNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         resources: &[Resource],
     ) {
         let midi_in = ins.midi(0)[0]
             .as_ref()
-            .and_then(|x| midi_store.borrow_midi(x))
+            .and_then(|x| midi_store.borrow_osc(x))
             .unwrap_or(&[]);
 
         for frame in outs.stream(0)[0].iter_mut() {

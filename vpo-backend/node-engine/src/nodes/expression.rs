@@ -39,7 +39,7 @@ impl NodeRuntime for ExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let mut have_values_changed = false;

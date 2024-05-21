@@ -19,7 +19,7 @@ impl NodeRuntime for EnvelopeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         ins.value(0)[0].as_boolean().map(|gate| self.gate = gate);

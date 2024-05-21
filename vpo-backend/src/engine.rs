@@ -11,7 +11,7 @@ use clocked::{
 };
 use node_engine::connection::{Primitive, Socket};
 use node_engine::io_routing::{DeviceDirection, DeviceType};
-use node_engine::node::midi_store::MidiStore;
+use node_engine::node::osc_store::OscStore;
 use node_engine::node::{NodeIndex, NodeState};
 use node_engine::nodes::NodeVariant;
 use node_engine::resources::Resources;
@@ -59,7 +59,7 @@ pub fn start_sound_engine(
     let mut current_graph_state: Option<BTreeMap<NodeIndex, NodeState>> = None;
     let mut new_defaults: Vec<(NodeIndex, Socket, Primitive)> = vec![];
 
-    let mut midi_store: MidiStore = MidiStore::new(50_000_000, 10_000);
+    let mut midi_store: OscStore = OscStore::new(50_000_000, 10_000);
 
     let start = Instant::now();
     let mut buffer_time = Duration::ZERO;

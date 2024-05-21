@@ -11,7 +11,7 @@ impl NodeRuntime for GainNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         ins.value(0)[0].as_float().map(|gain| self.gain = gain);

@@ -9,7 +9,7 @@ impl NodeRuntime for UpDownMixerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if ins.streams_len() <= outs.streams_len() {

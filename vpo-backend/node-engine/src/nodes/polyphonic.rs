@@ -129,12 +129,12 @@ impl NodeRuntime for PolyphonicNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if let (Some(input_node), Some(output_node)) = (self.input_node, self.output_node) {
             let messages = if let Some(messages_id) = &ins.midi(0)[0] {
-                midi_store.borrow_midi(messages_id).unwrap()
+                midi_store.borrow_osc(messages_id).unwrap()
             } else {
                 &[]
             };

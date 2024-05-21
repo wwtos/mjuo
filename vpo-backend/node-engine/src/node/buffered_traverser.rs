@@ -19,14 +19,14 @@ use crate::{
     connection::{Primitive, Socket},
     errors::{ErrorsAndWarnings, NodeError},
     graph_manager::{GraphIndex, GraphManager},
-    node::{Ins, MidisIndex, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, Outs, StateInterface},
+    node::{Ins, NodeIndex, NodeProcessContext, NodeRuntime, NodeState, OscIndex, Outs, StateInterface},
     nodes::NodeVariant,
     resources::{Resource, ResourceTypeAndIndex, Resources},
 };
 
 use super::{
     calculate_traversal_order::{calc_indexes, generate_io_spec, Indexes},
-    midi_store::MidiStore,
+    osc_store::OscStore,
 };
 
 #[derive(Debug)]
@@ -56,9 +56,9 @@ fn build_chunked_buffer(buffer: Vec<UnsafeCell<f32>>, chunk_size: usize) -> Chun
 struct TraverserIo {
     stream_io: ChunkedBuffer,
     value_io: Vec<UnsafeCell<Primitive>>,
-    midi_io: Vec<UnsafeCell<Option<MidisIndex>>>,
+    midi_io: Vec<UnsafeCell<Option<OscIndex>>>,
     stream_default: ChunkedBuffer,
-    midi_default: Vec<UnsafeCell<Option<MidisIndex>>>,
+    midi_default: Vec<UnsafeCell<Option<OscIndex>>>,
     value_default: Vec<UnsafeCell<Primitive>>,
 }
 
@@ -66,7 +66,7 @@ struct TraverserIo {
 struct TraverserRefs<'io> {
     stream_sockets: Vec<&'io [&'io [UnsafeCell<f32>]]>,
     value_sockets: Vec<&'io [UnsafeCell<Primitive>]>,
-    midi_sockets: Vec<&'io [UnsafeCell<Option<MidisIndex>>]>,
+    midi_sockets: Vec<&'io [UnsafeCell<Option<OscIndex>>]>,
 }
 
 fn build_io(config: SoundConfig, indexes: &Indexes) -> TraverserIo {
@@ -104,7 +104,7 @@ fn build_io(config: SoundConfig, indexes: &Indexes) -> TraverserIo {
 
 fn build_refs<'io>(io: &'io TraverserIo, indexes: &Indexes) -> TraverserRefs<'io> {
     let mut stream_sockets: Vec<&[&[UnsafeCell<f32>]]> = vec![];
-    let mut midi_sockets: Vec<&[UnsafeCell<Option<MidisIndex>>]> = vec![];
+    let mut midi_sockets: Vec<&[UnsafeCell<Option<OscIndex>>]> = vec![];
     let mut value_sockets: Vec<&[UnsafeCell<Primitive>]> = vec![];
 
     for stream_config in &indexes.streams {
@@ -175,7 +175,7 @@ pub struct BufferedTraverser {
     node_to_index_mapping: BTreeMap<NodeIndex, usize>,
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
-    midi_tracking: Vec<Option<MidisIndex>>,
+    midi_tracking: Vec<Option<OscIndex>>,
     config: SoundConfig,
     engine: Engine,
     time: Duration,
@@ -283,7 +283,7 @@ impl BufferedTraverser {
         resources: &Resources,
         updated_node_states: Vec<(NodeIndex, serde_json::Value)>,
         graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
     ) -> StepResult {
         let mut state_changes: Vec<(NodeIndex, NodeState)> = vec![];
 
@@ -404,7 +404,7 @@ impl BufferedTraverser {
 
             if last_midi_index != new_midi_index {
                 if let Some(some_index) = last_midi_index {
-                    midi_store.remove_midi(some_index.private_clone());
+                    midi_store.remove_osc(some_index.private_clone());
                 }
 
                 *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());
@@ -463,7 +463,7 @@ mod tests {
     use crate::{
         connection::{Socket, SocketType},
         graph_manager::GraphManager,
-        node::midi_store::MidiStore,
+        node::osc_store::OscStore,
         resources::Resources,
     };
 
@@ -474,7 +474,7 @@ mod tests {
         let mut manager = GraphManager::new(1);
         let (graph_index, _) = manager.new_graph().unwrap();
         let graph = manager.get_graph_mut(graph_index).unwrap();
-        let mut midi_store = MidiStore::new(256, 0);
+        let mut midi_store = OscStore::new(256, 0);
 
         let (gain, _) = graph.add_node("GainNode").unwrap().value;
         let (midi, _) = graph.add_node("MidiToValuesNode").unwrap().value;

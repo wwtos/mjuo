@@ -2,7 +2,7 @@
 
 pub mod buffered_traverser;
 pub mod calculate_traversal_order;
-pub mod midi_store;
+pub mod osc_store;
 
 use std::cell::UnsafeCell;
 use std::collections::BTreeMap;
@@ -27,7 +27,7 @@ use crate::node_graph::NodeGraph;
 use crate::property::{Property, PropertyType};
 use crate::resources::{Resource, Resources};
 
-use self::midi_store::MidiStore;
+use self::osc_store::OscStore;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "variant", content = "data")]
@@ -184,21 +184,21 @@ impl Default for NodeState {
 
 /// All inputs provided to a node
 pub struct Ins<'a> {
-    midis: &'a [&'a [UnsafeCell<Option<MidisIndex>>]],
+    midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
     values: &'a [&'a [UnsafeCell<Primitive>]],
     streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
 }
 
 /// All outputs provided to a node
 pub struct Outs<'a> {
-    midis: &'a [&'a [UnsafeCell<Option<MidisIndex>>]],
+    midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
     values: &'a [&'a [UnsafeCell<Primitive>]],
     streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
 }
 
 // after this line is all of the IO api
 pub struct InputMidiSocket<'a> {
-    midis: &'a [UnsafeCell<Option<MidisIndex>>],
+    midis: &'a [UnsafeCell<Option<OscIndex>>],
 }
 
 pub struct InputValueSocket<'a> {
@@ -210,13 +210,13 @@ pub struct InputStreamSocket<'a> {
 }
 
 impl<'a> InputMidiSocket<'a> {
-    pub fn channel<'b>(&'b self, index: usize) -> &'b Option<MidisIndex> {
+    pub fn channel<'b>(&'b self, index: usize) -> &'b Option<OscIndex> {
         let midi = &self.midis[index];
 
         unsafe { &*midi.get() }
     }
 
-    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Option<MidisIndex>> {
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Option<OscIndex>> {
         self.midis.iter().map(|midi| unsafe { &*midi.get() })
     }
 
@@ -226,7 +226,7 @@ impl<'a> InputMidiSocket<'a> {
 }
 
 impl<'a> Index<usize> for InputMidiSocket<'a> {
-    type Output = Option<MidisIndex>;
+    type Output = Option<OscIndex>;
 
     fn index(&self, index: usize) -> &Self::Output {
         self.channel(index)
@@ -285,7 +285,7 @@ impl<'a> Index<usize> for InputStreamSocket<'a> {
 
 impl<'a> Ins<'a> {
     pub unsafe fn new(
-        midis: &'a [&'a [UnsafeCell<Option<MidisIndex>>]],
+        midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
         values: &'a [&'a [UnsafeCell<Primitive>]],
         streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
     ) -> Ins<'a> {
@@ -339,7 +339,7 @@ impl<'a> Ins<'a> {
 }
 
 pub struct OutputMidiSocket<'a> {
-    pub midis: &'a [UnsafeCell<Option<MidisIndex>>],
+    pub midis: &'a [UnsafeCell<Option<OscIndex>>],
 }
 
 pub struct OutputValueSocket<'a> {
@@ -351,13 +351,13 @@ pub struct OutputStreamSocket<'a> {
 }
 
 impl<'a> OutputMidiSocket<'a> {
-    pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut Option<MidisIndex> {
+    pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut Option<OscIndex> {
         let midi = &self.midis[index];
 
         unsafe { &mut *midi.get() }
     }
 
-    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Option<MidisIndex>> {
+    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Option<OscIndex>> {
         self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
     }
 
@@ -367,7 +367,7 @@ impl<'a> OutputMidiSocket<'a> {
 }
 
 impl<'a> Index<usize> for OutputMidiSocket<'a> {
-    type Output = Option<MidisIndex>;
+    type Output = Option<OscIndex>;
 
     fn index<'b>(&'b self, index: usize) -> &'b Self::Output {
         let midi = &self.midis[index];
@@ -450,7 +450,7 @@ impl<'a> IndexMut<usize> for OutputStreamSocket<'a> {
 
 impl<'a> Outs<'a> {
     pub unsafe fn new(
-        midis: &'a [&'a [UnsafeCell<Option<MidisIndex>>]],
+        midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
         values: &'a [&'a [UnsafeCell<Primitive>]],
         streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
     ) -> Outs<'a> {
@@ -506,11 +506,11 @@ impl<'a> Outs<'a> {
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct MidisIndex(pub(super) generational_arena::Index);
+pub struct OscIndex(pub(super) generational_arena::Index);
 
-impl MidisIndex {
-    pub(super) fn private_clone(&self) -> MidisIndex {
-        MidisIndex(self.0)
+impl OscIndex {
+    pub(super) fn private_clone(&self) -> OscIndex {
+        OscIndex(self.0)
     }
 }
 
@@ -562,7 +562,7 @@ pub trait NodeRuntime: Debug {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         resources: &[Resource],
     ) {
     }

@@ -55,7 +55,7 @@ impl NodeRuntime for InputsNode {
         _context: NodeProcessContext,
         _ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if outs.midis_len() > 0 {

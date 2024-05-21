@@ -51,7 +51,7 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if self.midi_stale {
@@ -60,7 +60,7 @@ impl NodeRuntime for OutputsNode {
 
         if ins.midis_len() > 0 {
             if let Some(midi_index) = &ins.midi(0)[0] {
-                self.midis = midi_store.borrow_midi(midi_index).map(|midi| midi.to_vec());
+                self.midis = midi_store.borrow_osc(midi_index).map(|midi| midi.to_vec());
                 self.midi_stale = false;
             } else {
                 self.midi_stale = true;

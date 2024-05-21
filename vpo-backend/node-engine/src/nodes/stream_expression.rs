@@ -41,7 +41,7 @@ impl NodeRuntime for StreamExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let Some(ast) = &self.ast else { return };

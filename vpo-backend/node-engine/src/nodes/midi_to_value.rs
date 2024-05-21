@@ -41,13 +41,13 @@ impl NodeRuntime for MidiToValueNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let Some(ast) = self.ast.as_ref() else { return };
         let Some(midi) = &ins.midi(0)[0] else { return };
 
-        let messages = midi_store.borrow_midi(midi).unwrap();
+        let messages = midi_store.borrow_osc(midi).unwrap();
 
         for message in messages.iter() {
             self.scope.push("timestamp", message.timestamp);

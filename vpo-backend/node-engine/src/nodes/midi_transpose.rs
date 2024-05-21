@@ -11,7 +11,7 @@ impl NodeRuntime for MidiTransposeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         // FIXME: if transpose changes during processing, it should note off and note on
@@ -22,7 +22,7 @@ impl NodeRuntime for MidiTransposeNode {
 
         if let Some(midi) = &ins.midi(0)[0] {
             let output: Vec<MidiMessage> = midi_store
-                .borrow_midi(midi)
+                .borrow_osc(midi)
                 .unwrap()
                 .iter()
                 .filter_map(|message| match message.data {

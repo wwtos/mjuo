@@ -13,11 +13,11 @@ impl NodeRuntime for MidiToValuesNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        midi_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if let Some(midi) = &ins.midi(0)[0] {
-            let messages = midi_store.borrow_midi(midi).unwrap();
+            let messages = midi_store.borrow_osc(midi).unwrap();
 
             for data in messages.iter() {
                 match &data.data {
