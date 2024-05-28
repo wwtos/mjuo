@@ -94,7 +94,7 @@ impl Node for NoteMergerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         NoteMergerNode {
             states: vec![],
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
             combined: 0,
         }
     }

@@ -49,8 +49,6 @@ impl NodeRuntime for MidiTransposeNode {
         }
 
         if let Some(messages) = messages {
-            println!("");
-
             messages.all_messages(|_, _, message| match message.address().to_str() {
                 Ok(NOTE_ON) => {
                     let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
@@ -106,7 +104,7 @@ impl Node for MidiTransposeNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         MidiTransposeNode {
             transpose_by: 0,
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
             currently_on: 0x00,
         }
     }

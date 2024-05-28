@@ -77,10 +77,6 @@ impl<F: Float> FilterSpec<F> {
     }
 }
 
-pub fn bar() {
-    println!("something");
-}
-
 #[allow(non_snake_case)]
 pub fn bandwidth_to_q<F: Float>(bandwidth: F, ω0: F) -> F {
     let n2 = F::one() + F::one();

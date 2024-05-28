@@ -173,7 +173,7 @@ impl Node for MidiSwitchNode {
 
     fn new(_sound_config: &SoundConfig) -> Self {
         MidiSwitchNode {
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
             mode: SwitchMode::Normal,
             state: 0,
             ignoring: 0,

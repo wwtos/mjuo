@@ -1,6 +1,6 @@
-use crate::nodes::prelude::*;
+use common::osc_midi::is_message_reset;
 
-use super::util::is_message_reset;
+use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct MidiToValuesNode {

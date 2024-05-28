@@ -36,30 +36,6 @@ pub fn midi_channel(message: &MidiData) -> Option<u8> {
     }
 }
 
-pub fn is_message_reset(message: &OscMessageView) -> bool {
-    match message.address().to_str() {
-        Ok(REALTIME_RESET) => true,
-        Ok(CONTROL_CHANGE) => {
-            let mut args = message.arg_iter();
-
-            let _channel = args.next();
-            let Some(OscArg::Integer(controller)) = args.next() else {
-                return false;
-            };
-            let Some(OscArg::Integer(value)) = args.next() else {
-                return false;
-            };
-
-            if controller == 120 || controller == 121 || (controller == 122 && value == 0) || controller == 123 {
-                true
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
 pub fn value_to_dynamic(value: serde_json::Value) -> Dynamic {
     match value {
         serde_json::Value::Null => Dynamic::from(()),

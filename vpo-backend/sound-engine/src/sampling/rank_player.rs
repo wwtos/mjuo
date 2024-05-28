@@ -1,5 +1,5 @@
 use common::osc::OscView;
-use common::osc_midi::{NOTE_OFF, NOTE_ON};
+use common::osc_midi::{is_message_reset, NOTE_OFF, NOTE_ON};
 use common::read_osc;
 use common::traits::TryRef;
 
@@ -180,13 +180,22 @@ impl<V: Voice> RankPlayer<V> {
         }
 
         // allocate any needed voices
-        osc.all_messages(|_, _, message| match message.address().to_str() {
-            Ok(NOTE_ON) => {
-                if let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                    self.allocate_note(rank, note as u8, samples);
+        osc.all_messages(|_, _, message| {
+            match message.address().to_str() {
+                Ok(NOTE_ON) => {
+                    if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+                        self.allocate_note(rank, note as u8, samples);
+                    }
+                }
+                _ => {}
+            }
+
+            if is_message_reset(message) {
+                for voice in &mut self.voices {
+                    voice.active = false;
+                    voice.player.reset();
                 }
             }
-            _ => {}
         });
 
         let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
@@ -204,11 +213,7 @@ impl<V: Voice> RankPlayer<V> {
 
             osc.all_messages(|_, _, message| match message.address().to_str() {
                 Ok(NOTE_ON) => {
-                    dbg!("note on");
-
                     if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                        dbg!("note on: {}", note);
-
                         if voice.note == note as u8 {
                             voice.player.attack(pipe, sample);
                         }

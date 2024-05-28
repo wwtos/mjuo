@@ -122,10 +122,6 @@ impl NodeRuntime for RankPlayerNode {
                 }
 
                 if let Some(Resource::Rank(RankType::Pipes(rank))) = resources.get(0) {
-                    if matches!(messages, OscView::Bundle(_)) {
-                        dbg!(&messages);
-                    }
-
                     player.next_buffered(messages, rank, &resources[1..], &mut outs.stream(0)[0]);
                 }
             }

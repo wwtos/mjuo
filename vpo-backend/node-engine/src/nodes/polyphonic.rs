@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use common::osc_midi::get_channel;
+use common::osc_midi::{get_channel, is_message_reset};
 
 use crate::{node::buffered_traverser::BufferedTraverser, nodes::prelude::*};
 
-use super::{util::is_message_reset, NodeVariant};
+use super::NodeVariant;
 
 const DIFFERENCE_THRESHOLD: f32 = 0.007;
 const MIN_ON_TIME: Duration = Duration::from_millis(100);
@@ -51,7 +51,7 @@ impl Clone for PolyphonicNode {
             polyphony: self.polyphony,
             input_node: self.input_node,
             output_node: self.output_node,
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
         }
     }
 }
@@ -328,7 +328,7 @@ impl Node for PolyphonicNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         PolyphonicNode {
             voices: vec![],
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
             polyphony: 1,
             input_node: None,
             output_node: None,

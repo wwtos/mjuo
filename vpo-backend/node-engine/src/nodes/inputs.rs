@@ -87,7 +87,7 @@ impl NodeRuntime for InputsNode {
 impl Node for InputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         InputsNode {
-            osc: Vec::with_capacity(64),
+            osc: default_osc(),
             streams: vec![],
         }
     }

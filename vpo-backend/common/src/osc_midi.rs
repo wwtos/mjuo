@@ -391,6 +391,30 @@ pub fn write_midi_as_osc_prepend_len<W: Write>(writer: &mut W, message: &MidiDat
     write_midi_as_osc(writer, message)
 }
 
+pub fn is_message_reset(message: &OscMessageView) -> bool {
+    match message.address().to_str() {
+        Ok(REALTIME_RESET) => true,
+        Ok(CONTROL_CHANGE) => {
+            let mut args = message.arg_iter();
+
+            let _channel = args.next();
+            let Some(OscArg::Integer(controller)) = args.next() else {
+                return false;
+            };
+            let Some(OscArg::Integer(value)) = args.next() else {
+                return false;
+            };
+
+            if controller == 120 || controller == 121 || (controller == 122 && value == 0) || controller == 123 {
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
 /// Writes the message (and prepends message length) to the vec
 pub fn write_message(vec: &mut Vec<u8>, message: &OscMessageView) {
     vec.extend_from_slice(&(message.bytes().len() as u32).to_be_bytes());

@@ -122,6 +122,11 @@ pub fn write_bundle_and_message_scratch(store: &mut OscStore, scratch: &Vec<u8>)
     }
 }
 
+#[inline]
+pub(super) fn default_osc() -> Vec<u8> {
+    Vec::with_capacity(512)
+}
+
 pub trait HashMapExt {
     fn get_string(&self, k: &str) -> Result<String, NodeError>;
 

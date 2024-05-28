@@ -53,8 +53,6 @@ impl NodeRuntime for MidiFilterNode {
         };
 
         view.all_messages(|_, _, msg| {
-            println!("message into filter: {:?}", msg);
-
             add_message_to_scope(&mut self.scope, msg);
 
             let result = context
@@ -83,7 +81,7 @@ impl Node for MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
             scope: Box::new(Scope::new()),
-            scratch: Vec::with_capacity(64),
+            scratch: default_osc(),
         }
     }
 
