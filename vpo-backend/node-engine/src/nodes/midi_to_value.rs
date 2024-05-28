@@ -41,18 +41,21 @@ impl NodeRuntime for MidiToValueNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let Some(ast) = self.ast.as_ref() else { return };
-        let Some(midi) = &ins.midi(0)[0] else { return };
+        let Some(messages) = &ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes))
+        else {
+            return;
+        };
 
-        let messages = midi_store.borrow_osc(midi).unwrap();
+        messages.all_messages(|offset, time, message| {
+            self.scope.push("timestamp", time);
 
-        for message in messages.iter() {
-            self.scope.push("timestamp", message.timestamp);
-
-            add_message_to_scope(&mut self.scope, &message.data);
+            add_message_to_scope(&mut self.scope, message);
 
             let result = context
                 .script_engine
@@ -66,7 +69,7 @@ impl NodeRuntime for MidiToValueNode {
             }
 
             self.scope.rewind(0);
-        }
+        });
     }
 }
 

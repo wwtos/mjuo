@@ -4,8 +4,8 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
-    midis: Option<MidiChannel>,
-    midi_stale: bool,
+    oscs: Option<Vec<u8>>,
+    osc_stale: bool,
     streams: Vec<Vec<f32>>,
 }
 
@@ -14,8 +14,8 @@ impl OutputsNode {
         &self.streams
     }
 
-    pub fn get_midis(&self) -> &Option<MidiChannel> {
-        &self.midis
+    pub fn get_oscs(&self) -> Option<&Vec<u8>> {
+        self.oscs.as_ref()
     }
 }
 
@@ -31,13 +31,13 @@ impl NodeRuntime for OutputsNode {
 
         match socket_type {
             SocketType::Stream => {
-                self.midis = None;
+                self.oscs = None;
                 self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
                     .take(channels)
                     .collect();
             }
             SocketType::Midi => {
-                self.midis = None;
+                self.oscs = None;
                 self.streams = vec![];
             }
             _ => {}
@@ -51,19 +51,19 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        if self.midi_stale {
-            self.midis = None;
+        if self.osc_stale {
+            self.oscs = None;
         }
 
-        if ins.midis_len() > 0 {
-            if let Some(midi_index) = &ins.midi(0)[0] {
-                self.midis = midi_store.borrow_osc(midi_index).map(|midi| midi.to_vec());
-                self.midi_stale = false;
+        if ins.oscs_len() > 0 {
+            if let Some(osc_bytes) = &ins.osc(0)[0].get_messages(osc_store) {
+                self.oscs = Some(osc_bytes.to_vec());
+                self.osc_stale = false;
             } else {
-                self.midi_stale = true;
+                self.osc_stale = true;
             }
         }
 
@@ -80,8 +80,8 @@ impl NodeRuntime for OutputsNode {
 impl Node for OutputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         OutputsNode {
-            midis: None,
-            midi_stale: true,
+            oscs: None,
+            osc_stale: true,
             streams: vec![],
         }
     }

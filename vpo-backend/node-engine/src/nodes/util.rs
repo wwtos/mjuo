@@ -1,6 +1,8 @@
-use std::str::FromStr;
-
-use clocked::midi::{MidiData, SysCommon, SysRt, Timecode};
+use clocked::midi::MidiData;
+use common::{
+    osc::{OscArg, OscMessageView},
+    osc_midi::{get_channel, CONTROL_CHANGE, REALTIME_RESET},
+};
 use rhai::{Dynamic, Scope};
 
 use crate::connection::Primitive;
@@ -34,17 +36,26 @@ pub fn midi_channel(message: &MidiData) -> Option<u8> {
     }
 }
 
-pub fn is_message_reset(message: &MidiData) -> bool {
-    match message {
-        MidiData::SysRt(SysRt::Reset)
-        | MidiData::ControlChange { controller: 120, .. }
-        | MidiData::ControlChange { controller: 121, .. }
-        | MidiData::ControlChange {
-            controller: 122,
-            value: 0,
-            ..
+pub fn is_message_reset(message: &OscMessageView) -> bool {
+    match message.address().to_str() {
+        Ok(REALTIME_RESET) => true,
+        Ok(CONTROL_CHANGE) => {
+            let mut args = message.arg_iter();
+
+            let _channel = args.next();
+            let Some(OscArg::Integer(controller)) = args.next() else {
+                return false;
+            };
+            let Some(OscArg::Integer(value)) = args.next() else {
+                return false;
+            };
+
+            if controller == 120 || controller == 121 || (controller == 122 && value == 0) || controller == 123 {
+                true
+            } else {
+                false
+            }
         }
-        | MidiData::ControlChange { controller: 123, .. } => true,
         _ => false,
     }
 }
@@ -81,123 +92,30 @@ pub fn dynamic_to_primitive(dynamic: Dynamic) -> Primitive {
     }
 }
 
-pub fn add_message_to_scope(scope: &mut Scope, midi: &MidiData) {
-    let message_type = match midi {
-        MidiData::NoteOff {
-            channel,
-            note,
-            velocity,
-        } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("note", Dynamic::from_int(*note as i32));
-            scope.push("velocity", Dynamic::from_float(*velocity as f32 / 127.0));
+pub fn add_message_to_scope(scope: &mut Scope, osc: &OscMessageView) {
+    let address = String::from_utf8(osc.address().to_bytes().to_owned());
 
-            "note off"
-        }
-        MidiData::NoteOn {
-            channel,
-            note,
-            velocity,
-        } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("note", Dynamic::from_int(*note as i32));
-            scope.push("velocity", Dynamic::from_float(*velocity as f32 / 127.0));
+    if let Ok(address) = address {
+        scope.push("address", address.clone());
+    }
 
-            "note on"
-        }
-        MidiData::Aftertouch {
-            channel,
-            note,
-            pressure,
-        } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("note", Dynamic::from_int(*note as i32));
-            scope.push("pressure", Dynamic::from_float(*pressure as f32 / 127.0));
+    if let Some(channel) = get_channel(osc) {
+        scope.push("channel", channel as i32);
+    }
 
-            "polyphonic aftertouch"
-        }
-        MidiData::ControlChange {
-            channel,
-            controller,
-            value,
-        } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("controller", Dynamic::from_int(*controller as i32));
-            scope.push("value", Dynamic::from_float(*value as f32 / 127.0));
+    let mut args: Vec<Dynamic> = Vec::with_capacity(osc.type_tag().to_bytes().len() - 1);
 
-            "control change"
-        }
-        MidiData::ProgramChange { channel, patch } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("patch", Dynamic::from_int(*patch as i32));
-
-            "program change"
-        }
-        MidiData::ChannelPressure { channel, pressure } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("pressure", Dynamic::from_float(*pressure as f32 / 127.0));
-
-            "channel aftertouch"
-        }
-        MidiData::PitchBend { channel, pitch_bend } => {
-            scope.push("channel", Dynamic::from_int(*channel as i32));
-            scope.push("pitch_bend", Dynamic::from_float(*pitch_bend as f32 / 8192.0));
-
-            "pitch bend"
-        }
-        MidiData::SysEx { id_and_data } => {
-            scope.push("message_id", id_and_data[0]);
-            scope.push(
-                "message",
-                Dynamic::from_array(
-                    id_and_data[1..]
-                        .into_iter()
-                        .map(|x| Dynamic::from_int(*x as i32))
-                        .collect(),
-                ),
-            );
-
-            "system exclusive"
-        }
-        MidiData::SysCommon(SysCommon::QuarterFrame { time_fragment }) => {
-            let (time_fragment_type, time_fragment) = match time_fragment {
-                Timecode::FrameLow(nibble) => ("frame low", nibble),
-                Timecode::FrameHigh(nibble) => ("frame high", nibble),
-                Timecode::SecondsLow(nibble) => ("seconds low", nibble),
-                Timecode::SecondsHigh(nibble) => ("seconds high", nibble),
-                Timecode::MinutesLow(nibble) => ("minutes low", nibble),
-                Timecode::MinutesHigh(nibble) => ("minutes high", nibble),
-                Timecode::HoursLow(nibble) => ("hours low", nibble),
-                Timecode::HoursHigh(nibble) => ("hours high", nibble),
-            };
-
-            scope.push("time_fragment_type", Dynamic::from_str(time_fragment_type));
-            scope.push("time_fragment", Dynamic::from_int(*time_fragment as i32));
-
-            "quarter frame"
-        }
-        MidiData::SysCommon(SysCommon::SongPositionPointer { position }) => {
-            scope.push("position", Dynamic::from_int(*position as i32));
-
-            "song position"
-        }
-        MidiData::SysCommon(SysCommon::SongSelect { song }) => {
-            scope.push("song", Dynamic::from_int(*song as i32));
-
-            "song select"
-        }
-        MidiData::SysCommon(SysCommon::TuneRequest) => "tune request",
-        MidiData::SysRt(message) => match message {
-            SysRt::MidiClock => "midi clock",
-            SysRt::Tick => "tick",
-            SysRt::Start => "start",
-            SysRt::Continue => "continue",
-            SysRt::Stop => "stop",
-            SysRt::ActiveSensing => "active sensing",
-            SysRt::Reset => "reset",
-        },
-        MidiData::MidiNone => "",
-    };
-
-    scope.push("type", message_type);
+    for arg in osc.arg_iter() {
+        args.push(match arg {
+            OscArg::True => Dynamic::from(true),
+            OscArg::False => Dynamic::from(false),
+            OscArg::Impulse => Dynamic::from("impulse"),
+            OscArg::Blob(blob) => Dynamic::from(Vec::from(blob)),
+            OscArg::String(string) => Dynamic::from(String::from_utf8(string.to_bytes().to_owned())),
+            OscArg::Null => Dynamic::from(()),
+            OscArg::Float(num) => Dynamic::from(num),
+            OscArg::Integer(num) => Dynamic::from(num),
+            OscArg::Timetag(tag) => Dynamic::from(tag.clone()),
+        })
+    }
 }

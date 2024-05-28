@@ -48,7 +48,7 @@ impl NodeRuntime for MemoryNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        _midi_store: &mut OscStore,
+        _osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         self.state_changed = false;

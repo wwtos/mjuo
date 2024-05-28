@@ -1,10 +1,17 @@
-use std::borrow::Cow;
-
-pub(super) use clocked::midi::{MidiData, MidiMessage};
+use common::osc::{BundleWriter, OscTime};
 use common::resource_manager::ResourceId;
-pub(super) use sound_engine::{MidiChannel, SoundConfig};
+use std::borrow::Cow;
+use std::io::{Cursor, Write};
+
+pub(super) use common::osc::OscView;
+pub(super) use common::osc_midi::{write_message, write_note_off, write_note_on, NOTE_OFF, NOTE_ON, PITCH_BEND};
+pub(super) use common::read_osc;
+pub(super) use common::SeaHashMap;
+pub(super) use sound_engine::SoundConfig;
 
 pub(super) use crate::errors::{NodeError, NodeOk, NodeResult, NodeWarning};
+pub(super) use crate::node::OptionExt;
+use crate::node::OscIndex;
 pub(super) use crate::node::{
     osc_store::OscStore, InitResult, Ins, Node, NodeGetIoContext, NodeIndex, NodeInitParams, NodeIo,
     NodeProcessContext, NodeRow, NodeRuntime, NodeState, Outs,
@@ -14,8 +21,6 @@ pub(super) use crate::{
     connection::{Primitive, Socket, SocketDirection, SocketType, SocketValue},
     property::{Property, PropertyType},
 };
-
-pub(super) use common::SeaHashMap;
 
 // TODO: implement all primitive types
 pub fn float(val: f32) -> Primitive {
@@ -98,6 +103,22 @@ pub fn default_channels(props: &SeaHashMap<String, Property>, default: usize) ->
     match props.get("channels") {
         Some(prop) => prop.as_integer().map(|x| x.max(1) as usize).unwrap_or(default),
         None => default,
+    }
+}
+
+pub fn write_bundle_and_message_scratch(store: &mut OscStore, scratch: &Vec<u8>) -> Option<OscIndex> {
+    if !scratch.is_empty() {
+        let total_len = 8 + 8 + scratch.len();
+
+        store.add_osc(total_len, |bytes| {
+            let mut cursor = Cursor::new(bytes);
+
+            // use bundle writer to write the header
+            BundleWriter::start(Some(&mut cursor), OscTime::default()).unwrap();
+            cursor.write_all(&scratch[..]).unwrap();
+        })
+    } else {
+        None
     }
 }
 

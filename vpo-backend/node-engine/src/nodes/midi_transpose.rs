@@ -3,75 +3,94 @@ use super::prelude::*;
 #[derive(Debug, Clone)]
 pub struct MidiTransposeNode {
     transpose_by: i16,
+    scratch: Vec<u8>,
+    currently_on: u128,
 }
 
 impl NodeRuntime for MidiTransposeNode {
     fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
+        context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        // FIXME: if transpose changes during processing, it should note off and note on
-        // all the changes (u128 + bit funness)
+        self.scratch.clear();
+        let messages = ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes));
+
         if let Some(transpose) = ins.value(0)[0].as_int() {
+            let last_on = self.currently_on;
+            let last_transpose_by = self.transpose_by;
             self.transpose_by = transpose.clamp(-127, 127) as i16;
+
+            let shift = self.transpose_by - last_transpose_by;
+            let new_on = signed_left_shift(last_on, shift);
+
+            let difference = last_on ^ new_on;
+
+            for i in 0..128 {
+                let did_note_change = ((difference >> i) & 0x01) != 0x00;
+
+                if !did_note_change {
+                    continue;
+                }
+
+                let is_note_on = ((new_on >> i) & 0x01) != 0x00;
+
+                if is_note_on {
+                    write_note_on(&mut self.scratch, 0, i, 127);
+                } else {
+                    write_note_off(&mut self.scratch, 0, i, 0);
+                }
+            }
         }
 
-        if let Some(midi) = &ins.midi(0)[0] {
-            let output: Vec<MidiMessage> = midi_store
-                .borrow_osc(midi)
-                .unwrap()
-                .iter()
-                .filter_map(|message| match message.data {
-                    MidiData::NoteOn {
-                        channel,
-                        note,
-                        velocity,
-                    } => {
-                        let new_note = (note as i16) + self.transpose_by;
+        if let Some(messages) = messages {
+            println!("");
 
-                        if new_note >= 0 && new_note <= 127 {
-                            Some(MidiMessage {
-                                data: MidiData::NoteOn {
-                                    channel,
-                                    note: new_note as u8,
-                                    velocity,
-                                },
-                                timestamp: message.timestamp,
-                            })
-                        } else {
-                            None
-                        }
+            messages.all_messages(|_, _, message| match message.address().to_str() {
+                Ok(NOTE_ON) => {
+                    let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    let new_note = (note as i16) + self.transpose_by;
+
+                    if new_note >= 0 && new_note <= 127 {
+                        self.currently_on |= 1_u128 << new_note;
+                        write_note_on(&mut self.scratch, channel as u8, new_note as u8, velocity as u8);
                     }
-                    MidiData::NoteOff {
-                        channel,
-                        note,
-                        velocity,
-                    } => {
-                        let new_note = (note as i16) + self.transpose_by;
+                }
+                Ok(NOTE_OFF) => {
+                    let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
 
-                        if new_note >= 0 && new_note <= 127 {
-                            Some(MidiMessage {
-                                data: MidiData::NoteOff {
-                                    channel,
-                                    note: new_note as u8,
-                                    velocity,
-                                },
-                                timestamp: message.timestamp,
-                            })
-                        } else {
-                            None
-                        }
+                    let new_note = (note as i16) + self.transpose_by;
+
+                    if new_note >= 0 && new_note <= 127 {
+                        self.currently_on &= !(1_u128 << new_note);
+                        write_note_off(&mut self.scratch, channel as u8, new_note as u8, velocity as u8);
                     }
-                    _ => Some(message.clone()),
-                })
-                .collect();
-
-            outs.midi(0)[0] = midi_store.add_midi(output.into_iter());
+                }
+                _ => {
+                    write_message(&mut self.scratch, message);
+                }
+            });
         }
+
+        outs.osc(0)[0] = write_bundle_and_message_scratch(osc_store, &self.scratch);
+    }
+}
+
+fn signed_left_shift(num: u128, shift: i16) -> u128 {
+    if shift >= 0 {
+        num << shift
+    } else {
+        num >> (-shift)
     }
 }
 
@@ -85,6 +104,10 @@ impl Node for MidiTransposeNode {
     }
 
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiTransposeNode { transpose_by: 0 }
+        MidiTransposeNode {
+            transpose_by: 0,
+            scratch: Vec::with_capacity(64),
+            currently_on: 0x00,
+        }
     }
 }

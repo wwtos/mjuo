@@ -39,7 +39,7 @@ impl NodeRuntime for ExpressionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut OscStore,
+        _osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let mut have_values_changed = false;
@@ -79,7 +79,7 @@ impl NodeRuntime for ExpressionNode {
                             }
                         };
                     }
-                    Err(err) => {
+                    Err(_) => {
                         // cleanup before erroring
                         self.scope.rewind(0);
 

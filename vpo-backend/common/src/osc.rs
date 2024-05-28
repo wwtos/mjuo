@@ -2,12 +2,52 @@ use std::{borrow::Cow, ffi::CStr, io::Write};
 
 use memchr;
 
+#[derive(Default)]
 pub enum OscView<'a> {
     Message(OscMessageView<'a>),
     Bundle(OscBundleView<'a>),
+    #[default]
+    None,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl<'a> OscView<'a> {
+    pub fn all_messages<F>(&'a self, mut f: F)
+    where
+        F: FnMut(usize, Option<OscTime>, &OscMessageView<'a>),
+    {
+        match self {
+            OscView::Bundle(bundle) => {
+                bundle.all_messages(|offset_from_start, time, message| f(offset_from_start, Some(time), &message))
+            }
+            OscView::Message(message) => {
+                f(0, None, message);
+            }
+            _ => {}
+        }
+    }
+}
+
+impl core::fmt::Debug for OscView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "OscView {{ messages: [")?;
+
+        let mut any_messages = false;
+
+        self.all_messages(|_, _, message| {
+            let _ = write!(f, "\n{:?}", message);
+
+            any_messages = true;
+        });
+
+        if any_messages {
+            writeln!(f)?;
+        }
+
+        write!(f, "] }}")
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct OscTime {
     pub seconds: u32,
     pub fractional: u32,
@@ -79,6 +119,63 @@ impl<'a> OscArg<'a> {
 
                 Ok(8)
             }
+        }
+    }
+
+    pub fn as_int(&self) -> Option<i32> {
+        match self {
+            OscArg::Integer(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f32> {
+        match self {
+            OscArg::Float(x) => Some(*x),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&CStr> {
+        match self {
+            OscArg::String(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_blob(&self) -> Option<&[u8]> {
+        match self {
+            OscArg::Blob(x) => Some(x.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            OscArg::True => Some(true),
+            OscArg::False => Some(false),
+            _ => None,
+        }
+    }
+
+    pub fn as_null(&self) -> Option<()> {
+        match &self {
+            OscArg::Null => Some(()),
+            _ => None,
+        }
+    }
+
+    pub fn as_impulse(&self) -> Option<()> {
+        match self {
+            OscArg::Impulse => Some(()),
+            _ => None,
+        }
+    }
+
+    pub fn as_timetag(&self) -> Option<OscTime> {
+        match self {
+            OscArg::Timetag(t) => Some(t.clone()),
+            _ => None,
         }
     }
 }
@@ -182,9 +279,9 @@ pub struct OscBundleView<'a> {
     content: Cow<'a, [u8]>,
 }
 
-fn handle_element<'a, F>(bytes: &'a [u8], f: &mut F)
+fn handle_element<'a, F>(bytes: &'a [u8], offset_from_start: usize, f: &mut F)
 where
-    F: FnMut(OscTime, OscMessageView<'a>),
+    F: FnMut(usize, OscTime, OscMessageView<'a>),
 {
     let mut cursor = 0;
 
@@ -195,9 +292,9 @@ where
         let elem = &bytes[cursor..(cursor + elem_len)];
 
         if let Some(message) = OscMessageView::new(elem) {
-            (f)(timetag.clone(), message);
+            (f)(offset_from_start + cursor, timetag.clone(), message);
         } else if elem.len() >= 8 && &elem[0..8] == b"#bundle\0" {
-            handle_element(&elem[8..], f);
+            handle_element(&elem[8..], offset_from_start + cursor + 8, f);
         }
 
         cursor += elem_len;
@@ -207,11 +304,11 @@ where
 impl<'a> OscBundleView<'a> {
     pub fn all_messages<F>(&'a self, mut f: F)
     where
-        F: FnMut(OscTime, OscMessageView<'a>),
+        F: FnMut(usize, OscTime, OscMessageView<'a>),
     {
         let bytes = self.content.as_ref();
 
-        handle_element(bytes, &mut f);
+        handle_element(bytes, 8, &mut f);
     }
 }
 
@@ -219,6 +316,33 @@ pub struct OscMessageView<'a> {
     address: &'a CStr,
     type_tag: &'a CStr,
     arguments: &'a [u8],
+    bytes: &'a [u8],
+}
+
+impl core::fmt::Debug for OscMessageView<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[address: ")?;
+
+        match self.address.to_str() {
+            Ok(s) => write!(f, "\"{}\"", s)?,
+            Err(_) => write!(f, "invalid UTF-8")?,
+        }
+
+        write!(f, ", arguments: [")?;
+
+        let mut first_time = true;
+        for arg in self.arg_iter() {
+            if !first_time {
+                write!(f, ", ")?;
+            }
+
+            write!(f, "{:?}", arg)?;
+
+            first_time = false;
+        }
+
+        write!(f, "]]")
+    }
 }
 
 impl<'a> OscMessageView<'a> {
@@ -236,6 +360,7 @@ impl<'a> OscMessageView<'a> {
             address: address,
             type_tag: type_tag,
             arguments: &message[cursor..],
+            bytes: message,
         })
     }
 
@@ -257,6 +382,10 @@ impl<'a> OscMessageView<'a> {
 
     pub fn arguments(&self) -> &[u8] {
         &self.arguments
+    }
+
+    pub fn bytes(&self) -> &[u8] {
+        self.bytes
     }
 }
 
@@ -305,12 +434,17 @@ impl<'a> Iterator for ArgsIter<'a> {
     }
 }
 
+impl<'a> ExactSizeIterator for ArgsIter<'a> {
+    fn len(&self) -> usize {
+        self.message.type_tag().to_bytes().len() - 1
+    }
+}
 pub enum OscWriterMode {
     DryRun,
     ActualRun,
 }
 
-fn write_osc_message<W: Write>(writer: &mut W, address: &CStr, args: &[OscArg]) -> Result<usize, std::io::Error> {
+pub fn write_osc_message<W: Write>(writer: &mut W, address: &CStr, args: &[OscArg]) -> Result<usize, std::io::Error> {
     let mut cursor = 0;
 
     cursor += write_str_padded(address, writer)?;
@@ -330,6 +464,23 @@ fn write_osc_message<W: Write>(writer: &mut W, address: &CStr, args: &[OscArg]) 
     for arg in args {
         cursor += arg.write(writer)?;
     }
+
+    Ok(cursor)
+}
+
+pub fn write_osc_message_prepend_len<W: Write>(
+    writer: &mut W,
+    address: &CStr,
+    args: &[OscArg],
+) -> Result<usize, std::io::Error> {
+    let msg_len = write_osc_message(&mut NoopWriter {}, address, args).unwrap();
+
+    let mut cursor = 0;
+
+    writer.write_all(&(msg_len as u32).to_be_bytes())?;
+    cursor += 4;
+
+    cursor += write_osc_message(writer, address, args)?;
 
     Ok(cursor)
 }
@@ -406,7 +557,6 @@ fn test_message_parsing() {
     let view = OscView::new(&msg1[..]).unwrap();
 
     match view {
-        OscView::Bundle(_) => panic!("wrong type of message"),
         OscView::Message(message) => {
             let mut iter = message.arg_iter();
 
@@ -417,6 +567,7 @@ fn test_message_parsing() {
             assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
             assert_eq!(iter.next(), None);
         }
+        _ => panic!("wrong type of message"),
     }
 
     // poor man's fuzzing
@@ -436,9 +587,9 @@ fn test_message_generation() {
 
     write_osc_message(
         &mut writer,
-        cstr("/foo/bar\0"),
+        c"/foo/bar",
         &[
-            OscArg::String(cstr("hello\0").into()),
+            OscArg::String(c"hello".into()),
             OscArg::Float(1.234),
             OscArg::Float(5.678),
         ],
@@ -450,7 +601,6 @@ fn test_message_generation() {
     let view = OscView::new(&msg[..]).unwrap();
 
     match view {
-        OscView::Bundle(_) => panic!("wrong type of message"),
         OscView::Message(message) => {
             let mut iter = message.arg_iter();
 
@@ -459,6 +609,7 @@ fn test_message_generation() {
             assert_eq!(iter.next(), Some(OscArg::Float(5.678)));
             assert_eq!(iter.next(), None);
         }
+        _ => panic!("wrong type of message"),
     }
 }
 
@@ -508,7 +659,7 @@ fn test_bundle_generation() {
         OscView::Bundle(bundle) => {
             let mut i = 0;
 
-            bundle.all_messages(|time, message| {
+            bundle.all_messages(|offset_from_start, time, message| {
                 assert_eq!(
                     time,
                     OscTime {
@@ -521,6 +672,8 @@ fn test_bundle_generation() {
 
                 match i {
                     0 => {
+                        assert_eq!(offset_from_start, 8 + 8 + 4);
+
                         assert_eq!(message.address, cstr("/foo/bar\0"));
 
                         assert_eq!(iter.next(), Some(OscArg::String(cstr("hello\0").into())));
@@ -529,6 +682,8 @@ fn test_bundle_generation() {
                         assert_eq!(iter.next(), None);
                     }
                     1 => {
+                        assert_eq!(offset_from_start, 8 + 8 + 4 + 36 + 4);
+
                         assert_eq!(message.address, cstr("/baz/quxley\0"));
 
                         assert_eq!(iter.next(), Some(OscArg::Integer(123)));
@@ -545,6 +700,6 @@ fn test_bundle_generation() {
                 i += 1;
             });
         }
-        OscView::Message(_) => unreachable!("should be a bundle"),
+        _ => unreachable!("should be a bundle"),
     }
 }

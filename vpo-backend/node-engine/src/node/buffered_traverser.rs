@@ -283,7 +283,7 @@ impl BufferedTraverser {
         resources: &Resources,
         updated_node_states: Vec<(NodeIndex, serde_json::Value)>,
         graph_state: Option<&BTreeMap<NodeIndex, NodeState>>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
     ) -> StepResult {
         let mut state_changes: Vec<(NodeIndex, NodeState)> = vec![];
 
@@ -378,7 +378,7 @@ impl BufferedTraverser {
                         &stream_sockets[node.stream_out.clone()],
                     )
                 },
-                midi_store,
+                osc_store,
                 &all_resources[node.resources.clone()],
             );
 
@@ -404,7 +404,7 @@ impl BufferedTraverser {
 
             if last_midi_index != new_midi_index {
                 if let Some(some_index) = last_midi_index {
-                    midi_store.remove_osc(some_index.private_clone());
+                    osc_store.remove_osc(some_index.private_clone());
                 }
 
                 *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());

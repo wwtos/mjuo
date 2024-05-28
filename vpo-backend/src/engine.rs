@@ -9,6 +9,8 @@ use clocked::{
     cpal::{CpalSink, CpalSource},
     midir::{MidirSink, MidirSource},
 };
+use common::osc::OscView;
+use common::osc_midi::{read_osc_to_midi, write_midi_as_osc_prepend_len};
 use node_engine::connection::{Primitive, Socket};
 use node_engine::io_routing::{DeviceDirection, DeviceType};
 use node_engine::node::osc_store::OscStore;
@@ -169,7 +171,12 @@ pub fn start_sound_engine(
 
                                 match node {
                                     // TODO: make sure buffer cloning isn't too expensive
-                                    Some(NodeVariant::InputsNode(inputs_node)) => inputs_node.set_midis(buffer.clone()),
+                                    Some(NodeVariant::InputsNode(inputs_node)) => {
+                                        for message in buffer {
+                                            write_midi_as_osc_prepend_len(inputs_node.osc_for_writing(), &message.data)
+                                                .unwrap();
+                                        }
+                                    }
                                     None => {}
                                     _ => panic!("connected node is not input node"),
                                 }
@@ -221,10 +228,15 @@ pub fn start_sound_engine(
 
                             match node {
                                 Some(NodeVariant::OutputsNode(node)) => {
-                                    if let Some(messages) = node.get_midis() {
-                                        for message in messages.iter() {
-                                            buffer.push(message.clone());
-                                        }
+                                    if let Some(view) = node.get_oscs().and_then(|x| OscView::new(x)) {
+                                        view.all_messages(|_, _, message| {
+                                            if let Some(midi) = read_osc_to_midi(message) {
+                                                buffer.push(MidiMessage {
+                                                    data: midi,
+                                                    timestamp: Duration::ZERO,
+                                                });
+                                            }
+                                        });
                                     }
                                 }
                                 None => {}

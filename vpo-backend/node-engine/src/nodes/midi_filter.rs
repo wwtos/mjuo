@@ -9,7 +9,7 @@ pub struct MidiFilterNode {
     filter: Option<Box<AST>>,
     filter_raw: String,
     scope: Box<Scope<'static>>,
-    scratch: Vec<bool>,
+    scratch: Vec<u8>,
 }
 
 impl NodeRuntime for MidiFilterNode {
@@ -38,19 +38,24 @@ impl NodeRuntime for MidiFilterNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        let Some(filter) = &self.filter else { return };
-        let Some(midi) = &ins.midi(0)[0] else { return };
-
-        let messages = midi_store.borrow_osc(midi).unwrap();
-
         self.scratch.clear();
 
-        // create a list of trues and falses of which messages should be passed on
-        let filtered = messages.iter().map(|msg| {
-            add_message_to_scope(&mut self.scope, &msg.data);
+        let Some(filter) = &self.filter else { return };
+
+        let Some(view) = ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes))
+        else {
+            return;
+        };
+
+        view.all_messages(|_, _, msg| {
+            println!("message into filter: {:?}", msg);
+
+            add_message_to_scope(&mut self.scope, msg);
 
             let result = context
                 .script_engine
@@ -58,29 +63,17 @@ impl NodeRuntime for MidiFilterNode {
 
             self.scope.rewind(0);
 
-            match result {
+            let should_be_passed = match result {
                 Ok(output) => output,
                 Err(_) => false,
+            };
+
+            if should_be_passed {
+                write_message(&mut self.scratch, msg);
             }
         });
 
-        self.scratch.extend(filtered);
-
-        let new_len = self.scratch.iter().filter(|x| **x).count();
-        let mut i = 0;
-
-        let messages_out = midi_store.map_midis(midi, new_len, |messages, _| {
-            while self.scratch[i] == false {
-                i += 1;
-            }
-
-            let out = i;
-            i += 1;
-
-            messages[out].clone()
-        });
-
-        outs.midi(0)[0] = messages_out;
+        outs.osc(0)[0] = write_bundle_and_message_scratch(osc_store, &self.scratch);
     }
 }
 
@@ -90,7 +83,7 @@ impl Node for MidiFilterNode {
             filter: None,
             filter_raw: "".into(),
             scope: Box::new(Scope::new()),
-            scratch: Vec::with_capacity(16),
+            scratch: Vec::with_capacity(64),
         }
     }
 

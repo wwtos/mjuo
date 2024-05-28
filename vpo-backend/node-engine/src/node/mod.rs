@@ -184,21 +184,21 @@ impl Default for NodeState {
 
 /// All inputs provided to a node
 pub struct Ins<'a> {
-    midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
+    oscs: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
     values: &'a [&'a [UnsafeCell<Primitive>]],
     streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
 }
 
 /// All outputs provided to a node
 pub struct Outs<'a> {
-    midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
+    oscs: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
     values: &'a [&'a [UnsafeCell<Primitive>]],
     streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
 }
 
 // after this line is all of the IO api
-pub struct InputMidiSocket<'a> {
-    midis: &'a [UnsafeCell<Option<OscIndex>>],
+pub struct InputOscSocket<'a> {
+    oscs: &'a [UnsafeCell<Option<OscIndex>>],
 }
 
 pub struct InputValueSocket<'a> {
@@ -209,23 +209,23 @@ pub struct InputStreamSocket<'a> {
     streams: &'a [&'a [UnsafeCell<f32>]],
 }
 
-impl<'a> InputMidiSocket<'a> {
+impl<'a> InputOscSocket<'a> {
     pub fn channel<'b>(&'b self, index: usize) -> &'b Option<OscIndex> {
-        let midi = &self.midis[index];
+        let osc = &self.oscs[index];
 
-        unsafe { &*midi.get() }
+        unsafe { &*osc.get() }
     }
 
     pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Option<OscIndex>> {
-        self.midis.iter().map(|midi| unsafe { &*midi.get() })
+        self.oscs.iter().map(|osc| unsafe { &*osc.get() })
     }
 
     pub fn len(&self) -> usize {
-        self.midis.len()
+        self.oscs.len()
     }
 }
 
-impl<'a> Index<usize> for InputMidiSocket<'a> {
+impl<'a> Index<usize> for InputOscSocket<'a> {
     type Output = Option<OscIndex>;
 
     fn index(&self, index: usize) -> &Self::Output {
@@ -285,18 +285,20 @@ impl<'a> Index<usize> for InputStreamSocket<'a> {
 
 impl<'a> Ins<'a> {
     pub unsafe fn new(
-        midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
+        oscs: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
         values: &'a [&'a [UnsafeCell<Primitive>]],
         streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
     ) -> Ins<'a> {
-        Ins { midis, values, streams }
+        Ins {
+            oscs: oscs,
+            values,
+            streams,
+        }
     }
 
-    /// Get the midi socket at index `index`
-    pub fn midi<'b>(&'b self, index: usize) -> InputMidiSocket<'b> {
-        InputMidiSocket {
-            midis: self.midis[index],
-        }
+    /// Get the osc socket at index `index`
+    pub fn osc<'b>(&'b self, index: usize) -> InputOscSocket<'b> {
+        InputOscSocket { oscs: self.oscs[index] }
     }
 
     /// Get the value socket at index `index`
@@ -313,8 +315,8 @@ impl<'a> Ins<'a> {
         }
     }
 
-    pub fn midis<'b>(&'b self) -> impl Iterator<Item = InputMidiSocket<'b>> {
-        self.midis.iter().map(|midi| InputMidiSocket { midis: *midi })
+    pub fn oscs<'b>(&'b self) -> impl Iterator<Item = InputOscSocket<'b>> {
+        self.oscs.iter().map(|osc| InputOscSocket { oscs: *osc })
     }
 
     pub fn values<'b>(&'b self) -> impl Iterator<Item = InputValueSocket<'b>> {
@@ -325,8 +327,8 @@ impl<'a> Ins<'a> {
         self.streams.iter().map(|stream| InputStreamSocket { streams: *stream })
     }
 
-    pub fn midis_len(&self) -> usize {
-        self.midis.len()
+    pub fn oscs_len(&self) -> usize {
+        self.oscs.len()
     }
 
     pub fn values_len(&self) -> usize {
@@ -338,8 +340,8 @@ impl<'a> Ins<'a> {
     }
 }
 
-pub struct OutputMidiSocket<'a> {
-    pub midis: &'a [UnsafeCell<Option<OscIndex>>],
+pub struct OutputOscSocket<'a> {
+    pub oscs: &'a [UnsafeCell<Option<OscIndex>>],
 }
 
 pub struct OutputValueSocket<'a> {
@@ -350,33 +352,33 @@ pub struct OutputStreamSocket<'a> {
     pub streams: &'a [&'a [UnsafeCell<f32>]],
 }
 
-impl<'a> OutputMidiSocket<'a> {
+impl<'a> OutputOscSocket<'a> {
     pub fn channel<'b>(&'b mut self, index: usize) -> &'b mut Option<OscIndex> {
-        let midi = &self.midis[index];
+        let osc = &self.oscs[index];
 
-        unsafe { &mut *midi.get() }
+        unsafe { &mut *osc.get() }
     }
 
     pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Option<OscIndex>> {
-        self.midis.iter().map(|midi| unsafe { &mut *midi.get() })
+        self.oscs.iter().map(|osc| unsafe { &mut *osc.get() })
     }
 
     pub fn len(&self) -> usize {
-        self.midis.len()
+        self.oscs.len()
     }
 }
 
-impl<'a> Index<usize> for OutputMidiSocket<'a> {
+impl<'a> Index<usize> for OutputOscSocket<'a> {
     type Output = Option<OscIndex>;
 
     fn index<'b>(&'b self, index: usize) -> &'b Self::Output {
-        let midi = &self.midis[index];
+        let osc = &self.oscs[index];
 
-        unsafe { &*midi.get() }
+        unsafe { &*osc.get() }
     }
 }
 
-impl<'a> IndexMut<usize> for OutputMidiSocket<'a> {
+impl<'a> IndexMut<usize> for OutputOscSocket<'a> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.channel(index)
     }
@@ -450,18 +452,16 @@ impl<'a> IndexMut<usize> for OutputStreamSocket<'a> {
 
 impl<'a> Outs<'a> {
     pub unsafe fn new(
-        midis: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
+        oscs: &'a [&'a [UnsafeCell<Option<OscIndex>>]],
         values: &'a [&'a [UnsafeCell<Primitive>]],
         streams: &'a [&'a [&'a [UnsafeCell<f32>]]],
     ) -> Outs<'a> {
-        Outs { midis, values, streams }
+        Outs { oscs, values, streams }
     }
 
-    /// Get the midi socket at index `index`
-    pub fn midi<'b>(&'b mut self, index: usize) -> OutputMidiSocket<'b> {
-        OutputMidiSocket {
-            midis: self.midis[index],
-        }
+    /// Get the osc socket at index `index`
+    pub fn osc<'b>(&'b mut self, index: usize) -> OutputOscSocket<'b> {
+        OutputOscSocket { oscs: self.oscs[index] }
     }
 
     /// Get the value socket at index `index`
@@ -478,8 +478,8 @@ impl<'a> Outs<'a> {
         }
     }
 
-    pub fn midis<'b>(&'b mut self) -> impl Iterator<Item = OutputMidiSocket<'b>> {
-        self.midis.iter().map(|midi| OutputMidiSocket { midis: *midi })
+    pub fn oscs<'b>(&'b mut self) -> impl Iterator<Item = OutputOscSocket<'b>> {
+        self.oscs.iter().map(|osc| OutputOscSocket { oscs: *osc })
     }
 
     pub fn values<'b>(&'b mut self) -> impl Iterator<Item = OutputValueSocket<'b>> {
@@ -492,8 +492,8 @@ impl<'a> Outs<'a> {
             .map(|stream| OutputStreamSocket { streams: *stream })
     }
 
-    pub fn midis_len(&self) -> usize {
-        self.midis.len()
+    pub fn oscs_len(&self) -> usize {
+        self.oscs.len()
     }
 
     pub fn values_len(&self) -> usize {
@@ -514,6 +514,16 @@ impl OscIndex {
     }
 }
 
+pub trait OptionExt {
+    fn get_messages<'a>(&self, osc_store: &'a OscStore) -> Option<&'a [u8]>;
+}
+
+impl OptionExt for Option<OscIndex> {
+    fn get_messages<'a>(&self, osc_store: &'a OscStore) -> Option<&'a [u8]> {
+        self.as_ref().and_then(|index| osc_store.borrow_osc(&index))
+    }
+}
+
 /// NodeRuntime trait
 ///
 /// This is the most fundamental building block of a graph node network.
@@ -527,12 +537,12 @@ impl OscIndex {
 /// state that needs to be tracked.
 ///
 /// ### Runtime
-/// `set_state`, `accept_midi_inputs`, and `accept_value_inputs` are called before `process`
+/// `set_state`, `accept_osc_inputs`, and `accept_value_inputs` are called before `process`
 /// in an arbitrary order. They are also _only_ called if there is new incoming state.
 ///
 /// `process` is called after that, and this is where most of the work happens.
 ///
-/// After that, `get_midi_outputs`, `get_value_outputs` are called every time, and
+/// After that, `get_osc_outputs`, `get_value_outputs` are called every time, and
 /// that's how values are returned out. `get_state` is also called at this time
 /// if the node has state to track.
 ///
@@ -562,7 +572,7 @@ pub trait NodeRuntime: Debug {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         resources: &[Resource],
     ) {
     }

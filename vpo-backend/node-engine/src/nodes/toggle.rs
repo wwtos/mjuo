@@ -29,7 +29,7 @@ impl NodeRuntime for ToggleNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut OscStore,
+        _osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         if let Some(new_state) = ins.value(0)[0].as_boolean() {

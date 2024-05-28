@@ -1,20 +1,28 @@
 use std::iter::repeat_with;
 
+use common::osc::{BundleWriter, OscTime};
+
 use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct InputsNode {
-    midis: Option<MidiChannel>,
+    osc: Vec<u8>,
     streams: Vec<Vec<f32>>,
 }
 
 impl InputsNode {
-    pub fn set_midis(&mut self, midis: MidiChannel) {
-        self.midis = Some(midis);
+    pub fn osc_ref(&mut self) -> &Vec<u8> {
+        &self.osc
     }
 
-    pub fn midis_mut(&mut self) -> &mut Option<MidiChannel> {
-        &mut self.midis
+    pub fn osc_for_writing(&mut self) -> &mut Vec<u8> {
+        if self.osc.is_empty() {
+            // use bundle writer to write the header
+            BundleWriter::start(Some(&mut self.osc), OscTime::default())
+                .expect("enough space to write osc bundle header");
+        }
+
+        &mut self.osc
     }
 
     pub fn streams_mut(&mut self) -> &mut Vec<Vec<f32>> {
@@ -35,13 +43,13 @@ impl NodeRuntime for InputsNode {
 
         match socket_type {
             SocketType::Stream => {
-                self.midis = None;
+                self.osc.clear();
                 self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
                     .take(channels)
                     .collect();
             }
             SocketType::Midi => {
-                self.midis = None;
+                self.osc.clear();
                 self.streams = vec![];
             }
             _ => {}
@@ -52,19 +60,19 @@ impl NodeRuntime for InputsNode {
 
     fn process<'a>(
         &mut self,
-        _context: NodeProcessContext,
+        context: NodeProcessContext,
         _ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut OscStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        if outs.midis_len() > 0 {
-            if let Some(midis) = &mut self.midis {
-                outs.midi(0)[0] = midi_store.add_midi(midis.drain(..));
-
-                self.midis = None;
+        // do we have an osc output?
+        if outs.oscs_len() > 0 {
+            if !self.osc.is_empty() {
+                outs.osc(0)[0] = osc_store.copy_from(&self.osc);
+                self.osc.clear();
             } else {
-                outs.midi(0)[0] = None;
+                outs.osc(0)[0] = None;
             }
         }
 
@@ -79,7 +87,7 @@ impl NodeRuntime for InputsNode {
 impl Node for InputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         InputsNode {
-            midis: None,
+            osc: Vec::with_capacity(64),
             streams: vec![],
         }
     }

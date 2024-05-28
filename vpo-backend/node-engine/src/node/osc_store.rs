@@ -1,7 +1,4 @@
-use common::{
-    alloc::{BuddyAlloc, SliceAlloc},
-    osc::OscView,
-};
+use common::alloc::{BuddyAlloc, SliceAlloc};
 use generational_arena::Arena;
 use self_cell::self_cell;
 
@@ -49,6 +46,15 @@ impl OscStore {
         })
     }
 
+    pub fn copy_from(&mut self, slice: &[u8]) -> Option<OscIndex> {
+        self.store.with_dependent_mut(|alloc, arena| {
+            let osc = alloc.alloc_slice_copy(slice).ok()?;
+            let index = arena.insert(osc);
+
+            Some(OscIndex(index))
+        })
+    }
+
     pub fn clone_osc(&mut self, index: OscIndex) -> Option<OscIndex> {
         self.store.with_dependent_mut(|alloc, arena| {
             let current_message = arena.get(index.0)?;
@@ -62,12 +68,8 @@ impl OscStore {
         })
     }
 
-    pub fn borrow_osc(&self, index: &OscIndex) -> Option<OscView> {
-        self.store
-            .borrow_dependent()
-            .get(index.0)
-            .map(|x| &*x.value)
-            .and_then(|bytes| OscView::new(bytes))
+    pub fn borrow_osc(&self, index: &OscIndex) -> Option<&[u8]> {
+        self.store.borrow_dependent().get(index.0).map(|x| &*x.value)
     }
 
     pub(super) fn remove_osc(&mut self, index: OscIndex) -> bool {
