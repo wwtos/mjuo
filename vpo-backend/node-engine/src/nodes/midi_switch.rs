@@ -1,4 +1,4 @@
-use common::osc::OscArg;
+use common::osc_midi::{NOTE_OFF_C, NOTE_ON_C};
 
 use super::prelude::*;
 
@@ -58,66 +58,62 @@ impl NodeRuntime for MidiSwitchNode {
 
         if let Some(messages) = messages_in {
             messages.all_messages(|_, _, message| {
-                let mut args = message.arg_iter();
+                let addr = message.address();
+                let args = message.arg_iter();
 
-                match message.address().to_str() {
-                    Ok(NOTE_ON) => {
-                        args.next(); // channel
-                        let Some(OscArg::Integer(note)) = args.next() else {
-                            return;
-                        };
+                if addr == NOTE_ON_C {
+                    let Some((_channel, note, _velocity)) = read_osc!(args, as_int, as_int, as_int) else {
+                        return;
+                    };
 
-                        match self.mode {
-                            SwitchMode::Normal => {
-                                if self.engaged {
-                                    write_message(&mut self.scratch, message);
-                                }
-                            }
-                            SwitchMode::Sostenuto => {
-                                // is the note not being ignored?
-                                if (1_128 << note) & self.ignoring == 0 {
-                                    write_message(&mut self.scratch, message);
-                                }
-                            }
-                            SwitchMode::Sustain => {
+                    match self.mode {
+                        SwitchMode::Normal => {
+                            if self.engaged {
                                 write_message(&mut self.scratch, message);
                             }
                         }
-
-                        self.state |= 1 << note;
-                    }
-                    Ok(NOTE_OFF) => {
-                        let Some((_, note, _)) = read_osc!(args, as_int, as_int, as_int) else {
-                            return;
-                        };
-
-                        match self.mode {
-                            SwitchMode::Normal => {
-                                if self.engaged {
-                                    write_message(&mut self.scratch, message);
-                                }
-                            }
-                            SwitchMode::Sostenuto => {
-                                let being_ignored = (1 << note) & self.ignoring != 0;
-
-                                if !being_ignored {
-                                    write_message(&mut self.scratch, message);
-                                }
-                            }
-                            SwitchMode::Sustain => {
-                                // if it's engaged, don't pass note off messages
-                                if !self.engaged {
-                                    write_message(&mut self.scratch, message);
-                                }
+                        SwitchMode::Sostenuto => {
+                            // is the note not being ignored?
+                            if (1_128 << note) & self.ignoring == 0 {
+                                write_message(&mut self.scratch, message);
                             }
                         }
-
-                        self.state &= !(1 << note);
-                    }
-                    _ => {
-                        if self.engaged {
+                        SwitchMode::Sustain => {
                             write_message(&mut self.scratch, message);
                         }
+                    }
+
+                    self.state |= 1 << note;
+                } else if addr == NOTE_OFF_C {
+                    let Some((_channel, note, _velocity)) = read_osc!(args, as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    match self.mode {
+                        SwitchMode::Normal => {
+                            if self.engaged {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
+                        SwitchMode::Sostenuto => {
+                            let being_ignored = (1 << note) & self.ignoring != 0;
+
+                            if !being_ignored {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
+                        SwitchMode::Sustain => {
+                            // if it's engaged, don't pass note off messages
+                            if !self.engaged {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
+                    }
+
+                    self.state &= !(1 << note);
+                } else {
+                    if self.engaged {
+                        write_message(&mut self.scratch, message);
                     }
                 }
             });

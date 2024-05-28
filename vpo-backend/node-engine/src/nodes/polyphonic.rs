@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use common::osc_midi::{get_channel, is_message_reset};
+use common::osc_midi::{get_channel, is_message_reset, NOTE_OFF_C, NOTE_ON_C};
 
 use crate::{node::buffered_traverser::BufferedTraverser, nodes::prelude::*};
 
@@ -144,23 +144,46 @@ impl NodeRuntime for PolyphonicNode {
         // go through all the messages and send them to all the appropriate locations
         if let Some(message_view) = message_view {
             message_view.all_messages(|_, _, message| {
-                match message.address().to_str() {
-                    Ok(NOTE_OFF) => {
-                        let Some((channel, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
-                            return;
-                        };
+                let addr = message.address();
 
-                        // look to see if there's a note on for this one, send it a turn off
-                        // message if so
-                        let inputs_node = self
-                            .voices
-                            .iter_mut()
-                            .find(|voice| {
-                                voice.info.active
-                                    && voice.info.note == note as u8
-                                    && voice.info.channel == channel as u8
-                            })
-                            .and_then(|voice| voice.traverser.get_node_mut(input_node))
+                if addr == NOTE_OFF_C {
+                    let Some((channel, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    // look to see if there's a note on for this one, send it a turn off
+                    // message if so
+                    let inputs_node = self
+                        .voices
+                        .iter_mut()
+                        .find(|voice| {
+                            voice.info.active && voice.info.note == note as u8 && voice.info.channel == channel as u8
+                        })
+                        .and_then(|voice| voice.traverser.get_node_mut(input_node))
+                        .and_then(|node| match node {
+                            NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
+                            _ => None,
+                        });
+
+                    if let Some(inputs_node) = inputs_node {
+                        write_message(inputs_node.osc_for_writing(), message);
+                    }
+                } else if addr == NOTE_ON_C {
+                    let Some((channel, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    // search through for a open voice
+
+                    // first, check if there's already one on for this note
+                    let already_on = self.voices.iter_mut().find(|voice| {
+                        voice.info.active && voice.info.note == note as u8 && voice.info.channel == channel as u8
+                    });
+
+                    if let Some(already_on) = already_on {
+                        let inputs_node = already_on
+                            .traverser
+                            .get_node_mut(input_node)
                             .and_then(|node| match node {
                                 NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
                                 _ => None,
@@ -169,22 +192,15 @@ impl NodeRuntime for PolyphonicNode {
                         if let Some(inputs_node) = inputs_node {
                             write_message(inputs_node.osc_for_writing(), message);
                         }
-                    }
-                    Ok(NOTE_ON) => {
-                        let Some((channel, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
-                            return;
-                        };
 
-                        // search through for a open voice
+                        already_on.info.started_at = context.current_time;
+                    } else {
+                        // if not, check if one is available
+                        let available = self.voices.iter_mut().find(|voice| !voice.info.active);
 
-                        // first, check if there's already one on for this note
-                        let already_on = self.voices.iter_mut().find(|voice| {
-                            voice.info.active && voice.info.note == note as u8 && voice.info.channel == channel as u8
-                        });
-
-                        if let Some(already_on) = already_on {
+                        if let Some(available) = available {
                             let inputs_node =
-                                already_on
+                                available
                                     .traverser
                                     .get_node_mut(input_node)
                                     .and_then(|node| match node {
@@ -196,77 +212,52 @@ impl NodeRuntime for PolyphonicNode {
                                 write_message(inputs_node.osc_for_writing(), message);
                             }
 
-                            already_on.info.started_at = context.current_time;
+                            available.info.active = true;
+                            available.info.note = note as u8;
+                            available.info.channel = channel as u8;
+                            available.info.started_at = context.current_time;
                         } else {
-                            // if not, check if one is available
-                            let available = self.voices.iter_mut().find(|voice| !voice.info.active);
+                            // just pick the oldest played note
+                            let oldest = self
+                                .voices
+                                .iter_mut()
+                                .min_by_key(|x| x.info.started_at)
+                                .expect("voices to have at least one element");
 
-                            if let Some(available) = available {
-                                let inputs_node =
-                                    available
-                                        .traverser
-                                        .get_node_mut(input_node)
-                                        .and_then(|node| match node {
-                                            NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
-                                            _ => None,
-                                        });
+                            let inputs_node = oldest.traverser.get_node_mut(input_node).and_then(|node| match node {
+                                NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
+                                _ => None,
+                            });
 
-                                if let Some(inputs_node) = inputs_node {
-                                    write_message(inputs_node.osc_for_writing(), message);
-                                }
-
-                                available.info.active = true;
-                                available.info.note = note as u8;
-                                available.info.channel = channel as u8;
-                                available.info.started_at = context.current_time;
-                            } else {
-                                // just pick the oldest played note
-                                let oldest = self
-                                    .voices
-                                    .iter_mut()
-                                    .min_by_key(|x| x.info.started_at)
-                                    .expect("voices to have at least one element");
-
-                                let inputs_node =
-                                    oldest.traverser.get_node_mut(input_node).and_then(|node| match node {
-                                        NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
-                                        _ => None,
-                                    });
-
-                                // be sure to send a note off message first
-                                if let Some(inputs_node) = inputs_node {
-                                    write_note_off(inputs_node.osc_for_writing(), channel as u8, oldest.info.note, 0);
-                                }
-
-                                oldest.info.active = true;
-                                oldest.info.note = note as u8;
-                                oldest.info.channel = channel as u8;
-                                oldest.info.started_at = context.current_time;
+                            // be sure to send a note off message first
+                            if let Some(inputs_node) = inputs_node {
+                                write_note_off(inputs_node.osc_for_writing(), channel as u8, oldest.info.note, 0);
                             }
+
+                            oldest.info.active = true;
+                            oldest.info.note = note as u8;
+                            oldest.info.channel = channel as u8;
+                            oldest.info.started_at = context.current_time;
                         }
                     }
-                    _ => {
-                        // is the message a midi message and does it have a channel?
-                        if let Some(channel) = get_channel(message) {
-                            // if so, only send it to voices with that channel
-                            let applicable_voices =
-                                self.voices.iter_mut().filter(|voice| voice.info.channel == channel);
+                } else {
+                    // is the message a midi message and does it have a channel?
+                    if let Some(channel) = get_channel(message) {
+                        // if so, only send it to voices with that channel
+                        let applicable_voices = self.voices.iter_mut().filter(|voice| voice.info.channel == channel);
 
-                            for voice in applicable_voices {
-                                if let Some(NodeVariant::InputsNode(inputs_node)) =
-                                    voice.traverser.get_node_mut(input_node)
-                                {
-                                    write_message(inputs_node.osc_for_writing(), message);
-                                }
+                        for voice in applicable_voices {
+                            if let Some(NodeVariant::InputsNode(inputs_node)) = voice.traverser.get_node_mut(input_node)
+                            {
+                                write_message(inputs_node.osc_for_writing(), message);
                             }
-                        } else {
-                            // otherwise just send it to everybody
-                            for voice in &mut self.voices {
-                                if let Some(NodeVariant::InputsNode(inputs_node)) =
-                                    voice.traverser.get_node_mut(input_node)
-                                {
-                                    write_message(inputs_node.osc_for_writing(), message);
-                                }
+                        }
+                    } else {
+                        // otherwise just send it to everybody
+                        for voice in &mut self.voices {
+                            if let Some(NodeVariant::InputsNode(inputs_node)) = voice.traverser.get_node_mut(input_node)
+                            {
+                                write_message(inputs_node.osc_for_writing(), message);
                             }
                         }
                     }

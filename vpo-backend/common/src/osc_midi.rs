@@ -62,193 +62,165 @@ osc_const![
 ];
 
 pub fn read_osc_to_midi(message: &OscMessageView) -> Option<MidiData> {
-    let address = message.address().to_str().ok()?;
+    let address = message.address();
 
-    match address {
-        NOTE_ON => {
-            if let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                return Some(MidiData::NoteOn {
-                    channel: channel as u8,
-                    note: note as u8,
-                    velocity: velocity as u8,
-                });
-            }
+    if address == NOTE_ON_C {
+        if let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+            return Some(MidiData::NoteOn {
+                channel: channel as u8,
+                note: note as u8,
+                velocity: velocity as u8,
+            });
         }
-        NOTE_OFF => {
-            if let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                return Some(MidiData::NoteOff {
-                    channel: channel as u8,
-                    note: note as u8,
-                    velocity: velocity as u8,
-                });
-            }
+    } else if address == NOTE_OFF_C {
+        if let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+            return Some(MidiData::NoteOff {
+                channel: channel as u8,
+                note: note as u8,
+                velocity: velocity as u8,
+            });
         }
-        AFTERTOUCH => {
-            if let Some((channel, note, pressure)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                return Some(MidiData::Aftertouch {
-                    channel: channel as u8,
-                    note: note as u8,
-                    pressure: pressure as u8,
-                });
-            }
+    } else if address == AFTERTOUCH_C {
+        if let Some((channel, note, pressure)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+            return Some(MidiData::Aftertouch {
+                channel: channel as u8,
+                note: note as u8,
+                pressure: pressure as u8,
+            });
         }
-        CONTROL_CHANGE => {
-            if let Some((channel, controller, value)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                return Some(MidiData::ControlChange {
-                    channel: channel as u8,
-                    controller: controller as u8,
-                    value: value as u8,
-                });
-            }
+    } else if address == CONTROL_CHANGE_C {
+        if let Some((channel, controller, value)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+            return Some(MidiData::ControlChange {
+                channel: channel as u8,
+                controller: controller as u8,
+                value: value as u8,
+            });
         }
-        PROGRAM_CHANGE => {
-            if let Some((channel, patch)) = read_osc!(message.arg_iter(), as_int, as_int) {
-                return Some(MidiData::ProgramChange {
-                    channel: channel as u8,
-                    patch: patch as u8,
-                });
-            }
+    } else if address == PROGRAM_CHANGE_C {
+        if let Some((channel, patch)) = read_osc!(message.arg_iter(), as_int, as_int) {
+            return Some(MidiData::ProgramChange {
+                channel: channel as u8,
+                patch: patch as u8,
+            });
         }
-        CHANNEL_PRESSURE => {
-            if let Some((channel, pressure)) = read_osc!(message.arg_iter(), as_int, as_int) {
-                return Some(MidiData::ChannelPressure {
-                    channel: channel as u8,
-                    pressure: pressure as u8,
-                });
-            }
+    } else if address == CHANNEL_PRESSURE_C {
+        if let Some((channel, pressure)) = read_osc!(message.arg_iter(), as_int, as_int) {
+            return Some(MidiData::ChannelPressure {
+                channel: channel as u8,
+                pressure: pressure as u8,
+            });
         }
-        PITCH_BEND => {
-            if let Some((channel, pitch_bend)) = read_osc!(message.arg_iter(), as_int, as_int) {
-                return Some(MidiData::PitchBend {
-                    channel: channel as u8,
-                    pitch_bend: pitch_bend as u16,
-                });
-            }
+    } else if address == PITCH_BEND_C {
+        if let Some((channel, pitch_bend)) = read_osc!(message.arg_iter(), as_int, as_int) {
+            return Some(MidiData::PitchBend {
+                channel: channel as u8,
+                pitch_bend: pitch_bend as u16,
+            });
         }
-        COMMON_QUARTER_FRAME_FRAME_LOW => {
-            if let Some(frame) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::FrameLow(frame as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_FRAME_LOW_C {
+        if let Some(frame) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::FrameLow(frame as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_FRAME_HIGH => {
-            if let Some(frame) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::FrameHigh(frame as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_FRAME_HIGH_C {
+        if let Some(frame) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::FrameHigh(frame as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_SECONDS_LOW => {
-            if let Some(seconds) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::SecondsLow(seconds as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_SECONDS_LOW_C {
+        if let Some(seconds) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::SecondsLow(seconds as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_SECONDS_HIGH => {
-            if let Some(seconds) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::SecondsHigh(seconds as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_SECONDS_HIGH_C {
+        if let Some(seconds) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::SecondsHigh(seconds as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_MINUTES_LOW => {
-            if let Some(minutes) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::MinutesLow(minutes as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_MINUTES_LOW_C {
+        if let Some(minutes) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::MinutesLow(minutes as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_MINUTES_HIGH => {
-            if let Some(minutes) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::MinutesHigh(minutes as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_MINUTES_HIGH_C {
+        if let Some(minutes) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::MinutesHigh(minutes as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_HOURS_LOW => {
-            if let Some(hours) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::HoursLow(hours as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_HOURS_LOW_C {
+        if let Some(hours) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::HoursLow(hours as u8),
+            }));
         }
-        COMMON_QUARTER_FRAME_HOURS_HIGH => {
-            if let Some(hours) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
-                    time_fragment: Timecode::HoursHigh(hours as u8),
-                }));
-            }
+    } else if address == COMMON_QUARTER_FRAME_HOURS_HIGH_C {
+        if let Some(hours) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::QuarterFrame {
+                time_fragment: Timecode::HoursHigh(hours as u8),
+            }));
         }
-        COMMON_SONG_POSITION_POINTER => {
-            if let Some(position) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::SongPositionPointer {
-                    position: position as u16,
-                }));
-            }
+    } else if address == COMMON_SONG_POSITION_POINTER_C {
+        if let Some(position) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::SongPositionPointer {
+                position: position as u16,
+            }));
         }
-        COMMON_SONG_SELECT => {
-            if let Some(song) = read_osc!(message.arg_iter(), as_int) {
-                return Some(MidiData::SysCommon(SysCommon::SongSelect { song: song as u8 }));
-            }
+    } else if address == COMMON_SONG_SELECT_C {
+        if let Some(song) = read_osc!(message.arg_iter(), as_int) {
+            return Some(MidiData::SysCommon(SysCommon::SongSelect { song: song as u8 }));
         }
-        COMMON_TUNE_REQUEST => {
-            return Some(MidiData::SysCommon(SysCommon::TuneRequest));
+    } else if address == COMMON_TUNE_REQUEST_C {
+        return Some(MidiData::SysCommon(SysCommon::TuneRequest));
+    } else if address == REALTIME_MIDI_CLOCK_C {
+        return Some(MidiData::SysRt(SysRt::MidiClock));
+    } else if address == REALTIME_TICK_C {
+        return Some(MidiData::SysRt(SysRt::Tick));
+    } else if address == REALTIME_START_C {
+        return Some(MidiData::SysRt(SysRt::Start));
+    } else if address == REALTIME_CONTINUE_C {
+        return Some(MidiData::SysRt(SysRt::Continue));
+    } else if address == REALTIME_STOP_C {
+        return Some(MidiData::SysRt(SysRt::Stop));
+    } else if address == REALTIME_ACTIVE_SENSING_C {
+        return Some(MidiData::SysRt(SysRt::ActiveSensing));
+    } else if address == REALTIME_RESET_C {
+        return Some(MidiData::SysRt(SysRt::Reset));
+    } else if address == SYSTEM_EXCLUSIVE_C {
+        if let Some(OscArg::Blob(data)) = message.arg_iter().next() {
+            return Some(MidiData::SysEx {
+                id_and_data: data.to_vec(),
+            });
         }
-        REALTIME_MIDI_CLOCK => {
-            return Some(MidiData::SysRt(SysRt::MidiClock));
-        }
-        REALTIME_TICK => {
-            return Some(MidiData::SysRt(SysRt::Tick));
-        }
-        REALTIME_START => {
-            return Some(MidiData::SysRt(SysRt::Start));
-        }
-        REALTIME_CONTINUE => {
-            return Some(MidiData::SysRt(SysRt::Continue));
-        }
-        REALTIME_STOP => {
-            return Some(MidiData::SysRt(SysRt::Stop));
-        }
-        REALTIME_ACTIVE_SENSING => {
-            return Some(MidiData::SysRt(SysRt::ActiveSensing));
-        }
-        REALTIME_RESET => {
-            return Some(MidiData::SysRt(SysRt::Reset));
-        }
-        SYSTEM_EXCLUSIVE => {
-            if let Some(OscArg::Blob(data)) = message.arg_iter().next() {
-                return Some(MidiData::SysEx {
-                    id_and_data: data.to_vec(),
-                });
-            }
-        }
-        _ => {}
     }
 
     None
 }
 
 pub fn get_channel(msg: &OscMessageView) -> Option<u8> {
-    let Ok(address) = msg.address().to_str() else {
-        return None;
-    };
+    let addr = msg.address();
 
-    match address {
-        NOTE_ON | NOTE_OFF | AFTERTOUCH | CONTROL_CHANGE | PROGRAM_CHANGE | CHANNEL_PRESSURE | PITCH_BEND => {
-            let Some(OscArg::Integer(channel)) = msg.arg_iter().next() else {
-                return None;
-            };
-
+    if addr == NOTE_ON_C
+        || addr == NOTE_OFF_C
+        || addr == AFTERTOUCH_C
+        || addr == CONTROL_CHANGE_C
+        || addr == PROGRAM_CHANGE_C
+        || addr == CHANNEL_PRESSURE_C
+        || addr == PITCH_BEND_C
+    {
+        if let Some(channel) = read_osc!(msg.arg_iter(), as_int) {
             if channel >= 0 && channel <= 15 {
-                Some(channel as u8)
-            } else {
-                None
+                return Some(channel as u8);
             }
         }
-        _ => None,
     }
+
+    None
 }
 
 pub fn write_midi_as_osc<W: Write>(writer: &mut W, message: &MidiData) -> Result<usize, std::io::Error> {
@@ -392,27 +364,19 @@ pub fn write_midi_as_osc_prepend_len<W: Write>(writer: &mut W, message: &MidiDat
 }
 
 pub fn is_message_reset(message: &OscMessageView) -> bool {
-    match message.address().to_str() {
-        Ok(REALTIME_RESET) => true,
-        Ok(CONTROL_CHANGE) => {
-            let mut args = message.arg_iter();
+    let addr = message.address();
 
-            let _channel = args.next();
-            let Some(OscArg::Integer(controller)) = args.next() else {
-                return false;
-            };
-            let Some(OscArg::Integer(value)) = args.next() else {
-                return false;
-            };
-
+    if addr == REALTIME_RESET_C {
+        return true;
+    } else if addr == CONTROL_CHANGE_C {
+        if let Some((_channel, controller, value)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
             if controller == 120 || controller == 121 || (controller == 122 && value == 0) || controller == 123 {
-                true
-            } else {
-                false
+                return true;
             }
         }
-        _ => false,
     }
+
+    false
 }
 
 /// Writes the message (and prepends message length) to the vec

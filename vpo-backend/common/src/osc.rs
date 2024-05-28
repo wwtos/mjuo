@@ -10,23 +10,6 @@ pub enum OscView<'a> {
     None,
 }
 
-impl<'a> OscView<'a> {
-    pub fn all_messages<F>(&'a self, mut f: F)
-    where
-        F: FnMut(usize, Option<OscTime>, &OscMessageView<'a>),
-    {
-        match self {
-            OscView::Bundle(bundle) => {
-                bundle.all_messages(|offset_from_start, time, message| f(offset_from_start, Some(time), &message))
-            }
-            OscView::Message(message) => {
-                f(0, None, message);
-            }
-            _ => {}
-        }
-    }
-}
-
 impl core::fmt::Debug for OscView<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "OscView {{ messages: [")?;
@@ -67,6 +50,7 @@ pub enum OscArg<'a> {
 }
 
 impl<'a> OscArg<'a> {
+    #[inline]
     pub fn type_as_byte(&self) -> u8 {
         match self {
             OscArg::Integer(_) => b'i',
@@ -122,6 +106,7 @@ impl<'a> OscArg<'a> {
         }
     }
 
+    #[inline]
     pub fn as_int(&self) -> Option<i32> {
         match self {
             OscArg::Integer(x) => Some(*x),
@@ -129,6 +114,7 @@ impl<'a> OscArg<'a> {
         }
     }
 
+    #[inline]
     pub fn as_float(&self) -> Option<f32> {
         match self {
             OscArg::Float(x) => Some(*x),
@@ -150,6 +136,7 @@ impl<'a> OscArg<'a> {
         }
     }
 
+    #[inline]
     pub fn as_bool(&self) -> Option<bool> {
         match self {
             OscArg::True => Some(true),
@@ -158,6 +145,7 @@ impl<'a> OscArg<'a> {
         }
     }
 
+    #[inline]
     pub fn as_null(&self) -> Option<()> {
         match &self {
             OscArg::Null => Some(()),
@@ -165,6 +153,7 @@ impl<'a> OscArg<'a> {
         }
     }
 
+    #[inline]
     pub fn as_impulse(&self) -> Option<()> {
         match self {
             OscArg::Impulse => Some(()),
@@ -180,6 +169,7 @@ impl<'a> OscArg<'a> {
     }
 }
 
+#[inline]
 fn padding_32(pos: usize) -> usize {
     3 - (pos % 4)
 }
@@ -216,11 +206,13 @@ fn read_string<'a>(message: &'a [u8], cursor: &mut usize) -> Option<&'a CStr> {
 
     *cursor = end_of_message + 1;
 
-    let cstr = CStr::from_bytes_with_nul(&message[pos..(message_null + 1)]).ok()?;
+    // don't search for null twice
+    let cstr = unsafe { CStr::from_bytes_with_nul_unchecked(&message[pos..(message_null + 1)]) };
 
     Some(cstr)
 }
 
+#[inline]
 fn read_u32(message: &[u8], cursor: &mut usize) -> u32 {
     let pos = *cursor;
 
@@ -229,6 +221,7 @@ fn read_u32(message: &[u8], cursor: &mut usize) -> u32 {
     u32::from_be_bytes([message[pos + 0], message[pos + 1], message[pos + 2], message[pos + 3]])
 }
 
+#[inline]
 fn read_i32(message: &[u8], cursor: &mut usize) -> i32 {
     let pos = *cursor;
 
@@ -237,6 +230,7 @@ fn read_i32(message: &[u8], cursor: &mut usize) -> i32 {
     i32::from_be_bytes([message[pos + 0], message[pos + 1], message[pos + 2], message[pos + 3]])
 }
 
+#[inline]
 fn read_f32(message: &[u8], cursor: &mut usize) -> f32 {
     let pos = *cursor;
 
@@ -270,6 +264,21 @@ impl<'a> OscView<'a> {
             Some(OscView::Message(OscMessageView::new(message)?))
         } else {
             None
+        }
+    }
+
+    pub fn all_messages<F>(&'a self, mut f: F)
+    where
+        F: FnMut(usize, Option<OscTime>, &OscMessageView<'a>),
+    {
+        match self {
+            OscView::Bundle(bundle) => {
+                bundle.all_messages(|offset_from_start, time, message| f(offset_from_start, Some(time), &message))
+            }
+            OscView::Message(message) => {
+                f(0, None, message);
+            }
+            _ => {}
         }
     }
 }

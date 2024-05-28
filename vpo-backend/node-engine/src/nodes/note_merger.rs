@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use common::osc_midi::{NOTE_OFF_C, NOTE_ON_C};
+
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -48,40 +50,38 @@ impl NodeRuntime for NoteMergerNode {
             };
 
             messages.all_messages(|_, _, message| {
-                match message.address().to_str() {
-                    Ok(NOTE_ON) => {
-                        let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
-                            return;
-                        };
+                let addr = message.address();
 
-                        let before = self.combined;
+                if addr == NOTE_ON_C {
+                    let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
 
-                        self.states[i] |= 1_u128 << note;
-                        self.combine();
+                    let before = self.combined;
 
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
-                            write_message(&mut self.scratch, message);
-                        }
-                    }
-                    Ok(NOTE_OFF) => {
-                        let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
-                            return;
-                        };
+                    self.states[i] |= 1_u128 << note;
+                    self.combine();
 
-                        let before = self.combined;
-
-                        self.states[i] &= !(1_u128 << note);
-                        self.combine();
-
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
-                            write_message(&mut self.scratch, message);
-                        }
-                    }
-                    _ => {
+                    // the state changed, so we should pass this message through
+                    if self.combined != before {
                         write_message(&mut self.scratch, message);
                     }
+                } else if addr == NOTE_OFF_C {
+                    let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    let before = self.combined;
+
+                    self.states[i] &= !(1_u128 << note);
+                    self.combine();
+
+                    // the state changed, so we should pass this message through
+                    if self.combined != before {
+                        write_message(&mut self.scratch, message);
+                    }
+                } else {
+                    write_message(&mut self.scratch, message);
                 }
             });
         }

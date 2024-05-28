@@ -1,5 +1,5 @@
 use common::osc::OscView;
-use common::osc_midi::{is_message_reset, NOTE_OFF, NOTE_ON};
+use common::osc_midi::{is_message_reset, NOTE_OFF_C, NOTE_ON_C};
 use common::read_osc;
 use common::traits::TryRef;
 
@@ -181,13 +181,12 @@ impl<V: Voice> RankPlayer<V> {
 
         // allocate any needed voices
         osc.all_messages(|_, _, message| {
-            match message.address().to_str() {
-                Ok(NOTE_ON) => {
-                    if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
-                        self.allocate_note(rank, note as u8, samples);
-                    }
+            let addr = message.address();
+
+            if addr == NOTE_ON_C {
+                if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+                    self.allocate_note(rank, note as u8, samples);
                 }
-                _ => {}
             }
 
             if is_message_reset(message) {
@@ -211,22 +210,22 @@ impl<V: Voice> RankPlayer<V> {
                 continue;
             };
 
-            osc.all_messages(|_, _, message| match message.address().to_str() {
-                Ok(NOTE_ON) => {
+            osc.all_messages(|_, _, message| {
+                let addr = message.address();
+
+                if addr == NOTE_ON_C {
                     if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
                         if voice.note == note as u8 {
                             voice.player.attack(pipe, sample);
                         }
                     }
-                }
-                Ok(NOTE_OFF) => {
+                } else if addr == NOTE_OFF_C {
                     if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
                         if voice.note == note as u8 {
                             voice.player.release(pipe, sample);
                         }
                     }
                 }
-                _ => {}
             });
 
             voice.player.set_param(&self.param);

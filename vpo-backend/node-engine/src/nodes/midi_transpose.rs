@@ -1,3 +1,5 @@
+use common::osc_midi::{NOTE_OFF_C, NOTE_ON_C};
+
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -10,7 +12,7 @@ pub struct MidiTransposeNode {
 impl NodeRuntime for MidiTransposeNode {
     fn process<'a>(
         &mut self,
-        context: NodeProcessContext,
+        _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
         osc_store: &mut OscStore,
@@ -49,8 +51,8 @@ impl NodeRuntime for MidiTransposeNode {
         }
 
         if let Some(messages) = messages {
-            messages.all_messages(|_, _, message| match message.address().to_str() {
-                Ok(NOTE_ON) => {
+            messages.all_messages(|_, _, message| {
+                if message.address() == NOTE_ON_C {
                     let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
                         return;
                     };
@@ -61,8 +63,7 @@ impl NodeRuntime for MidiTransposeNode {
                         self.currently_on |= 1_u128 << new_note;
                         write_note_on(&mut self.scratch, channel as u8, new_note as u8, velocity as u8);
                     }
-                }
-                Ok(NOTE_OFF) => {
+                } else if message.address() == NOTE_OFF_C {
                     let Some((channel, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
                         return;
                     };
@@ -73,8 +74,7 @@ impl NodeRuntime for MidiTransposeNode {
                         self.currently_on &= !(1_u128 << new_note);
                         write_note_off(&mut self.scratch, channel as u8, new_note as u8, velocity as u8);
                     }
-                }
-                _ => {
+                } else {
                     write_message(&mut self.scratch, message);
                 }
             });

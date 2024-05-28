@@ -1,4 +1,4 @@
-use common::osc_midi::is_message_reset;
+use common::osc_midi::{is_message_reset, NOTE_OFF_C, NOTE_ON_C, PITCH_BEND_C};
 
 use crate::nodes::prelude::*;
 
@@ -25,34 +25,31 @@ impl NodeRuntime for MidiToValuesNode {
         };
 
         messages.all_messages(|_, _, message| {
-            match message.address().to_str() {
-                Ok(NOTE_ON) => {
-                    let Some((_, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
-                        return;
-                    };
+            let addr = message.address();
 
-                    self.base_freq = 440.0 * f32::powf(2.0, (note as f32 - 69.0) / 12.0);
+            if addr == NOTE_ON_C {
+                let Some((_, note, velocity)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                    return;
+                };
 
-                    outs.value(0)[0] = float(self.base_freq * self.pitch_bend);
-                    outs.value(1)[0] = bool(true);
-                    outs.value(2)[0] = float((velocity as f32) / 127.0);
-                }
-                Ok(NOTE_OFF) => {
-                    outs.value(1)[0] = bool(false);
-                }
-                Ok(PITCH_BEND) => {
-                    let Some((_, bend)) = read_osc!(message.arg_iter(), as_int, as_int) else {
-                        return;
-                    };
+                self.base_freq = 440.0 * f32::powf(2.0, (note as f32 - 69.0) / 12.0);
 
-                    let bound_bend = (bend - 8192) as f32 / 8192.0;
-                    let cents = bound_bend * 200.0;
+                outs.value(0)[0] = float(self.base_freq * self.pitch_bend);
+                outs.value(1)[0] = bool(true);
+                outs.value(2)[0] = float((velocity as f32) / 127.0);
+            } else if addr == NOTE_OFF_C {
+                outs.value(1)[0] = bool(false);
+            } else if addr == PITCH_BEND_C {
+                let Some((_, bend)) = read_osc!(message.arg_iter(), as_int, as_int) else {
+                    return;
+                };
 
-                    self.pitch_bend = f32::powf(2.0, cents / 1200.0);
+                let bound_bend = (bend - 8192) as f32 / 8192.0;
+                let cents = bound_bend * 200.0;
 
-                    outs.value(0)[0] = float(self.base_freq * self.pitch_bend);
-                }
-                _ => {}
+                self.pitch_bend = f32::powf(2.0, cents / 1200.0);
+
+                outs.value(0)[0] = float(self.base_freq * self.pitch_bend);
             }
 
             if is_message_reset(message) {
