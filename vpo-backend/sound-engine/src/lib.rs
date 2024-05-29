@@ -2,8 +2,6 @@
 
 use std::fmt::Debug;
 
-use clocked::midi::MidiMessage;
-use common::alloc::Alloc;
 use serde::Serialize;
 
 pub mod error;
@@ -15,9 +13,6 @@ pub mod util;
 pub mod wave;
 
 pub type SamplePoint = i16;
-
-pub type MidiChannel = Vec<MidiMessage>;
-pub struct MidiIndex<'a>(Alloc<'a, MidiChannel>);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]

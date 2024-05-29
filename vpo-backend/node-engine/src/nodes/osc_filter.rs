@@ -5,14 +5,14 @@ use crate::nodes::prelude::*;
 use super::util::add_message_to_scope;
 
 #[derive(Debug, Clone)]
-pub struct MidiFilterNode {
+pub struct OscFilterNode {
     filter: Option<Box<AST>>,
     filter_raw: String,
     scope: Box<Scope<'static>>,
     scratch: Vec<u8>,
 }
 
-impl NodeRuntime for MidiFilterNode {
+impl NodeRuntime for OscFilterNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let mut warning: Option<NodeWarning> = None;
 
@@ -75,9 +75,9 @@ impl NodeRuntime for MidiFilterNode {
     }
 }
 
-impl Node for MidiFilterNode {
-    fn new(_sound_config: &SoundConfig) -> MidiFilterNode {
-        MidiFilterNode {
+impl Node for OscFilterNode {
+    fn new(_sound_config: &SoundConfig) -> OscFilterNode {
+        OscFilterNode {
             filter: None,
             filter_raw: "".into(),
             scope: Box::new(Scope::new()),
@@ -87,13 +87,13 @@ impl Node for MidiFilterNode {
 
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", 1),
+            osc_input("osc", 1),
             NodeRow::Property(
                 "expression".to_string(),
                 PropertyType::String,
                 Property::String("".to_string()),
             ),
-            midi_output("midi", 1),
+            osc_output("osc", 1),
         ])
     }
 }

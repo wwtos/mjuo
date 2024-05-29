@@ -95,9 +95,9 @@ fn signed_left_shift(num: u128, shift: i16) -> u128 {
 impl Node for MidiTransposeNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", 1),
+            osc_input("midi", 1),
             value_input("transpose", int(0), 1),
-            midi_output("midi", 1),
+            osc_output("midi", 1),
         ])
     }
 

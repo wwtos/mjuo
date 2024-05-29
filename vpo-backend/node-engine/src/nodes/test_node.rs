@@ -14,7 +14,7 @@ impl Node for TestNode {
         NodeIo::simple(vec![
             stream_input("audio", 1),
             stream_input("gain", 1),
-            midi_input("midi", 1),
+            osc_input("osc", 1),
             stream_output("audio", 1),
             value_output("gate", 1),
         ])

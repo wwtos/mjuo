@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
 use crate::{
-    connection::{InputSideConnection, OutputSideConnection, Socket, SocketDirection},
+    connection::{InputSideConnection, OutputSideConnection, Socket},
     errors::{NodeDoesNotExistSnafu, NodeError, NodeOk, NodeResult, NodesNotConnectedSnafu},
     node::{NodeGetIoContext, NodeIndex},
     node_instance::NodeInstance,
@@ -110,7 +110,7 @@ impl NodeGraph {
             });
         }
 
-        // make sure the types are of the same family (midi can't connect to stream, etc)
+        // make sure the types are of the same family (osc can't connect to stream, etc)
         if from_socket.socket_type() != to_socket.socket_type() || from_socket.channels() != to_socket.channels() {
             return Err(NodeError::IncompatibleSocketTypes {
                 from: from_socket.socket_type(),

@@ -56,9 +56,9 @@ fn build_chunked_buffer(buffer: Vec<UnsafeCell<f32>>, chunk_size: usize) -> Chun
 struct TraverserIo {
     stream_io: ChunkedBuffer,
     value_io: Vec<UnsafeCell<Primitive>>,
-    midi_io: Vec<UnsafeCell<Option<OscIndex>>>,
+    osc_io: Vec<UnsafeCell<Option<OscIndex>>>,
     stream_default: ChunkedBuffer,
-    midi_default: Vec<UnsafeCell<Option<OscIndex>>>,
+    osc_default: Vec<UnsafeCell<Option<OscIndex>>>,
     value_default: Vec<UnsafeCell<Primitive>>,
 }
 
@@ -66,7 +66,7 @@ struct TraverserIo {
 struct TraverserRefs<'io> {
     stream_sockets: Vec<&'io [&'io [UnsafeCell<f32>]]>,
     value_sockets: Vec<&'io [UnsafeCell<Primitive>]>,
-    midi_sockets: Vec<&'io [UnsafeCell<Option<OscIndex>>]>,
+    osc_sockets: Vec<&'io [UnsafeCell<Option<OscIndex>>]>,
 }
 
 fn build_io(config: SoundConfig, indexes: &Indexes) -> TraverserIo {
@@ -79,14 +79,14 @@ fn build_io(config: SoundConfig, indexes: &Indexes) -> TraverserIo {
     let value_io = repeat_with(|| UnsafeCell::new(Primitive::None))
         .take(indexes.value_count)
         .collect();
-    let midi_io = repeat_with(|| UnsafeCell::new(None)).take(indexes.midi_count).collect();
+    let osc_io = repeat_with(|| UnsafeCell::new(None)).take(indexes.osc_count).collect();
 
     let stream_default = ChunkedBuffer::new(
         repeat_with(|| UnsafeCell::new(0.0)).take(config.buffer_size).collect(),
         |buffer| BufferChunks(repeat(&buffer[..]).take(indexes.max_stream_channels).collect()),
     );
-    let midi_default = repeat_with(|| UnsafeCell::new(None))
-        .take(indexes.max_midi_channels)
+    let osc_default = repeat_with(|| UnsafeCell::new(None))
+        .take(indexes.max_osc_channels)
         .collect();
     let value_default = repeat_with(|| UnsafeCell::new(Primitive::None))
         .take(indexes.max_value_channels)
@@ -95,16 +95,16 @@ fn build_io(config: SoundConfig, indexes: &Indexes) -> TraverserIo {
     TraverserIo {
         stream_io,
         value_io,
-        midi_io,
+        osc_io,
         stream_default,
-        midi_default,
+        osc_default,
         value_default,
     }
 }
 
 fn build_refs<'io>(io: &'io TraverserIo, indexes: &Indexes) -> TraverserRefs<'io> {
     let mut stream_sockets: Vec<&[&[UnsafeCell<f32>]]> = vec![];
-    let mut midi_sockets: Vec<&[UnsafeCell<Option<OscIndex>>]> = vec![];
+    let mut osc_sockets: Vec<&[UnsafeCell<Option<OscIndex>>]> = vec![];
     let mut value_sockets: Vec<&[UnsafeCell<Primitive>]> = vec![];
 
     for stream_config in &indexes.streams {
@@ -115,11 +115,11 @@ fn build_refs<'io>(io: &'io TraverserIo, indexes: &Indexes) -> TraverserRefs<'io
         }
     }
 
-    for midi_config in &indexes.midis {
-        if let Some(midi_config) = midi_config {
-            midi_sockets.push(&io.midi_io[midi_config.clone()])
+    for osc_config in &indexes.oscs {
+        if let Some(osc_config) = osc_config {
+            osc_sockets.push(&io.osc_io[osc_config.clone()])
         } else {
-            midi_sockets.push(&io.midi_default[..])
+            osc_sockets.push(&io.osc_default[..])
         }
     }
 
@@ -133,7 +133,7 @@ fn build_refs<'io>(io: &'io TraverserIo, indexes: &Indexes) -> TraverserRefs<'io
 
     TraverserRefs {
         stream_sockets,
-        midi_sockets,
+        osc_sockets,
         value_sockets,
     }
 }
@@ -152,10 +152,10 @@ self_cell!(
 #[derive(Debug)]
 struct TraverserNode {
     pub stream_in: Range<usize>,
-    pub midi_in: Range<usize>,
+    pub osc_in: Range<usize>,
     pub value_in: Range<usize>,
     pub stream_out: Range<usize>,
-    pub midi_out: Range<usize>,
+    pub osc_out: Range<usize>,
     pub value_out: Range<usize>,
     pub resources: Range<usize>,
     pub node: NodeVariant,
@@ -175,7 +175,7 @@ pub struct BufferedTraverser {
     node_to_index_mapping: BTreeMap<NodeIndex, usize>,
     resource_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
     io_and_refs: IoAndRefs,
-    midi_tracking: Vec<Option<OscIndex>>,
+    osc_tracking: Vec<Option<OscIndex>>,
     config: SoundConfig,
     engine: Engine,
     time: Duration,
@@ -236,10 +236,10 @@ impl BufferedTraverser {
 
             nodes.push(TraverserNode {
                 stream_in: indexes.stream_in,
-                midi_in: indexes.midi_in,
+                osc_in: indexes.osc_in,
                 value_in: indexes.value_in,
                 stream_out: indexes.stream_out,
-                midi_out: indexes.midi_out,
+                osc_out: indexes.osc_out,
                 value_out: indexes.value_out,
                 resources: indexes.resources,
                 node: spec.node,
@@ -248,12 +248,12 @@ impl BufferedTraverser {
             });
         }
 
-        let midi_io = &io_and_refs.borrow_owner().midi_io;
-        let mut midi_tracking = Vec::with_capacity(midi_io.len());
+        let osc_io = &io_and_refs.borrow_owner().osc_io;
+        let mut osc_tracking = Vec::with_capacity(osc_io.len());
 
-        for index in midi_io {
+        for index in osc_io {
             let index = index.get();
-            midi_tracking.push(unsafe { (*index).as_ref().map(|x| x.private_clone()) });
+            osc_tracking.push(unsafe { (*index).as_ref().map(|x| x.private_clone()) });
         }
 
         let engine = rhai::Engine::new();
@@ -266,7 +266,7 @@ impl BufferedTraverser {
                 node_to_index_mapping,
                 resource_tracking: io_spec.resources_tracking,
                 io_and_refs,
-                midi_tracking,
+                osc_tracking,
                 config,
                 engine,
                 time: start_time,
@@ -290,7 +290,7 @@ impl BufferedTraverser {
         let TraverserRefs {
             stream_sockets,
             value_sockets,
-            midi_sockets,
+            osc_sockets,
         } = &self.io_and_refs.borrow_dependent();
 
         // get all the resources
@@ -366,14 +366,14 @@ impl BufferedTraverser {
                 },
                 unsafe {
                     Ins::new(
-                        &midi_sockets[node.midi_in.clone()],
+                        &osc_sockets[node.osc_in.clone()],
                         value_inputs,
                         &stream_sockets[node.stream_in.clone()],
                     )
                 },
                 unsafe {
                     Outs::new(
-                        &midi_sockets[node.midi_out.clone()],
+                        &osc_sockets[node.osc_out.clone()],
                         &value_sockets[node.value_out.clone()],
                         &stream_sockets[node.stream_out.clone()],
                     )
@@ -392,22 +392,22 @@ impl BufferedTraverser {
             }
         }
 
-        // # Midi garbage collection
+        // # Osc garbage collection
         //
-        // As each midi message is "owned" by only the node that outputted it,
+        // As each osc bundle is "owned" by only the node that outputted it,
         // if the node is no longer outputting it it's good to be collected.
-        let midi_io = &self.io_and_refs.borrow_owner().midi_io;
-        for (last_midi_index, new_midi_index) in self.midi_tracking.iter_mut().zip(midi_io.iter()) {
+        let osc_io = &self.io_and_refs.borrow_owner().osc_io;
+        for (last_osc_index, new_osc_index) in self.osc_tracking.iter_mut().zip(osc_io.iter()) {
             // SAFETY: io_and_refs isn't being used by anything currently (since we're running in a
             // single thread)
-            let new_midi_index = unsafe { &*new_midi_index.get() };
+            let new_osc_index = unsafe { &*new_osc_index.get() };
 
-            if last_midi_index != new_midi_index {
-                if let Some(some_index) = last_midi_index {
+            if last_osc_index != new_osc_index {
+                if let Some(some_index) = last_osc_index {
                     osc_store.remove_osc(some_index.private_clone());
                 }
 
-                *last_midi_index = new_midi_index.as_ref().map(|x| x.private_clone());
+                *last_osc_index = new_osc_index.as_ref().map(|x| x.private_clone());
             }
         }
 
@@ -474,24 +474,24 @@ mod tests {
         let mut manager = GraphManager::new(1);
         let (graph_index, _) = manager.new_graph().unwrap();
         let graph = manager.get_graph_mut(graph_index).unwrap();
-        let mut midi_store = OscStore::new(256, 0);
+        let mut osc_store = OscStore::new(256, 0);
 
         let (gain, _) = graph.add_node("GainNode").unwrap().value;
-        let (midi, _) = graph.add_node("MidiToValuesNode").unwrap().value;
-        let (osc, _) = graph.add_node("OscillatorNode").unwrap().value;
+        let (osc, _) = graph.add_node("MidiToValuesNode").unwrap().value;
+        let (oscil, _) = graph.add_node("OscillatorNode").unwrap().value;
 
         graph
             .connect(
-                midi,
-                &Socket::Simple("frequency".into(), SocketType::Value, 1),
                 osc,
+                &Socket::Simple("frequency".into(), SocketType::Value, 1),
+                oscil,
                 &Socket::Simple("frequency".into(), SocketType::Value, 1),
             )
             .unwrap();
 
         graph
             .connect(
-                osc,
+                oscil,
                 &Socket::Simple("audio".into(), SocketType::Stream, 1),
                 gain,
                 &Socket::Simple("audio".into(), SocketType::Stream, 1),
@@ -511,7 +511,7 @@ mod tests {
             Duration::ZERO,
         )
         .unwrap();
-        traverser.step(&Resources::default(), vec![], None, &mut midi_store);
-        traverser.step(&Resources::default(), vec![], None, &mut midi_store);
+        traverser.step(&Resources::default(), vec![], None, &mut osc_store);
+        traverser.step(&Resources::default(), vec![], None, &mut osc_store);
     }
 }

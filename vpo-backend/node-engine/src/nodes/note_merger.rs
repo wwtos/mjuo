@@ -102,7 +102,7 @@ impl Node for NoteMergerNode {
     fn get_io(_context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            midi_output("midi", 1),
+            osc_output("midi", 1),
         ];
 
         // TODO: upgrade to add inputs based on how many are connected
@@ -114,12 +114,7 @@ impl Node for NoteMergerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::WithData(
-                    Cow::Borrowed("input_numbered"),
-                    (i + 1).to_string(),
-                    SocketType::Midi,
-                    1,
-                ),
+                Socket::WithData(Cow::Borrowed("input_numbered"), (i + 1).to_string(), SocketType::Osc, 1),
                 SocketValue::None,
             ));
         }

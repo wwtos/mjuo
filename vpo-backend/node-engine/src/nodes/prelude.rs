@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::io::{Cursor, Write};
 
 pub(super) use common::osc::OscView;
-pub(super) use common::osc_midi::{write_message, write_note_off, write_note_on, NOTE_OFF, NOTE_ON, PITCH_BEND};
+pub(super) use common::osc_midi::{write_message, write_note_off, write_note_on, NOTE_OFF_C, NOTE_ON_C, PITCH_BEND_C};
 pub(super) use common::read_osc;
 pub(super) use common::SeaHashMap;
 pub(super) use sound_engine::SoundConfig;
@@ -42,9 +42,9 @@ pub fn stream_input(name: &'static str, polyphony: usize) -> NodeRow {
     )
 }
 
-pub fn midi_input(name: &'static str, polyphony: usize) -> NodeRow {
+pub fn osc_input(name: &'static str, polyphony: usize) -> NodeRow {
     NodeRow::Input(
-        Socket::Simple(Cow::Borrowed(name), SocketType::Midi, polyphony),
+        Socket::Simple(Cow::Borrowed(name), SocketType::Osc, polyphony),
         SocketValue::None,
     )
 }
@@ -60,8 +60,8 @@ pub fn stream_output(name: &'static str, polyphony: usize) -> NodeRow {
     NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Stream, polyphony))
 }
 
-pub fn midi_output(name: &'static str, polyphony: usize) -> NodeRow {
-    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Midi, polyphony))
+pub fn osc_output(name: &'static str, polyphony: usize) -> NodeRow {
+    NodeRow::Output(Socket::Simple(Cow::Borrowed(name), SocketType::Osc, polyphony))
 }
 
 pub fn value_output(name: &'static str, polyphony: usize) -> NodeRow {

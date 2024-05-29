@@ -1,5 +1,3 @@
-use common::osc_midi::{NOTE_OFF_C, NOTE_ON_C};
-
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
@@ -160,10 +158,10 @@ impl NodeRuntime for MidiSwitchNode {
 impl Node for MidiSwitchNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", 1),
+            osc_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),
             multiple_choice("mode", &["normal", "sostenuto", "sustain"], "normal"),
-            midi_output("midi", 1),
+            osc_output("midi", 1),
         ])
     }
 

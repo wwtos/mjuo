@@ -90,7 +90,7 @@ impl NodeRuntime for PolyphonicNode {
             });
         }
 
-        // search for any midi input node
+        // search for any osc input node
         self.input_node = child_graph
             .nodes_data_iter()
             .find(|(_, node)| {
@@ -98,7 +98,7 @@ impl NodeRuntime for PolyphonicNode {
                     && node
                         .get_property("type")
                         .and_then(|x| x.as_multiple_choice())
-                        .map(|x| &x == "midi")
+                        .map(|x| &x == "osc")
                         .unwrap_or(false)
             })
             .map(|x| x.0);
@@ -332,16 +332,13 @@ impl Node for PolyphonicNode {
         NodeIo {
             node_rows: vec![
                 with_channels(context.default_channel_count),
-                midi_input("default", 1),
+                osc_input("default", 1),
                 NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
                 NodeRow::InnerGraph,
                 stream_output("audio", channels),
             ],
             child_graph_io: Some(vec![
-                (
-                    Socket::Simple("midi".into(), SocketType::Midi, 1),
-                    SocketDirection::Input,
-                ),
+                (Socket::Simple("osc".into(), SocketType::Osc, 1), SocketDirection::Input),
                 (
                     Socket::Simple("audio".into(), SocketType::Stream, channels),
                     SocketDirection::Output,

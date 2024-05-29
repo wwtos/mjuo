@@ -164,7 +164,7 @@ impl Node for RankPlayerNode {
             multiple_choice("rank_type", &["pipe", "percussion"], "pipe"),
             resource("rank", "ranks"),
             property("polyphony", PropertyType::Integer, Property::Integer(16)),
-            midi_input("midi", 1),
+            osc_input("midi", 1),
             value_input("detune", Primitive::Float(0.0), 1),
             value_input("db_gain", Primitive::Float(0.0), 1),
         ];

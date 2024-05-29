@@ -98,7 +98,7 @@ impl Node for FunctionNode {
                         .unwrap_or("".to_owned());
 
                     let io_type = match io_type.as_str() {
-                        "midi" => SocketType::Midi,
+                        "osc" => SocketType::Osc,
                         "value" => SocketType::Value,
                         "stream" => SocketType::Stream,
                         _ => SocketType::Stream,

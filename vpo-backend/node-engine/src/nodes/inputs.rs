@@ -37,7 +37,7 @@ impl NodeRuntime for InputsNode {
         let type_str = params.props.get_multiple_choice("type")?;
         let socket_type = match type_str.as_str() {
             "stream" => SocketType::Stream,
-            "midi" => SocketType::Midi,
+            "osc" => SocketType::Osc,
             _ => SocketType::Stream,
         };
 
@@ -48,7 +48,7 @@ impl NodeRuntime for InputsNode {
                     .take(channels)
                     .collect();
             }
-            SocketType::Midi => {
+            SocketType::Osc => {
                 self.osc.clear();
                 self.streams = vec![];
             }
@@ -100,13 +100,13 @@ impl Node for InputsNode {
         let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());
         let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
             Some("stream") => SocketType::Stream,
-            Some("midi") => SocketType::Midi,
+            Some("osc") => SocketType::Osc,
             _ => SocketType::Stream,
         };
 
         let mut node_rows = vec![
             property("name", PropertyType::String, Property::String("".into())),
-            multiple_choice("type", &["midi", "stream"], "stream"),
+            multiple_choice("type", &["osc", "stream"], "stream"),
         ];
 
         match socket_type {
@@ -114,8 +114,8 @@ impl Node for InputsNode {
                 node_rows.push(with_channels(context.default_channel_count));
                 node_rows.push(stream_output("audio", channels));
             }
-            SocketType::Midi => {
-                node_rows.push(midi_output("midi", 1));
+            SocketType::Osc => {
+                node_rows.push(osc_output("osc", 1));
             }
             _ => {}
         }

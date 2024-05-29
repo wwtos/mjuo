@@ -6,13 +6,13 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct MidiToValueNode {
+pub struct OscToValueNode {
     ast: Option<Box<AST>>,
     expression_raw: String,
     scope: Box<Scope<'static>>,
 }
 
-impl NodeRuntime for MidiToValueNode {
+impl NodeRuntime for OscToValueNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let expression = params.props.get_string("expression")?;
         self.expression_raw = expression.clone();
@@ -73,17 +73,17 @@ impl NodeRuntime for MidiToValueNode {
     }
 }
 
-impl Node for MidiToValueNode {
+impl Node for OscToValueNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
-            midi_input("midi", 1),
+            osc_input("osc", 1),
             value_output("value", 1),
         ])
     }
 
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiToValueNode {
+        OscToValueNode {
             ast: None,
             expression_raw: "".into(),
             scope: Box::new(Scope::new()),

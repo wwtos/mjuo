@@ -1,7 +1,6 @@
-use clocked::midi::MidiData;
 use common::{
     osc::{OscArg, OscMessageView},
-    osc_midi::{get_channel, CONTROL_CHANGE, REALTIME_RESET},
+    osc_midi::get_channel,
 };
 use rhai::{Dynamic, Scope};
 
@@ -20,19 +19,6 @@ impl<T> ProcessState<T> {
             ProcessState::Unprocessed(value) => Some(value),
             _ => None,
         }
-    }
-}
-
-pub fn midi_channel(message: &MidiData) -> Option<u8> {
-    match message {
-        MidiData::NoteOff { channel, .. }
-        | MidiData::NoteOn { channel, .. }
-        | MidiData::Aftertouch { channel, .. }
-        | MidiData::ControlChange { channel, .. }
-        | MidiData::ProgramChange { channel, .. }
-        | MidiData::ChannelPressure { channel, .. }
-        | MidiData::PitchBend { channel, .. } => Some(*channel),
-        _ => None,
     }
 }
 

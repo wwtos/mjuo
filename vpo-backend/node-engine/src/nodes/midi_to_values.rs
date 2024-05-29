@@ -72,7 +72,7 @@ impl Node for MidiToValuesNode {
 
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", 1),
+            osc_input("midi", 1),
             value_output("frequency", 1),
             value_output("gate", 1),
             value_output("velocity", 1),
