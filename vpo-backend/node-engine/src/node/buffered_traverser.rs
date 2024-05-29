@@ -452,6 +452,12 @@ impl BufferedTraverser {
             .get(&index)
             .map(|internal_index| &mut self.nodes[*internal_index].node)
     }
+
+    pub fn reset(&mut self) {
+        for node in &mut self.nodes {
+            node.node.reset();
+        }
+    }
 }
 
 #[cfg(test)]

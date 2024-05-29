@@ -60,6 +60,11 @@ impl NodeRuntime for MidiToValuesNode {
             }
         });
     }
+
+    fn reset(&mut self) {
+        self.base_freq = 440.0;
+        self.pitch_bend = 1.0;
+    }
 }
 
 impl Node for MidiToValuesNode {

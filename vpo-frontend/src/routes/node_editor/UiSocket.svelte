@@ -40,9 +40,9 @@
             on:mousedown={socketMousedown}
             on:mouseup={socketMouseupRaw}
         />
-    {:else if type.variant === "Midi"}
+    {:else if type.variant === "Osc"}
         <div
-            class="socket midi"
+            class="socket osc"
             on:mousedown={socketMousedown}
             on:mouseup={socketMouseupRaw}
         />
@@ -111,7 +111,7 @@
         height: 24px;
     }
 
-    .midi {
+    .osc {
         background: rgb(231, 200, 59);
         border: 2px solid white;
         width: 24px;

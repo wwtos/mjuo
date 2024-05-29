@@ -194,51 +194,50 @@ impl NodeRuntime for PolyphonicNode {
                         }
 
                         already_on.info.started_at = context.current_time;
-                    } else {
-                        // if not, check if one is available
-                        let available = self.voices.iter_mut().find(|voice| !voice.info.active);
+                    } else if let Some(available) = self.voices.iter_mut().find(|voice| !voice.info.active) {
+                        // if not, check if there's an open voice
 
-                        if let Some(available) = available {
-                            let inputs_node =
-                                available
-                                    .traverser
-                                    .get_node_mut(input_node)
-                                    .and_then(|node| match node {
-                                        NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
-                                        _ => None,
-                                    });
+                        available.traverser.reset();
 
-                            if let Some(inputs_node) = inputs_node {
-                                write_message(inputs_node.osc_for_writing(), message);
-                            }
-
-                            available.info.active = true;
-                            available.info.note = note as u8;
-                            available.info.channel = channel as u8;
-                            available.info.started_at = context.current_time;
-                        } else {
-                            // just pick the oldest played note
-                            let oldest = self
-                                .voices
-                                .iter_mut()
-                                .min_by_key(|x| x.info.started_at)
-                                .expect("voices to have at least one element");
-
-                            let inputs_node = oldest.traverser.get_node_mut(input_node).and_then(|node| match node {
+                        let inputs_node = available
+                            .traverser
+                            .get_node_mut(input_node)
+                            .and_then(|node| match node {
                                 NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
                                 _ => None,
                             });
 
-                            // be sure to send a note off message first
-                            if let Some(inputs_node) = inputs_node {
-                                write_note_off(inputs_node.osc_for_writing(), channel as u8, oldest.info.note, 0);
-                            }
-
-                            oldest.info.active = true;
-                            oldest.info.note = note as u8;
-                            oldest.info.channel = channel as u8;
-                            oldest.info.started_at = context.current_time;
+                        if let Some(inputs_node) = inputs_node {
+                            write_message(inputs_node.osc_for_writing(), message);
                         }
+
+                        available.info.active = true;
+                        available.info.note = note as u8;
+                        available.info.channel = channel as u8;
+                        available.info.started_at = context.current_time;
+                    } else {
+                        // just pick the oldest played note
+                        let oldest = self
+                            .voices
+                            .iter_mut()
+                            .min_by_key(|x| x.info.started_at)
+                            .expect("voices to have at least one element");
+
+                        oldest.traverser.reset();
+                        let inputs_node = oldest.traverser.get_node_mut(input_node).and_then(|node| match node {
+                            NodeVariant::InputsNode(inputs_node) => Some(inputs_node),
+                            _ => None,
+                        });
+
+                        if let Some(inputs_node) = inputs_node {
+                            // be sure to send a note off message first
+                            write_message(inputs_node.osc_for_writing(), message);
+                        }
+
+                        oldest.info.active = true;
+                        oldest.info.note = note as u8;
+                        oldest.info.channel = channel as u8;
+                        oldest.info.started_at = context.current_time;
                     }
                 } else {
                     // is the message a midi message and does it have a channel?
@@ -250,6 +249,7 @@ impl NodeRuntime for PolyphonicNode {
                             if let Some(NodeVariant::InputsNode(inputs_node)) = voice.traverser.get_node_mut(input_node)
                             {
                                 write_message(inputs_node.osc_for_writing(), message);
+                                voice.info.active = true;
                             }
                         }
                     } else {
@@ -258,6 +258,7 @@ impl NodeRuntime for PolyphonicNode {
                             if let Some(NodeVariant::InputsNode(inputs_node)) = voice.traverser.get_node_mut(input_node)
                             {
                                 write_message(inputs_node.osc_for_writing(), message);
+                                voice.info.active = true;
                             }
                         }
                     }
@@ -266,6 +267,7 @@ impl NodeRuntime for PolyphonicNode {
                 if is_message_reset(message) {
                     for voice in &mut self.voices {
                         voice.info.active = false;
+                        voice.traverser.reset();
                     }
                 }
             });
@@ -333,7 +335,7 @@ impl Node for PolyphonicNode {
             node_rows: vec![
                 with_channels(context.default_channel_count),
                 osc_input("default", 1),
-                NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(1)),
+                NodeRow::Property("polyphony".to_string(), PropertyType::Integer, Property::Integer(64)),
                 NodeRow::InnerGraph,
                 stream_output("audio", channels),
             ],

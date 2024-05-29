@@ -36,6 +36,11 @@ impl NodeRuntime for EnvelopeNode {
             outs.value(0)[0] = float(self.envelope.process(self.gate));
         }
     }
+
+    fn reset(&mut self) {
+        self.gate = false;
+        self.envelope.reset();
+    }
 }
 
 impl Node for EnvelopeNode {

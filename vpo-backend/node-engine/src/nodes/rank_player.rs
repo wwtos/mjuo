@@ -155,7 +155,7 @@ impl Node for RankPlayerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         RankPlayerNode {
             player: None,
-            polyphony: 16,
+            polyphony: 64,
         }
     }
 
@@ -163,7 +163,7 @@ impl Node for RankPlayerNode {
         let mut rows = vec![
             multiple_choice("rank_type", &["pipe", "percussion"], "pipe"),
             resource("rank", "ranks"),
-            property("polyphony", PropertyType::Integer, Property::Integer(16)),
+            property("polyphony", PropertyType::Integer, Property::Integer(64)),
             osc_input("midi", 1),
             value_input("detune", Primitive::Float(0.0), 1),
             value_input("db_gain", Primitive::Float(0.0), 1),

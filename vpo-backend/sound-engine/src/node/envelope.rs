@@ -127,6 +127,13 @@ impl Envelope {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.state = EnvelopeState::Releasing;
+        self.curve_position = 0.0;
+        self.amplitude_anchor = 0.0;
+        self.current_value = 0.0;
+    }
+
     pub fn is_done(&self) -> bool {
         matches!(self.state, EnvelopeState::Releasing) && self.current_value < 0.001
     }

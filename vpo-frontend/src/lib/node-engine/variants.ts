@@ -45,7 +45,7 @@ export const variants: NodeVariant[] = [
         category: "base"
     },
     {
-        internal: "MidiFilterNode",
+        internal: "OscFilterNode",
         category: "scripting"
     },
     {
@@ -85,7 +85,7 @@ export const variants: NodeVariant[] = [
         category: "midi"
     },
     {
-        internal: "MidiToValueNode",
+        internal: "OscToValueNode",
         category: "scripting"
     },
     {

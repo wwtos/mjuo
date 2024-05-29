@@ -551,11 +551,12 @@ impl OptionExt for Option<OscIndex> {
 #[allow(unused_mut)]
 #[enum_dispatch(NodeVariant)]
 pub trait NodeRuntime: Debug {
+    /// Called to initialize the state
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         InitResult::nothing()
     }
 
-    /// Called once to check if it's stateful
+    /// Called once to check if it's stateful (TODO: move to static method)
     fn has_state(&self) -> bool {
         false
     }
@@ -565,6 +566,9 @@ pub trait NodeRuntime: Debug {
     }
 
     fn set_state(&mut self, state: serde_json::Value) {}
+
+    /// reset params to initial state
+    fn reset(&mut self) {}
 
     /// Process all data in and out
     fn process<'a>(
