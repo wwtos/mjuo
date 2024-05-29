@@ -2,7 +2,7 @@ use sound_engine::{
     sampling::{
         percussion_player::{PercussionParam, PercussionPlayer},
         pipe_player::{PipeParam, PipePlayer},
-        rank::{Pipe, RankType},
+        rank::RankType,
         rank_player::RankPlayer,
     },
     util::{cents_to_detune, db_to_gain},
@@ -86,13 +86,13 @@ impl NodeRuntime for RankPlayerNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         resources: &[Resource],
     ) {
-        let midi_in = ins.midi(0)[0]
-            .as_ref()
-            .and_then(|x| midi_store.borrow_midi(x))
-            .unwrap_or(&[]);
+        let messages = ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes))
+            .unwrap_or_default();
 
         for frame in outs.stream(0)[0].iter_mut() {
             *frame = 0.0;
@@ -122,13 +122,7 @@ impl NodeRuntime for RankPlayerNode {
                 }
 
                 if let Some(Resource::Rank(RankType::Pipes(rank))) = resources.get(0) {
-                    player.next_buffered(
-                        context.current_time,
-                        midi_in,
-                        rank,
-                        &resources[1..],
-                        &mut outs.stream(0)[0],
-                    );
+                    player.next_buffered(messages, rank, &resources[1..], &mut outs.stream(0)[0]);
                 }
             }
             Some(PlayerType::Percussion(player, param)) => {
@@ -149,13 +143,7 @@ impl NodeRuntime for RankPlayerNode {
                         player.set_param(param.clone());
                     }
 
-                    player.next_buffered(
-                        context.current_time,
-                        midi_in,
-                        rank,
-                        &resources[1..],
-                        &mut outs.stream(0)[0],
-                    );
+                    player.next_buffered(messages, rank, &resources[1..], &mut outs.stream(0)[0]);
                 }
             }
             None => {}
@@ -167,7 +155,7 @@ impl Node for RankPlayerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         RankPlayerNode {
             player: None,
-            polyphony: 16,
+            polyphony: 64,
         }
     }
 
@@ -175,8 +163,8 @@ impl Node for RankPlayerNode {
         let mut rows = vec![
             multiple_choice("rank_type", &["pipe", "percussion"], "pipe"),
             resource("rank", "ranks"),
-            property("polyphony", PropertyType::Integer, Property::Integer(16)),
-            midi_input("midi", 1),
+            property("polyphony", PropertyType::Integer, Property::Integer(64)),
+            osc_input("midi", 1),
             value_input("detune", Primitive::Float(0.0), 1),
             value_input("db_gain", Primitive::Float(0.0), 1),
         ];

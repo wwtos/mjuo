@@ -96,6 +96,16 @@ pub async fn handle_msg(
                         .unwrap();
                 }
             } else {
+                let err_str = err.to_string();
+
+                error!("route error: {}", err_str);
+
+                to_server
+                    .send(IpcMessage::Json(json! {{
+                        "action": "toast/error",
+                        "payload": err_str
+                    }}))
+                    .unwrap();
             }
         }
     }

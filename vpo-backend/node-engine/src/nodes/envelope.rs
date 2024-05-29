@@ -19,7 +19,7 @@ impl NodeRuntime for EnvelopeNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        _midi_store: &mut MidiStore,
+        _osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         ins.value(0)[0].as_boolean().map(|gate| self.gate = gate);
@@ -35,6 +35,11 @@ impl NodeRuntime for EnvelopeNode {
         if !self.envelope.is_done() || self.gate {
             outs.value(0)[0] = float(self.envelope.process(self.gate));
         }
+    }
+
+    fn reset(&mut self) {
+        self.gate = false;
+        self.envelope.reset();
     }
 }
 

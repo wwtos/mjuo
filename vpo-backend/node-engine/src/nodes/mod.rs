@@ -8,13 +8,13 @@ pub mod function_node;
 pub mod gain;
 pub mod inputs;
 pub mod memory;
-pub mod midi_filter;
 pub mod midi_switch;
-pub mod midi_to_value;
 pub mod midi_to_values;
 pub mod midi_transpose;
 pub mod mixer;
 pub mod note_merger;
+pub mod osc_filter;
+pub mod osc_to_value;
 pub mod oscillator;
 pub mod outputs;
 pub mod polyphonic;
@@ -30,12 +30,12 @@ pub mod util;
 pub mod wavetable;
 pub mod wavetable_sequencer;
 
-use self::midi_to_value::MidiToValueNode;
+use self::osc_to_value::OscToValueNode;
 use self::{
     biquad_filter::BiquadFilterNode, dummy::DummyNode, envelope::EnvelopeNode, expression::ExpressionNode,
-    function_node::FunctionNode, gain::GainNode, inputs::InputsNode, memory::MemoryNode, midi_filter::MidiFilterNode,
-    midi_switch::MidiSwitchNode, midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode,
-    note_merger::NoteMergerNode, oscillator::OscillatorNode, outputs::OutputsNode, polyphonic::PolyphonicNode,
+    function_node::FunctionNode, gain::GainNode, inputs::InputsNode, memory::MemoryNode, midi_switch::MidiSwitchNode,
+    midi_to_values::MidiToValuesNode, midi_transpose::MidiTransposeNode, mixer::MixerNode, note_merger::NoteMergerNode,
+    osc_filter::OscFilterNode, oscillator::OscillatorNode, outputs::OutputsNode, polyphonic::PolyphonicNode,
     portamento::PortamentoNode, rank_player::RankPlayerNode, reverb::ReverbNode,
     stream_expression::StreamExpressionNode, test_node::TestNode, toggle::ToggleNode, up_down_mixer::UpDownMixerNode,
     wavetable::WavetableNode, wavetable_sequencer::WavetableSequencerNode,
@@ -59,7 +59,7 @@ pub enum NodeVariant {
     OutputsNode,
     StreamExpressionNode,
     PolyphonicNode,
-    MidiFilterNode,
+    OscFilterNode,
     WavetableNode,
     PortamentoNode,
     ToggleNode,
@@ -69,7 +69,7 @@ pub enum NodeVariant {
     WavetableSequencerNode,
     MemoryNode,
     MidiSwitchNode,
-    MidiToValueNode,
+    OscToValueNode,
     UpDownMixerNode,
     TestNode,
     ReverbNode,
@@ -96,7 +96,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "OutputsNode" => Ok(OutputsNode::new(config).into()),
         "StreamExpressionNode" => Ok(StreamExpressionNode::new(config).into()),
         "PolyphonicNode" => Ok(PolyphonicNode::new(config).into()),
-        "MidiFilterNode" => Ok(MidiFilterNode::new(config).into()),
+        "OscFilterNode" => Ok(OscFilterNode::new(config).into()),
         "WavetableNode" => Ok(WavetableNode::new(config).into()),
         "PortamentoNode" => Ok(PortamentoNode::new(config).into()),
         "ToggleNode" => Ok(ToggleNode::new(config).into()),
@@ -106,7 +106,7 @@ pub fn new_variant(node_type: &str, config: &SoundConfig) -> Result<NodeVariant,
         "WavetableSequencerNode" => Ok(WavetableSequencerNode::new(config).into()),
         "MemoryNode" => Ok(MemoryNode::new(config).into()),
         "MidiSwitchNode" => Ok(MidiSwitchNode::new(config).into()),
-        "MidiToValueNode" => Ok(MidiToValueNode::new(config).into()),
+        "OscToValueNode" => Ok(OscToValueNode::new(config).into()),
         "UpDownMixerNode" => Ok(UpDownMixerNode::new(config).into()),
         "TestNode" => Ok(TestNode::new(config).into()),
         "ReverbNode" => Ok(ReverbNode::new(config).into()),
@@ -133,7 +133,7 @@ pub fn variant_io(
         "OutputsNode" => Ok(OutputsNode::get_io(ctx, props)),
         "StreamExpressionNode" => Ok(StreamExpressionNode::get_io(ctx, props)),
         "PolyphonicNode" => Ok(PolyphonicNode::get_io(ctx, props)),
-        "MidiFilterNode" => Ok(MidiFilterNode::get_io(ctx, props)),
+        "OscFilterNode" => Ok(OscFilterNode::get_io(ctx, props)),
         "WavetableNode" => Ok(WavetableNode::get_io(ctx, props)),
         "PortamentoNode" => Ok(PortamentoNode::get_io(ctx, props)),
         "ToggleNode" => Ok(ToggleNode::get_io(ctx, props)),
@@ -143,7 +143,7 @@ pub fn variant_io(
         "WavetableSequencerNode" => Ok(WavetableSequencerNode::get_io(ctx, props)),
         "MemoryNode" => Ok(MemoryNode::get_io(ctx, props)),
         "MidiSwitchNode" => Ok(MidiSwitchNode::get_io(ctx, props)),
-        "MidiToValueNode" => Ok(MidiToValueNode::get_io(ctx, props)),
+        "OscToValueNode" => Ok(OscToValueNode::get_io(ctx, props)),
         "UpDownMixerNode" => Ok(UpDownMixerNode::get_io(ctx, props)),
         "TestNode" => Ok(TestNode::get_io(ctx, props)),
         "ReverbNode" => Ok(ReverbNode::get_io(ctx, props)),

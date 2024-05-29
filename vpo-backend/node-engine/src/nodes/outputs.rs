@@ -4,8 +4,8 @@ use crate::nodes::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct OutputsNode {
-    midis: Option<MidiChannel>,
-    midi_stale: bool,
+    oscs: Option<Vec<u8>>,
+    osc_stale: bool,
     streams: Vec<Vec<f32>>,
 }
 
@@ -14,8 +14,8 @@ impl OutputsNode {
         &self.streams
     }
 
-    pub fn get_midis(&self) -> &Option<MidiChannel> {
-        &self.midis
+    pub fn get_oscs(&self) -> Option<&Vec<u8>> {
+        self.oscs.as_ref()
     }
 }
 
@@ -25,19 +25,19 @@ impl NodeRuntime for OutputsNode {
 
         let socket_type = match params.props.get_multiple_choice("type")?.as_str() {
             "stream" => SocketType::Stream,
-            "midi" => SocketType::Midi,
+            "osc" => SocketType::Osc,
             _ => SocketType::Stream,
         };
 
         match socket_type {
             SocketType::Stream => {
-                self.midis = None;
+                self.oscs = None;
                 self.streams = repeat_with(|| vec![0.0; params.sound_config.buffer_size])
                     .take(channels)
                     .collect();
             }
-            SocketType::Midi => {
-                self.midis = None;
+            SocketType::Osc => {
+                self.oscs = None;
                 self.streams = vec![];
             }
             _ => {}
@@ -51,19 +51,19 @@ impl NodeRuntime for OutputsNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         _outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        if self.midi_stale {
-            self.midis = None;
+        if self.osc_stale {
+            self.oscs = None;
         }
 
-        if ins.midis_len() > 0 {
-            if let Some(midi_index) = &ins.midi(0)[0] {
-                self.midis = midi_store.borrow_midi(midi_index).map(|midi| midi.to_vec());
-                self.midi_stale = false;
+        if ins.oscs_len() > 0 {
+            if let Some(osc_bytes) = &ins.osc(0)[0].get_messages(osc_store) {
+                self.oscs = Some(osc_bytes.to_vec());
+                self.osc_stale = false;
             } else {
-                self.midi_stale = true;
+                self.osc_stale = true;
             }
         }
 
@@ -80,8 +80,8 @@ impl NodeRuntime for OutputsNode {
 impl Node for OutputsNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         OutputsNode {
-            midis: None,
-            midi_stale: true,
+            oscs: None,
+            osc_stale: true,
             streams: vec![],
         }
     }
@@ -92,13 +92,13 @@ impl Node for OutputsNode {
         let type_str = props.get("type").and_then(|x| x.clone().as_multiple_choice());
         let socket_type = match type_str.as_ref().map(|x| x.as_str()) {
             Some("stream") => SocketType::Stream,
-            Some("midi") => SocketType::Midi,
+            Some("osc") => SocketType::Osc,
             _ => SocketType::Stream,
         };
 
         let mut node_rows = vec![
             property("name", PropertyType::String, Property::String("".into())),
-            multiple_choice("type", &["midi", "stream"], "stream"),
+            multiple_choice("type", &["osc", "stream"], "stream"),
         ];
 
         match socket_type {
@@ -106,8 +106,8 @@ impl Node for OutputsNode {
                 node_rows.push(with_channels(context.default_channel_count));
                 node_rows.push(stream_input("audio", channels));
             }
-            SocketType::Midi => {
-                node_rows.push(midi_input("midi", 1));
+            SocketType::Osc => {
+                node_rows.push(osc_input("osc", 1));
             }
             _ => {}
         }

@@ -9,6 +9,7 @@ enum SwitchMode {
 
 #[derive(Debug, Clone)]
 pub struct MidiSwitchNode {
+    scratch: Vec<u8>,
     mode: SwitchMode,
     state: u128,
     ignoring: u128,
@@ -41,72 +42,79 @@ impl NodeRuntime for MidiSwitchNode {
 
     fn process<'a>(
         &mut self,
-        context: NodeProcessContext,
+        _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        let mut midi_out: MidiChannel = MidiChannel::new();
+        self.scratch.clear();
 
-        outs.midi(0)[0] = None;
+        let messages_in = ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes));
 
-        if let Some(midi) = &ins.midi(0)[0] {
-            let messages = midi_store.borrow_midi(midi).unwrap();
+        if let Some(messages) = messages_in {
+            messages.all_messages(|_, _, message| {
+                let addr = message.address();
+                let args = message.arg_iter();
 
-            for message in messages.iter() {
-                match message.data {
-                    MidiData::NoteOn { note, .. } => {
-                        match self.mode {
-                            SwitchMode::Normal => {
-                                if self.engaged {
-                                    midi_out.push(message.clone());
-                                }
-                            }
-                            SwitchMode::Sostenuto => {
-                                // is the note not being ignored?
-                                if (1_128 << note) & self.ignoring == 0 {
-                                    midi_out.push(message.clone());
-                                }
-                            }
-                            SwitchMode::Sustain => {
-                                midi_out.push(message.clone());
+                if addr == NOTE_ON_C {
+                    let Some((_channel, note, _velocity)) = read_osc!(args, as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    match self.mode {
+                        SwitchMode::Normal => {
+                            if self.engaged {
+                                write_message(&mut self.scratch, message);
                             }
                         }
-
-                        self.state |= 1 << note;
+                        SwitchMode::Sostenuto => {
+                            // is the note not being ignored?
+                            if (1_128 << note) & self.ignoring == 0 {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
+                        SwitchMode::Sustain => {
+                            write_message(&mut self.scratch, message);
+                        }
                     }
-                    MidiData::NoteOff { note, .. } => {
-                        match self.mode {
-                            SwitchMode::Normal => {
-                                if self.engaged {
-                                    midi_out.push(message.clone());
-                                }
-                            }
-                            SwitchMode::Sostenuto => {
-                                let being_ignored = (1 << note) & self.ignoring != 0;
 
-                                if !being_ignored {
-                                    midi_out.push(message.clone());
-                                }
-                            }
-                            SwitchMode::Sustain => {
-                                // if it's engaged, don't pass note off messages
-                                if !self.engaged {
-                                    midi_out.push(message.clone());
-                                }
+                    self.state |= 1 << note;
+                } else if addr == NOTE_OFF_C {
+                    let Some((_channel, note, _velocity)) = read_osc!(args, as_int, as_int, as_int) else {
+                        return;
+                    };
+
+                    match self.mode {
+                        SwitchMode::Normal => {
+                            if self.engaged {
+                                write_message(&mut self.scratch, message);
                             }
                         }
+                        SwitchMode::Sostenuto => {
+                            let being_ignored = (1 << note) & self.ignoring != 0;
 
-                        self.state &= !(1 << note);
+                            if !being_ignored {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
+                        SwitchMode::Sustain => {
+                            // if it's engaged, don't pass note off messages
+                            if !self.engaged {
+                                write_message(&mut self.scratch, message);
+                            }
+                        }
                     }
-                    _ => {
-                        if self.engaged {
-                            midi_out.push(message.clone());
-                        }
+
+                    self.state &= !(1 << note);
+                } else {
+                    if self.engaged {
+                        write_message(&mut self.scratch, message);
                     }
                 }
-            }
+            });
         }
 
         if let Some(engaged) = ins.value(0)[0].as_boolean() {
@@ -120,14 +128,7 @@ impl NodeRuntime for MidiSwitchNode {
                             // send note on for all the notes that are already pressed
                             for i in 0..128 {
                                 if self.state & (1 << i) != 0 {
-                                    midi_out.push(MidiMessage {
-                                        timestamp: context.current_time,
-                                        data: MidiData::NoteOn {
-                                            channel: 0,
-                                            note: i,
-                                            velocity: 0,
-                                        },
-                                    })
+                                    write_note_on(&mut self.scratch, 0, i, 127);
                                 }
                             }
                         }
@@ -141,14 +142,7 @@ impl NodeRuntime for MidiSwitchNode {
 
                     for i in 0..128 {
                         if to_turn_off & (1 << i) != 0 {
-                            midi_out.push(MidiMessage {
-                                timestamp: context.current_time,
-                                data: MidiData::NoteOff {
-                                    channel: 0,
-                                    note: i,
-                                    velocity: 0,
-                                },
-                            });
+                            write_note_off(&mut self.scratch, 0, i, 0);
                         }
                     }
 
@@ -157,24 +151,23 @@ impl NodeRuntime for MidiSwitchNode {
             }
         }
 
-        if !midi_out.is_empty() {
-            outs.midi(0)[0] = midi_store.add_midi(midi_out.into_iter());
-        }
+        outs.osc(0)[0] = write_bundle_and_message_scratch(osc_store, &self.scratch);
     }
 }
 
 impl Node for MidiSwitchNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
-            midi_input("midi", 1),
+            osc_input("midi", 1),
             value_input("engage", Primitive::Boolean(false), 1),
             multiple_choice("mode", &["normal", "sostenuto", "sustain"], "normal"),
-            midi_output("midi", 1),
+            osc_output("midi", 1),
         ])
     }
 
     fn new(_sound_config: &SoundConfig) -> Self {
         MidiSwitchNode {
+            scratch: default_osc(),
             mode: SwitchMode::Normal,
             state: 0,
             ignoring: 0,

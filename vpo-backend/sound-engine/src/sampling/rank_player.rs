@@ -1,8 +1,10 @@
-use clocked::midi::{MidiData, MidiMessage};
+use common::osc::OscView;
+use common::osc_midi::{is_message_reset, NOTE_OFF_C, NOTE_ON_C};
+use common::read_osc;
 use common::traits::TryRef;
 
+use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::{collections::BTreeMap, time::Duration};
 
 use crate::{MonoSample, SoundConfig};
 
@@ -166,29 +168,34 @@ impl<V: Voice> RankPlayer<V> {
 
     pub fn next_buffered<'a, E>(
         &mut self,
-        time: Duration,
-        midi: &[MidiMessage],
+        osc: OscView,
         rank: &Rank<V::Resource>,
         samples: &[impl TryRef<V::Sample, Error = E>],
         out: &mut [f32],
     ) where
         E: std::fmt::Debug,
     {
-        let out_len = out.len();
-
         for output in out.iter_mut() {
             *output = 0.0;
         }
 
         // allocate any needed voices
-        for message in midi.iter() {
-            match message.data {
-                MidiData::NoteOn { note, .. } => {
-                    self.allocate_note(rank, note, samples);
+        osc.all_messages(|_, _, message| {
+            let addr = message.address();
+
+            if addr == NOTE_ON_C {
+                if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+                    self.allocate_note(rank, note as u8, samples);
                 }
-                _ => {}
             }
-        }
+
+            if is_message_reset(message) {
+                for voice in &mut self.voices {
+                    voice.active = false;
+                    voice.player.reset();
+                }
+            }
+        });
 
         let active_voices = self.voices.iter_mut().filter(|voice| voice.active);
 
@@ -203,38 +210,27 @@ impl<V: Voice> RankPlayer<V> {
                 continue;
             };
 
-            let mut midi_position = 0;
+            osc.all_messages(|_, _, message| {
+                let addr = message.address();
 
-            for (i, output) in out.iter_mut().enumerate() {
-                while midi_position < midi.len() {
-                    let loop_time_offset = Duration::from_secs_f64(i as f64 / self.sound_config.sample_rate as f64);
-
-                    // use all midi regardless of timing if we're on the last frame of output audio
-                    // (this way midi messages are never missed even if timing is botched)
-                    let play_regardless = i + 1 == out_len;
-                    if (!play_regardless) && midi[midi_position].timestamp > time + loop_time_offset {
-                        break; // break inner loop
-                    }
-
-                    match midi[midi_position].data {
-                        MidiData::NoteOn { note, .. } => {
-                            if voice.note == note {
-                                voice.player.attack(pipe, sample);
-                            }
+                if addr == NOTE_ON_C {
+                    if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+                        if voice.note == note as u8 {
+                            voice.player.attack(pipe, sample);
                         }
-                        MidiData::NoteOff { note, .. } => {
-                            if voice.note == note {
-                                voice.player.release(pipe, sample);
-                            }
-                        }
-                        _ => {}
                     }
-
-                    midi_position += 1;
+                } else if addr == NOTE_OFF_C {
+                    if let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) {
+                        if voice.note == note as u8 {
+                            voice.player.release(pipe, sample);
+                        }
+                    }
                 }
+            });
 
-                voice.player.set_param(&self.param);
+            voice.player.set_param(&self.param);
 
+            for output in out.iter_mut() {
                 *output += voice.player.step(pipe, sample);
 
                 if !voice.player.active() {

@@ -1,11 +1,14 @@
 use std::borrow::Cow;
 
+use common::osc_midi::{NOTE_OFF_C, NOTE_ON_C};
+
 use super::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct NoteMergerNode {
     states: Vec<u128>,
     combined: u128,
+    scratch: Vec<u8>,
 }
 
 impl NoteMergerNode {
@@ -33,48 +36,57 @@ impl NodeRuntime for NoteMergerNode {
         _context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
-        let mut new_messages: MidiChannel = MidiChannel::new();
+        self.scratch.clear();
 
-        for (i, messages) in ins.midis().enumerate() {
-            let Some(midi) = &messages[0] else { continue };
+        for (i, possible_msgs) in ins.oscs().enumerate() {
+            let Some(messages) = possible_msgs[0]
+                .get_messages(osc_store)
+                .and_then(|bytes| OscView::new(bytes))
+            else {
+                continue;
+            };
 
-            let messages = midi_store.borrow_midi(midi).unwrap();
+            messages.all_messages(|_, _, message| {
+                let addr = message.address();
 
-            for message in messages.iter() {
-                match message.data {
-                    MidiData::NoteOn { note, .. } => {
-                        let before = self.combined;
+                if addr == NOTE_ON_C {
+                    let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
 
-                        self.states[i] |= 1_u128 << note;
-                        self.combine();
+                    let before = self.combined;
 
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
-                            new_messages.push(message.clone());
-                        }
+                    self.states[i] |= 1_u128 << note;
+                    self.combine();
+
+                    // the state changed, so we should pass this message through
+                    if self.combined != before {
+                        write_message(&mut self.scratch, message);
                     }
-                    MidiData::NoteOff { note, .. } => {
-                        let before = self.combined;
+                } else if addr == NOTE_OFF_C {
+                    let Some((_, note, _)) = read_osc!(message.arg_iter(), as_int, as_int, as_int) else {
+                        return;
+                    };
 
-                        self.states[i] &= !(1_u128 << note);
-                        self.combine();
+                    let before = self.combined;
 
-                        // the state changed, so we should pass this message through
-                        if self.combined != before {
-                            new_messages.push(message.clone());
-                        }
+                    self.states[i] &= !(1_u128 << note);
+                    self.combine();
+
+                    // the state changed, so we should pass this message through
+                    if self.combined != before {
+                        write_message(&mut self.scratch, message);
                     }
-                    _ => {
-                        new_messages.push(message.clone());
-                    }
+                } else {
+                    write_message(&mut self.scratch, message);
                 }
-            }
+            });
         }
 
-        outs.midi(0)[0] = midi_store.add_midi(new_messages.into_iter());
+        outs.osc(0)[0] = write_bundle_and_message_scratch(osc_store, &self.scratch);
     }
 }
 
@@ -82,6 +94,7 @@ impl Node for NoteMergerNode {
     fn new(_sound_config: &SoundConfig) -> Self {
         NoteMergerNode {
             states: vec![],
+            scratch: default_osc(),
             combined: 0,
         }
     }
@@ -89,9 +102,10 @@ impl Node for NoteMergerNode {
     fn get_io(_context: NodeGetIoContext, props: SeaHashMap<String, Property>) -> NodeIo {
         let mut node_rows = vec![
             NodeRow::Property("input_count".to_string(), PropertyType::Integer, Property::Integer(2)),
-            midi_output("midi", 1),
+            osc_output("midi", 1),
         ];
 
+        // TODO: upgrade to add inputs based on how many are connected
         let input_count = props
             .get("input_count")
             .and_then(|x| x.clone().as_integer())
@@ -100,12 +114,7 @@ impl Node for NoteMergerNode {
 
         for i in 0..input_count {
             node_rows.push(NodeRow::Input(
-                Socket::WithData(
-                    Cow::Borrowed("input_numbered"),
-                    (i + 1).to_string(),
-                    SocketType::Midi,
-                    1,
-                ),
+                Socket::WithData(Cow::Borrowed("input_numbered"), (i + 1).to_string(), SocketType::Osc, 1),
                 SocketValue::None,
             ));
         }

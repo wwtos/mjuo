@@ -74,15 +74,15 @@ pub fn calculate_graph_traverse_order(original_graph: &NodeGraph) -> Vec<NodeInd
 pub struct NodeIoCount {
     pub node: NodeVariant,
     pub to_input: Vec<(usize, Vec<Primitive>)>,
-    pub midi_inputs: Vec<usize>,
+    pub osc_inputs: Vec<usize>,
     pub value_inputs: Vec<usize>,
     pub stream_inputs: Vec<usize>,
-    pub midi_outputs: Vec<Socket>,
+    pub osc_outputs: Vec<Socket>,
     pub value_outputs: Vec<Socket>,
     pub stream_outputs: Vec<Socket>,
     pub resources_count: usize,
     pub resources_index: usize,
-    pub midi_index: usize,
+    pub osc_index: usize,
     pub value_index: usize,
     pub stream_index: usize,
     pub values_to_input: SmallVec<[(usize, Primitive); 1]>,
@@ -100,10 +100,10 @@ pub struct IoSpec {
 #[derive(Debug, Clone)]
 pub struct NodeMappedIo {
     pub stream_in: Range<usize>,
-    pub midi_in: Range<usize>,
+    pub osc_in: Range<usize>,
     pub value_in: Range<usize>,
     pub stream_out: Range<usize>,
-    pub midi_out: Range<usize>,
+    pub osc_out: Range<usize>,
     pub value_out: Range<usize>,
     pub resources: Range<usize>,
 }
@@ -111,13 +111,13 @@ pub struct NodeMappedIo {
 #[derive(Debug)]
 pub struct Indexes {
     pub streams: Vec<Option<Range<usize>>>,
-    pub midis: Vec<Option<Range<usize>>>,
+    pub oscs: Vec<Option<Range<usize>>>,
     pub values: Vec<Option<Range<usize>>>,
     pub max_stream_channels: usize,
-    pub max_midi_channels: usize,
+    pub max_osc_channels: usize,
     pub max_value_channels: usize,
     pub stream_count: usize,
-    pub midi_count: usize,
+    pub osc_count: usize,
     pub value_count: usize,
     pub node_io: BTreeMap<NodeIndex, NodeMappedIo>,
     pub resources_tracking: Vec<(ResourceId, Option<ResourceTypeAndIndex>)>,
@@ -144,7 +144,7 @@ pub fn generate_io_spec(
     let mut nodes: BTreeMap<NodeIndex, NodeIoCount> = BTreeMap::new();
 
     let mut stream_i: usize = 0;
-    let mut midi_i: usize = 0;
+    let mut osc_i: usize = 0;
     let mut value_i: usize = 0;
 
     // now for the fun part ;)
@@ -216,7 +216,7 @@ pub fn generate_io_spec(
 
         // count up how many inputs (and of which type) this node has
         let mut stream_inputs: Vec<usize> = vec![];
-        let mut midi_inputs: Vec<usize> = vec![];
+        let mut osc_inputs: Vec<usize> = vec![];
         let mut value_inputs: Vec<usize> = vec![];
 
         let mut to_input: Vec<(usize, Vec<Primitive>)> = vec![];
@@ -233,9 +233,9 @@ pub fn generate_io_spec(
                         socket_lookup.insert(socket.clone(), stream_inputs.len());
                         stream_inputs.push(socket.channels());
                     }
-                    SocketType::Midi => {
-                        socket_lookup.insert(socket.clone(), midi_inputs.len());
-                        midi_inputs.push(socket.channels());
+                    SocketType::Osc => {
+                        socket_lookup.insert(socket.clone(), osc_inputs.len());
+                        osc_inputs.push(socket.channels());
                     }
                     SocketType::Value => {
                         values_to_input.push((value_inputs.len(), default.clone().as_value().unwrap()));
@@ -257,13 +257,13 @@ pub fn generate_io_spec(
 
         // create a list of all of the outputs
         let mut stream_output_sockets: Vec<Socket> = vec![];
-        let mut midi_output_sockets: Vec<Socket> = vec![];
+        let mut osc_output_sockets: Vec<Socket> = vec![];
         let mut value_output_sockets: Vec<Socket> = vec![];
 
         for socket in node_instance.list_output_sockets() {
             match socket.socket_type() {
                 SocketType::Stream => stream_output_sockets.push(socket.clone()),
-                SocketType::Midi => midi_output_sockets.push(socket.clone()),
+                SocketType::Osc => osc_output_sockets.push(socket.clone()),
                 SocketType::Value => value_output_sockets.push(socket.clone()),
                 _ => {}
             }
@@ -274,13 +274,13 @@ pub fn generate_io_spec(
             NodeIoCount {
                 node: variant,
                 to_input,
-                midi_inputs,
+                osc_inputs,
                 value_inputs,
                 stream_inputs,
-                midi_outputs: midi_output_sockets.clone(),
+                osc_outputs: osc_output_sockets.clone(),
                 value_outputs: value_output_sockets.clone(),
                 stream_outputs: stream_output_sockets.clone(),
-                midi_index: midi_i,
+                osc_index: osc_i,
                 value_index: value_i,
                 stream_index: stream_i,
                 resources_count: needed_resources.len(),
@@ -290,7 +290,7 @@ pub fn generate_io_spec(
             },
         );
 
-        midi_i += midi_output_sockets.iter().map(|x| x.channels()).sum::<usize>();
+        osc_i += osc_output_sockets.iter().map(|x| x.channels()).sum::<usize>();
         value_i += value_output_sockets.iter().map(|x| x.channels()).sum::<usize>();
         stream_i += stream_output_sockets.iter().map(|x| x.channels()).sum::<usize>();
     }
@@ -316,9 +316,9 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
         .iter()
         .map(|(_, node)| node.stream_outputs.iter().map(|x| x.channels()).sum::<usize>())
         .sum();
-    let midi_count = nodes
+    let osc_count = nodes
         .iter()
-        .map(|(_, node)| node.midi_outputs.iter().map(|x| x.channels()).sum::<usize>())
+        .map(|(_, node)| node.osc_outputs.iter().map(|x| x.channels()).sum::<usize>())
         .sum();
     let value_count = nodes
         .iter()
@@ -331,9 +331,9 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
         .map(|(_, node)| node.stream_outputs.iter().map(Socket::channels).max().unwrap_or(1))
         .max()
         .unwrap_or(1);
-    let max_midi_channels = nodes
+    let max_osc_channels = nodes
         .iter()
-        .map(|(_, node)| node.midi_outputs.iter().map(Socket::channels).max().unwrap_or(1))
+        .map(|(_, node)| node.osc_outputs.iter().map(Socket::channels).max().unwrap_or(1))
         .max()
         .unwrap_or(1);
     let max_value_channels = nodes
@@ -343,7 +343,7 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
         .unwrap_or(1);
 
     let mut stream_io: Vec<Option<Range<usize>>> = vec![];
-    let mut midi_io: Vec<Option<Range<usize>>> = vec![];
+    let mut osc_io: Vec<Option<Range<usize>>> = vec![];
     let mut value_io: Vec<Option<Range<usize>>> = vec![];
     let mut node_mapped_io: BTreeMap<NodeIndex, NodeMappedIo> = BTreeMap::new();
 
@@ -357,11 +357,11 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
         let output_sockets = instance.list_output_sockets();
 
         let stream_io_input_index = stream_io.len();
-        let midi_io_input_index = midi_io.len();
+        let osc_io_input_index = osc_io.len();
         let value_io_input_index = value_io.len();
 
         let mut stream_io_inputs = 0;
-        let mut midi_io_inputs = 0;
+        let mut osc_io_inputs = 0;
         let mut value_io_inputs = 0;
 
         // let's look through this node's inputs
@@ -397,16 +397,16 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
                         stream_io.push(Some(other_stream_pos..(other_stream_pos + input.channels())));
                         stream_io_inputs += 1;
                     }
-                    SocketType::Midi => {
-                        let other_midi_pos = io_setup_of_other
-                            .midi_outputs
+                    SocketType::Osc => {
+                        let other_osc_pos = io_setup_of_other
+                            .osc_outputs
                             .iter()
                             .position(|other_socket| other_socket == &connection.data().from_socket)
                             .unwrap()
-                            + io_setup_of_other.midi_index;
+                            + io_setup_of_other.osc_index;
 
-                        midi_io.push(Some(other_midi_pos..(other_midi_pos + input.channels())));
-                        midi_io_inputs += 1;
+                        osc_io.push(Some(other_osc_pos..(other_osc_pos + input.channels())));
+                        osc_io_inputs += 1;
                     }
                     SocketType::Value => {
                         let other_value_pos = io_setup_of_other
@@ -428,9 +428,9 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
                         stream_io.push(None);
                         stream_io_inputs += 1;
                     }
-                    SocketType::Midi => {
-                        midi_io.push(None);
-                        midi_io_inputs += 1;
+                    SocketType::Osc => {
+                        osc_io.push(None);
+                        osc_io_inputs += 1;
                     }
                     SocketType::Value => {
                         value_io.push(None);
@@ -442,11 +442,11 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
         }
 
         let stream_io_output_index = stream_io.len();
-        let midi_io_output_index = midi_io.len();
+        let osc_io_output_index = osc_io.len();
         let value_io_output_index = value_io.len();
 
         let mut stream_io_outputs = 0;
-        let mut midi_io_outputs = 0;
+        let mut osc_io_outputs = 0;
         let mut value_io_outputs = 0;
 
         for output in &output_sockets {
@@ -463,16 +463,16 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
                     stream_io.push(Some(position_in_stream..(position_in_stream + output.channels())));
                     stream_io_outputs += 1;
                 }
-                SocketType::Midi => {
-                    let position_in_midi = io_setup
-                        .midi_outputs
+                SocketType::Osc => {
+                    let position_in_osc = io_setup
+                        .osc_outputs
                         .iter()
                         .position(|other_socket| other_socket == *output)
                         .unwrap()
-                        + io_setup.midi_index;
+                        + io_setup.osc_index;
 
-                    midi_io.push(Some(position_in_midi..(position_in_midi + output.channels())));
-                    midi_io_outputs += 1;
+                    osc_io.push(Some(position_in_osc..(position_in_osc + output.channels())));
+                    osc_io_outputs += 1;
                 }
                 SocketType::Value => {
                     let position_in_value = io_setup
@@ -493,10 +493,10 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
             *index,
             NodeMappedIo {
                 stream_in: stream_io_input_index..(stream_io_input_index + stream_io_inputs),
-                midi_in: midi_io_input_index..(midi_io_input_index + midi_io_inputs),
+                osc_in: osc_io_input_index..(osc_io_input_index + osc_io_inputs),
                 value_in: value_io_input_index..(value_io_input_index + value_io_inputs),
                 stream_out: stream_io_output_index..(stream_io_output_index + stream_io_outputs),
-                midi_out: midi_io_output_index..(midi_io_output_index + midi_io_outputs),
+                osc_out: osc_io_output_index..(osc_io_output_index + osc_io_outputs),
                 value_out: value_io_output_index..(value_io_output_index + value_io_outputs),
                 resources: io_setup.resources_index..(io_setup.resources_index + io_setup.resources_count),
             },
@@ -505,13 +505,13 @@ pub fn calc_indexes(io_needed: &IoSpec, graph: &NodeGraph) -> Result<Indexes, No
 
     Ok(Indexes {
         streams: stream_io,
-        midis: midi_io,
+        oscs: osc_io,
         values: value_io,
         max_stream_channels,
-        max_midi_channels,
+        max_osc_channels,
         max_value_channels,
         stream_count,
-        midi_count,
+        osc_count,
         value_count,
         node_io: node_mapped_io,
         resources_tracking: io_needed.resources_tracking.clone(),

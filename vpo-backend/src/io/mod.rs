@@ -11,7 +11,7 @@ use std::time::Instant;
 use lazy_static::lazy_static;
 
 use common::resource_manager::ResourceManager;
-use log::info;
+use log::{info, trace};
 use node_engine::resources::Resources;
 use node_engine::state::GraphState;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -88,7 +88,7 @@ where
             let asset_path = asset.path().strip_prefix(path).unwrap();
             let asset_key = get_resource_key(asset_path);
 
-            println!("path: {asset_path:?}, key: {asset_key}");
+            trace!("path: {asset_path:?}, key: {asset_key}");
 
             (asset_key, PathBuf::from(asset.path()))
         });

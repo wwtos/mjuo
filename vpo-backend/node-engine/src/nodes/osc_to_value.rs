@@ -6,13 +6,13 @@ use super::{
 };
 
 #[derive(Debug, Clone)]
-pub struct MidiToValueNode {
+pub struct OscToValueNode {
     ast: Option<Box<AST>>,
     expression_raw: String,
     scope: Box<Scope<'static>>,
 }
 
-impl NodeRuntime for MidiToValueNode {
+impl NodeRuntime for OscToValueNode {
     fn init(&mut self, params: NodeInitParams) -> NodeResult<InitResult> {
         let expression = params.props.get_string("expression")?;
         self.expression_raw = expression.clone();
@@ -41,18 +41,21 @@ impl NodeRuntime for MidiToValueNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         _resources: &[Resource],
     ) {
         let Some(ast) = self.ast.as_ref() else { return };
-        let Some(midi) = &ins.midi(0)[0] else { return };
+        let Some(messages) = &ins.osc(0)[0]
+            .get_messages(osc_store)
+            .and_then(|bytes| OscView::new(bytes))
+        else {
+            return;
+        };
 
-        let messages = midi_store.borrow_midi(midi).unwrap();
+        messages.all_messages(|offset, time, message| {
+            self.scope.push("timestamp", time);
 
-        for message in messages.iter() {
-            self.scope.push("timestamp", message.timestamp);
-
-            add_message_to_scope(&mut self.scope, &message.data);
+            add_message_to_scope(&mut self.scope, message);
 
             let result = context
                 .script_engine
@@ -66,21 +69,21 @@ impl NodeRuntime for MidiToValueNode {
             }
 
             self.scope.rewind(0);
-        }
+        });
     }
 }
 
-impl Node for MidiToValueNode {
+impl Node for OscToValueNode {
     fn get_io(_context: NodeGetIoContext, _props: SeaHashMap<String, Property>) -> NodeIo {
         NodeIo::simple(vec![
             property("expression", PropertyType::String, Property::String("".into())),
-            midi_input("midi", 1),
+            osc_input("osc", 1),
             value_output("value", 1),
         ])
     }
 
     fn new(_sound_config: &SoundConfig) -> Self {
-        MidiToValueNode {
+        OscToValueNode {
             ast: None,
             expression_raw: "".into(),
             scope: Box::new(Scope::new()),

@@ -43,7 +43,7 @@ export const Socket = {
 
 export type SocketType = DiscriminatedUnion<"variant", {
     Stream: {},
-    Midi: {},
+    Osc: {},
     Value: {},
     NodeRef: {},
 }>;
@@ -57,14 +57,14 @@ export type Primitive = DiscriminatedUnion<"variant", {
     Float: { data: number },
     Int: { data: number },
     Boolean: { data: boolean },
-    String: { data: string },
     Bang: {},
+    None: {},
 }>;
 
 export type SocketValue = DiscriminatedUnion<"variant", {
     Stream: { data: number },
     Value: { data: Primitive },
-    Midi: { data: MidiData[] },
+    Osc: { data: Uint8Array },
     None: {}
 }>;
 

@@ -75,7 +75,7 @@ fn graph_connecting() {
     let from_node = graph.get_node(first_node_index).unwrap();
 
     assert_eq!(
-        from_node.has_output_socket(&Socket::Simple("midi".into(), SocketType::Midi, 1)),
+        from_node.has_output_socket(&Socket::Simple("osc".into(), SocketType::Osc, 1)),
         false
     );
 
@@ -85,16 +85,16 @@ fn graph_connecting() {
             graph
                 .connect(
                     first_node_index,
-                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
+                    &Socket::Simple("osc".into(), SocketType::Osc, 1),
                     second_node_index,
-                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
+                    &Socket::Simple("osc".into(), SocketType::Osc, 1),
                 )
                 .unwrap_err()
         ),
         format!(
             "{:?}",
             NodeError::SocketDoesNotExist {
-                socket: Socket::Simple("midi".into(), SocketType::Midi, 1),
+                socket: Socket::Simple("osc".into(), SocketType::Osc, 1),
             }
         )
     );
@@ -127,7 +127,7 @@ fn graph_connecting() {
         )
     );
 
-    // make sure we can't connect two different families of types (midi can't connect to audio, etc)
+    // make sure we can't connect two different families of types (osc can't connect to audio, etc)
     assert_eq!(
         format!(
             "{:?}",
@@ -136,7 +136,7 @@ fn graph_connecting() {
                     first_node_index,
                     &Socket::Simple("audio".into(), SocketType::Stream, 1),
                     second_node_index,
-                    &Socket::Simple("midi".into(), SocketType::Midi, 1),
+                    &Socket::Simple("osc".into(), SocketType::Osc, 1),
                 )
                 .unwrap_err()
         ),
@@ -144,7 +144,7 @@ fn graph_connecting() {
             "{:?}",
             NodeError::IncompatibleSocketTypes {
                 from: SocketType::Stream,
-                to: SocketType::Midi
+                to: SocketType::Osc
             }
         )
     );

@@ -32,7 +32,7 @@
     function bubbleOverrides(this: HTMLInputElement, event: Event) {
         const newValueRaw = this.value;
 
-        const newValueParsed = matchOrElse(
+        const newValueParsed: SocketValue = matchOrElse(
             value,
             {
                 Stream: (): SocketValue => {
@@ -45,10 +45,6 @@
                     return {
                         variant: "Value",
                         data: match(primitiveType, {
-                            String: (): Primitive => ({
-                                variant: "String",
-                                data: this.value,
-                            }),
                             Int: (_): Primitive => {
                                 const num = parseInt(newValueRaw);
                                 this.value = num + "";
@@ -69,13 +65,19 @@
                                 variant: "Boolean",
                                 data: this.checked,
                             }),
+                            Bang: (_): Primitive => ({
+                                variant: "Bang",
+                            }),
+                            None: (_): Primitive => ({
+                                variant: "None",
+                            }),
                         }),
                     };
                 },
             },
             () => {
                 throw new Error("unimplemented");
-            }
+            },
         );
 
         dispatch("overrideUpdate", {

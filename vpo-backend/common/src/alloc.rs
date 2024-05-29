@@ -35,6 +35,8 @@ impl<'a, T> Drop for Alloc<'a, T> {
     }
 }
 
+// I could probably make this smaller by converting value back to ptr,
+// but I'd rather not mess with unsafe stuff unless there's a performance hit
 pub struct SliceAlloc<'a, T> {
     pub value: &'a mut [T],
     buddy_ref: &'a BuddyAlloc,
@@ -124,6 +126,34 @@ impl BuddyAlloc {
                 buddy_ref: &self,
                 ptr: ptr,
                 layout: layout,
+            })
+        }
+    }
+
+    pub fn alloc_slice_u8<F>(&self, len: usize, mut f: F) -> Result<SliceAlloc<'_, u8>, AllocError>
+    where
+        F: FnMut(&mut [u8]),
+    {
+        let layout = Layout::array::<u8>(len).map_err(|_| AllocError)?;
+
+        let ptr = unsafe { self.heap_ref() }.alloc(layout).map_err(|_| AllocError)?;
+
+        unsafe {
+            // so we should probably zero out the memory or something
+            for i in 0..len {
+                ptr::write(ptr.as_ptr().add(i), 0);
+            }
+
+            let result = slice::from_raw_parts_mut(ptr.as_ptr(), len);
+            debug_assert_eq!(Layout::for_value(result), layout);
+
+            f(result);
+
+            Ok(SliceAlloc {
+                value: result,
+                buddy_ref: &self,
+                ptr,
+                layout,
             })
         }
     }

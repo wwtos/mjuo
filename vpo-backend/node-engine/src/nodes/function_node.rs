@@ -44,7 +44,7 @@ impl NodeRuntime for FunctionNode {
         context: NodeProcessContext,
         ins: Ins<'a>,
         mut outs: Outs<'a>,
-        midi_store: &mut MidiStore,
+        osc_store: &mut OscStore,
         resources: &[Resource],
     ) {
         // let (child_input_node, child_output_node) = self.child_io_nodes.unwrap();
@@ -98,7 +98,7 @@ impl Node for FunctionNode {
                         .unwrap_or("".to_owned());
 
                     let io_type = match io_type.as_str() {
-                        "midi" => SocketType::Midi,
+                        "osc" => SocketType::Osc,
                         "value" => SocketType::Value,
                         "stream" => SocketType::Stream,
                         _ => SocketType::Stream,
